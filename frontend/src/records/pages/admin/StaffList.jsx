@@ -125,13 +125,13 @@ function StaffList() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen text-gray-600">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-r from-purple-50 to-blue-50 p-6 ml-64 mt-16 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-r from-indigo-50 to-indigo-50 p-6 ml-64 mt-16 flex flex-col overflow-hidden">
       {/* Search Section */}
       <div className="bg-white p-4 rounded-lg shadow-lg">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -140,14 +140,14 @@ function StaffList() {
             placeholder="Search by Staff ID"
             value={searchStaffId}
             onChange={(e) => setSearchStaffId(e.target.value)}
-            className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           <input
             type="text"
             placeholder="Search by name"
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
-            className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           {/* Conditionally render department filter based on user's Deptid */}
           {userDeptId === null && (
@@ -156,24 +156,24 @@ function StaffList() {
               placeholder="Search by department"
               value={searchDepartment}
               onChange={(e) => setSearchDepartment(e.target.value)}
-              className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+              className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
           )}
           <button
             onClick={handleSearch}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaSearch className="mr-1" /> Search
           </button>
           <button
             onClick={resetFilters}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaUndo className="mr-1" /> Reset
           </button>
           <button
             onClick={handleExportStaff}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaFileExport className="mr-1" /> Export
           </button>
@@ -186,7 +186,7 @@ function StaffList() {
           <div className="overflow-y-auto flex-1">
             <table className="min-w-full">
               {filteredStaffs.length > 0 && (
-                <thead className="bg-gradient-to-r from-purple-500 to-blue-500 sticky top-0">
+                <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500 sticky top-0">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Image</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Staff ID</th>
@@ -211,8 +211,8 @@ function StaffList() {
                               className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                              <FaUserTie className="w-6 h-6 text-purple-500" />
+                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                              <FaUserTie className="w-6 h-6 text-indigo-600" />
                             </div>
                           )}
                         </td>
@@ -249,7 +249,7 @@ function StaffList() {
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -257,7 +257,7 @@ function StaffList() {
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -288,8 +288,8 @@ function StaffList() {
                   className="w-32 h-32 rounded-full object-cover mb-4"
                 />
               ) : (
-                <div className="w-32 h-32 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                  <FaUserTie className="w-16 h-16 text-purple-500" />
+                <div className="w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                  <FaUserTie className="w-16 h-16 text-indigo-600" />
                 </div>
               )}
               <div className="text-center">

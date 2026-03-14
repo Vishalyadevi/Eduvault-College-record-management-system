@@ -19,7 +19,20 @@ const Sidebar = () => {
   const location = useLocation();
   const backendUrl = "http://localhost:4000";
 
- /* useEffect(() => {
+  useEffect(() => {
+    // First, try to load from localStorage immediately
+    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    if (storedUser && storedUser.role) {
+      setCurrentUser({
+        role: storedUser.role,
+        username: storedUser.username || "",
+        profileImage: storedUser.profileImage
+          ? `${backendUrl}${storedUser.profileImage}`
+          : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
+      });
+    }
+
+    // Then fetch from API to update if needed
     const fetchCurrentUserDetails = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -37,78 +50,24 @@ const Sidebar = () => {
             username: response.data.user.username,
             profileImage: response.data.user.profileImage
               ? `${backendUrl}${response.data.user.profileImage}`
-              : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg", // Default profile image
+              : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
           });
-        } else {
-          toast.error("Failed to fetch user details");
         }
       } catch (error) {
-        toast.error("Error fetching user details");
-        console.error(error);
+        console.error("Error fetching user details:", error);
       }
     };
 
     fetchCurrentUserDetails();
   }, []);
-*/
-useEffect(() => {
-  // First, try to load from localStorage immediately
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-  if (storedUser && storedUser.role) {
-    setCurrentUser({
-      role: storedUser.role,
-      username: storedUser.username || "",
-      profileImage: storedUser.profileImage 
-        ? `${backendUrl}${storedUser.profileImage}`
-        : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
-    });
-  }
 
-  // Then fetch from API to update if needed
-  const fetchCurrentUserDetails = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-
-      if (!token || !userId) {
-        return;
-      }
-
-      const response = await axios.get(`${backendUrl}/api/get-user/${userId}`);
-
-      if (response.data.success) {
-        setCurrentUser({
-          role: response.data.user.role,
-          username: response.data.user.username,
-          profileImage: response.data.user.profileImage
-            ? `${backendUrl}${response.data.user.profileImage}`
-            : "https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-image-182145777.jpg",
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching user details:", error);
-      // Keep the localStorage data if API fails
-    }
-  };
-
-  fetchCurrentUserDetails();
-}, []);
   useEffect(() => {
     setShowDropdown(false);
   }, [location.pathname]);
 
-// Use the fetched currentUser.role (reliable source)
-// Fallback to localStorage only if needed
-const role = currentUser.role || localStorage.getItem("userRole") || "";  
-//localStorage.setItem("userRole", user.role);
-useEffect(() => {
-  console.log("Current User Role:", currentUser.role);
-  console.log("LocalStorage userRole:", localStorage.getItem("userRole"));
-  console.log("LocalStorage role:", localStorage.getItem("role"));
-}, [currentUser.role]);
-  const renderSidebarItems = () => {
-      console.log("Rendering sidebar for role:", role); // Add this
+  const role = currentUser.role || localStorage.getItem("userRole") || "";
 
+  const renderSidebarItems = () => {
     switch (role) {
       case "Admin":
         return (
@@ -142,8 +101,6 @@ useEffect(() => {
             <SidebarLink to="/records/recognition" icon={<FaAward />} label="Recognition" />
             <SidebarLink to="/records/patent-product" icon={<FaFileUpload />} label="Patent/Product Development" />
             <SidebarLink to="/records/project-mentors" icon={<FaUsers />} label="Project Mentors" />
-                        <SidebarLink to="/records/project-mentors" icon={<FaUsers />} label="Project Mentors" />
-
           </>
         );
       case "Student":
@@ -166,34 +123,28 @@ useEffect(() => {
       default:
         return null;
     }
-    
   };
-  
 
   return (
     <div className="fixed w-64 bg-white shadow-lg border-r border-gray-200 h-screen flex flex-col">
       {/* Profile Section */}
-      <div className="p-6 border-b border-gray-200 flex flex-col items-center">
-        {/* Profile Image Container */}
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center">
         <div
           className="relative w-24 h-24 rounded-full flex items-center justify-center cursor-pointer"
           style={{
-            background: "linear-gradient(135deg, #7F56D9, #9B67FF)",
+            background: "linear-gradient(135deg, #2563eb, #3b82f6)",
           }}
           onClick={() => setShowDropdown(!showDropdown)}
         >
-          {/* Profile Image */}
           <img
             src={currentUser.profileImage}
             alt="profile"
             className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm"
           />
-          {/* Dropdown Arrow */}
           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md">
             <svg
-              className={`w-3 h-3 text-purple-600 transition-transform ${
-                showDropdown ? "rotate-180" : ""
-              }`}
+              className={`w-3 h-3 text-blue-600 transition-transform ${showDropdown ? "rotate-180" : ""
+                }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -209,17 +160,15 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Username and Role */}
         <div className="mt-4 text-center">
-          <p className="text-md font-semibold text-gray-700">{currentUser.username}</p>
-          <p className="text-sm text-gray-500">{currentUser.role}</p>
+          <p className="text-md font-bold text-gray-800">{currentUser.username}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mt-1">{currentUser.role}</p>
         </div>
 
-        {/* Enhanced Dropdown */}
         {showDropdown && (
-          <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-48">
+          <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden w-48 animate-in fade-in slide-in-from-top-2 duration-200">
             <button
-              className="block w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors"
+              className="block w-full px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
               onClick={() => navigate("/records/profile")}
             >
               My Profile
@@ -229,16 +178,16 @@ useEffect(() => {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto py-4 space-y-1">
         {renderSidebarItems()}
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-100">
         <button
-          className="w-full py-2.5 px-4 text-sm font-medium text-white rounded-lg transition-colors hover:bg-gradient-to-r from-purple-600 to-blue-600"
+          className="w-full py-2.5 px-4 text-sm font-bold text-white rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
           style={{
-            background: "linear-gradient(135deg, #F87171, #EF4444)",
+            background: "linear-gradient(135deg, #ef4444, #dc2626)",
           }}
           onClick={() => {
             localStorage.removeItem("token");
@@ -258,9 +207,10 @@ const SidebarLink = ({ to, icon, label }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
-      `flex items-center gap-3 py-3 px-6 text-sm font-medium text-gray-700 hover:bg-gradient-to-r from-purple-100 to-blue-100 transition-colors ${
-        isActive ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white" : ""
-      }`
+      `flex items-center gap-3 py-3 px-6 mx-2 my-1 text-sm font-medium rounded-xl transition-all duration-200
+      ${isActive
+        ? "bg-blue-600 text-white shadow-md"
+        : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"}`
     }
   >
     <span className="text-lg">{icon}</span>

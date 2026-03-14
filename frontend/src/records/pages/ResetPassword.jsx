@@ -9,7 +9,7 @@ import NEC_IMAGE from "../assets/nec2.JPG";
 const ResetPassword = () => {
   const { token } = useParams();
   const navigate = useNavigate();
-  
+
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
@@ -48,7 +48,7 @@ const ResetPassword = () => {
       if (response.data.success) {
         setResetSuccess(true);
         toast.success("Password reset successful!");
-        
+
         // Redirect to login after 3 seconds
         setTimeout(() => {
           navigate("/records/login");
@@ -105,7 +105,7 @@ const ResetPassword = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                       placeholder="Enter new password (min 6 characters)"
                       required
                       disabled={loading}
@@ -125,7 +125,7 @@ const ResetPassword = () => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                       placeholder="Confirm new password"
                       required
                       disabled={loading}
@@ -140,7 +140,7 @@ const ResetPassword = () => {
                     id="showPassword"
                     checked={showPassword}
                     onChange={() => setShowPassword(!showPassword)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                   />
                   <label htmlFor="showPassword" className="ml-2 text-sm text-gray-700">
                     Show password
@@ -148,7 +148,7 @@ const ResetPassword = () => {
                 </div>
 
                 {/* Password Requirements */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                   <p className="text-xs text-gray-700 font-medium mb-2">Password Requirements:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
                     <li className={formData.password.length >= 6 ? "text-green-600" : ""}>
@@ -163,11 +163,10 @@ const ResetPassword = () => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${
-                    loading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl"
-                  }`}
+                  className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-lg hover:shadow-xl"
+                    }`}
                   disabled={loading}
                 >
                   {loading ? (
@@ -184,7 +183,7 @@ const ResetPassword = () => {
                 <div className="text-center">
                   <Link
                     to="/records/login"
-                    className="text-sm text-blue-600 hover:text-blue-800 transition-all font-medium"
+                    className="text-sm text-indigo-600 hover:text-blue-800 transition-all font-medium"
                   >
                     Back to Login
                   </Link>
@@ -207,7 +206,7 @@ const ResetPassword = () => {
                 </div>
                 <Link
                   to="/records/login"
-                  className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg"
+                  className="inline-block bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-lg"
                 >
                   Login Now
                 </Link>

@@ -38,7 +38,7 @@
 .loading {
   text-align: center;
   font-size: 1.1rem;
-  color: #3b82f6;
+  color: #4f46e5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,7 +83,7 @@
 
 .filter-group select:focus,
 .filter-group input:focus {
-  border-color: #3b82f6;
+  border-color: #4f46e5;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   outline: none;
 }
@@ -93,7 +93,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   color: #ffffff;
-  background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+  background: linear-gradient(90deg, #1e3a8a, #4f46e5);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -101,7 +101,7 @@
 }
 
 .download-btn:hover {
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  background: linear-gradient(90deg, #4f46e5, #60a5fa);
   transform: translateY(-1px);
 }
 
@@ -126,7 +126,7 @@
 }
 
 .students-table th {
-  background: #3b82f6;
+  background: #4f46e5;
   font-weight: 700;
   color: #ffffff;
 }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Eye, FileText, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../../records/pages/auth/AuthContext';
+import api from '../../../records/services/api';
 
-const AdminPlacementFeedback = () => {
+const StudentPlacementFeedback = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -10,7 +12,7 @@ const AdminPlacementFeedback = () => {
   const [showModal, setShowModal] = useState(false);
   const [downloadingIds, setDownloadingIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('list');
-  
+
   // Filter states
   const [filters, setFilters] = useState({
     studentName: '',
@@ -23,7 +25,7 @@ const AdminPlacementFeedback = () => {
   // Form data for adding feedback
   const [formData, setFormData] = useState({
     student_name: '',
-    regno: '',
+    registerNumber: '',
     course_branch: '',
     batch_year: '',
     show_name_publicly: false,
@@ -61,7 +63,7 @@ const AdminPlacementFeedback = () => {
     total: 0
   });
 
-  const API_BASE_URL = 'http://localhost:4000/api';
+  const { token } = useAuth();
 
   // Fetch feedbacks from backend
   useEffect(() => {
@@ -74,26 +76,21 @@ const AdminPlacementFeedback = () => {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams();
-      
-      if (filters.studentName) params.append('student_name', filters.studentName);
-      if (filters.department) params.append('course', filters.department);
-      if (filters.batch) params.append('batch', filters.batch);
-      if (filters.year) params.append('year', filters.year);
-      if (filters.companyName) params.append('company', filters.companyName);
-      
-      params.append('limit', pagination.itemsPerPage);
-      params.append('offset', (pagination.currentPage - 1) * pagination.itemsPerPage);
-      
-      const response = await fetch(`${API_BASE_URL}/placement/feedback?${params}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
+      const activeFilters = {};
+      if (filters.studentName) activeFilters.student_name = filters.studentName;
+      if (filters.department) activeFilters.course = filters.department;
+      if (filters.batch) activeFilters.batch = filters.batch;
+      if (filters.year) activeFilters.year = filters.year;
+      if (filters.companyName) activeFilters.company = filters.companyName;
+
+      activeFilters.limit = pagination.itemsPerPage;
+      activeFilters.offset = (pagination.currentPage - 1) * pagination.itemsPerPage;
+
+      const response = await api.get('/placement/feedback', {
+        params: activeFilters
+      });
+
+      const data = response.data;
       setFeedbacks(data.feedback || []);
       setPagination(prev => ({
         ...prev,
@@ -173,88 +170,29 @@ const AdminPlacementFeedback = () => {
     })));
   };
 
-  const submitFeedback = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const payload = {
-        ...formData,
-        coding_links: codingLinks,
-        rounds
-      };
-
-      const response = await fetch(`${API_BASE_URL}/placement/feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || 'Failed to submit feedback');
-      }
-
-      setSuccess('Feedback submitted successfully!');
-      setFormData({
-        student_name: '',
-        regno: '',
-        course_branch: '',
-        batch_year: '',
-        show_name_publicly: false,
-        company_name: '',
-        industry_sector: '',
-        job_role: '',
-        work_location: '',
-        ctc_fixed: '',
-        ctc_variable: '',
-        ctc_bonus: '',
-        ctc_total: '',
-        drive_mode: '',
-        final_outcome: '',
-        eligibility_criteria: '',
-        online_test_platform: '',
-        test_questions_count: '',
-        test_duration: '',
-        test_sections: '',
-        memory_based_questions: '',
-        technical_questions: '',
-        hr_questions: '',
-        tips_suggestions: '',
-        company_expectations: '',
-        process_difficulty_rating: '',
-        company_communication_rating: '',
-        overall_experience_rating: ''
-      });
-      setCodingLinks([]);
-      setRounds([]);
-      setActiveTab('list');
-    } catch (error) {
-      setError(`Failed to submit feedback: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const downloadAllPDF = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      
-      if (filters.studentName) params.append('student_name', filters.studentName);
-      if (filters.department) params.append('course', filters.department);
-      if (filters.batch) params.append('batch', filters.batch);
-      if (filters.year) params.append('year', filters.year);
-      if (filters.companyName) params.append('company', filters.companyName);
-      
-      const response = await fetch(`${API_BASE_URL}/placement/feedback/pdf?${params}`);
-      if (!response.ok) throw new Error('Failed to download PDF');
-      
-      const blob = await response.blob();
+      const activeFilters = {};
+      if (filters.studentName) activeFilters.student_name = filters.studentName;
+      if (filters.department) activeFilters.course = filters.department;
+      if (filters.batch) activeFilters.batch = filters.batch;
+      if (filters.year) activeFilters.year = filters.year;
+      if (filters.companyName) activeFilters.company = filters.companyName;
+
+      const response = await api.get('/placement/feedback/pdf', {
+        params: activeFilters,
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+
+      const blob = response.data;
+      if (blob.size === 0) {
+        throw new Error('Received empty PDF file');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -265,7 +203,8 @@ const AdminPlacementFeedback = () => {
       window.URL.revokeObjectURL(url);
       setSuccess('PDF downloaded successfully!');
     } catch (error) {
-      setError('Failed to download PDF. Please try again.');
+      console.error('Download error:', error);
+      setError(`Failed to download PDF: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -273,68 +212,37 @@ const AdminPlacementFeedback = () => {
 
   const downloadSinglePDF = async (feedbackId, studentName, companyName) => {
     setDownloadingIds(prev => new Set(prev).add(feedbackId));
-    
+
     try {
-      const possibleEndpoints = [
-        `${API_BASE_URL}/placement/feedback/${feedbackId}/pdf`,
-        `${API_BASE_URL}/placement/feedback/pdf/${feedbackId}`,
-        `${API_BASE_URL}/placement/feedback/${feedbackId}/download`,
-        `${API_BASE_URL}/placement/pdf/${feedbackId}`
-      ];
-
-      let response = null;
-      let workingEndpoint = null;
-
-      for (const endpoint of possibleEndpoints) {
-        try {
-          response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/pdf'
-            }
-          });
-          
-          if (response.ok) {
-            workingEndpoint = endpoint;
-            break;
-          }
-        } catch (err) {
-          continue;
+      const response = await api.get(`/placement/feedback/${feedbackId}/pdf`, {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/pdf'
         }
-      }
+      });
 
-      if (!response || !response.ok) {
-        const feedbackResponse = await fetch(`${API_BASE_URL}/placement/feedback/${feedbackId}`);
-        if (feedbackResponse.ok) {
-          const feedbackData = await feedbackResponse.json();
-          await generatePDFFromData(feedbackData, studentName, companyName, feedbackId);
-          return;
-        }
-        throw new Error(`Failed to download PDF: Server responded with ${response?.status || 'network error'}`);
-      }
-      
-      const blob = await response.blob();
-      
+      const blob = response.data;
+
       if (blob.size === 0) {
         throw new Error('Received empty PDF file');
       }
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
+
       const cleanStudentName = (studentName || 'student').replace(/[^a-zA-Z0-9]/g, '_');
       const cleanCompanyName = (companyName || 'company').replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${cleanStudentName}_${cleanCompanyName}_feedback_${feedbackId}.pdf`;
-      
+
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       setSuccess(`PDF for ${studentName || 'student'} downloaded successfully!`);
-      
+
     } catch (error) {
       console.error('PDF download error:', error);
       setError(`Failed to download PDF for ${studentName || 'this student'}: ${error.message}. The PDF endpoint might not be available on the server.`);
@@ -350,7 +258,7 @@ const AdminPlacementFeedback = () => {
   const generatePDFFromData = async (feedbackData, studentName, companyName, feedbackId) => {
     try {
       const htmlContent = generateHTMLReport(feedbackData);
-      
+
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
         <html>
@@ -374,12 +282,12 @@ const AdminPlacementFeedback = () => {
         </html>
       `);
       printWindow.document.close();
-      
+
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
       }, 250);
-      
+
       setSuccess(`PDF preview opened for ${studentName || 'student'}. Use browser's print function to save as PDF.`);
     } catch (error) {
       setError(`Failed to generate PDF preview: ${error.message}`);
@@ -397,7 +305,7 @@ const AdminPlacementFeedback = () => {
         <h3>Student Information</h3>
         <div class="info-grid">
           <div class="info-item"><span class="label">Name:</span> ${feedback.display_name || feedback.student_name || 'N/A'}</div>
-          <div class="info-item"><span class="label">Roll Number:</span> ${feedback.regno || 'N/A'}</div>
+          <div class="info-item"><span class="label">Roll Number:</span> ${feedback.registerNumber || 'N/A'}</div>
           <div class="info-item"><span class="label">Department:</span> ${feedback.course_branch || 'N/A'}</div>
           <div class="info-item"><span class="label">Batch Year:</span> ${feedback.batch_year || 'N/A'}</div>
         </div>
@@ -446,6 +354,61 @@ const AdminPlacementFeedback = () => {
       </div>
     `;
   };
+  const submitFeedback = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const payload = {
+        ...formData,
+        coding_links: codingLinks,
+        rounds
+      };
+
+      await api.post('/placement/feedback', payload);
+
+      setSuccess('Feedback submitted successfully!');
+      setFormData({
+        student_name: '',
+        registerNumber: '',
+        course_branch: '',
+        batch_year: '',
+        show_name_publicly: false,
+        company_name: '',
+        industry_sector: '',
+        job_role: '',
+        work_location: '',
+        ctc_fixed: '',
+        ctc_variable: '',
+        ctc_bonus: '',
+        ctc_total: '',
+        drive_mode: '',
+        final_outcome: '',
+        eligibility_criteria: '',
+        online_test_platform: '',
+        test_questions_count: '',
+        test_duration: '',
+        test_sections: '',
+        memory_based_questions: '',
+        technical_questions: '',
+        hr_questions: '',
+        tips_suggestions: '',
+        company_expectations: '',
+        process_difficulty_rating: '',
+        company_communication_rating: '',
+        overall_experience_rating: ''
+      });
+      setCodingLinks([]);
+      setRounds([]);
+      setActiveTab('list');
+    } catch (error) {
+      setError(`Failed to submit feedback: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openModal = (feedback) => {
     setSelectedFeedback(feedback);
@@ -470,10 +433,10 @@ const AdminPlacementFeedback = () => {
   };
 
   return (
-    
-    <div className="min-h-screen bg-gray-50"
-          style={{ marginLeft: "250px", padding: "20px" }}
->
+
+    <div
+      className="min-h-screen bg-white"
+    >
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -514,7 +477,7 @@ const AdminPlacementFeedback = () => {
                 <Filter className="h-5 w-5 text-gray-500" />
                 <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
@@ -526,7 +489,7 @@ const AdminPlacementFeedback = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                   <select
@@ -544,7 +507,7 @@ const AdminPlacementFeedback = () => {
                     <option value="MECH">MECH</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
                   <input
@@ -555,8 +518,8 @@ const AdminPlacementFeedback = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-              
-                
+
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
                   <input
@@ -594,7 +557,7 @@ const AdminPlacementFeedback = () => {
               </p>
             </div>
 
-<div className="bg-blue-800 rounded-lg shadow-sm border overflow-hidden text-white">
+            <div className="bg-blue-800 rounded-lg shadow-sm border overflow-hidden text-white">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-grey-800">
                   <thead className="bg-blue-800">
@@ -643,7 +606,7 @@ const AdminPlacementFeedback = () => {
                               {feedback.display_name || feedback.student_name || 'Anonymous'}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {feedback.regno} • {feedback.course_branch} • {feedback.batch_year}
+                              {feedback.registerNumber} • {feedback.course_branch} • {feedback.batch_year}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -658,13 +621,12 @@ const AdminPlacementFeedback = () => {
                             {feedback.ctc_total ? `₹${feedback.ctc_total} LPA` : 'N/A'}
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              feedback.final_outcome === 'Selected' 
-                                ? 'bg-green-100 text-green-800'
-                                : feedback.final_outcome === 'Rejected'
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${feedback.final_outcome === 'Selected'
+                              ? 'bg-green-100 text-green-800'
+                              : feedback.final_outcome === 'Rejected'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                              }`}>
                               {feedback.final_outcome || 'N/A'}
                             </span>
                           </td>
@@ -680,7 +642,7 @@ const AdminPlacementFeedback = () => {
                                 <Eye className="h-3 w-3" />
                                 View
                               </button>
-                              
+
                             </div>
                           </td>
                         </tr>
@@ -708,11 +670,11 @@ const AdminPlacementFeedback = () => {
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </button>
-                    
+
                     <span className="text-sm text-gray-700">
                       Page {pagination.currentPage} of {totalPages}
                     </span>
-                    
+
                     <button
                       onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
                       disabled={pagination.currentPage === totalPages}
@@ -750,8 +712,8 @@ const AdminPlacementFeedback = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number *</label>
                     <input
                       type="text"
-                      name="regno"
-                      value={formData.regno}
+                      name="registerNumber"
+                      value={formData.registerNumber}
                       onChange={handleInputChange}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -878,7 +840,7 @@ const AdminPlacementFeedback = () => {
                   <div>
                     <label className
 
-="block text-sm font-medium text-gray-700 mb-1">Total CTC (LPA)</label>
+                      ="block text-sm font-medium text-gray-700 mb-1">Total CTC (LPA)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1146,7 +1108,7 @@ const AdminPlacementFeedback = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Select</option>
-                      {[1,2,3,4,5].map(num => <option key={num} value={num}>{num}</option>)}
+                      {[1, 2, 3, 4, 5].map(num => <option key={num} value={num}>{num}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1158,7 +1120,7 @@ const AdminPlacementFeedback = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Select</option>
-                      {[1,2,3,4,5].map(num => <option key={num} value={num}>{num}</option>)}
+                      {[1, 2, 3, 4, 5].map(num => <option key={num} value={num}>{num}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1170,7 +1132,7 @@ const AdminPlacementFeedback = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Select</option>
-                      {[1,2,3,4,5].map(num => <option key={num} value={num}>{num}</option>)}
+                      {[1, 2, 3, 4, 5].map(num => <option key={num} value={num}>{num}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1211,7 +1173,7 @@ const AdminPlacementFeedback = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Student Information</h3>
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Name:</span> {selectedFeedback.display_name || selectedFeedback.student_name}</p>
-                      <p><span className="font-medium">Roll Number:</span> {selectedFeedback.regno}</p>
+                      <p><span className="font-medium">Roll Number:</span> {selectedFeedback.registerNumber}</p>
                       <p><span className="font-medium">Department:</span> {selectedFeedback.course_branch}</p>
                       <p><span className="font-medium">Batch Year:</span> {selectedFeedback.batch_year}</p>
                     </div>
@@ -1233,14 +1195,13 @@ const AdminPlacementFeedback = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Process Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <p><span className="font-medium">Drive Mode:</span> {selectedFeedback.drive_mode}</p>
-                    <p><span className="font-medium">Final Outcome:</span> 
-                      <span className={`ml-2 px-2 py-1 text-xs rounded ${
-                        selectedFeedback.final_outcome === 'Selected' 
-                          ? 'bg-green-100 text-green-800'
-                          : selectedFeedback.final_outcome === 'Rejected'
+                    <p><span className="font-medium">Final Outcome:</span>
+                      <span className={`ml-2 px-2 py-1 text-xs rounded ${selectedFeedback.final_outcome === 'Selected'
+                        ? 'bg-green-100 text-green-800'
+                        : selectedFeedback.final_outcome === 'Rejected'
                           ? 'bg-red-100 text-red-800'
                           : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                        }`}>
                         {selectedFeedback.final_outcome}
                       </span>
                     </p>
@@ -1297,11 +1258,10 @@ const AdminPlacementFeedback = () => {
                         <div key={index} className="border border-gray-200 rounded p-3">
                           <div className="flex justify-between items-start">
                             <span className="font-medium text-sm">Round {round.round_number}: {round.round_type}</span>
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              round.difficulty_level === 'Easy' ? 'bg-green-100 text-green-800' :
+                            <span className={`px-2 py-1 text-xs rounded ${round.difficulty_level === 'Easy' ? 'bg-green-100 text-green-800' :
                               round.difficulty_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
+                                'bg-red-100 text-red-800'
+                              }`}>
                               {round.difficulty_level}
                             </span>
                           </div>
@@ -1333,4 +1293,4 @@ const AdminPlacementFeedback = () => {
   );
 };
 
-export default AdminPlacementFeedback;
+export default StudentPlacementFeedback;

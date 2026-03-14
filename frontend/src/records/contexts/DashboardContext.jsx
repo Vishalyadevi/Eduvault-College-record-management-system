@@ -1,18 +1,24 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
+import { useAuth } from "../pages/auth/AuthContext";
+import API from "../../api";
 
 const DashboardContext = createContext();
 
-const backendUrl = "http://localhost:4000";
-
 const approvalTypes = {
-  internship: { endpoint: "internships", name: "Internship" },
-  scholarship: { endpoint: "scholarships", name: "Scholarship" },
-  event: { endpoint: "events", name: "Event" },
-  "event-attended": { endpoint: "events-attended", name: "Event Attended" },
-  leave: { endpoint: "student-leave", name: "Leave" },
-  "online-course": { endpoint: "online-courses", name: "Online Course" },
-  achievement: { endpoint: "achievements", name: "Achievement" }
+  internship: { endpoint: "internships", stateKey: "internships", name: "Internship" },
+  scholarship: { endpoint: "scholarships", stateKey: "scholarships", name: "Scholarship" },
+  event: { endpoint: "events", stateKey: "events", name: "Event" },
+  "event-attended": { endpoint: "events-attended", stateKey: "eventsAttended", name: "Event Attended" },
+  leave: { endpoint: "student-leave", stateKey: "leaves", name: "Leave" },
+  "online-course": { endpoint: "online-courses", stateKey: "onlineCourses", name: "Online Course" },
+  achievement: { endpoint: "achievements", stateKey: "achievements", name: "Achievement" },
+  publication: { endpoint: "publications", stateKey: "publications", name: "Publication" },
+  "competency-coding": { endpoint: "competency-coding", stateKey: "competencyCoding", name: "Competency Coding" },
+  noncgpa: { endpoint: "noncgpa", stateKey: "nonCGPA", name: "Non CGPA" },
+  project: { endpoint: "projects", stateKey: "projects", name: "Project" },
+  hackathon: { endpoint: "hackathon", stateKey: "hackathons", name: "Hackathon" },
+  extracurricular: { endpoint: "extracurricular", stateKey: "extracurricular", name: "Extracurricular" }
 };
 
 // Helper function to safely access and filter arrays
@@ -29,9 +35,15 @@ export const DashboardProvider = ({ children }) => {
     eventsAttended: [],
     leaves: [],
     onlineCourses: [],
-    achievements: []
+    achievements: [],
+    publications: [],
+    competencyCoding: [],
+    nonCGPA: [],
+    projects: [],
+    hackathons: [],
+    extracurricular: []
   });
-  
+
   const [state, setState] = useState({
     selectedItem: null,
     showCommonMessage: false,
@@ -43,42 +55,39 @@ export const DashboardProvider = ({ children }) => {
     error: null
   });
 
-  const staffId = localStorage.getItem("userId") || "";
-  const token = localStorage.getItem("token") || "";
+  const { user } = useAuth();
+  const staffId = user?.userId || user?.id || "";
 
   const fetchPendingData = useCallback(async () => {
-    if (!token || !staffId) {
-      toast.error("Authentication token or staff ID missing. Please log in.");
+    if (!staffId) {
+      // Silently return if not authenticated
       return;
     }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
+
     try {
       const endpoints = [
-        "pending-internships",
-        "pending-scholarships",
-        "pending-events",
-        "pending-events-attended",
-        "pending-leaves",
-        "pending-online-courses",
-        "pending-achievements"
+        "/pending-internships",
+        "/pending-scholarships",
+        "/event-organized/pending",
+        "/event-attended/pending",
+        "/all/pending-leaves",
+        "/online-courses/pending",
+        "/pending-achievements",
+        "/publications/pending",
+        "/competency-coding/pending",
+        "/noncgpa/pending",
+        "/projects/pending",
+        "/hackathon/pending",
+        "/extracurricular/pending"
       ];
 
       const responses = await Promise.all(
         endpoints.map(async endpoint => {
           try {
-            const response = await fetch(`${backendUrl}/api/${endpoint}`, { 
-              headers: { 
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-              } 
-            });
-
-            if (!response.ok) {
-              throw new Error(`Failed to fetch ${endpoint}`);
-            }
-            return await response.json();
+            const response = await API.get(endpoint);
+            return response.data;
           } catch (error) {
             console.error(`Error fetching ${endpoint}:`, error);
             return { data: [] }; // Return empty array structure if request fails
@@ -87,33 +96,57 @@ export const DashboardProvider = ({ children }) => {
       );
 
       setPendingData({
-        internships: safeFilter(responses[0]?.internships || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "internship" 
+        internships: safeFilter(responses[0]?.internships || [], staffId).map(item => ({
+          ...item,
+          approvetype: "internship"
         })),
-        scholarships: safeFilter(responses[1]?.scholarships || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "scholarship" 
+        scholarships: safeFilter(responses[1]?.scholarships || [], staffId).map(item => ({
+          ...item,
+          approvetype: "scholarship"
         })),
-        events: safeFilter(responses[2]?.events || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "event" 
+        events: safeFilter(responses[2]?.events || [], staffId).map(item => ({
+          ...item,
+          approvetype: "event"
         })),
-        eventsAttended: safeFilter(responses[3]?.events || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "event-attended" 
+        eventsAttended: safeFilter(responses[3]?.events || [], staffId).map(item => ({
+          ...item,
+          approvetype: "event-attended"
         })),
-        leaves: safeFilter(responses[4]?.leaves || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "leave" 
+        leaves: safeFilter(responses[4]?.leaves || [], staffId).map(item => ({
+          ...item,
+          approvetype: "leave"
         })),
-        onlineCourses: safeFilter(responses[5]?.courses || [], staffId).map(item => ({ 
-          ...item, 
-          approvetype: "online-course" 
+        onlineCourses: safeFilter(responses[5]?.courses || [], staffId).map(item => ({
+          ...item,
+          approvetype: "online-course"
         })),
         achievements: safeFilter(responses[6]?.achievements || [], staffId).map(item => ({
           ...item,
           approvetype: "achievement"
+        })),
+        publications: safeFilter(responses[7]?.publications || [], staffId).map(item => ({
+          ...item,
+          approvetype: "publication"
+        })),
+        competencyCoding: safeFilter(responses[8]?.competencyRecords || [], staffId).map(item => ({
+          ...item,
+          approvetype: "competency-coding"
+        })),
+        nonCGPA: safeFilter(responses[9]?.records || [], staffId).map(item => ({
+          ...item,
+          approvetype: "noncgpa"
+        })),
+        projects: safeFilter(responses[10]?.projects || [], staffId).map(item => ({
+          ...item,
+          approvetype: "project"
+        })),
+        hackathons: safeFilter(responses[11]?.events || [], staffId).map(item => ({
+          ...item,
+          approvetype: "hackathon"
+        })),
+        extracurricular: safeFilter(responses[12]?.activities || [], staffId).map(item => ({
+          ...item,
+          approvetype: "extracurricular"
         }))
       });
     } catch (error) {
@@ -123,7 +156,7 @@ export const DashboardProvider = ({ children }) => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [token, staffId]);
+  }, [staffId]);
 
   const handleSendMessage = useCallback(async (type) => {
     if (!state.email || !state.commonMessage) {
@@ -135,33 +168,26 @@ export const DashboardProvider = ({ children }) => {
       const isConfirmed = window.confirm(`Are you sure you want to send this ${type}?`);
       if (!isConfirmed) return;
 
-      const response = await fetch(`${backendUrl}/api/messages/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          email: state.email, 
-          message: state.commonMessage, 
-          type 
-        }),
+      const response = await API.post("/messages/send", {
+        email: state.email,
+        message: state.commonMessage,
+        type
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (response.status !== 200 && response.status !== 201) throw new Error("Failed to send message");
 
       toast.success(`${type} sent successfully.`);
-      setState(prev => ({ 
-        ...prev, 
-        email: "", 
-        commonMessage: "", 
-        showCommonMessage: false 
+      setState(prev => ({
+        ...prev,
+        email: "",
+        commonMessage: "",
+        showCommonMessage: false
       }));
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
       toast.error("Error sending message");
     }
-  }, [token, state.email, state.commonMessage]);
+  }, [state.email, state.commonMessage]);
 
   const handleAction = useCallback(async (item, action) => {
     if (!item?.approvetype || !item?.id) {
@@ -173,40 +199,41 @@ export const DashboardProvider = ({ children }) => {
       const isConfirmed = window.confirm(`Are you sure you want to ${action} this ${item.approvetype}?`);
       if (!isConfirmed) return;
 
-      const { endpoint } = approvalTypes[item.approvetype] || {};
+      const { endpoint, stateKey } = approvalTypes[item.approvetype] || {};
       if (!endpoint) throw new Error("Invalid approval type");
 
-      const response = await fetch(`${backendUrl}/api/${endpoint}/${item.id}/approve`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          approved: action === "approve",
-          message: state.commonMessage,
-        }),
-      });
+      let approveUrl = `/${endpoint}/${item.id}/approve`;
+      let putBody = {
+        approved: action === "approve",
+        message: state.commonMessage,
+        Userid: staffId, // Include Userid for backward compatibility if needed
+      };
 
-      if (!response.ok) throw new Error("Failed to process request");
+      const response = await API.put(approveUrl, putBody);
+
+      if (response.status !== 200 && response.status !== 201) throw new Error("Failed to process request");
 
       toast.success(`Request ${action}d successfully.`);
-      setPendingData(prev => ({
-        ...prev,
-        [endpoint]: (prev[endpoint] || []).filter(req => req.id !== item.id)
-      }));
 
-      setState(prev => ({ 
-        ...prev, 
-        selectedItem: null, 
-        actionType: null, 
-        commonMessage: "" 
+      // Update the local state to remove the processed item
+      if (stateKey) {
+        setPendingData(prev => ({
+          ...prev,
+          [stateKey]: (prev[stateKey] || []).filter(req => req.id !== item.id)
+        }));
+      }
+
+      setState(prev => ({
+        ...prev,
+        selectedItem: null,
+        actionType: null,
+        commonMessage: ""
       }));
     } catch (error) {
       console.error("Error in handleAction:", error);
       toast.error("Error processing request");
     }
-  }, [token, state.commonMessage]);
+  }, [state.commonMessage, staffId]);
 
   const addNotification = useCallback((message) => {
     setState(prev => ({

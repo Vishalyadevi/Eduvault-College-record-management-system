@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import API from '../../api';
+import { useAuth } from '../pages/auth/AuthContext';
 
 const StudentDataContext = createContext();
 
 export const StudentDataProvider = ({ children }) => {
+  const { user } = useAuth();
   const [studentData, setStudentData] = useState(null);
   const [courses, setCourses] = useState([]);
   const [internships, setInternships] = useState([]);
@@ -12,52 +14,55 @@ export const StudentDataProvider = ({ children }) => {
   const [scholarships, setScholarships] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [achievements, setAchievements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const backendUrl = "http://localhost:4000";
-
   const fetchAllData = useCallback(async (userId) => {
-    if (!userId) {
-      setError("No user ID provided");
-      setLoading(false);
+    const id = userId || user?.id;
+    if (!id) {
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      
+
       const endpoints = [
-        { url: `${backendUrl}/api/biodata/${userId}`, setter: setStudentData },
-        { url: `${backendUrl}/api/user-courses/${userId}`, setter: (data) => setCourses(data?.courses || []) },
-        { url: `${backendUrl}/api/approved-internships/${userId}`, setter: setInternships },
-        { url: `${backendUrl}/api/approved-events-organized/${userId}`, setter: setOrganizedEvents },
-        { url: `${backendUrl}/api/approved-events/${userId}`, setter: setAttendedEvents },
-        { url: `${backendUrl}/api/fetch-scholarships/${userId}`, setter: setScholarships },
-        { url: `${backendUrl}/api/fetch-leaves/${userId}`, setter: setLeaves },
-        { url: `${backendUrl}/api/achievements/${userId}`, setter: setAchievements }
+        { url: `/biodata/${id}`, setter: setStudentData },
+        { url: `/user-courses/${id}`, setter: (data) => setCourses(data?.courses || []) },
+        { url: `/approved-internships/${id}`, setter: setInternships },
+        { url: `/approved-events-organized/${id}`, setter: setOrganizedEvents },
+        { url: `/approved-events/${id}`, setter: setAttendedEvents },
+        { url: `/fetch-scholarships/${id}`, setter: setScholarships },
+        { url: `/fetch-leaves/${id}`, setter: setLeaves },
+        { url: `/achievements/${id}`, setter: setAchievements }
       ];
 
       const requests = endpoints.map(async ({ url, setter }) => {
         try {
-          const response = await axios.get(url);
+          const response = await API.get(url);
           setter(response.data || []);
         } catch (err) {
-          console.error(`Error fetching ${url}:`, err);
-          setter([]); // Set empty array if request fails
+          console.error(`Error fetching ${url}:`, err?.response?.status, err?.response?.data || err.message);
+          setter([]);
         }
       });
 
       await Promise.all(requests);
-      
+
     } catch (err) {
       setError(err.message || "Failed to fetch student data");
       console.error("Error in fetchAllData:", err);
     } finally {
       setLoading(false);
     }
-  }, [backendUrl]);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.role?.toLowerCase() === 'student') {
+      fetchAllData();
+    }
+  }, [user, fetchAllData]);
 
   const refreshData = useCallback((userId) => {
     fetchAllData(userId);

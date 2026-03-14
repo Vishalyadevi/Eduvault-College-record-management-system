@@ -8,17 +8,21 @@ import {
   updateLeave,
   deleteLeave,
   getStudentLeaves,
-  
+
   // Dept Admin endpoints
   getPendingLeavesForDeptAdmin,
   getAllLeavesForDeptAdmin,
   updateLeaveByDeptAdmin,
-  
+
   // General endpoints
   getPendingLeaves,
   getApprovedLeaves,
+
+  // NEW: Student-specific endpoints with Userid filtering
+  getStudentPendingLeaves,
+  getStudentAllLeaves,
 } from "../../controllers/student/LeaveController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -78,11 +82,14 @@ router.patch("/dept-admin/update-leave/:leaveId", authenticate, updateLeaveByDep
 router.get("/all/pending-leaves", authenticate, getPendingLeaves);
 router.get("/all/approved-leaves", authenticate, getApprovedLeaves);
 
-// Backward compatibility routes (map to student routes)
+// ==================== BACKWARD COMPATIBILITY ROUTES ====================
+// These routes match what your frontend LeaveContext is calling
 router.post("/add-leave", authenticate, upload.single("document"), addLeave);
-router.patch("/update-leave/:leaveId", authenticate, upload.single("document"), updateLeave);
+router.patch("/student-leave/update-leave/:leaveId", authenticate, upload.single("document"), updateLeave);
 router.delete("/delete-leave/:leaveId", authenticate, deleteLeave);
-router.get("/pending-leaves", authenticate, getPendingLeaves);
-router.get("/fetch-leaves", authenticate, getApprovedLeaves);
+
+// CRITICAL: These must use the new student-specific endpoints with Userid filtering
+router.get("/pending-leaves", authenticate, getStudentPendingLeaves);  // Changed!
+router.get("/fetch-leaves", authenticate, getStudentAllLeaves);        // Changed!
 
 export default router;

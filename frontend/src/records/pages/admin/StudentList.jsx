@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 const backendUrl = "http://localhost:4000";
 
 function StudentList() {
-  const navigate=useNavigate();
+  const navigate = useNavigate();
   const { students, staff, departments, loading } = useStudent();
   const { handleExport, user } = useUser(); // Use handleExport from UserContext
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -20,7 +20,7 @@ function StudentList() {
   const [itemsPerPage, setItemsPerPage] = useState(4);
 
   // Get the user's department ID
-  const userDeptId = user?.Deptid || null;
+  const userDeptId = user?.departmentId || null;
 
   useEffect(() => {
     const updateItemsPerPage = () => {
@@ -42,7 +42,7 @@ function StudentList() {
   useEffect(() => {
     // Filter students based on the user's department
     if (userDeptId !== null) {
-      const filtered = students.filter((student) => student.Deptid === userDeptId);
+      const filtered = students.filter((student) => student.departmentId === userDeptId);
       setFilteredStudents(filtered);
     } else {
       setFilteredStudents(students);
@@ -52,7 +52,7 @@ function StudentList() {
   const handleSearch = () => {
     const filtered = students.filter((student) => {
       const regNoMatch = searchRegNo
-        ? String(student.regno).toLowerCase().includes(searchRegNo.toLowerCase())
+        ? String(student.registerNumber).toLowerCase().includes(searchRegNo.toLowerCase())
         : true;
 
       const batchMatch = searchBatch
@@ -61,9 +61,9 @@ function StudentList() {
 
       const departmentMatch = searchDepartment
         ? departments
-            .find((dept) => dept.Deptid === student.Deptid)
-            ?.Deptacronym?.toLowerCase()
-            .includes(searchDepartment.toLowerCase())
+          .find((dept) => dept.departmentId === student.departmentId)
+          ?.departmentAcr?.toLowerCase()
+          .includes(searchDepartment.toLowerCase())
         : true;
 
       const tutorMatch = searchTutor
@@ -97,11 +97,11 @@ function StudentList() {
 
   // Export functionality for students
   const handleExportStudents = async () => {
-    const columns = ["regno", "username", "batch", "Deptid", "tutorName"]; // Columns to export
+    const columns = ["registerNumber", "username", "batch", "departmentId", "tutorName"]; // Columns to export
     const filters = {
-      regno: searchRegNo,
+      registerNumber: searchRegNo,
       batch: searchBatch,
-      Deptid: searchDepartment,
+      departmentId: searchDepartment,
       tutorName: searchTutor,
     };
 
@@ -133,13 +133,13 @@ function StudentList() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen text-gray-600">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-r from-purple-50 to-blue-50 p-6 ml-64 mt-16 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-r from-indigo-50 to-indigo-50 p-6 ml-64 mt-16 flex flex-col overflow-hidden">
       {/* Search Section */}
       <div className="bg-white p-4 rounded-lg shadow-lg">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -148,7 +148,7 @@ function StudentList() {
             placeholder="Search by Reg No"
             value={searchRegNo}
             onChange={(e) => setSearchRegNo(e.target.value)}
-            className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           {/* Conditionally render department filter based on user's Deptid */}
           {userDeptId === null && (
@@ -157,7 +157,7 @@ function StudentList() {
               placeholder="Search by department (acronym)"
               value={searchDepartment}
               onChange={(e) => setSearchDepartment(e.target.value)}
-              className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+              className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
           )}
           <input
@@ -165,31 +165,31 @@ function StudentList() {
             placeholder="Search by batch"
             value={searchBatch}
             onChange={(e) => setSearchBatch(e.target.value)}
-            className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           <input
             type="text"
             placeholder="Search by tutor"
             value={searchTutor}
             onChange={(e) => setSearchTutor(e.target.value)}
-            className="p-2 border border-purple-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="p-2 border border-indigo-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           <button
             onClick={handleSearch}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaSearch className="mr-1" /> Search
           </button>
           <button
             onClick={resetFilters}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaUndo className="mr-1" /> Reset
           </button>
           {/* Export Button */}
           <button
             onClick={handleExportStudents}
-            className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            className="p-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
           >
             <FaFileExport className="mr-1" /> Export
           </button>
@@ -202,7 +202,7 @@ function StudentList() {
           <div className="overflow-y-auto flex-1">
             <table className="min-w-full">
               {filteredStudents.length > 0 && (
-                <thead className="bg-gradient-to-r from-purple-500 to-blue-500 sticky top-0">
+                <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500 sticky top-0">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Image</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Reg No</th>
@@ -220,8 +220,8 @@ function StudentList() {
                   currentItems.map((student, index) => {
                     const username = student.username || "Unknown";
                     const batch = student.batch || "No batch";
-                    const email = student.email || "No email";
-                    const regNo = student.regno || "No Reg No";
+                    const email = student.userMail || "No email";
+                    const registerNumber = student.registerNumber || "No Reg No";
                     const image = `${backendUrl}${student.image}` || `${backendUrl}/uploads/default.jpg`;
                     const tutorName = student.tutorName || "NO tutor";
 
@@ -229,7 +229,7 @@ function StudentList() {
                     const tutor = staffArray.find((t) => t.name === student.tutorName) || null;
 
                     const department = Array.isArray(departments)
-                      ? departments.find((dept) => dept.Deptid === student.Deptid)?.Deptacronym || "N/A"
+                      ? departments.find((dept) => dept.departmentId === student.departmentId)?.departmentAcr || "N/A"
                       : "N/A";
 
                     return (
@@ -242,13 +242,13 @@ function StudentList() {
                               className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                              <FaUserGraduate className="w-6 h-6 text-purple-500" />
+                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                              <FaUserGraduate className="w-6 h-6 text-indigo-600" />
                             </div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {regNo}
+                          {registerNumber}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {username}
@@ -266,13 +266,13 @@ function StudentList() {
                           {tutor ? tutor.name : "NO tutor"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                  <button
-                                                    onClick={() => handleView(student)}
-                                                    className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                                                  >
-                                                    <FaEye className="w-4 h-4" />
-                                                  </button>
-                                                </td>
+                          <button
+                            onClick={() => handleView(student)}
+                            className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                          >
+                            <FaEye className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -293,7 +293,7 @@ function StudentList() {
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -301,7 +301,7 @@ function StudentList() {
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -332,14 +332,14 @@ function StudentList() {
                   className="w-32 h-32 rounded-full object-cover mb-4"
                 />
               ) : (
-                <div className="w-32 h-32 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                  <FaUserGraduate className="w-16 h-16 text-purple-500" />
+                <div className="w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                  <FaUserGraduate className="w-16 h-16 text-indigo-600" />
                 </div>
               )}
               <div className="text-center">
-                <p className="text-gray-600">Reg No: {selectedStudent.regno || "No Reg No"}</p>
+                <p className="text-gray-600">Reg No: {selectedStudent.registerNumber || "No Reg No"}</p>
                 <p className="text-gray-600">Batch: {selectedStudent.batch || "No batch"}</p>
-                <p className="text-gray-600">Department: {departments.find((dept) => dept.Deptid === selectedStudent.Deptid)?.Deptacronym || "N/A"}</p>
+                <p className="text-gray-600">Department: {departments.find((dept) => dept.departmentId === selectedStudent.departmentId)?.departmentAcr || "N/A"}</p>
                 <p className="text-gray-600">Tutor: {staff?.staff?.find((t) => t.name === selectedStudent.tutorName)?.name || "No tutor assigned"}</p>
                 <p className="text-gray-600 mt-4">More details coming soon...</p>
               </div>

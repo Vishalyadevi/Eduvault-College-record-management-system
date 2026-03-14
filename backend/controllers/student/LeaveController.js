@@ -1,4 +1,4 @@
-import { User, StudentDetails, StudentLeave } from "../../models/index.js";
+import { User, StudentDetails, StudentLeave, Department } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
 import { Op } from "sequelize";
 import path from "path";
@@ -19,16 +19,19 @@ export const addLeave = async (req, res) => {
     const { leave_type, start_date, end_date, reason } = req.body;
     const document = req.file ? req.file.filename : null;
 
-    if (!req.user.Userid) {
+    if (!req.user.userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    const user = await User.findByPk(req.user.Userid);
-    if (!user || !user.email) {
+    const user = await User.findByPk(req.user.userId);
+    if (!user || !user.userMail) {
       return res.status(404).json({ message: "Student email not found" });
     }
 
-    const student = await StudentDetails.findOne({ where: { Userid: req.user.Userid } });
+    const student = await StudentDetails.findOne({
+      where: { Userid: req.user.userId },
+      include: [{ model: Department, attributes: ["departmentName"] }]
+    });
     if (!student) {
       return res.status(404).json({ message: "Student details not found" });
     }
@@ -43,7 +46,7 @@ export const addLeave = async (req, res) => {
     }
 
     const leaveRequest = await StudentLeave.create({
-      Userid: req.user.Userid,
+      Userid: req.user.userId,
       leave_type,
       start_date,
       end_date,
@@ -51,25 +54,23 @@ export const addLeave = async (req, res) => {
       document,
       leave_status: "pending",
       tutor_approval_status: false,
-      requires_dept_approval: requiresDeptApproval,
-      dept_admin_approval_status: false,
-      created_by: user.Userid,
-      updated_by: user.Userid,
+      Created_by: user.userId,
+      Updated_by: user.userId,
     });
 
     // Send email to tutor if tutor email exists
     if (student.tutorEmail) {
       await sendEmail({
-        from: user.email,
+        from: user.userMail,
         to: student.tutorEmail,
         subject: "New Leave Request Pending Approval",
         text: `Dear Tutor,
 
 A student has submitted a new leave request.
 
-Student Name: ${user.username}
-Student Regno: ${student.regno || 'N/A'}
-Department: ${student.department || 'N/A'}
+Student Name: ${user.userName}
+Student registerNumber: ${student.registerNumber || 'N/A'}
+Department: ${student.Department?.departmentName || 'N/A'}
 Leave Type: ${leave_type}
 Start Date: ${start_date}
 End Date: ${end_date}
@@ -83,12 +84,12 @@ Leave Management System`,
       });
     }
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: requiresDeptApproval 
-        ? "Leave request submitted. Requires department admin approval (more than 3 days)." 
+      message: requiresDeptApproval
+        ? "Leave request submitted. Requires department admin approval (more than 3 days)."
         : "Leave request submitted successfully.",
-      leaveRequest 
+      leaveRequest
     });
   } catch (error) {
     console.error("❌ Error adding leave request:", error);
@@ -109,7 +110,7 @@ export const updateLeave = async (req, res) => {
     }
 
     // Only allow student to edit their own pending leaves
-    if (leaveRequest.Userid !== req.user.Userid) {
+    if (leaveRequest.Userid !== req.user.userId) {
       return res.status(403).json({ message: "Unauthorized to edit this leave request" });
     }
 
@@ -142,7 +143,7 @@ export const updateLeave = async (req, res) => {
     leaveRequest.reason = reason || leaveRequest.reason;
     leaveRequest.document = document || leaveRequest.document;
     leaveRequest.requires_dept_approval = requiresDeptApproval;
-    leaveRequest.updated_by = req.user.Userid;
+    leaveRequest.updated_by = req.user.userId;
 
     // Reset dept admin approval if days changed to require approval
     if (requiresDeptApproval && !leaveRequest.dept_admin_approval_status) {
@@ -153,10 +154,10 @@ export const updateLeave = async (req, res) => {
 
     await leaveRequest.save();
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
-      message: "Leave request updated successfully.", 
-      leaveRequest 
+      message: "Leave request updated successfully.",
+      leaveRequest
     });
   } catch (error) {
     console.error("❌ Error updating leave request:", error);
@@ -175,7 +176,7 @@ export const deleteLeave = async (req, res) => {
     }
 
     // Only allow student to delete their own pending leaves
-    if (leaveRequest.Userid !== req.user.Userid) {
+    if (leaveRequest.Userid !== req.user.userId) {
       return res.status(403).json({ message: "Unauthorized to delete this leave request" });
     }
 
@@ -183,7 +184,10 @@ export const deleteLeave = async (req, res) => {
       return res.status(400).json({ message: "Cannot delete non-pending leave requests" });
     }
 
-    const student = await StudentDetails.findOne({ where: { Userid: leaveRequest.Userid } });
+    const student = await StudentDetails.findOne({
+      where: { Userid: leaveRequest.Userid },
+      include: [{ model: Department, attributes: ["departmentName"] }]
+    });
     const user = await User.findByPk(leaveRequest.Userid);
 
     if (!user || !student) {
@@ -202,9 +206,9 @@ export const deleteLeave = async (req, res) => {
 
     // Send notification emails
     sendEmail({
-      to: user.email,
+      to: user.userMail,
       subject: "Leave Request Deleted Notification",
-      text: `Dear ${user.username || "Student"},
+      text: `Dear ${user.userName || "Student"},
 
 Your leave request has been removed.
 
@@ -227,8 +231,8 @@ Leave Management System`,
 
 The following leave request submitted by your student has been deleted:
 
-- Student Regno: ${student.regno}  
-- Student Name: ${user.username || "N/A"}  
+- Student registerNumber: ${student.registerNumber}  
+- Student Name: ${user.userName || "N/A"}  
 - Leave Type: ${leaveRequest.leave_type}  
 - Start Date: ${leaveRequest.start_date}  
 - End Date: ${leaveRequest.end_date}  
@@ -250,7 +254,7 @@ Leave Management System`,
 export const getStudentLeaves = async (req, res) => {
   try {
     const leaves = await StudentLeave.findAll({
-      where: { Userid: req.user.Userid },
+      where: { Userid: req.user.userId },
       order: [["createdAt", "DESC"]],
     });
 
@@ -275,36 +279,36 @@ export const getStudentLeaves = async (req, res) => {
 // Get Pending Leaves for Dept Admin (only their department)
 export const getPendingLeavesForDeptAdmin = async (req, res) => {
   try {
-    const deptAdminUser = await User.findByPk(req.user.Userid);
+    const deptAdminUser = await User.findByPk(req.user.userId);
     if (!deptAdminUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const deptAdminDetails = await StudentDetails.findOne({ 
-      where: { Userid: req.user.Userid } 
+    const deptAdminDetails = await StudentDetails.findOne({
+      where: { Userid: req.user.userId },
+      include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
     });
 
-    if (!deptAdminDetails || !deptAdminDetails.department) {
+    if (!deptAdminDetails || !deptAdminDetails.Department) {
       return res.status(404).json({ message: "Department information not found" });
     }
 
     const pendingLeaves = await StudentLeave.findAll({
-      where: { 
+      where: {
         leave_status: "pending",
-        requires_dept_approval: true,
-        dept_admin_approval_status: false,
       },
       include: [
         {
           model: User,
           as: "LeaveUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId", "department"],
-              where: { department: deptAdminDetails.department },
+              attributes: ["registerNumber", "staffId", "departmentId"],
+              where: { departmentId: deptAdminDetails.departmentId },
+              include: [{ model: Department, attributes: ["departmentName"] }]
             },
           ],
         },
@@ -317,11 +321,11 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
       const days = calculateDays(rest.start_date, rest.end_date);
       return {
         ...rest,
-        username: LeaveUser?.username || "N/A",
-        email: LeaveUser?.email || "N/A",
-        regno: LeaveUser?.studentDetails?.regno || "N/A",
+        username: LeaveUser?.userName || "N/A",
+        email: LeaveUser?.userMail || "N/A",
+        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
         staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.department || "N/A",
+        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
         total_days: days,
       };
     });
@@ -336,29 +340,31 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
 // Get All Leaves for Dept Admin (their department)
 export const getAllLeavesForDeptAdmin = async (req, res) => {
   try {
-    const deptAdminDetails = await StudentDetails.findOne({ 
-      where: { Userid: req.user.Userid } 
+    const deptAdminDetails = await StudentDetails.findOne({
+      where: { Userid: req.user.userId },
+      include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
     });
 
-    if (!deptAdminDetails || !deptAdminDetails.department) {
+    if (!deptAdminDetails || !deptAdminDetails.Department) {
       return res.status(404).json({ message: "Department information not found" });
     }
 
     const allLeaves = await StudentLeave.findAll({
-      where: { 
+      where: {
         requires_dept_approval: true,
       },
       include: [
         {
           model: User,
           as: "LeaveUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId", "department"],
-              where: { department: deptAdminDetails.department },
+              attributes: ["registerNumber", "staffId", "departmentId"],
+              where: { departmentId: deptAdminDetails.departmentId },
+              include: [{ model: Department, attributes: ["departmentName"] }]
             },
           ],
         },
@@ -371,11 +377,11 @@ export const getAllLeavesForDeptAdmin = async (req, res) => {
       const days = calculateDays(rest.start_date, rest.end_date);
       return {
         ...rest,
-        username: LeaveUser?.username || "N/A",
-        email: LeaveUser?.email || "N/A",
-        regno: LeaveUser?.studentDetails?.regno || "N/A",
+        username: LeaveUser?.userName || "N/A",
+        email: LeaveUser?.userMail || "N/A",
+        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
         staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.department || "N/A",
+        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
         total_days: days,
       };
     });
@@ -406,6 +412,7 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
             {
               model: StudentDetails,
               as: "studentDetails",
+              include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
             },
           ],
         },
@@ -417,12 +424,12 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
     }
 
     // Verify dept admin belongs to same department
-    const deptAdminDetails = await StudentDetails.findOne({ 
-      where: { Userid: req.user.Userid } 
+    const deptAdminDetails = await StudentDetails.findOne({
+      where: { Userid: req.user.userId }
     });
 
-    if (!deptAdminDetails || 
-        deptAdminDetails.department !== leaveRequest.LeaveUser.studentDetails.department) {
+    if (!deptAdminDetails ||
+      deptAdminDetails.Department.departmentId !== leaveRequest.LeaveUser.studentDetails.Department.departmentId) {
       return res.status(403).json({ message: "Unauthorized: You can only manage leaves from your department" });
     }
 
@@ -435,22 +442,22 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
     }
 
     // Get dept admin user info
-    const deptAdminUser = await User.findByPk(req.user.Userid);
+    const deptAdminUser = await User.findByPk(req.user.userId);
 
     if (action === 'approve') {
       leaveRequest.dept_admin_approval_status = true;
-      leaveRequest.dept_admin_approved_by = req.user.Userid;
+      leaveRequest.dept_admin_approved_by = req.user.userId;
       leaveRequest.dept_admin_approved_at = new Date();
       leaveRequest.leave_status = 'approved';
-      leaveRequest.approved_by = req.user.Userid;
+      leaveRequest.approved_by = req.user.userId;
       leaveRequest.approved_at = new Date();
-      
+
       const messages = leaveRequest.messages || [];
       messages.push({
         type: 'dept_admin_approval',
         message: message || 'Approved by Department Admin',
-        by: req.user.Userid,
-        by_name: deptAdminUser?.username || 'Department Admin',
+        by: req.user.userId,
+        by_name: deptAdminUser?.userName || 'Department Admin',
         at: new Date(),
       });
       leaveRequest.messages = messages;
@@ -460,23 +467,23 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
       messages.push({
         type: 'dept_admin_rejection',
         message: message || 'Rejected by Department Admin',
-        by: req.user.Userid,
-        by_name: deptAdminUser?.username || 'Department Admin',
+        by: req.user.userId,
+        by_name: deptAdminUser?.userName || 'Department Admin',
         at: new Date(),
       });
       leaveRequest.messages = messages;
     }
 
-    leaveRequest.updated_by = req.user.Userid;
+    leaveRequest.updated_by = req.user.userId;
     await leaveRequest.save();
 
     // Send email to student
     const user = await User.findByPk(leaveRequest.Userid);
-    if (user && user.email) {
+    if (user && user.userMail) {
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'} by Department Admin`,
-        text: `Dear ${user.username},
+        text: `Dear ${user.userName},
 
 Your leave request has been ${action === 'approve' ? 'approved' : 'rejected'} by the Department Admin.
 
@@ -505,9 +512,9 @@ Leave Management System`,
 A leave request has been ${action === 'approve' ? 'approved' : 'rejected'} by the Department Admin.
 
 Student Details:
-- Name: ${user.username}
-- Regno: ${student.regno}
-- Department: ${student.department}
+- Name: ${user.userName}
+- registerNumber: ${student.registerNumber}
+- Department: ${student.Department?.departmentName}
 
 Leave Details:
 - Leave Type: ${leaveRequest.leave_type}
@@ -521,10 +528,10 @@ Leave Management System`,
       });
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
       message: `Leave request ${action === 'approve' ? 'approved' : 'rejected'} successfully.`,
-      leaveRequest 
+      leaveRequest
     });
   } catch (error) {
     console.error("❌ Error updating leave by dept admin:", error);
@@ -543,12 +550,13 @@ export const getPendingLeaves = async (req, res) => {
         {
           model: User,
           as: "LeaveUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId", "department"],
+              attributes: ["registerNumber", "staffId", "departmentId"],
+              include: [{ model: Department, attributes: ["departmentName"] }]
             },
           ],
         },
@@ -561,11 +569,11 @@ export const getPendingLeaves = async (req, res) => {
       const days = calculateDays(rest.start_date, rest.end_date);
       return {
         ...rest,
-        username: LeaveUser?.username || "N/A",
-        email: LeaveUser?.email || "N/A",
-        regno: LeaveUser?.studentDetails?.regno || "N/A",
+        username: LeaveUser?.userName || "N/A",
+        email: LeaveUser?.userMail || "N/A",
+        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
         staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.department || "N/A",
+        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
         total_days: days,
       };
     });
@@ -586,12 +594,13 @@ export const getApprovedLeaves = async (req, res) => {
         {
           model: User,
           as: "LeaveUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId", "department"],
+              attributes: ["registerNumber", "staffId", "departmentId"],
+              include: [{ model: Department, attributes: ["departmentName"] }]
             },
           ],
         },
@@ -604,11 +613,11 @@ export const getApprovedLeaves = async (req, res) => {
       const days = calculateDays(rest.start_date, rest.end_date);
       return {
         ...rest,
-        username: LeaveUser?.username || "N/A",
-        email: LeaveUser?.email || "N/A",
-        regno: LeaveUser?.studentDetails?.regno || "N/A",
+        username: LeaveUser?.userName || "N/A",
+        email: LeaveUser?.userMail || "N/A",
+        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
         staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.department || "N/A",
+        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
         total_days: days,
       };
     });
@@ -617,5 +626,191 @@ export const getApprovedLeaves = async (req, res) => {
   } catch (error) {
     console.error("Error fetching approved leaves:", error);
     res.status(500).json({ success: false, message: "Error fetching approved leaves" });
+  }
+};
+
+// Add these new endpoints to your existing controller file
+
+// ==================== STUDENT-SPECIFIC ENDPOINTS ====================
+
+// Get Student's Pending Leaves (by Userid query param)
+
+
+// Get Student's Approved/All Leaves (by Userid query param)
+
+// ==================== STUDENT-SPECIFIC ENDPOINTS WITH USERID FILTERING ====================
+// Add these functions to your LeaveController.js file
+// Make sure you have: import { Op } from "sequelize"; at the top of your file
+
+// Get Student's Pending Leaves (by Userid query param)
+export const getStudentPendingLeaves = async (req, res) => {
+  try {
+    console.log("📥 getStudentPendingLeaves called");
+    console.log("Query params:", req.query);
+    console.log("Authenticated user:", req.user);
+
+    const { Userid } = req.query;
+    if (!Userid) {
+      console.error("❌ Userid is missing from query");
+      return res.status(400).json({
+        success: false,
+        message: "Userid is required"
+      });
+    }
+
+    console.log(`🔍 Fetching pending leaves for Userid: ${Userid}`);
+
+    // Simple query first - without includes to test
+    const pendingLeaves = await StudentLeave.findAll({
+      where: {
+        Userid: parseInt(Userid),
+        leave_status: "pending"
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    console.log(`✅ Found ${pendingLeaves.length} pending leaves`);
+
+    const formattedLeaves = pendingLeaves.map((leave) => {
+      const leaveData = leave.get({ plain: true });
+      const days = calculateDays(leaveData.start_date, leaveData.end_date);
+      return {
+        ...leaveData,
+        total_days: days,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      leaves: formattedLeaves
+    });
+  } catch (error) {
+    console.error("❌ Error in getStudentPendingLeaves:", error);
+    console.error("Error stack:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching pending leaves",
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// Get Student's Approved/Rejected Leaves (by Userid query param)
+export const getStudentAllLeaves = async (req, res) => {
+  try {
+    console.log("📥 getStudentAllLeaves called");
+    console.log("Query params:", req.query);
+    console.log("Authenticated user:", req.user);
+
+    const { Userid } = req.query;
+    if (!Userid) {
+      console.error("❌ Userid is missing from query");
+      return res.status(400).json({
+        success: false,
+        message: "Userid is required"
+      });
+    }
+
+    console.log(`🔍 Fetching approved/rejected leaves for Userid: ${Userid}`);
+
+    // Simple query first - without includes to test
+    const leaves = await StudentLeave.findAll({
+      where: {
+        Userid: parseInt(Userid),
+        leave_status: ["approved", "rejected"]
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    console.log(`✅ Found ${leaves.length} approved/rejected leaves`);
+
+    const formattedLeaves = leaves.map((leave) => {
+      const leaveData = leave.get({ plain: true });
+      const days = calculateDays(leaveData.start_date, leaveData.end_date);
+      return {
+        ...leaveData,
+        total_days: days,
+      };
+    });
+
+    // Return array directly (matching your frontend expectation)
+    res.status(200).json(formattedLeaves);
+  } catch (error) {
+    console.error("❌ Error in getStudentAllLeaves:", error);
+    if (error.original) {
+      console.error("SQL Error:", error.original.sqlMessage || error.original);
+    }
+    res.status(500).json({
+      success: false,
+      message: "Error fetching leaves",
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// ENHANCED VERSION WITH USER DETAILS (Use this after the basic version works)
+export const getStudentPendingLeavesWithDetails = async (req, res) => {
+  try {
+    console.log("📥 getStudentPendingLeavesWithDetails called");
+    const { Userid } = req.query;
+    if (!Userid) {
+      return res.status(400).json({
+        success: false,
+        message: "Userid is required"
+      });
+    }
+
+    const pendingLeaves = await StudentLeave.findAll({
+      where: {
+        Userid: parseInt(Userid),
+        leave_status: "pending"
+      },
+      include: [
+        {
+          model: User,
+          as: "LeaveUser",
+          attributes: ["userId", "userName", "userMail"],
+          required: false, // Use LEFT JOIN
+          include: [
+            {
+              model: StudentDetails,
+              as: "studentDetails",
+              attributes: ["registerNumber", "staffId", "departmentId", "tutorEmail"],
+              required: false, // Use LEFT JOIN
+              include: [{ model: Department, attributes: ["departmentName"] }]
+            },
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    const formattedLeaves = pendingLeaves.map((leave) => {
+      const leaveData = leave.get({ plain: true });
+      const days = calculateDays(leaveData.start_date, leaveData.end_date);
+      return {
+        ...leaveData,
+        total_days: days,
+        username: leaveData.LeaveUser?.userName || "N/A",
+        email: leaveData.LeaveUser?.userMail || "N/A",
+        registerNumber: leaveData.LeaveUser?.studentDetails?.registerNumber || "N/A",
+        staffId: leaveData.LeaveUser?.studentDetails?.staffId || "N/A",
+        department: leaveData.LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      leaves: formattedLeaves
+    });
+  } catch (error) {
+    console.error("❌ Error in getStudentPendingLeavesWithDetails:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching pending leaves",
+      error: error.message
+    });
   }
 };

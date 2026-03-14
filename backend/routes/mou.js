@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../db/db.js';
-import { authenticate as authenticateToken } from '../middlewares/auth.js';
+import { authenticate as authenticateToken } from '../middlewares/requireauth.js';
 import { uploadMOUFile, uploadActivityFile, deleteFile, getFullPath } from '../middlewares/uploadConfig.js';
 
 const router = express.Router();
@@ -33,17 +33,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
       'SELECT * FROM mou WHERE id = ? AND Userid = ?',
       [req.params.id, req.user.Userid]
     );
-    
+
     if (mouRows.length === 0) {
       return res.status(404).json({ message: 'MOU not found' });
     }
-    
+
     // Get all activities for this MOU
     const [activities] = await pool.query(
       'SELECT * FROM mou_activities WHERE mou_id = ? ORDER BY date DESC',
       [req.params.id]
     );
-    
+
     res.status(200).json({
       mou: mouRows[0],
       activities: activities
@@ -57,7 +57,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new MOU with file upload
 router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
   const { company_name, signed_on } = req.body;
-  
+
   try {
     // Validation
     if (!company_name?.trim() || !signed_on) {
@@ -67,7 +67,7 @@ router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Company name and signed date are required' });
     }
-    
+
     // Validate date
     const signedDate = new Date(signed_on);
     if (isNaN(signedDate.getTime())) {
@@ -76,7 +76,7 @@ router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Invalid date format' });
     }
-    
+
     // Validate company name length
     if (company_name.trim().length > 200) {
       if (req.file) {
@@ -84,10 +84,10 @@ router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Company name cannot exceed 200 characters' });
     }
-    
+
     // Get file path (store relative path in database)
     const mouCopyPath = req.file ? `uploads/mou/${req.file.filename}` : null;
-    
+
     // Insert new MOU
     const [result] = await pool.query(
       `INSERT INTO mou (Userid, company_name, signed_on, mou_copy_link) 
@@ -99,9 +99,9 @@ router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
         mouCopyPath
       ]
     );
-    
-    res.status(201).json({ 
-      message: 'MOU created successfully', 
+
+    res.status(201).json({
+      message: 'MOU created successfully',
       id: result.insertId,
       file: req.file ? req.file.filename : null
     });
@@ -118,7 +118,7 @@ router.post('/', authenticateToken, uploadMOUFile, async (req, res) => {
 // Update MOU with optional file upload
 router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
   const { company_name, signed_on } = req.body;
-  
+
   try {
     // Validation
     if (!company_name?.trim() || !signed_on) {
@@ -127,7 +127,7 @@ router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Company name and signed date are required' });
     }
-    
+
     // Validate date
     const signedDate = new Date(signed_on);
     if (isNaN(signedDate.getTime())) {
@@ -136,7 +136,7 @@ router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Invalid date format' });
     }
-    
+
     // Validate company name length
     if (company_name.trim().length > 200) {
       if (req.file) {
@@ -144,25 +144,25 @@ router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       return res.status(400).json({ message: 'Company name cannot exceed 200 characters' });
     }
-    
+
     // Check if MOU exists and belongs to user
     const [rows] = await pool.query(
       'SELECT * FROM mou WHERE id = ? AND Userid = ?',
       [req.params.id, req.user.Userid]
     );
-    
+
     if (rows.length === 0) {
       if (req.file) {
         deleteFile(req.file.path);
       }
       return res.status(404).json({ message: 'MOU not found or access denied' });
     }
-    
+
     const oldMOU = rows[0];
-    
+
     // Get new file path or keep old one
     let mouCopyPath = oldMOU.mou_copy_link;
-    
+
     if (req.file) {
       // Delete old file if it exists
       if (oldMOU.mou_copy_link) {
@@ -171,7 +171,7 @@ router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
       }
       mouCopyPath = `uploads/mou/${req.file.filename}`;
     }
-    
+
     // Update MOU
     const [result] = await pool.query(
       `UPDATE mou SET 
@@ -188,12 +188,12 @@ router.put('/:id', authenticateToken, uploadMOUFile, async (req, res) => {
         req.user.Userid
       ]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'MOU not found or no changes made' });
     }
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       message: 'MOU updated successfully',
       file: req.file ? req.file.filename : null
     });
@@ -214,25 +214,25 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       'SELECT * FROM mou WHERE id = ? AND Userid = ?',
       [req.params.id, req.user.Userid]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ message: 'MOU not found or access denied' });
     }
-    
+
     const mou = rows[0];
-    
+
     // Get all activities to delete their files
     const [activities] = await pool.query(
       'SELECT * FROM mou_activities WHERE mou_id = ?',
       [req.params.id]
     );
-    
+
     // Delete MOU file
     if (mou.mou_copy_link) {
       const mouFilePath = getFullPath(mou.mou_copy_link);
       deleteFile(mouFilePath);
     }
-    
+
     // Delete all activity files
     activities.forEach(activity => {
       if (activity.proof_link) {
@@ -240,17 +240,17 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         deleteFile(activityFilePath);
       }
     });
-    
+
     // Delete MOU (activities will be cascade deleted)
     const [result] = await pool.query(
       'DELETE FROM mou WHERE id = ? AND Userid = ?',
       [req.params.id, req.user.Userid]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'MOU not found' });
     }
-    
+
     res.status(200).json({ message: 'MOU and all related activities deleted successfully' });
   } catch (error) {
     console.error('Error deleting MOU:', error);
@@ -268,16 +268,16 @@ router.get('/:mouId/activities', authenticateToken, async (req, res) => {
       'SELECT * FROM mou WHERE id = ? AND Userid = ?',
       [req.params.mouId, req.user.Userid]
     );
-    
+
     if (mouRows.length === 0) {
       return res.status(404).json({ message: 'MOU not found or access denied' });
     }
-    
+
     const [rows] = await pool.query(
       'SELECT * FROM mou_activities WHERE mou_id = ? ORDER BY date DESC',
       [req.params.mouId]
     );
-    
+
     res.status(200).json(rows);
   } catch (error) {
     console.error('Error fetching activities:', error);
@@ -294,11 +294,11 @@ router.get('/:mouId/activities/:activityId', authenticateToken, async (req, res)
        WHERE a.id = ? AND a.mou_id = ? AND m.Userid = ?`,
       [req.params.activityId, req.params.mouId, req.user.Userid]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Activity not found' });
     }
-    
+
     res.status(200).json(rows[0]);
   } catch (error) {
     console.error('Error fetching activity:', error);
@@ -309,21 +309,21 @@ router.get('/:mouId/activities/:activityId', authenticateToken, async (req, res)
 // Create new activity for a MOU with file upload
 router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (req, res) => {
   const { date, title, no_of_participants, venue } = req.body;
-  
+
   try {
     // Verify MOU exists and belongs to user
     const [mouRows] = await pool.query(
       'SELECT * FROM mou WHERE id = ? AND Userid = ?',
       [req.params.mouId, req.user.Userid]
     );
-    
+
     if (mouRows.length === 0) {
       if (req.file) {
         deleteFile(req.file.path);
       }
       return res.status(404).json({ message: 'MOU not found or access denied' });
     }
-    
+
     // Validation
     if (!date || !title?.trim() || !venue?.trim() || no_of_participants === undefined || no_of_participants === null) {
       if (req.file) {
@@ -331,7 +331,7 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
       }
       return res.status(400).json({ message: 'Required fields missing' });
     }
-    
+
     // Validate date
     const activityDate = new Date(date);
     if (isNaN(activityDate.getTime())) {
@@ -340,7 +340,7 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
       }
       return res.status(400).json({ message: 'Invalid date format' });
     }
-    
+
     // Validate participants
     const participantsCount = parseInt(no_of_participants);
     if (isNaN(participantsCount) || participantsCount <= 0) {
@@ -349,7 +349,7 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
       }
       return res.status(400).json({ message: 'Participants must be a positive number' });
     }
-    
+
     // Validate field lengths
     if (title.trim().length > 255) {
       if (req.file) {
@@ -357,17 +357,17 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
       }
       return res.status(400).json({ message: 'Title cannot exceed 255 characters' });
     }
-    
+
     if (venue.trim().length > 255) {
       if (req.file) {
         deleteFile(req.file.path);
       }
       return res.status(400).json({ message: 'Venue cannot exceed 255 characters' });
     }
-    
+
     // Get file path
     const proofPath = req.file ? `uploads/mou/${req.file.filename}` : null;
-    
+
     // Insert new activity
     const [result] = await pool.query(
       `INSERT INTO mou_activities 
@@ -383,9 +383,9 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
         proofPath
       ]
     );
-    
-    res.status(201).json({ 
-      message: 'Activity created successfully', 
+
+    res.status(201).json({
+      message: 'Activity created successfully',
       id: result.insertId,
       file: req.file ? req.file.filename : null
     });
@@ -401,7 +401,7 @@ router.post('/:mouId/activities', authenticateToken, uploadActivityFile, async (
 // Update activity with optional file upload
 router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFile, async (req, res) => {
   const { date, title, no_of_participants, venue } = req.body;
-  
+
   try {
     // Validation
     if (!date || !title?.trim() || !venue?.trim() || no_of_participants === undefined || no_of_participants === null) {
@@ -410,7 +410,7 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
       }
       return res.status(400).json({ message: 'Required fields missing' });
     }
-    
+
     // Validate date
     const activityDate = new Date(date);
     if (isNaN(activityDate.getTime())) {
@@ -419,7 +419,7 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
       }
       return res.status(400).json({ message: 'Invalid date format' });
     }
-    
+
     // Validate participants
     const participantsCount = parseInt(no_of_participants);
     if (isNaN(participantsCount) || participantsCount <= 0) {
@@ -428,7 +428,7 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
       }
       return res.status(400).json({ message: 'Participants must be a positive number' });
     }
-    
+
     // Validate field lengths
     if (title.trim().length > 255) {
       if (req.file) {
@@ -436,14 +436,14 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
       }
       return res.status(400).json({ message: 'Title cannot exceed 255 characters' });
     }
-    
+
     if (venue.trim().length > 255) {
       if (req.file) {
         deleteFile(req.file.path);
       }
       return res.status(400).json({ message: 'Venue cannot exceed 255 characters' });
     }
-    
+
     // Check if activity exists and user has access
     const [rows] = await pool.query(
       `SELECT a.* FROM mou_activities a
@@ -451,19 +451,19 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
        WHERE a.id = ? AND a.mou_id = ? AND m.Userid = ?`,
       [req.params.activityId, req.params.mouId, req.user.Userid]
     );
-    
+
     if (rows.length === 0) {
       if (req.file) {
         deleteFile(req.file.path);
       }
       return res.status(404).json({ message: 'Activity not found or access denied' });
     }
-    
+
     const oldActivity = rows[0];
-    
+
     // Get new file path or keep old one
     let proofPath = oldActivity.proof_link;
-    
+
     if (req.file) {
       // Delete old file if it exists
       if (oldActivity.proof_link) {
@@ -472,7 +472,7 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
       }
       proofPath = `uploads/mou/${req.file.filename}`;
     }
-    
+
     // Update activity
     const [result] = await pool.query(
       `UPDATE mou_activities SET 
@@ -493,12 +493,12 @@ router.put('/:mouId/activities/:activityId', authenticateToken, uploadActivityFi
         req.params.mouId
       ]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Activity not found or no changes made' });
     }
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       message: 'Activity updated successfully',
       file: req.file ? req.file.filename : null
     });
@@ -521,29 +521,29 @@ router.delete('/:mouId/activities/:activityId', authenticateToken, async (req, r
        WHERE a.id = ? AND a.mou_id = ? AND m.Userid = ?`,
       [req.params.activityId, req.params.mouId, req.user.Userid]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Activity not found or access denied' });
     }
-    
+
     const activity = rows[0];
-    
+
     // Delete file if exists
     if (activity.proof_link) {
       const filePath = getFullPath(activity.proof_link);
       deleteFile(filePath);
     }
-    
+
     // Delete activity
     const [result] = await pool.query(
       'DELETE FROM mou_activities WHERE id = ? AND mou_id = ?',
       [req.params.activityId, req.params.mouId]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Activity not found' });
     }
-    
+
     res.status(200).json({ message: 'Activity deleted successfully' });
   } catch (error) {
     console.error('Error deleting activity:', error);

@@ -69,23 +69,23 @@ const Dashboard = () => {
     if (value === null || value === undefined || value === "") {
       return "Not Provided";
     }
-    
+
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No';
     }
-    
+
     if (Array.isArray(value)) {
       return value.length > 0 ? value.join(', ') : 'None';
     }
-    
+
     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)) {
       return new Date(value).toLocaleDateString();
     }
-    
+
     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
       return new Date(value).toLocaleString();
     }
-    
+
     return value.toString();
   };
 
@@ -99,6 +99,11 @@ const Dashboard = () => {
         case 'online-course': return 'uploads/certificates/';
         case 'achievement': return 'uploads/achievements/';
         case 'event-attended': return 'uploads/event/';
+        case 'publication': return 'uploads/publications/';
+        case 'project': return 'uploads/projects/';
+        case 'hackathon': return 'uploads/hackathons/';
+        case 'extracurricular': return 'uploads/extracurricular/';
+        case 'noncgpa': return 'uploads/noncgpa/';
         default: return 'uploads/';
       }
     };
@@ -106,9 +111,9 @@ const Dashboard = () => {
 
     const excludedFields = [
       "id", "_id", "_v", "__v", "created_at", "updated_at", "createdAt", "updatedAt",
-      "Userid", "Created_by", "Updated_by", "pending", "tutor_approval_status", 
-      "Approved_by", "approved_at", "messages", "updated_by", "created_by", 
-      "approvetype", "approved_by", "staffId", "status", "studentId", "userId","stateID","districtID"
+      "Userid", "Created_by", "Updated_by", "pending", "tutor_approval_status",
+      "Approved_by", "approved_at", "messages", "updated_by", "created_by",
+      "approvetype", "approved_by", "staffId", "status", "studentId", "userId", "stateID", "districtID"
     ];
 
     const documentFieldsConfig = {
@@ -118,33 +123,38 @@ const Dashboard = () => {
       'event-attended': ['certificate_file', 'memento_proof', 'cash_prize_proof'],
       'leave': ['document'],
       'online-course': ['certificate_file', 'certificates'],
-      'achievement': ['certificate_file']
+      'achievement': ['certificate_file'],
+      'publication': ['document', 'paper_link'],
+      'project': ['document', 'report_file'],
+      'hackathon': ['certificate', 'certificate_file'],
+      'extracurricular': ['certificate', 'document'],
+      'noncgpa': ['certificate', 'document_proof']
     };
 
     const renderDocumentLink = (value) => {
       if (!value) return "Not Provided";
-      
+
       try {
         if (Array.isArray(value)) {
           if (value.length === 0) return "Not Provided";
-          
+
           return (
             <div className="flex flex-col gap-1">
               {value.map((file, index) => {
                 const stringValue = String(file);
                 if (!stringValue.trim()) return null;
-                
-                const documentPath = stringValue.startsWith('uploads/') 
-                  ? stringValue 
+
+                const documentPath = stringValue.startsWith('uploads/')
+                  ? stringValue
                   : `${baseUploadPath}${stringValue}`;
-                
+
                 return (
                   <a
                     key={index}
                     href={`${backendUrl}/${encodeURI(documentPath.replace(/\\/g, "/"))}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline"
+                    className="text-indigo-600 hover:underline"
                   >
                     View Document {value.length > 1 ? index + 1 : ''}
                   </a>
@@ -153,20 +163,20 @@ const Dashboard = () => {
             </div>
           );
         }
-        
+
         const stringValue = String(value);
         if (!stringValue.trim()) return "Not Provided";
-        
-        const documentPath = stringValue.startsWith('uploads/') 
-          ? stringValue 
+
+        const documentPath = stringValue.startsWith('uploads/')
+          ? stringValue
           : `${baseUploadPath}${stringValue}`;
-        
+
         return (
           <a
             href={`${backendUrl}/${encodeURI(documentPath.replace(/\\/g, "/"))}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
+            className="text-indigo-600 hover:underline"
           >
             View Document
           </a>
@@ -200,7 +210,7 @@ const Dashboard = () => {
               {Object.entries(value).map(([subKey, subValue]) => {
                 const subDisplayKey = formatFieldName(subKey);
                 const isSubDocField = ['memento_proof', 'cash_prize_proof', 'certificate_file'].includes(subKey);
-      
+
                 if (isSubDocField) {
                   const getDocumentValue = (val) => {
                     if (!val) return null;
@@ -209,11 +219,11 @@ const Dashboard = () => {
                     if (val.url) return val.url;
                     return null;
                   };
-      
-                  const documentValue = Array.isArray(subValue) 
+
+                  const documentValue = Array.isArray(subValue)
                     ? subValue.map(getDocumentValue).filter(Boolean)
                     : getDocumentValue(subValue);
-      
+
                   if (!documentValue || (Array.isArray(documentValue) && documentValue.length === 0)) {
                     return (
                       <div key={subKey} className="mb-1">
@@ -223,7 +233,7 @@ const Dashboard = () => {
                       </div>
                     );
                   }
-      
+
                   if (Array.isArray(documentValue)) {
                     return (
                       <div key={subKey} className="mb-1">
@@ -231,17 +241,17 @@ const Dashboard = () => {
                           <span className="font-medium">{subDisplayKey}:</span>
                           <div className="flex flex-col gap-1 mt-1">
                             {documentValue.map((file, index) => {
-                              const documentPath = file.startsWith('uploads/') 
-                                ? file 
+                              const documentPath = file.startsWith('uploads/')
+                                ? file
                                 : `uploads/event/${file}`;
-                              
+
                               return (
                                 <a
                                   key={index}
                                   href={`${backendUrl}/${encodeURI(documentPath.replace(/\\/g, "/"))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-500 hover:underline"
+                                  className="text-indigo-600 hover:underline"
                                 >
                                   View {subDisplayKey} {documentValue.length > 1 ? index + 1 : ''}
                                 </a>
@@ -252,11 +262,11 @@ const Dashboard = () => {
                       </div>
                     );
                   }
-      
-                  const documentPath = documentValue.startsWith('uploads/') 
-                    ? documentValue 
+
+                  const documentPath = documentValue.startsWith('uploads/')
+                    ? documentValue
                     : `uploads/event/${documentValue}`;
-      
+
                   return (
                     <div key={subKey} className="mb-1">
                       <p className="text-sm text-gray-700">
@@ -265,7 +275,7 @@ const Dashboard = () => {
                           href={`${backendUrl}/${encodeURI(documentPath.replace(/\\/g, "/"))}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline ml-1"
+                          className="text-indigo-600 hover:underline ml-1"
                         >
                           View {subDisplayKey}
                         </a>
@@ -273,7 +283,7 @@ const Dashboard = () => {
                     </div>
                   );
                 }
-      
+
                 return (
                   <div key={subKey} className="mb-1">
                     <p className="text-sm text-gray-700">
@@ -297,13 +307,19 @@ const Dashboard = () => {
     };
 
     const priorityFields = {
-      'internship': ['username', 'regno', 'company', 'position', 'duration', 'description'],
-      'scholarship': ['username', 'regno', 'institution_name', 'amount', 'duration', 'reason'],
-      'event': ['username', 'regno', 'event_name', 'event_type', 'description', 'from_date', 'to_date'],
-      'event-attended': ['username', 'regno', 'event_name', 'event_type', 'description', 'date', 'achievement_details'],
-      'leave': ['username', 'regno', 'reason', 'from_date', 'to_date', 'type'],
-      'online-course': ['username', 'regno', 'course_name', 'platform', 'duration', 'description'],
-      'achievement': ['username', 'regno', 'title', 'description', 'category', 'date', 'achievement_details']
+      'internship': ['username', 'registerNumber', 'company', 'position', 'duration', 'description'],
+      'scholarship': ['username', 'registerNumber', 'institution_name', 'amount', 'duration', 'reason'],
+      'event': ['username', 'registerNumber', 'event_name', 'event_type', 'description', 'from_date', 'to_date'],
+      'event-attended': ['username', 'registerNumber', 'event_name', 'event_type', 'description', 'date', 'achievement_details'],
+      'leave': ['username', 'registerNumber', 'reason', 'from_date', 'to_date', 'type'],
+      'online-course': ['username', 'registerNumber', 'course_name', 'platform', 'duration', 'description'],
+      'achievement': ['username', 'registerNumber', 'title', 'description', 'category', 'date', 'achievement_details'],
+      'publication': ['username', 'registerNumber', 'title', 'publication_type', 'publication_name', 'publisher', 'doi', 'index_type', 'publication_date'],
+      'competency-coding': ['username', 'registerNumber', 'competency_level', 'present_competency', 'gaps_description'],
+      'noncgpa': ['username', 'registerNumber', 'category', 'course_name', 'course_code', 'credits_awarded', 'semester'],
+      'project': ['username', 'registerNumber', 'project_title', 'domain', 'guide_name', 'description', 'project_status', 'start_date', 'end_date'],
+      'hackathon': ['username', 'registerNumber', 'hackathon_name', 'project_title', 'domain', 'team_size', 'role', 'outcome', 'description', 'start_date', 'end_date'],
+      'extracurricular': ['username', 'registerNumber', 'activity_name', 'activity_type', 'level', 'organized_by', 'role', 'description', 'achievement', 'start_date', 'end_date']
     };
 
     const allFields = Object.keys(item)
@@ -311,7 +327,7 @@ const Dashboard = () => {
       .sort((a, b) => {
         const priorityA = priorityFields[item.approvetype]?.indexOf(a) ?? -1;
         const priorityB = priorityFields[item.approvetype]?.indexOf(b) ?? -1;
-        
+
         if (priorityA !== -1 && priorityB !== -1) return priorityA - priorityB;
         if (priorityA !== -1) return -1;
         if (priorityB !== -1) return 1;
@@ -361,7 +377,7 @@ const Dashboard = () => {
   const renderPendingItems = (items = []) => {
     if (isLoading) {
       return <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>;
     }
 
@@ -372,18 +388,45 @@ const Dashboard = () => {
     return items.map((item) => {
       const isOnlineCourse = activeTab === "onlineCourses";
       const isAchievement = activeTab === "achievements";
-      
-      const title = isOnlineCourse 
+      const isHackathon = activeTab === "hackathons";
+      const isProject = activeTab === "projects";
+      const isExtracurricular = activeTab === "extracurricular";
+      const isPublication = activeTab === "publications";
+      const isNonCGPA = activeTab === "nonCGPA";
+
+      const isCompetencyCoding = activeTab === "competencyCoding";
+
+      const title = isOnlineCourse
         ? item.course_name || item.name || "Online Course"
         : isAchievement
-        ? item.title || item.achievement_name || "Achievement"
-        : item.username || item.name || item.event_name || "N/A";
-      
+          ? item.title || item.achievement_name || "Achievement"
+          : isHackathon
+            ? item.hackathon_name || "Hackathon"
+            : isProject
+              ? item.project_title || "Project"
+              : isExtracurricular
+                ? item.activity_name || "Extracurricular Activity"
+                : isPublication
+                  ? item.title || "Publication"
+                  : isNonCGPA
+                    ? item.course_name || "Non-CGPA Course"
+                    : isCompetencyCoding
+                      ? item.competency_level || "Competency Record"
+                      : item.username || item.name || item.event_name || "N/A";
+
       const subtitle = isOnlineCourse
         ? `${item.platform ? `Platform: ${item.platform}` : ''}${item.duration ? ` | Duration: ${item.duration}` : ''}`
         : isAchievement
-        ? `${item.description || ''}${item.category ? ` | Category: ${item.category}` : ''}`
-        : item?.description || item?.reason || item?.club_name || item?.institution_name || "";
+          ? `${item.description || ''}${item.category ? ` | Category: ${item.category}` : ''}`
+          : isPublication
+            ? `${item.publication_type || ''}${item.publisher ? ` | Publisher: ${item.publisher}` : ''}`
+            : isProject
+              ? `${item.domain || ''}${item.project_status ? ` | Status: ${item.project_status}` : ''}`
+              : isNonCGPA
+                ? `${item.category || ''}${item.credits_awarded ? ` | Credits: ${item.credits_awarded}` : ''}`
+                : isCompetencyCoding
+                  ? `Aptitude: ${item.skillrack_aptitude_score || "N/A"} | Rank: ${item.skillrack_rank || "N/A"}`
+                  : item?.description || item?.reason || item?.club_name || item?.institution_name || "";
 
       return (
         <div
@@ -393,7 +436,7 @@ const Dashboard = () => {
           <div className="w-3/4">
             <p className="text-lg font-semibold text-gray-800">
               {title}
-              {item?.regno && ` (Reg No: ${item.regno})`}
+              {(item?.registerNumber || item?.registerNumber) && ` (Reg No: ${item.registerNumber || item.registerNumber})`}
             </p>
             <p className="text-xs text-gray-600 mt-1">
               {subtitle}
@@ -402,7 +445,7 @@ const Dashboard = () => {
           <div className="flex space-x-2">
             <button
               onClick={() => setState(prev => ({ ...prev, selectedItem: item, actionType: "info" }))}
-              className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition-colors"
+              className="bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-600 transition-colors"
             >
               <Info size={16} />
             </button>
@@ -429,14 +472,13 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col h-screen p-6 space-y-6 bg-gradient-to-br from-gray-50 to-gray-100">
-      
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Approval Dashboard</h1>
         <div className="flex space-x-4">
           <div className="relative">
             <Bell
               onClick={() => addNotification(`You have ${currentTabData.length} pending ${activeTab} to approve/reject.`)}
-              className="text-gray-600 text-xl cursor-pointer hover:text-blue-500 transition-colors"
+              className="text-gray-600 text-xl cursor-pointer hover:text-indigo-600 transition-colors"
             />
             {currentTabData.length > 0 && (
               <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 transform translate-x-1/2 -translate-y-1/2">
@@ -446,7 +488,7 @@ const Dashboard = () => {
           </div>
           <Mail
             onClick={() => setState(prev => ({ ...prev, showCommonMessage: !prev.showCommonMessage }))}
-            className="text-gray-600 text-xl cursor-pointer hover:text-blue-500 transition-colors"
+            className="text-gray-600 text-xl cursor-pointer hover:text-indigo-600 transition-colors"
           />
         </div>
       </div>
@@ -476,18 +518,18 @@ const Dashboard = () => {
             placeholder="Student Email"
             value={email}
             onChange={(e) => setState(prev => ({ ...prev, email: e.target.value }))}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 text-sm"
+            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 text-sm"
           />
           <textarea
             placeholder="Enter your message..."
             value={commonMessage}
             onChange={(e) => setState(prev => ({ ...prev, commonMessage: e.target.value }))}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 text-sm"
+            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 text-sm"
             rows="3"
           />
           <div className="flex justify-end space-x-2">
             <button
-              className="bg-blue-500 text-white px-4 py-1.5 rounded-md hover:bg-blue-600 transition-colors text-sm"
+              className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-600 transition-colors text-sm"
               onClick={() => handleSendMessage("Reply")}
             >
               Reply
@@ -506,11 +548,10 @@ const Dashboard = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            className={`px-4 py-2 text-sm font-semibold whitespace-nowrap ${
-              activeTab === tab.id
-                ? "border-b-2 border-blue-500 text-blue-500"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-4 py-2 text-sm font-semibold whitespace-nowrap ${activeTab === tab.id
+              ? "border-b-2 border-indigo-600 text-indigo-600"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
             onClick={() => handleTabChange(tab.id)}
           >
             {tab.name} ({tab.data.length})
@@ -534,14 +575,14 @@ const Dashboard = () => {
 
             {actionType === "info" ? (
               <>
-                <div className="mb-4 bg-blue-50 p-3 rounded-lg">
+                <div className="mb-4 bg-indigo-50 p-3 rounded-lg">
                   <p className="text-sm font-medium text-gray-700">
                     <span className="font-semibold">Name:</span>{" "}
                     {selectedItem.username || selectedItem.name || selectedItem.event_name || selectedItem.course_name || selectedItem.title || "N/A"}
                   </p>
-                  {selectedItem.regno && (
+                  {selectedItem.registerNumber && (
                     <p className="text-sm font-medium text-gray-700">
-                      <span className="font-semibold">Reg No:</span> {selectedItem.regno}
+                      <span className="font-semibold">Reg No:</span> {selectedItem.registerNumber}
                     </p>
                   )}
                 </div>
@@ -562,7 +603,7 @@ const Dashboard = () => {
                   />
                   <Send
                     size={20}
-                    className="text-blue-500 cursor-pointer hover:text-blue-600 transition-colors"
+                    className="text-indigo-600 cursor-pointer hover:text-indigo-600 transition-colors"
                     onClick={() => handleAction(selectedItem, actionType)}
                   />
                 </div>

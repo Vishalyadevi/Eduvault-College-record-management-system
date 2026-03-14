@@ -48,12 +48,12 @@ export const addAchievement = async (req, res) => {
     const { title, description, date_awarded } = req.body;
     const certificate_file = req.file ? req.file.filename : null;
 
-    if (!req.user.Userid) {
+    if (!req.user.userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const achievement = await Achievement.create({
-      Userid: req.user.Userid,
+      Userid: req.user.userId,
       title,
       description,
       date_awarded,
@@ -62,13 +62,13 @@ export const addAchievement = async (req, res) => {
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: req.user.Userid,
-      Updated_by: req.user.Userid,
+      Created_by: req.user.userId,
+      Updated_by: req.user.userId,
     });
 
-    res.status(201).json({ 
-      message: "Achievement submitted for verification.", 
-      achievement 
+    res.status(201).json({
+      message: "Achievement submitted for verification.",
+      achievement
     });
   } catch (error) {
     console.error("❌ Error adding achievement:", error);
@@ -84,12 +84,12 @@ export const getAllAchievements = async (req, res) => {
         {
           model: User,
           as: 'student',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
         },
         {
           model: User,
           as: 'approver',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           required: false
         }
       ],
@@ -114,12 +114,12 @@ export const getUserAchievements = async (req, res) => {
         {
           model: User,
           as: 'student',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
         },
         {
           model: User,
           as: 'approver',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           required: false
         }
       ],
@@ -142,24 +142,24 @@ export const getPendingAchievements = async (req, res) => {
         {
           model: User,
           as: "student",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
         {
           model: User,
           as: "creator",
-          attributes: ["username"],
+          attributes: ["userName"],
         },
         {
           model: User,
           as: "updater",
-          attributes: ["username"],
+          attributes: ["userName"],
         },
       ],
     });
@@ -169,21 +169,21 @@ export const getPendingAchievements = async (req, res) => {
 
       return {
         ...rest,
-        username: student?.username || "N/A",
-        regno: student?.studentDetails?.regno || "N/A",
+        username: student?.userName || "N/A",
+        registerNumber: student?.studentDetails?.registerNumber || "N/A",
         staffId: student?.studentDetails?.staffId || "N/A",
-        createdBy: creator?.username || "N/A",
-        updatedBy: updater?.username || "N/A",
+        createdBy: creator?.userName || "N/A",
+        updatedBy: updater?.userName || "N/A",
       };
     });
 
     res.status(200).json({ success: true, achievements: formattedAchievements });
   } catch (error) {
     console.error("Error fetching pending achievements:", error.message);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Error fetching pending achievements",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -199,7 +199,7 @@ export const approveAchievement = async (req, res) => {
         {
           model: User,
           as: 'student',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
         }
       ]
     });
@@ -215,14 +215,14 @@ export const approveAchievement = async (req, res) => {
     // Update achievement status
     achievement.pending = false;
     achievement.tutor_approval_status = status === 'approved';
-    achievement.Approved_by = req.user.Userid;
+    achievement.Approved_by = req.user.userId;
     achievement.approved_at = new Date();
-    
+
     // Store approval message if provided
     if (message) {
       achievement.messages = achievement.messages || [];
       achievement.messages.push({
-        from: req.user.Userid,
+        from: req.user.userId,
         message,
         timestamp: new Date()
       });
@@ -231,33 +231,33 @@ export const approveAchievement = async (req, res) => {
     await achievement.save();
 
     // Send email notification to student
-    if (achievement.student && achievement.student.email) {
-      const emailSubject = status === 'approved' 
+    if (achievement.student && achievement.student.userMail) {
+      const emailSubject = status === 'approved'
         ? `Achievement Approved: ${achievement.title}`
         : `Achievement Rejected: ${achievement.title}`;
 
       const emailText = status === 'approved'
-        ? `Dear ${achievement.student.username},\n\nYour achievement "${achievement.title}" has been approved.\n\nCongratulations!\n\nRegards,\nThe Achievement Team`
-        : `Dear ${achievement.student.username},\n\nYour achievement "${achievement.title}" has been rejected.\n\nReason: ${message || 'No reason provided'}\n\nRegards,\nThe Achievement Team`;
+        ? `Dear ${achievement.student.userName},\n\nYour achievement "${achievement.title}" has been approved.\n\nCongratulations!\n\nRegards,\nThe Achievement Team`
+        : `Dear ${achievement.student.userName},\n\nYour achievement "${achievement.title}" has been rejected.\n\nReason: ${message || 'No reason provided'}\n\nRegards,\nThe Achievement Team`;
 
       await sendEmail({
-        to: achievement.student.email,
+        to: achievement.student.userMail,
         subject: emailSubject,
         text: emailText
       });
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: `Achievement ${status} successfully`,
-      achievement 
+      achievement
     });
   } catch (error) {
     console.error("Error approving/rejecting achievement:", error.message);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Error processing approval",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -287,14 +287,14 @@ export const updateAchievement = async (req, res) => {
     achievement.description = description || achievement.description;
     achievement.date_awarded = date_awarded || achievement.date_awarded;
     achievement.certificate_file = certificate_file || achievement.certificate_file;
-    achievement.Updated_by = req.user.Userid;
+    achievement.Updated_by = req.user.userId;
     achievement.updatedAt = new Date();
 
     await achievement.save();
 
-    res.status(200).json({ 
-      message: "Achievement updated successfully.", 
-      achievement 
+    res.status(200).json({
+      message: "Achievement updated successfully.",
+      achievement
     });
   } catch (error) {
     console.error("❌ Error updating achievement:", error);
@@ -339,29 +339,29 @@ export const getAchievementById = async (req, res) => {
         {
           model: User,
           as: 'student',
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
         {
           model: User,
           as: 'creator',
-          attributes: ["username", "email"],
+          attributes: ["userName", "userMail"],
         },
         {
           model: User,
           as: 'updater',
-          attributes: ["username", "email"],
+          attributes: ["userName", "userMail"],
         },
         {
           model: User,
           as: 'approver',
-          attributes: ["username", "email"],
+          attributes: ["userName", "userMail"],
         }
       ]
     });

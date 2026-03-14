@@ -1,6 +1,6 @@
 import express from "express";
 import { getStaffDetails, updateStaffDetails } from "../../controllers/staff/PersonalController.js";
-import { authenticate } from "../../middlewares/auth.js"; // Middleware for authentication
+import { authenticate } from "../../middlewares/requireauth.js"; // middlewares for authentication
 
 const router = express.Router();
 

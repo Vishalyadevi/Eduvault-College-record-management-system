@@ -1,5 +1,5 @@
 // controllers/admin/nptelController.js
-import NPTELCourse from "../../models/NPTELCourse.js";
+import NPTELCourse from "../../models/student/NPTELCourse.js";
 
 // Add new NPTEL course (Admin)
 export const addNPTELCourse = async (req, res) => {
@@ -20,8 +20,8 @@ export const addNPTELCourse = async (req, res) => {
     } = req.body;
 
     if (!course_name || !instructor_name || !created_by) {
-      return res.status(400).json({ 
-        message: "Course name, instructor name, and creator ID are required" 
+      return res.status(400).json({
+        message: "Course name, instructor name, and creator ID are required"
       });
     }
 
@@ -46,9 +46,9 @@ export const addNPTELCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error adding NPTEL course:", error);
-    res.status(500).json({ 
-      message: "Error adding course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error adding course",
+      error: error.message
     });
   }
 };
@@ -96,9 +96,9 @@ export const updateNPTELCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating course:", error);
-    res.status(500).json({ 
-      message: "Error updating course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating course",
+      error: error.message
     });
   }
 };
@@ -118,9 +118,9 @@ export const deleteNPTELCourse = async (req, res) => {
     res.status(200).json({ message: "Course deleted successfully" });
   } catch (error) {
     console.error("Error deleting course:", error);
-    res.status(500).json({ 
-      message: "Error deleting course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error deleting course",
+      error: error.message
     });
   }
 };
@@ -129,17 +129,17 @@ export const deleteNPTELCourse = async (req, res) => {
 export const getAllNPTELCourses = async (req, res) => {
   try {
     console.log("📚 Fetching NPTEL courses...");
-    
+
     // First, check total count without filter
     const totalCount = await NPTELCourse.count();
     console.log(`Total courses in DB: ${totalCount}`);
-    
+
     // Check active courses count
     const activeCount = await NPTELCourse.count({
       where: { is_active: true }
     });
     console.log(`Active courses: ${activeCount}`);
-    
+
     // Fetch courses - Try without the is_active filter first
     const courses = await NPTELCourse.findAll({
       // Remove or comment out this line temporarily to test
@@ -158,8 +158,8 @@ export const getAllNPTELCourses = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching courses:", error);
-    res.status(500).json({ 
-      message: "Error fetching courses", 
+    res.status(500).json({
+      message: "Error fetching courses",
       error: error.message,
       stack: error.stack // Add stack trace for debugging
     });
@@ -181,9 +181,9 @@ export const getNPTELCourseById = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching course:", error);
-    res.status(500).json({ 
-      message: "Error fetching course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error fetching course",
+      error: error.message
     });
   }
 };

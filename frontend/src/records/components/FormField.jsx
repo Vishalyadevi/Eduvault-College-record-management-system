@@ -16,7 +16,7 @@ const FormField = ({
   disabled = false,
 }) => {
   const renderField = () => {
-    const baseClasses = "w-full p-3 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white";
+    const baseClasses = "w-full p-3 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-all duration-300 bg-gray-50 focus:bg-white";
     
     switch (type) {
       case 'textarea':
@@ -33,7 +33,7 @@ const FormField = ({
             className={`${baseClasses} resize-none custom-scrollbar`}
             style={{
               scrollbarWidth: 'thin',
-              scrollbarColor: '#3b82f6 #f3f4f6'
+              scrollbarColor: '#4f46e5 #f3f4f6'
             }}
           />
         );
@@ -66,7 +66,7 @@ const FormField = ({
               checked={value || false}
               onChange={onChange}
               disabled={disabled}
-              className="h-4 w-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500 transition-all duration-200"
+              className="h-4 w-4 text-indigo-600 border-2 border-gray-300 rounded focus:ring-indigo-500 transition-all duration-200"
             />
             <label htmlFor={name} className="ml-2 text-sm text-gray-700 font-medium">
               {label}
@@ -101,11 +101,11 @@ const FormField = ({
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         }
       `}</style>
       

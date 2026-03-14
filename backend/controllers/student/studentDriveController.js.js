@@ -4,7 +4,7 @@ import { sendEmail } from '../utils/emailService.js';
 // 1. Get All Upcoming Drives (Student View)
 export const getUpcomingDrives = async (req, res) => {
   try {
-    const studentId = req.user.id; // From auth middleware
+    const studentId = req.user.id; // From auth middlewares
 
     // Get all upcoming drives with registration status
     const [drives] = await db.query(`
@@ -58,7 +58,7 @@ export const registerForDrive = async (req, res) => {
       `SELECT id, company_name, date FROM upcomingdrives WHERE id = ?`,
       [driveId]
     );
-    
+
     if (drive.length === 0) {
       return res.status(404).json({
         success: false,

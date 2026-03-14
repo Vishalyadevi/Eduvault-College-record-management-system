@@ -2,10 +2,16 @@ import React, { useState } from "react";
 import { FaUpload, FaEye, FaTrash, FaGraduationCap, FaIdCard, FaTrophy, FaDownload } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useCertificateContext } from "../../contexts/CertificateContext";
+import config from "../../../config";
+import { useAuth } from "../auth/AuthContext";
+
 
 const StudentCertificate = () => {
   const [activeTab, setActiveTab] = useState("academic");
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
   const { certificates, loading, uploadCertificate, deleteCertificate } = useCertificateContext();
+
 
   // Define certificate categories
   const certificateCategories = {
@@ -33,10 +39,17 @@ const StudentCertificate = () => {
     ],
   };
 
-  // Filter certificates by category
-  const filteredCertificates = certificates.filter(
-    (cert) => cert.category === activeTab
-  );
+  // Map activeTab to ENUM values for filtering
+  const categoryMap = {
+    academic: "Academic",
+    personal: "Personal ID",
+    extracurricular: "Extra-Curricular",
+  };
+
+  // Filter certificates by category (mapped to model ENUM)
+  const filteredCertificates = Array.isArray(certificates)
+    ? certificates.filter((cert) => cert.certificate_type === categoryMap[activeTab])
+    : [];
 
   // Handle file upload
   const handleFileUpload = async (e, certificateType) => {
@@ -55,8 +68,14 @@ const StudentCertificate = () => {
       return;
     }
 
+    const categoryMap = {
+      academic: "Academic",
+      personal: "Personal ID",
+      extracurricular: "Extra-Curricular",
+    };
+
     try {
-      await uploadCertificate(file, activeTab, certificateType);
+      await uploadCertificate(file, categoryMap[activeTab], certificateType);
     } catch (error) {
       console.error("Upload failed:", error);
     }
@@ -67,20 +86,22 @@ const StudentCertificate = () => {
 
   // Handle view certificate
   const handleViewCertificate = (filePath) => {
-    const backendUrl = "http://localhost:4000";
+    const backendUrl = config.backendUrl;
     window.open(`${backendUrl}/${filePath}`, "_blank");
   };
 
+
   // Handle download certificate
   const handleDownloadCertificate = (filePath, fileName) => {
-    const backendUrl = "http://localhost:4000";
+    const backendUrl = config.backendUrl;
     const link = document.createElement("a");
     link.href = `${backendUrl}/${filePath}`;
-    link.download = fileName;
+    link.download = fileName || "certificate.pdf";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
 
   // Handle delete certificate
   const handleDeleteCertificate = (id) => {
@@ -90,8 +111,8 @@ const StudentCertificate = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Student Certificates
       </h2>
 
@@ -103,11 +124,10 @@ const StudentCertificate = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveTab(category)}
-            className={`px-6 py-3 rounded-lg text-lg font-medium transition ${
-              activeTab === category
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                : "bg-white hover:bg-gray-100 text-gray-700 shadow"
-            }`}
+            className={`px-6 py-3 rounded-lg text-lg font-medium transition ${activeTab === category
+              ? "bg-gradient-to-r from-indigo-600 to-indigo-600 text-white shadow-lg"
+              : "bg-white hover:bg-gray-100 text-gray-700 shadow"
+              }`}
           >
             <div className="flex items-center space-x-2">
               {category === "academic" && <FaGraduationCap className="inline-block" />}
@@ -148,7 +168,7 @@ const StudentCertificate = () => {
               className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow flex flex-col space-y-3"
             >
               <span className="text-gray-700 font-medium text-sm">{cert}</span>
-              <label className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer hover:bg-blue-600 transition">
+              <label className="flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-600 transition">
                 <FaUpload className="inline-block" />
                 <span className="text-sm">Upload PDF</span>
                 <input
@@ -185,7 +205,7 @@ const StudentCertificate = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse border border-gray-300">
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Certificate Type</th>
                   <th className="border border-gray-300 p-3 text-left">File Name</th>
@@ -197,17 +217,17 @@ const StudentCertificate = () => {
                 {filteredCertificates.map((cert, idx) => (
                   <tr key={cert.id || idx} className="bg-white hover:bg-gray-50 transition">
                     <td className="border border-gray-300 p-3">{cert.certificate_type}</td>
-                    <td className="border border-gray-300 p-3">{cert.file_name}</td>
+                    <td className="border border-gray-300 p-3">{cert.certificate_name}</td>
                     <td className="border border-gray-300 p-3">
-                      {new Date(cert.upload_date).toLocaleDateString()}
+                      {cert.createdAt ? new Date(cert.createdAt).toLocaleDateString() : "N/A"}
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex justify-center space-x-3">
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => handleViewCertificate(cert.file_path)}
-                          className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition"
+                          onClick={() => handleViewCertificate(cert.certificate_file)}
+                          className="p-2 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-600 transition"
                           title="View Certificate"
                         >
                           <FaEye size={18} />
@@ -215,7 +235,7 @@ const StudentCertificate = () => {
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDownloadCertificate(cert.file_path, cert.file_name)}
+                          onClick={() => handleDownloadCertificate(cert.certificate_file, cert.certificate_name)}
                           className="p-2 rounded-full bg-green-100 hover:bg-green-200 text-green-600 transition"
                           title="Download Certificate"
                         >

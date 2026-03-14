@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import "../../styles/Home.css";
 import ImageSlider from "./imageslider";
+import { useAuth } from "../../../records/pages/auth/AuthContext";
+import api from "../../../records/services/api";
 import {
   ResponsiveContainer,
   LineChart,
@@ -13,11 +15,12 @@ import {
 } from "recharts";
 
 const Home = () => {
-  const [stats, setStats] = useState({ 
-    total_registrations: 0, 
-    placed_count: 0, 
+  const { user } = useAuth();
+  const [stats, setStats] = useState({
+    total_registrations: 0,
+    placed_count: 0,
     avg_package: 0,
-    highest_package: 0 
+    highest_package: 0
   });
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState("");
@@ -36,22 +39,11 @@ const Home = () => {
     "https://nec.edu.in/wp-content/uploads/elementor/thumbs/placement_19_20-copy-qio64bkkyw4f2pkj6yj4us996x3orssw1my20umf1i.webp"
   ];
 
-  // Get admin token (you might need to adjust this based on your auth setup)
-  const getAdminToken = () => {
-    return localStorage.getItem("token") || "";
-  };
-
   // Fetch registration statistics
   useEffect(() => {
-    const token = getAdminToken();
-    
-    fetch("http://localhost:4000/api/registrations/statistics", {
-      headers: { 
-        "Authorization": `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
+    api.get("/placement/registrations/stats")
+      .then(res => {
+        const data = res.data;
         if (data.success && data.data.overview) {
           setStats({
             total_registrations: data.data.overview.total_registrations || 0,
@@ -66,19 +58,13 @@ const Home = () => {
 
   // Fetch all registered students (placed students)
   useEffect(() => {
-    const token = getAdminToken();
-    
-    fetch("http://localhost:4000/api/registrations/registered-students", {
-      headers: { 
-        "Authorization": `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
+    api.get("/placement/registrations")
+      .then(res => {
+        const data = res.data;
         if (data.success && Array.isArray(data.data)) {
           // Filter only placed students
           const placedStudents = data.data.filter(student => student.placed === true || student.placed === 1);
-          
+
           setStudentDetails(placedStudents);
           setFilteredData(placedStudents);
 
@@ -128,26 +114,26 @@ const Home = () => {
     let filteredResults = [...studentDetails];
 
     if (selectedCompany) {
-      filteredResults = filteredResults.filter(student => 
+      filteredResults = filteredResults.filter(student =>
         student.company_name === selectedCompany
       );
     }
 
     if (selectedYear) {
-      filteredResults = filteredResults.filter(student => 
-        student.batch === selectedYear || 
+      filteredResults = filteredResults.filter(student =>
+        student.batch === selectedYear ||
         new Date(student.created_at).getFullYear().toString() === selectedYear
       );
     }
 
     if (selectedDepartment) {
-      filteredResults = filteredResults.filter(student => 
+      filteredResults = filteredResults.filter(student =>
         student.department && student.department.toLowerCase().includes(selectedDepartment.toLowerCase())
       );
     }
 
     // Sort by package (highest first)
-    filteredResults.sort((a, b) => 
+    filteredResults.sort((a, b) =>
       (parseFloat(b.placement_package) || 0) - (parseFloat(a.placement_package) || 0)
     );
 
@@ -162,7 +148,7 @@ const Home = () => {
   };
 
   // Get unique years from student data
-  const uniqueYears = [...new Set(studentDetails.map(s => 
+  const uniqueYears = [...new Set(studentDetails.map(s =>
     s.batch || new Date(s.created_at).getFullYear().toString()
   ))].sort();
 
@@ -171,10 +157,8 @@ const Home = () => {
 
   return (
     <>
-      
-      <div className="home-container"
-            style={{ marginLeft: "250px", padding: "20px" }}
->
+
+      <div className="min-h-screen bg-gray-50 bg-opacity-30">
         <h3 className="section-title">2025 Placement Statistics</h3>
         <div className="stats-container">
           <div className="stat-box">
@@ -235,12 +219,12 @@ const Home = () => {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line 
-                type="linear" 
-                dataKey="count" 
-                stroke="#2375f0" 
-                strokeWidth={3} 
-                dot={{ r: 5 }} 
+              <Line
+                type="linear"
+                dataKey="count"
+                stroke="#2375f0"
+                strokeWidth={3}
+                dot={{ r: 5 }}
                 activeDot={{ r: 7 }}
                 name="Students Placed"
               />
@@ -251,7 +235,7 @@ const Home = () => {
         {/* Enhanced Filter Section */}
         <div className="dropdown-container">
           <h3 style={{ width: '100%', marginBottom: '15px' }}>Filter Placed Students</h3>
-          
+
           <label>Select Company: </label>
           <select value={selectedCompany} onChange={handleCompanyChange}>
             <option value="">-- All Companies --</option>
@@ -288,7 +272,7 @@ const Home = () => {
         {filteredData.length > 0 ? (
           <div className="student-details">
             <h3>
-              Placed Students 
+              Placed Students
               {selectedCompany && ` - ${selectedCompany}`}
               {selectedYear && ` - Batch ${selectedYear}`}
               {selectedDepartment && ` - ${selectedDepartment}`}
@@ -311,7 +295,7 @@ const Home = () => {
               <tbody>
                 {filteredData.map((student, index) => (
                   <tr key={index}>
-                    <td>{student.regno || 'N/A'}</td>
+                    <td>{student.registerNumber || 'N/A'}</td>
                     <td>{student.username || 'N/A'}</td>
                     <td>{student.batch || new Date(student.created_at).getFullYear()}</td>
                     <td>{student.department || 'N/A'}</td>
@@ -330,13 +314,13 @@ const Home = () => {
         ) : (
           <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '8px', margin: '20px 0' }}>
             <p style={{ fontSize: '18px', color: '#666' }}>
-              {studentDetails.length === 0 
-                ? 'No placement data available yet.' 
+              {studentDetails.length === 0
+                ? 'No placement data available yet.'
                 : 'No students found matching the selected filters.'}
             </p>
             {(selectedCompany || selectedYear || selectedDepartment) && (
-              <button 
-                className="submit-btn" 
+              <button
+                className="submit-btn"
                 onClick={handleReset}
                 style={{ marginTop: '15px' }}
               >

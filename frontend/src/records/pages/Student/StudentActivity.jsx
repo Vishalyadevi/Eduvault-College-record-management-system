@@ -1,10 +1,19 @@
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import { useNavigate, useParams } from "react-router-dom";
+import { User, Calendar, FileText, Award, Briefcase, GraduationCap, Users } from "lucide-react";
 import { toast } from "react-toastify";
-import { useNavigate, useParams } from "react-router-dom"; // Import useParams
+import { useAuth } from "../auth/AuthContext";
+import API from "../../services/api";
+import config from "../../../config";
 
-const StudentBioData = () => {
-  const { userId } = useParams(); // Get userId from URL
+
+const StudentActivity = () => {
+  const { userId } = useParams();
+  const { user: authUser } = useAuth();
+
+  const backendUrl = config.backendUrl;
+  const navigate = useNavigate();
+
   const [user, setUser] = useState({
     username: "",
     email: "",
@@ -12,16 +21,17 @@ const StudentBioData = () => {
     profileImage: "",
   });
   const [student, setStudent] = useState(null);
+
   const [events, setEvents] = useState([]); // Add state for events
   const [courses, setCourses] = useState([]);
   const [organizedEvents, setOrganizedEvents] = useState([]);
   const [internships, setInternships] = useState([]); // Internships added
   const [scholarships, setScholarships] = useState([]);
-  const [approvedLeaves,setApprovedLeaves]=useState([]);
+  const [approvedLeaves, setApprovedLeaves] = useState([]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    
+
     try {
       const options = { year: 'numeric', month: 'short', day: 'numeric' };
       return new Date(dateString).toLocaleDateString('en-US', options);
@@ -32,197 +42,105 @@ const StudentBioData = () => {
   };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  const backendUrl = "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const navigate = useNavigate();
 
 
- 
-
-  // Fetch student data
-  useEffect(() => {
-    const fetchStudentDetails = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${backendUrl}/api/biodata/${userId}`); // Fetch by userId only
-        console.log(response.data); // Debugging
-        setStudent(response.data);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching student details:", err);
-        setError("Failed to load student details.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStudentDetails();
-  }, [userId]);
-
-  useEffect(() => {
-    const fetchUserDetails = async () => {
-      try {
-        if (!userId) {
-          toast.error("User ID not found.");
-          return;
-        }
-  
-        const response = await axios.get(`${backendUrl}/api/get-user/${userId}`);
-        if (response.data.success) {
-          setUser({
-            username: response.data.user.username,
-            email: response.data.user.email,
-            role: response.data.user.role,
-            profileImage: response.data.user.profileImage
-              ? `${backendUrl}${response.data.user.profileImage}`
-              : "https://via.placeholder.com/150",
-          });
-        } else {
-          toast.error("Failed to fetch user details.");
-        }
-      } catch (error) {
-        console.error("Error fetching user details:", error);
-        toast.error("Error fetching user details.");
-      }
-    };
-  
-    fetchUserDetails();
-  }, [userId]); // ✅ Corrected dependency array
-
-  // Fetch events attended by the student
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/approved-events/${userId}`); // Assuming there's an endpoint for events attended
-  
-        setEvents(response.data || []); // Set events data
-      } catch (err) {
-        console.error("Error fetching events:", err);
-        setError("Failed to load events.");
-      }
-    };
-
-    if (userId) {
-      fetchEvents();
-    }
-  }, [userId]);
 
 
-  
 
-  useEffect(() => {
-    const fetchUserCourses = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/user-courses/${userId}`);
-
-        setCourses(response.data.courses || []);
-      } catch (err) {
-        setError("Failed to fetch courses.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (userId) {
-      fetchUserCourses();
-    }
-  }, [userId]);
-
-  // Fetch events organized by the student
-  const fetchEventsOrganized = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
-    setError(null);
-
     try {
-      const response = await axios.get(`${backendUrl}/api/approved-events-organized/${userId}`);
+      const effectiveUserId = userId || authUser?.userId || authUser?.id;
 
-      setOrganizedEvents(response.data || []);
+
+      if (!effectiveUserId) {
+        setError("User ID not found.");
+        return;
+      }
+
+      // Fetch student biodata
+      const studentRes = await API.get(`/biodata/${effectiveUserId}`);
+      setStudent(studentRes.data);
+
+      // Fetch user details
+      const userRes = await API.get(`/auth/get-user/${effectiveUserId}`);
+      if (userRes.data.success) {
+        setUser({
+          username: userRes.data.user.username,
+          email: userRes.data.user.email,
+          role: userRes.data.user.role,
+          profileImage: userRes.data.user.profileImage
+            ? `${backendUrl}${userRes.data.user.profileImage}`
+            : "https://via.placeholder.com/150",
+        });
+      }
+
+      // Fetch events attended
+      const eventsRes = await API.get(`/approved-events/${effectiveUserId}`);
+      setEvents(eventsRes.data || []);
+
+      // Fetch courses
+      const coursesRes = await API.get(`/user-courses/${effectiveUserId}`);
+      setCourses(coursesRes.data.courses || []);
+
+      // Fetch organized events
+      const organizedRes = await API.get(`/approved-events-organized/${effectiveUserId}`);
+      setOrganizedEvents(organizedRes.data || []);
+
+      // Fetch internships
+      const internshipsRes = await API.get(`/approved-internships/${effectiveUserId}`);
+      setInternships(internshipsRes.data || []);
+
+      // Fetch scholarships
+      const scholarshipsRes = await API.get(`/fetch-scholarships/${effectiveUserId}`);
+      setScholarships(scholarshipsRes.data || []);
+
+      // Fetch leaves
+      const leavesRes = await API.get(`/fetch-leaves/${effectiveUserId}`);
+      setApprovedLeaves(leavesRes.data || []);
+
+      setError(null);
     } catch (err) {
-      setError("Failed to fetch organized events.");
+      console.error("Error fetching data:", err);
+      setError("Failed to load student details.");
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, authUser, backendUrl]);
 
-  // Call the fetchEventsOrganized when component mounts
   useEffect(() => {
-    if (userId) {
-      fetchEventsOrganized();
+    if (userId || authUser) {
+      fetchAllData();
     }
-  }, [userId, fetchEventsOrganized]);
-
-  useEffect(() => {
-    const fetchInternships = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/approved-internships/${userId}`);
-        console.log("Full Response Data:", response.data); // Check the full response
-        // ✅ Fix: Directly set response.data (since it's already an array)
-        setInternships(response.data || []);
-      } catch (err) {
-        console.error("Error fetching internships:", err);
-        setError("Failed to fetch internships.");
-      }
-    };
-  
-    if (userId) fetchInternships();
-  }, [userId]);
-
-
-  useEffect(() => {
-    const fetchScholarships = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/fetch-scholarships/${userId}`);
-        console.log("Full Response Data:", response.data); // Check the full response
-        // ✅ Fix: Directly set response.data (since it's already an array)
-        setScholarships(response.data || []);
-      } catch (err) {
-        console.error("Error fetching scholarships:", err);
-        setError("Failed to fetch scholarships.");
-      }
-    };
-  
-    if (userId) fetchScholarships();
-  }, [userId]);
-
-
-  useEffect(() => {
-    const fetchLeaves = async () => {
-      try {
-        const response = await axios.get(`${backendUrl}/api/fetch-leaves/${userId}`);
-        console.log("Leave:", response.data); // Check the full response
-        
-        setApprovedLeaves(response.data || []);
-      } catch (err) {
-        console.error("Error fetching leave:", err);
-        setError("Failed to fetch leave.");
-      }
-    };
-  
-    if (userId) fetchLeaves();
-  }, [userId]);
-  
+  }, [userId, authUser, fetchAllData]);
 
 
 
-  
-  
+
+
+
+
+
+
+
+
+
 
 
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Student BioData
       </h2>
-  
-       {/* User Details */}
-       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+
+      {/* User Details */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <div className="relative w-32 h-32 mx-auto mb-6">
           <img
             src={user.profileImage}
             alt="Profile"
-            className="w-32 h-32 rounded-full mx-auto border-4 border-blue-200 object-cover"
+            className="w-32 h-32 rounded-full mx-auto border-4 border-indigo-200 object-cover"
           />
         </div>
         <div className="text-center">
@@ -231,18 +149,18 @@ const StudentBioData = () => {
           <p className="text-gray-600">{user.role}</p>
         </div>
       </div>
-  
+
       {/* Student Biodata Section */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Student Biodata</h2>
-  
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Student Biodata</h2>
+
         {/* Personal Information - Grid Layout */}
         <div className="mb-8">
           <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">Personal Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Reg No</p>
-              <p className="font-semibold">{student?.regno || 'N/A'}</p>
+              <p className="font-semibold">{student?.registerNumber || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Batch</p>
@@ -250,7 +168,7 @@ const StudentBioData = () => {
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Department</p>
-              <p className="font-semibold">{student?.studentUser?.Department?.Deptname || 'N/A'}</p>
+              <p className="font-semibold">{student?.studentUser?.Department?.departmentName || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Course</p>
@@ -258,7 +176,7 @@ const StudentBioData = () => {
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Semester</p>
-              <p className="font-semibold">{student?.Semester || 'N/A'}</p>
+              <p className="font-semibold">{student?.semester || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Section</p>
@@ -330,7 +248,7 @@ const StudentBioData = () => {
             </div>
           </div>
         </div>
-  
+
         {/* Family Details - Table Layout */}
         <div className="mb-8">
           <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">Family Details</h3>
@@ -367,7 +285,7 @@ const StudentBioData = () => {
             <p className="text-gray-500 italic">No family details available.</p>
           )}
         </div>
-  
+
         {/* Bank Details - Grid Layout */}
         <div>
           <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">Bank Details</h3>
@@ -405,462 +323,462 @@ const StudentBioData = () => {
       </div>
 
 
-       {/* Events Section */}
-       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Events Attended</h2>
+      {/* Events Section */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Events Attended</h2>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Event Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Event Type
-                  </th>
-    
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Institution Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Certificate
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {events.map((event) => (
-                  <tr key={event.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.event_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.event_type}</div>
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.institution_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.mode}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.from_date && event.to_date
-              ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
-              : "N/A"}</div>
-                    </td>
-                  
-                    <td className="px-6 py-4 whitespace-nowrap">
-                  {event.certificate_file ? (
-                    <a
-                      href={`http://localhost:4000/uploads/event/${event.certificate_file}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View Certificate
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-500">No Certificate</span>
-                  )}
-                </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.participation_status}</div>
-                    </td>
-                    {/* Add other event details */}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Event Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Event Type
+                </th>
 
-
-        {/* Events Organized Section */}
-<div className="bg-white p-6 rounded-lg shadow-md mb-6">
-  <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Events Organized</h2>
-
-  <div className="overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Event Name
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Club Name
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Role
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Staff Incharge
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Start Date
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            End Date
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Participants
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Mode
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Funding Agency
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Funding Amount
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {organizedEvents.map((event) => (
-          <tr key={event.id} className="hover:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.event_name}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.club_name}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.role}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.staff_incharge}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.start_date && new Date(event.start_date).toLocaleDateString()}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.end_date && new Date(event.end_date).toLocaleDateString()}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.number_of_participants}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.mode}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.funding_agency}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{event.funding_amount}</div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-  
-
-  {/* Online Courses Section - Styled to match */}
-    <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Online Courses</h2>
-      
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Course Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Instructor
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Provider
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Certificate
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {courses.map((course) => (
-              <tr key={course.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{course.course_name}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {course.instructor_name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {course.provider_name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {course.certificate_file ? (
-                    <a
-                      href={`http://localhost:4000/uploads/certificates/${course.certificate_file}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View Certificate
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-500">No Certificate</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    course.status === "Completed" 
-                      ? "bg-green-100 text-green-800" 
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}>
-                    {course.status}
-                  </span>
-                </td>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Institution Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mode
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duration
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Certificate
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {events.map((event) => (
+                <tr key={event.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.event_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.event_type}</div>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.institution_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.mode}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.from_date && event.to_date
+                      ? `${new Date(event.from_date).toLocaleDateString()} - ${new Date(event.to_date).toLocaleDateString()}`
+                      : "N/A"}</div>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {event.certificate_file ? (
+                      <a
+                        href={`${backendUrl}/uploads/event/${event.certificate_file}`}
+
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-blue-800"
+                      >
+                        View Certificate
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-500">No Certificate</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.participation_status}</div>
+                  </td>
+                  {/* Add other event details */}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-
-    {/* Internships Section - Styled to match */}
-<div className="bg-white p-6 rounded-lg shadow-md mb-6">
-  <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Internships</h2>
-
-  <div className="overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Provider
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Domain
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Mode
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Duration
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Stipend
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Certificate
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Status
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {internships.map((internship) => (
-          <tr key={internship.id} className="hover:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{internship.provider_name}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {internship.domain}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {internship.mode}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-  {formatDate(internship.start_date)} - {formatDate(internship.end_date)}
-</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {internship.stipend ? `₹${internship.stipend}` : "Unpaid"}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              {internship.certificate ? (
-                <a
-                  href={`http://localhost:4000/uploads/${internship.certificate}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  View Certificate
-                </a>
-              ) : (
-                <span className="text-sm text-gray-500">No Certificate</span>
-              )}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                internship.status === "Completed" 
-                  ? "bg-green-100 text-green-800" 
-                  : "bg-yellow-100 text-yellow-800"
-              }`}>
-                {internship.status}
-              </span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{/* Scholarships Section - Styled to match */}
-<div className="bg-white p-6 rounded-lg shadow-md mb-6">
-  <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Scholarships</h2>
-
-  <div className="overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Scholarship Name
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Provider
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Type
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Year
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Status
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Applied Date
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Amount Received
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Received Date
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {scholarships.map((scholarship) => (
-          <tr key={scholarship.id} className="hover:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900">{scholarship.name}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.provider}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.type}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.year}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                scholarship.status === "Received"
-                  ? "bg-green-100 text-green-800"
-                  : scholarship.status === "Applied"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : "bg-red-100 text-red-800"
-              }`}>
-                {scholarship.status}
-              </span>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.appliedDate}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.receivedAmount}</div>
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <div className="text-sm font-medium text-gray-900">{scholarship.receivedDate}</div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
 
 
-{/* Leaves Section - Styled to match */}
-<div className="bg-white p-6 rounded-lg shadow-md mb-6">
-  <h2 className="text-2xl font-bold text-blue-700 mb-6 border-b pb-2">Approved Leaves</h2>
+      {/* Events Organized Section */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Events Organized</h2>
 
-  <div className="overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Leave Type
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Reason
-          </th>
-         
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Start Date
-          </th>
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            End Date
-          </th>
-          
-          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Document
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {approvedLeaves.map((leave) => (
-          <tr key={leave.id} className="hover:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {leave.leave_type}
-            </td>
-           
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {leave.reason}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {leave.start_date.split("T")[0]}
-              
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {leave.end_date.split("T")[0]}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap">
-              {leave.document ? (
-                <a
-                  href={`${backendUrl}/uploads/leaves/${leave.document}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  View Document
-                </a>
-              ) : (
-                <span className="text-sm text-gray-500">No Document</span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Event Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Club Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Staff Incharge
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Start Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  End Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Participants
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mode
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Funding Agency
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Funding Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {organizedEvents.map((event) => (
+                <tr key={event.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.event_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.club_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.role}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.staff_incharge}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.start_date && new Date(event.start_date).toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.end_date && new Date(event.end_date).toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.number_of_participants}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.mode}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.funding_agency}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{event.funding_amount}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-  
+
+      {/* Online Courses Section - Styled to match */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Online Courses</h2>
+
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Course Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Instructor
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Provider
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Certificate
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {courses.map((course) => (
+                <tr key={course.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{course.course_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {course.instructor_name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {course.provider_name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {course.certificate_file ? (
+                      <a
+                        href={`${backendUrl}/uploads/certificates/${course.certificate_file}`}
+
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-blue-800"
+                      >
+                        View Certificate
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-500">No Certificate</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${course.status === "Completed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
+                      }`}>
+                      {course.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Internships Section - Styled to match */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Internships</h2>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Provider
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Domain
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mode
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duration
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stipend
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Certificate
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {internships.map((internship) => (
+                <tr key={internship.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{internship.provider_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {internship.domain}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {internship.mode}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(internship.start_date)} - {formatDate(internship.end_date)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {internship.stipend ? `₹${internship.stipend}` : "Unpaid"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {internship.certificate ? (
+                      <a
+                        href={`${backendUrl}/uploads/${internship.certificate}`}
+
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-blue-800"
+                      >
+                        View Certificate
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-500">No Certificate</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${internship.status === "Completed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
+                      }`}>
+                      {internship.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Scholarships Section - Styled to match */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Scholarships</h2>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Scholarship Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Provider
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Year
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Applied Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount Received
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Received Date
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {scholarships.map((scholarship) => (
+                <tr key={scholarship.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.provider}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.type}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.year}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${scholarship.status === "Received"
+                      ? "bg-green-100 text-green-800"
+                      : scholarship.status === "Applied"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                      }`}>
+                      {scholarship.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.appliedDate}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.receivedAmount}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{scholarship.receivedDate}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      {/* Leaves Section - Styled to match */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Approved Leaves</h2>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Leave Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Reason
+                </th>
+
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Start Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  End Date
+                </th>
+
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Document
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {approvedLeaves.map((leave) => (
+                <tr key={leave.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {leave.leave_type}
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {leave.reason}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {leave.start_date.split("T")[0]}
+
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {leave.end_date.split("T")[0]}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {leave.document ? (
+                      <a
+                        href={`${backendUrl}/uploads/leaves/${leave.document}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-blue-800"
+                      >
+                        View Document
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-500">No Document</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
       {/* Back Button */}
       <div className="flex justify-center mt-6">
         <button
           onClick={() => navigate(-1)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-full transition-colors duration-300 shadow-md"
+          className="bg-indigo-600 hover:bg-indigo-600 text-white font-medium py-2 px-6 rounded-full transition-colors duration-300 shadow-md"
         >
           Back to Profile
         </button>
@@ -872,4 +790,5 @@ const StudentBioData = () => {
   );
 }
 
-export default StudentBioData;
+export default StudentActivity;
+

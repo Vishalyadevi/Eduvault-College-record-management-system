@@ -15,7 +15,7 @@ import {
   downloadMarksheet,
   getApprovedCourses
 } from "../../controllers/student/CourseController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 import { upload } from "../../utils/fileUpload.js";
 
 const router = express.Router();

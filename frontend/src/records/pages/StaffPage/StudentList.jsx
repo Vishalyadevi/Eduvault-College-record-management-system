@@ -132,7 +132,7 @@ const Achievements = () => {
   const safeAchievements = Array.isArray(achievements) ? achievements : [];
 
   return (
-    <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+    <div className="p-6 bg-gradient-to-br from-indigo-50 to-indigo-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <motion.div
@@ -141,7 +141,7 @@ const Achievements = () => {
           transition={{ duration: 0.4 }}
           className="mb-8 text-center"
         >
-          <h2 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
             My Achievements
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
@@ -157,7 +157,7 @@ const Achievements = () => {
           className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-100"
         >
           <div className="flex items-center mb-6 justify-center">
-            <div className={`w-2 h-8 rounded-full ${isEditing ? 'bg-purple-600' : 'bg-blue-600'} mr-3`}></div>
+            <div className={`w-2 h-8 rounded-full ${isEditing ? 'bg-indigo-600' : 'bg-indigo-600'} mr-3`}></div>
             <h3 className="text-xl font-semibold text-gray-800">
               {isEditing ? "Edit Achievement" : "Add New Achievement"}
             </h3>
@@ -172,7 +172,7 @@ const Achievements = () => {
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition"
                   placeholder="e.g. Best Research Paper"
                   required
                 />
@@ -185,7 +185,7 @@ const Achievements = () => {
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition"
                   placeholder="Brief description"
                 />
               </div>
@@ -197,7 +197,7 @@ const Achievements = () => {
                   name="date_awarded"
                   value={formData.date_awarded}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition"
                   required
                 />
               </div>
@@ -247,8 +247,8 @@ const Achievements = () => {
                   loading 
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : isEditing 
-                      ? 'bg-purple-600 hover:bg-purple-700' 
-                      : 'bg-blue-600 hover:bg-blue-700'
+                      ? 'bg-indigo-600 hover:bg-indigo-700' 
+                      : 'bg-indigo-600 hover:bg-indigo-700'
                 }`}
               >
                 {loading ? (
@@ -285,7 +285,7 @@ const Achievements = () => {
                 </p>
               </div>
               {loading && (
-                <div className="flex items-center text-blue-600">
+                <div className="flex items-center text-indigo-600">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -345,7 +345,7 @@ const Achievements = () => {
                             href={`http://localhost:4000/uploads/achievements/${achievement.certificate_file}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 transition flex items-center"
+                            className="text-indigo-600 hover:text-blue-800 transition flex items-center"
                           >
                             <FaEye className="mr-1" /> View
                           </a>
@@ -367,7 +367,7 @@ const Achievements = () => {
                             className={`p-2 rounded-md ${
                               achievement.verification_status === "Verified"
                                 ? "text-gray-400 cursor-not-allowed"
-                                : "text-blue-600 hover:bg-blue-50"
+                                : "text-indigo-600 hover:bg-indigo-50"
                             }`}
                             title={achievement.verification_status === "Verified" ? "Verified achievements cannot be edited" : "Edit"}
                           >

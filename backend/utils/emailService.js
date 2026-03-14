@@ -1,56 +1,53 @@
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Validate required environment variables
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  throw new Error("❌ Missing required environment variables: EMAIL_USER and EMAIL_PASS");
-}
-
-// Configure the email transporter
+// Create reusable transporter
 const transporter = nodemailer.createTransport({
-  service: "Gmail",
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
+// Verify transporter configuration
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log('❌ Email transporter error:', error);
+  } else {
+    console.log('✅ Email server is ready to send messages');
+  }
+});
+
 /**
- * Sends an email using Nodemailer.
- * @param {Object} mailOptions - Email details.
- * @param {string} mailOptions.from - Sender's email.
- * @param {string} mailOptions.to - Recipient's email.
- * @param {string} mailOptions.subject - Email subject.
- * @param {string} mailOptions.text - Plain text email content.
- * @param {string} mailOptions.html - HTML email content.
- * @param {Array} mailOptions.attachments - Email attachments.
- * @returns {Object} - Success or failure response.
+ * Send email
+ * @param {Object} options - Email options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.subject - Email subject
+ * @param {string} options.text - Plain text body
+ * @param {string} options.html - HTML body
  */
-export const sendEmail = async ({ from, to, subject, text, html, attachments }) => {
+export const sendEmail = async ({ to, subject, text, html }) => {
   try {
     const mailOptions = {
-      from: from || process.env.EMAIL_USER, // Use default sender if not provided
+      from: `"Admin System" <${process.env.EMAIL_USER}>`,
       to,
       subject,
-      text, // Plain text body
-      html, // HTML body
-      attachments, // Array of attachments
+      text,
+      html,
     };
 
-    // Validate required fields
-    if (!to || !subject || (!text && !html)) {
-      throw new Error("❌ Missing required email fields: to, subject, and text/html");
-    }
-
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully:", info.response);
-
-    return { success: true, response: info.response };
+    console.log('✅ Email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("❌ Failed to send email:", error.message);
-
-    return { success: false, error: error.message };
+    console.error('❌ Error sending email:', error);
+    throw error;
   }
 };
+
+export default { sendEmail };

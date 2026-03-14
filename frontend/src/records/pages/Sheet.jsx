@@ -101,9 +101,9 @@ const Sheet = () => {
                     <DragDropContext onDragEnd={handleDragEnd}>
                         <Droppable droppableId="columns">
                             {(provided) => (
-                                <div 
-                                    {...provided.droppableProps} 
-                                    ref={provided.innerRef} 
+                                <div
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
                                     style={styles.droppableArea}
                                 >
                                     {selectedColumns.map((col, index) => (
@@ -133,8 +133,8 @@ const Sheet = () => {
             )}
 
             {/* Export Button */}
-            <button 
-                onClick={handleExport} 
+            <button
+                onClick={handleExport}
                 disabled={!role || selectedColumns.length === 0}
                 style={styles.button}
             >
@@ -208,7 +208,7 @@ const styles = {
     button: {
         width: "100%",
         padding: "10px",
-        backgroundColor: "blue",
+        backgroundColor: 'indigo',
         color: "white",
         border: "none",
         borderRadius: "5px",

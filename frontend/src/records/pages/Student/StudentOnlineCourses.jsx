@@ -2,6 +2,10 @@ import React, { useState, useEffect } from "react";
 import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useOnlineCourses } from "../../contexts/OnlineCoursesContext";
+import { useAuth } from "../auth/AuthContext";
+import config from "../../../config";
+
+
 
 const StudentOnlineCourses = () => {
   const {
@@ -15,11 +19,14 @@ const StudentOnlineCourses = () => {
     updateOnlineCourse,
     deleteOnlineCourse,
   } = useOnlineCourses();
-// Default types
-const defaultTypes = ["NPTEL", "Coursera", "Udemy", "Other"];
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
 
-// State to hold dynamic types (starts with defaults, grows with custom ones)
-const [availableTypes, setAvailableTypes] = useState(defaultTypes);
+  // Default types
+  const defaultTypes = ["NPTEL", "Coursera", "Udemy", "Other"];
+
+  // State to hold dynamic types (starts with defaults, grows with custom ones)
+  const [availableTypes, setAvailableTypes] = useState(defaultTypes);
 
   const [formData, setFormData] = useState({
     course_name: "",
@@ -38,18 +45,18 @@ const [availableTypes, setAvailableTypes] = useState(defaultTypes);
     fetchOnlineCourses();
     fetchPendingCourses();
   }, [fetchOnlineCourses, fetchPendingCourses]);
-// Load custom types from already added courses (so they appear on page load)
-useEffect(() => {
-  const allCourses = [...onlineCourses, ...pendingCourses];
-  const customTypes = allCourses
-    .filter((course) => course.type === "Other" && course.other_type?.trim())
-    .map((course) => course.other_type.trim())
-    .filter((value, index, self) => self.indexOf(value) === index); // unique only
+  // Load custom types from already added courses (so they appear on page load)
+  useEffect(() => {
+    const allCourses = [...onlineCourses, ...pendingCourses];
+    const customTypes = allCourses
+      .filter((course) => course.type === "Other" && course.other_type?.trim())
+      .map((course) => course.other_type.trim())
+      .filter((value, index, self) => self.indexOf(value) === index); // unique only
 
-  if (customTypes.length > 0) {
-    setAvailableTypes([...defaultTypes, ...customTypes]);
-  }
-}, [onlineCourses, pendingCourses]);
+    if (customTypes.length > 0) {
+      setAvailableTypes([...defaultTypes, ...customTypes]);
+    }
+  }, [onlineCourses, pendingCourses]);
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
     setFormData({
@@ -63,7 +70,7 @@ useEffect(() => {
     e.preventDefault();
     try {
       const formDataToSend = new FormData();
-      
+
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== "") {
@@ -74,12 +81,12 @@ useEffect(() => {
       // No need to append Userid - backend gets it from req.user
       await addOnlineCourse(formDataToSend);
       // If user added a new "Other" type → add it to dropdown options
-if (formData.type === "Other" && formData.other_type?.trim()) {
-  const newType = formData.other_type.trim();
-  setAvailableTypes((prev) =>
-    prev.includes(newType) ? prev : [...prev, newType]
-  );
-}
+      if (formData.type === "Other" && formData.other_type?.trim()) {
+        const newType = formData.other_type.trim();
+        setAvailableTypes((prev) =>
+          prev.includes(newType) ? prev : [...prev, newType]
+        );
+      }
       resetForm();
     } catch (err) {
       console.error("Error adding course:", err);
@@ -100,7 +107,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
       certificate: null,
       additional_info: course.additional_info || "",
     });
-    
+
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -110,7 +117,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
     e.preventDefault();
     try {
       const formDataToSend = new FormData();
-      
+
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== "") {
@@ -121,11 +128,11 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
       // No need to append Userid - backend gets it from req.user
       await updateOnlineCourse(editingCourseId, formDataToSend);
       if (formData.type === "Other" && formData.other_type?.trim()) {
-  const newType = formData.other_type.trim();
-  setAvailableTypes((prev) =>
-    prev.includes(newType) ? prev : [...prev, newType]
-  );
-}
+        const newType = formData.other_type.trim();
+        setAvailableTypes((prev) =>
+          prev.includes(newType) ? prev : [...prev, newType]
+        );
+      }
       resetForm();
     } catch (err) {
       console.error("Error updating course:", err);
@@ -138,7 +145,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
     if (!window.confirm("Are you sure you want to delete this course?")) {
       return;
     }
-    
+
     try {
       await deleteOnlineCourse(courseId);
     } catch (err) {
@@ -169,8 +176,8 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
   const allCourses = [...pendingCourses, ...onlineCourses];
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Online Courses
       </h2>
 
@@ -194,7 +201,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
             </button>
           )}
         </div>
-        
+
         <form onSubmit={editingCourseId ? handleUpdate : handleSubmit} className="space-y-4">
           {/* Grid Container */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -208,7 +215,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 name="course_name"
                 value={formData.course_name}
                 onChange={handleChange}
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Enter course name"
                 required
               />
@@ -220,18 +227,18 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 Type <span className="text-red-500">*</span>
               </label>
               <select
-  name="type"
-  value={formData.type}
-  onChange={handleChange}
-  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-  required
->
-  {availableTypes.map((type) => (
-    <option key={type} value={type}>
-      {type}
-    </option>
-  ))}
-</select>
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                {availableTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Other Type (Conditional) */}
@@ -245,7 +252,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                   name="other_type"
                   value={formData.other_type}
                   onChange={handleChange}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Enter type"
                   required
                 />
@@ -262,7 +269,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 name="provider_name"
                 value={formData.provider_name}
                 onChange={handleChange}
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Enter provider name"
                 required
               />
@@ -278,7 +285,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 name="instructor_name"
                 value={formData.instructor_name}
                 onChange={handleChange}
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Enter instructor name"
                 required
               />
@@ -293,7 +300,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="Ongoing">Ongoing</option>
@@ -311,7 +318,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                   type="file"
                   name="certificate"
                   onChange={handleChange}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   accept=".pdf,.jpg,.jpeg,.png"
                   required={formData.status === "Completed" && !editingCourseId}
                 />
@@ -326,7 +333,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                 name="additional_info"
                 value={formData.additional_info}
                 onChange={handleChange}
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Enter additional information"
                 rows="3"
               />
@@ -339,7 +346,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
             >
               {editingCourseId ? "Update Course" : "Add Course"}
             </motion.button>
@@ -360,7 +367,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '1500px', width: '100%' }}>
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Course Name</th>
                   <th className="border border-gray-300 p-3 text-left">Type</th>
@@ -387,39 +394,38 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                     <td className="border border-gray-300 p-3">{course.instructor_name}</td>
                     <td className="border border-gray-300 p-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-sm ${
-                          course.status === "Ongoing"
-                            ? "bg-orange-100 text-orange-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-sm ${course.status === "Ongoing"
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-green-100 text-green-800"
+                          }`}
                       >
                         {course.status}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
                       {course.certificate_file ? (
-  <a
-    href={`http://localhost:4000/uploads/certificates/${course.certificate_file}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-blue-500 hover:text-blue-700 transition"
-  >
-    <FaEye className="inline-block text-xl" />
-  </a>
-) : (
-  <span className="text-gray-400">No Certificate</span>
-)}
+                        <a
+                          href={`${config.backendUrl}/uploads/certificates/${course.certificate_file}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-600 hover:text-indigo-700 transition"
+                        >
+                          <FaEye className="inline-block text-xl" />
+                        </a>
+
+                      ) : (
+                        <span className="text-gray-400">No Certificate</span>
+                      )}
                     </td>
                     <td className="border border-gray-300 p-3">
                       {course.additional_info || "-"}
                     </td>
                     <td className="border border-gray-300 p-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-sm ${
-                          course.pending === 1 || course.pending === true
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-sm ${course.pending === 1 || course.pending === true
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-green-100 text-green-800"
+                          }`}
                       >
                         {course.pending === 1 || course.pending === true ? "Pending" : "Approved"}
                       </span>
@@ -428,7 +434,7 @@ if (formData.type === "Other" && formData.other_type?.trim()) {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(course)}
-                          className="text-blue-500 hover:text-blue-700 transition"
+                          className="text-indigo-600 hover:text-indigo-700 transition"
                           title="Edit"
                         >
                           <FaEdit className="inline-block text-xl" />

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const PublicationContext = createContext();
 
@@ -16,20 +17,16 @@ export const PublicationProvider = ({ children }) => {
   const [pendingPublications, setPendingPublications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/publications";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch user's publications
-  const fetchUserPublications = useCallback(async (userId) => {
+  const fetchUserPublications = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/my-publications?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/publications/my-publications?UserId=${id}`);
       setPublications(response.data.publications || []);
       setError(null);
     } catch (err) {
@@ -38,16 +35,13 @@ export const PublicationProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [UserId]);
 
   // Fetch pending publications (admin/tutor)
   const fetchPendingPublications = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/pending`,
-        getAuthHeader()
-      );
+      const response = await API.get("/publications/pending");
       setPendingPublications(response.data.publications || []);
       setError(null);
     } catch (err) {
@@ -62,10 +56,7 @@ export const PublicationProvider = ({ children }) => {
   const fetchAllPublications = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/all`,
-        getAuthHeader()
-      );
+      const response = await API.get("/publications/all");
       setPublications(response.data.publications || []);
       setError(null);
     } catch (err) {
@@ -80,12 +71,11 @@ export const PublicationProvider = ({ children }) => {
   const addPublication = async (publicationData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/add`,
-        publicationData,
-        getAuthHeader()
+      const response = await API.post(
+        "/publications/add",
+        { ...publicationData, Userid: UserId }
       );
-      await fetchUserPublications(publicationData.Userid);
+      await fetchUserPublications();
       setError(null);
       return response.data;
     } catch (err) {
@@ -101,12 +91,11 @@ export const PublicationProvider = ({ children }) => {
   const updatePublication = async (publicationId, publicationData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/update/${publicationId}`,
-        publicationData,
-        getAuthHeader()
+      const response = await API.put(
+        `/publications/update/${publicationId}`,
+        { ...publicationData, Userid: UserId }
       );
-      await fetchUserPublications(publicationData.Userid);
+      await fetchUserPublications();
       setError(null);
       return response.data;
     } catch (err) {
@@ -119,17 +108,14 @@ export const PublicationProvider = ({ children }) => {
   };
 
   // Delete publication
-  const deletePublication = async (publicationId, userId) => {
+  const deletePublication = async (publicationId, targetUserId) => {
+    const id = targetUserId || UserId;
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/delete/${publicationId}`,
-        {
-          ...getAuthHeader(),
-          data: { Userid: userId }
-        }
-      );
-      await fetchUserPublications(userId);
+      const response = await API.delete(`/publications/delete/${publicationId}`, {
+        data: { Userid: id }
+      });
+      await fetchUserPublications(id);
       setError(null);
       return response.data;
     } catch (err) {
@@ -142,16 +128,15 @@ export const PublicationProvider = ({ children }) => {
   };
 
   // Verify publication (admin/tutor)
-  const verifyPublication = async (publicationId, verifierId, comments = "") => {
+  const verifyPublication = async (publicationId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/verify/${publicationId}`,
-        { 
-          Userid: verifierId,
+      const response = await API.put(
+        `/publications/verify/${publicationId}`,
+        {
+          Userid: targetUserId,
           verification_comments: comments
-        },
-        getAuthHeader()
+        }
       );
       await fetchPendingPublications();
       setError(null);
@@ -167,6 +152,12 @@ export const PublicationProvider = ({ children }) => {
 
   // Clear error
   const clearError = () => setError(null);
+
+  useEffect(() => {
+    if (UserId) {
+      fetchUserPublications();
+    }
+  }, [UserId, fetchUserPublications]);
 
   return (
     <PublicationContext.Provider

@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate as authenticateToken } from '../../middlewares/auth.js';
+import { authenticate as authenticateToken } from '../../middlewares/requireauth.js';
 import {
   addEventAttended,
   updateEventAttended,
@@ -11,16 +11,16 @@ import upload from '../../utils/uploadEvent.js';
 const router = express.Router();
 
 // Get events attended by user
-router.get('/events-attended', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.Userid || req.query.UserId;
-    
+
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const { EventAttended } = await import('../../models/index.js');
-    
+
     const events = await EventAttended.findAll({
       where: { Userid: userId },
       order: [['createdAt', 'DESC']]
@@ -35,22 +35,22 @@ router.get('/events-attended', authenticateToken, async (req, res) => {
 
 // Add new event attended
 router.post(
-  '/add-event-attended',
+  '/add',
   authenticateToken,
   upload,
   addEventAttended
 );
 
 // Update event attended
-router.put('/update-event-attended/:eventId', authenticateToken, updateEventAttended);
+router.put('/update/:eventId', authenticateToken, updateEventAttended);
 
 // Delete event attended
-router.delete('/delete-event-attended/:id', authenticateToken, deleteEventAttended);
+router.delete('/delete/:id', authenticateToken, deleteEventAttended);
 
 // Get pending events (for tutor/admin)
-router.get('/pending-events-attended', authenticateToken, getPendingEventsAttended);
+router.get('/pending', authenticateToken, getPendingEventsAttended);
 
 // Get approved events
-router.get('/approved-events-attended', authenticateToken, getApprovedEventsAttended);
+router.get('/approved', authenticateToken, getApprovedEventsAttended);
 
 export default router;

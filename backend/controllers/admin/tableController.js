@@ -1,8 +1,8 @@
 import User from "../../models/User.js";
-import StudentDetails from "../../models/StudentDetails.js";
-import Internship from "../../models/Internship.js";
+import StudentDetails from "../../models/student/StudentDetails.js";
+import Internship from "../../models/student/Internship.js";
 import ExcelJS from "exceljs";
-import  DownloadHistory  from "../../models/DownloadHistory.js";
+import DownloadHistory from "../../models/student/DownloadHistory.js";
 
 const exportTables = {
     Student: [
@@ -35,7 +35,7 @@ export const getColumns = async (req, res) => {
             "id",
             "_v",
             "created_at",
-            "updated_at","duration_to",
+            "updated_at", "duration_to",
             "Userid",
             "Created_by",
             "Updated_by",
@@ -45,7 +45,7 @@ export const getColumns = async (req, res) => {
             "approved_at",
             "messages",
             "createdAt",
-            "updatedAt","password"
+            "updatedAt", "password"
         ];
 
         const formattedColumns = allColumns
@@ -76,21 +76,21 @@ export const exportData = async (req, res) => {
         }
 
         const users = await User.findAll({
-            attributes: ["Userid", "username", "email", "staffId"],
+            attributes: ["Userid", "username", "userMail", "userNumber"],
             raw: true,
             nest: true,
         });
-        
+
         if (!users || users.length === 0) {
             return res.status(404).json({ message: "No users found" });
         }
-        
+
 
         const finalData = users.map(user => {
             let userData = {
                 username: user.username,
-                email: user.email,
-                staffId: user.staffId || ""
+                email: user.userMail,
+                staffId: user.userNumber || ""
             };
 
             for (const { as } of exportTables[role]) {

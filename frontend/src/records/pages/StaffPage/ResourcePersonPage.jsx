@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, X } from 'lucide-react';
+import { Plus, Download, Eye, X } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
@@ -7,7 +7,9 @@ import {
   getResourcePersonEntries,
   createResourcePersonEntry,
   updateResourcePersonEntry,
-  deleteResourcePersonEntry
+  deleteResourcePersonEntry,
+  viewResourcePersonFile,
+  downloadResourcePersonFile
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -31,6 +33,8 @@ const ResourcePersonPage = () => {
   const fetchData = async () => {
     try {
       const response = await getResourcePersonEntries();
+      console.log('Resource Person API Response:', response); // Debug log
+      console.log('Resource Person Data:', response.data); // Debug log
       setEntries(response.data);
     } catch (error) {
       toast.error('Failed to fetch entries');
@@ -157,12 +161,16 @@ const ResourcePersonPage = () => {
   };
 
   const handleDelete = async (id) => {
+    console.log('Delete button clicked for ID:', id);
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        await deleteResourcePersonEntry(id);
+        console.log('Making delete API call for ID:', id);
+        const response = await deleteResourcePersonEntry(id);
+        console.log('Delete API response:', response);
         toast.success('Entry deleted');
         fetchData();
       } catch (error) {
+        console.error('Delete error:', error);
         toast.error('Failed to delete entry');
       }
     }
@@ -194,18 +202,59 @@ const ResourcePersonPage = () => {
   };
 
   const FileLink = ({ filename }) => {
-    if (!filename) return 'N/A';
+    if (!filename || !filename.toString().trim()) return 'N/A';
+
+    const filenameStr = filename.toString().trim();
+
+    // More robust file type detection
+    const fileExt = filenameStr.toLowerCase().split('.').pop();
+    const isPDF = fileExt === 'pdf';
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+
+    console.log('FileLink Debug:', { filename: filenameStr, fileExt, isPDF, isImage }); // Debug log
+
+    const handleFileClick = async (e) => {
+      e.preventDefault();
+      try {
+        if (isPDF || isImage) {
+          console.log('Attempting to view file inline:', filenameStr); // Debug log
+          // For PDFs and images, use the view API to open inline
+          const blob = await viewResourcePersonFile(filenameStr);
+          const fileUrl = window.URL.createObjectURL(blob);
+          window.open(fileUrl, '_blank');
+        } else {
+          console.log('Attempting to download file:', filenameStr); // Debug log
+          // For other files, use the download API
+          const blob = await downloadResourcePersonFile(filenameStr);
+          const link = document.createElement('a');
+          link.href = window.URL.createObjectURL(blob);
+          link.download = filenameStr;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.error('Error handling file:', error);
+        toast.error('Failed to load file');
+      }
+    };
+
     return (
-      <a 
-        href={`/uploads/resource_person/${filename}`}
-        target="_blank" 
-        rel="noreferrer"
-        className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
-        download
+      // <button
+      //       onClick={() => handleViewPDF(row.id, 'proof')}
+      //       className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 rounded-full transition-colors duration-200 border border-green-200"
+      //       title="Click to view PDF"
+      //     >
+      //       <FileText size={14} />
+      //       View PDF
+      //     </button>
+      <button
+        onClick={handleFileClick}
+        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
       >
-        <Download size={14} />
-        Download
-      </a>
+        {(isPDF || isImage) ? <Eye size={14} /> : <Download size={14} />}
+        {(isPDF || isImage) ? 'View PDF' : 'Download Image'}
+      </button>
     );
   };
 
@@ -238,7 +287,7 @@ const ResourcePersonPage = () => {
             setEditingItem(null);
             setModalOpen(true);
           }}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add Resource Person
@@ -307,8 +356,8 @@ const ResourcePersonPage = () => {
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-md file:border-0
                 file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
+                file:bg-indigo-50 file:text-indigo-700
+                hover:file:bg-indigo-100"
             />
           </div>
           {(fileNames.proofFile || editingItem?.proof_link) && (
@@ -340,8 +389,8 @@ const ResourcePersonPage = () => {
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-md file:border-0
                 file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
+                file:bg-indigo-50 file:text-indigo-700
+                hover:file:bg-indigo-100"
             />
           </div>
           {(fileNames.photoFile || editingItem?.photo_link) && (

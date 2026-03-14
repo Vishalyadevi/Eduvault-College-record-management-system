@@ -1,14 +1,14 @@
-import StudentDetails from "../../models/StudentDetails.js";
+import StudentDetails from "../../models/student/StudentDetails.js";
 import User from "../../models/User.js";
-import Department from "../../models/Department.js";
-import BankDetails from "../../models/BankDetails.js";
-import RelationDetails from "../../models/RelationDetails.js";
-import OnlineCourses from "../../models/OnlineCourses.js";
-import EventAttended from "../../models/eventAttended.js";
-import EventOrganized from "../../models/EventOrganized.js";
-import Internship from "../../models/Internship.js";
-import Scholarship from "../../models/Scholarship.js";
-import StudentLeave from "../../models/StudentLeave.js";
+import Department from "../../models/student/Department.js";
+import BankDetails from "../../models/student/BankDetails.js";
+import RelationDetails from "../../models/student/RelationDetails.js";
+import OnlineCourses from "../../models/student/OnlineCourses.js";
+import EventAttended from "../../models/student/eventAttended.js";
+import EventOrganized from "../../models/student/EventOrganized.js";
+import Internship from "../../models/student/Internship.js";
+import Scholarship from "../../models/student/Scholarship.js";
+import StudentLeave from "../../models/student/StudentLeave.js";
 import { sequelize } from "../../config/mysql.js"; // Import Sequelize instance
 
 // ✅ Get Student Biodata
@@ -21,13 +21,13 @@ export const getStudentBiodata = async (req, res) => {
       include: [
         {
           model: Department,
-          as: "Department",
-          attributes: ["Deptid", "Deptname"]
+          as: "department",
+          attributes: [["departmentId", "departmentId"], ["departmentName", "departmentName"]]
         },
         {
           model: User,
           as: "studentUser",
-          attributes: ["Userid", "username", "email", "role", "status"],
+          attributes: [["userId", "Userid"], ["userName", "username"], ["userMail", "email"], "status"],
           include: [
             {
               model: BankDetails,
@@ -46,7 +46,7 @@ export const getStudentBiodata = async (req, res) => {
         {
           model: User,
           as: "staffAdvisor",
-          attributes: ["username"]
+          attributes: [["userName", "username"]]
         }
       ]
     });
@@ -77,12 +77,12 @@ export const getUserOnlineCourses = async (req, res) => {
     // Fetch all online courses for the given User ID
     const userCourses = await OnlineCourses.findAll({
       where: { tutor_approval_status: true, Userid: userId },
-      
+
       include: [
         {
           model: User,
           as: "student",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
         },
       ],
       order: [["createdAt", "DESC"]], // Sort by latest courses
@@ -165,7 +165,7 @@ export const getApprovedInternships = async (req, res) => {
     }
 
     const approvedInternships = await Internship.findAll({
-      where: { tutor_approval_status: true, Userid: userId }, 
+      where: { tutor_approval_status: true, Userid: userId },
       order: [["approved_at", "DESC"]],
     });
 
@@ -179,9 +179,9 @@ export const getApprovedInternships = async (req, res) => {
 
 
 // ✅ Get Approved Scholarships for a User
- export const getApprovedScholarships = async (req, res) => {
+export const getApprovedScholarships = async (req, res) => {
   try {
-    const {userId}=req.params;// ✅ Fetch using UserId (NOT token)
+    const { userId } = req.params;// ✅ Fetch using UserId (NOT token)
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });

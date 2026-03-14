@@ -5,38 +5,38 @@ import path from "path";
 
 // Course Controller Functions
 
-// Add new course with email notification
+// Add new course with userMail notification
 export const addCourse = async (req, res) => {
   console.log("hi");
   try {
-    const { 
-      code, 
-       name, 
-      credit, 
-      semester, 
-      iat1, 
-      iat2 ,
-      grade, 
-      gradePoints, 
+    const {
+      code,
+      name,
+      credit,
+      semester,
+      iat1,
+      iat2,
+      grade,
+      gradePoints,
       instructor
     } = req.body;
     console.log(req.body);
-    if (!req.user.Userid) {
+    if (!req.user.userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    const user = await User.findByPk(req.user.Userid);
-    if (!user || !user.email) {
-      return res.status(404).json({ message: "Student email not found" });
+    const user = await User.findByPk(req.user.userId);
+    if (!user || !user.userMail) {
+      return res.status(404).json({ message: "Student userMail not found" });
     }
 
-    const student = await StudentDetails.findOne({ where: { Userid: req.user.Userid } });
+    const student = await StudentDetails.findOne({ where: { userId: req.user.userId } });
     if (!student || !student.tutorEmail) {
-      return res.status(404).json({ message: "Tutor email not found" });
+      return res.status(404).json({ message: "Tutor userMail not found" });
     }
 
     const course = await Course.create({
-      Userid: req.user.Userid,
+      userId: req.user.userId,
       code,
       name,
       credit: parseInt(credit) || 0,
@@ -45,26 +45,26 @@ export const addCourse = async (req, res) => {
       iat2: parseInt(iat2) || null,
       grade: grade || null,
       gradePoints: parseFloat(gradePoints) || null,
-      instructor: instructor|| null,
+      instructor: instructor || null,
       pending: true,
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: req.user.Userid,
-      Updated_by: req.user.Userid
+      Created_by: req.user.userId,
+      Updated_by: req.user.userId
     });
 
-    // Send email notification to tutor
-    const emailResponse = await sendEmail({
-      from: user.email,
+    // Send userMail notification to tutor
+    const userMailResponse = await sendEmail({
+      from: user.userMail,
       to: student.tutorEmail,
       subject: "New Course Added - Pending Approval",
       text: `Dear Tutor,
 
 A student has submitted a new course for your approval. Please find the details below:
 
-Student Regno: ${student.regno}
-Student Name: ${user.username || "N/A"}
+Student registerNumber: ${student.registerNumber}
+Student Name: ${user.userName || "N/A"}
 Course Code: ${code}
 Course Name: ${name}
 Semester: ${semester}
@@ -77,19 +77,19 @@ Best Regards,
 Academic Management System`
     });
 
-    if (!emailResponse.success) {
-      console.error("⚠️ Failed to send email:", emailResponse.error);
+    if (!userMailResponse.success) {
+      console.error("⚠️ Failed to send userMail:", userMailResponse.error);
     }
 
-    res.status(201).json({ 
-      message: "Course added successfully and pending approval. Tutor has been notified.", 
-      data: course 
+    res.status(201).json({
+      message: "Course added successfully and pending approval. Tutor has been notified.",
+      data: course
     });
   } catch (error) {
     console.error("❌ Error adding course:", error);
-    res.status(500).json({ 
-      message: "Error adding course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error adding course",
+      error: error.message
     });
   }
 };
@@ -121,7 +121,7 @@ export const getUserCourses = async (req, res) => {
     }
 
     const courses = await Course.findAll({
-      where: { Userid: userId },
+      where: { userId: userId },
       order: [["semester", "ASC"], ["course_code", "ASC"]],
     });
 
@@ -136,20 +136,20 @@ export const getUserCourses = async (req, res) => {
 export const getPendingCourses = async (req, res) => {
   try {
     const pendingCourses = await Course.findAll({
-      where: { 
+      where: {
         is_pending: true,
-        tutor_approval_status: false 
+        tutor_approval_status: false
       },
       include: [
         {
           model: User,
           as: "studentUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -160,8 +160,8 @@ export const getPendingCourses = async (req, res) => {
       const { studentUser, ...rest } = course.get({ plain: true });
       return {
         ...rest,
-        username: studentUser?.username || "N/A",
-        regno: studentUser?.studentDetails?.regno || "N/A",
+        userName: studentUser?.userName || "N/A",
+        registerNumber: studentUser?.studentDetails?.registerNumber || "N/A",
         staffId: studentUser?.studentDetails?.staffId || "N/A",
       };
     });
@@ -169,9 +169,9 @@ export const getPendingCourses = async (req, res) => {
     res.status(200).json({ success: true, courses: formattedCourses });
   } catch (error) {
     console.error("❌ Error fetching pending courses:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error fetching pending courses" 
+    res.status(500).json({
+      success: false,
+      message: "Error fetching pending courses"
     });
   }
 };
@@ -181,19 +181,19 @@ export const updateCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
     const updates = req.body;
-    
+
     const course = await Course.findByPk(courseId);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
     // Verify user has permission to update
-    if (course.Userid !== req.user.Userid && req.user.role !== "tutor") {
+    if (course.userId !== req.user.userId && req.user.role !== "tutor") {
       return res.status(403).json({ message: "Unauthorized to update this course" });
     }
 
-    const user = await User.findByPk(course.Userid);
-    const student = await StudentDetails.findOne({ where: { Userid: course.Userid } });
+    const user = await User.findByPk(course.userId);
+    const student = await StudentDetails.findOne({ where: { userId: course.userId } });
 
     if (!user || !student) {
       return res.status(404).json({ message: "User or Student details not found" });
@@ -201,33 +201,33 @@ export const updateCourse = async (req, res) => {
 
     // Only allow updates to certain fields
     const allowedUpdates = [
-      'course_code', 'course_name', 'credits', 'semester', 
-      'iat1_marks', 'iat2_marks', 'grade', 'gradePoints', 
+      'course_code', 'course_name', 'credits', 'semester',
+      'iat1_marks', 'iat2_marks', 'grade', 'gradePoints',
       'instructor_name'
     ];
-    
+
     allowedUpdates.forEach(update => {
       if (updates[update] !== undefined) {
         course[update] = updates[update];
       }
     });
 
-    course.Updated_by = req.user.Userid;
+    course.Updated_by = req.user.userId;
     course.is_pending = true;
     course.tutor_approval_status = false;
     await course.save();
 
-    // Send notification email to tutor
-    const emailResponse = await sendEmail({
-      from: user.email,
+    // Send notification userMail to tutor
+    const userMailResponse = await sendEmail({
+      from: user.userMail,
       to: student.tutorEmail,
       subject: "Course Updated - Requires Review",
       text: `Dear Tutor,
 
 A student has updated their course details. Please review the updated details:
 
-Student Regno: ${student.regno}
-Student Name: ${user.username || "N/A"}
+Student registerNumber: ${student.registerNumber}
+Student Name: ${user.userName || "N/A"}
 Course Code: ${course.course_code}
 Course Name: ${course.course_name}
 Semester: ${course.semester}
@@ -240,19 +240,19 @@ Best Regards,
 Academic Management System`
     });
 
-    if (!emailResponse.success) {
-      console.error("⚠️ Failed to send email:", emailResponse.error);
+    if (!userMailResponse.success) {
+      console.error("⚠️ Failed to send userMail:", userMailResponse.error);
     }
 
-    res.status(200).json({ 
-      message: "Course updated successfully and requires tutor approval", 
-      data: course 
+    res.status(200).json({
+      message: "Course updated successfully and requires tutor approval",
+      data: course
     });
   } catch (error) {
     console.error("❌ Error updating course:", error);
-    res.status(500).json({ 
-      message: "Error updating course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating course",
+      error: error.message
     });
   }
 };
@@ -260,16 +260,16 @@ Academic Management System`
 // Get approved courses for a student
 export const getApprovedCourses = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.query.UserId;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const approvedCourses = await Course.findAll({
-      where: { 
-        tutor_approval_status: true, 
-        Userid: userId 
+      where: {
+        tutor_approval_status: true,
+        userId: userId
       },
       order: [["approved_at", "DESC"]],
     });
@@ -285,27 +285,27 @@ export const getApprovedCourses = async (req, res) => {
 export const approveCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-    
+
     const course = await Course.findByPk(courseId);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    const user = await User.findByPk(course.Userid);
-    if (!user || !user.email) {
-      return res.status(404).json({ message: "Student email not found" });
+    const user = await User.findByPk(course.userId);
+    if (!user || !user.userMail) {
+      return res.status(404).json({ message: "Student userMail not found" });
     }
 
     course.is_pending = false;
     course.tutor_approval_status = true;
-    course.Approved_by = req.user.Userid;
+    course.Approved_by = req.user.userId;
     course.approved_at = new Date();
     await course.save();
 
     // Send approval notification to student
-    const emailResponse = await sendEmail({
+    const userMailResponse = await sendEmail({
       from: process.env.ADMIN_EMAIL,
-      to: user.email,
+      to: user.userMail,
       subject: "Course Approved",
       text: `Dear Student,
 
@@ -321,19 +321,19 @@ Best Regards,
 Academic Management System`
     });
 
-    if (!emailResponse.success) {
-      console.error("⚠️ Failed to send email:", emailResponse.error);
+    if (!userMailResponse.success) {
+      console.error("⚠️ Failed to send userMail:", userMailResponse.error);
     }
 
-    res.status(200).json({ 
-      message: "Course approved successfully", 
-      data: course 
+    res.status(200).json({
+      message: "Course approved successfully",
+      data: course
     });
   } catch (error) {
     console.error("❌ Error approving course:", error);
-    res.status(500).json({ 
-      message: "Error approving course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error approving course",
+      error: error.message
     });
   }
 };
@@ -342,23 +342,23 @@ Academic Management System`
 export const deleteCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-    
+
     const course = await Course.findByPk(courseId);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    const user = await User.findByPk(course.Userid);
-    const student = await StudentDetails.findOne({ where: { Userid: course.Userid } });
+    const user = await User.findByPk(course.userId);
+    const student = await StudentDetails.findOne({ where: { userId: course.userId } });
 
     await course.destroy();
 
     // Send notifications
-    if (user && user.email) {
+    if (user && user.userMail) {
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: "Course Deleted Notification",
-        text: `Dear ${user.username || "Student"},
+        text: `Dear ${user.userName || "Student"},
 
 Your course has been removed from the system.
 
@@ -381,8 +381,8 @@ Academic Management System`
 
 A course has been deleted from the system.
 
-Student Regno: ${student.regno}
-Student Name: ${user?.username || "N/A"}
+Student registerNumber: ${student.registerNumber}
+Student Name: ${user?.userName || "N/A"}
 Course Code: ${course.course_code}
 Course Name: ${course.course_name}
 
@@ -394,9 +394,9 @@ Academic Management System`
     res.status(200).json({ message: "Course deleted successfully" });
   } catch (error) {
     console.error("❌ Error deleting course:", error);
-    res.status(500).json({ 
-      message: "Error deleting course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error deleting course",
+      error: error.message
     });
   }
 };
@@ -407,7 +407,7 @@ Academic Management System`
 export const handleMarksheetUpload = async (req, res) => {
   try {
     const { userId, semester } = req.params;
-    
+
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
@@ -427,14 +427,14 @@ export const handleMarksheetUpload = async (req, res) => {
 
     // Create or update marksheet record
     const [marksheet, created] = await Marksheet.upsert({
-      Userid: userId,
+      userId: userId,
       semester: parseInt(semester),
       file_name: req.file.originalname,
       file_path: fileUrl,
       file_type: req.file.mimetype,
       file_size: req.file.size,
       is_approved: false,
-      uploaded_by: req.user.Userid,
+      uploaded_by: req.user.userId,
       approved_by: null,
       approved_at: null
     }, {
@@ -443,7 +443,7 @@ export const handleMarksheetUpload = async (req, res) => {
 
     // Notify tutor
     const user = await User.findByPk(userId);
-    const student = await StudentDetails.findOne({ where: { Userid: userId } });
+    const student = await StudentDetails.findOne({ where: { userId: userId } });
 
     if (user && student && student.tutorEmail) {
       await sendEmail({
@@ -453,7 +453,7 @@ export const handleMarksheetUpload = async (req, res) => {
 
 A new marksheet has been uploaded by your student and requires your approval.
 
-Student: ${user.username || "N/A"} (${student.regno})
+Student: ${user.userName || "N/A"} (${student.registerNumber})
 Semester: ${semester}
 File: ${req.file.originalname}
 
@@ -465,15 +465,15 @@ Academic Management System`
     }
 
     const message = created ? "Marksheet uploaded successfully" : "Marksheet updated successfully";
-    res.status(200).json({ 
+    res.status(200).json({
       message,
-      data: marksheet 
+      data: marksheet
     });
   } catch (error) {
     console.error("❌ Error uploading marksheet:", error);
-    res.status(500).json({ 
-      message: "Error uploading marksheet", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error uploading marksheet",
+      error: error.message
     });
   }
 };
@@ -484,18 +484,18 @@ export const getMarksheets = async (req, res) => {
     const { userId } = req.params;
 
     const marksheets = await Marksheet.findAll({
-      where: { Userid: userId },
+      where: { userId: userId },
       order: [["semester", "ASC"]],
       include: [
         {
           model: User,
           as: "uploadedBy",
-          attributes: ["username"],
+          attributes: ["userName"],
         },
         {
           model: User,
           as: "approvedBy",
-          attributes: ["username"],
+          attributes: ["userName"],
         },
       ],
     });
@@ -504,8 +504,8 @@ export const getMarksheets = async (req, res) => {
       const { uploadedBy, approvedBy, ...rest } = marksheet.get({ plain: true });
       return {
         ...rest,
-        uploaded_by_name: uploadedBy?.username || "System",
-        approved_by_name: approvedBy?.username || null,
+        uploaded_by_name: uploadedBy?.userName || "System",
+        approved_by_name: approvedBy?.userName || null,
       };
     });
 
@@ -526,19 +526,19 @@ export const approveMarksheet = async (req, res) => {
       return res.status(404).json({ message: "Marksheet not found" });
     }
 
-    const user = await User.findByPk(marksheet.Userid);
+    const user = await User.findByPk(marksheet.userId);
     if (!user) {
       return res.status(404).json({ message: "Student not found" });
     }
 
     marksheet.is_approved = true;
-    marksheet.approved_by = req.user.Userid;
+    marksheet.approved_by = req.user.userId;
     marksheet.approved_at = new Date();
     await marksheet.save();
 
     // Send notification to student
     await sendEmail({
-      to: user.email,
+      to: user.userMail,
       subject: "Marksheet Approved",
       text: `Dear Student,
 
@@ -552,15 +552,15 @@ Best Regards,
 Academic Management System`
     });
 
-    res.status(200).json({ 
-      message: "Marksheet approved successfully", 
-      data: marksheet 
+    res.status(200).json({
+      message: "Marksheet approved successfully",
+      data: marksheet
     });
   } catch (error) {
     console.error("❌ Error approving marksheet:", error);
-    res.status(500).json({ 
-      message: "Error approving marksheet", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error approving marksheet",
+      error: error.message
     });
   }
 };
@@ -583,9 +583,9 @@ export const deleteMarksheet = async (req, res) => {
     res.status(200).json({ message: "Marksheet deleted successfully" });
   } catch (error) {
     console.error("❌ Error deleting marksheet:", error);
-    res.status(500).json({ 
-      message: "Error deleting marksheet", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error deleting marksheet",
+      error: error.message
     });
   }
 };
@@ -606,7 +606,7 @@ export const downloadMarksheet = async (req, res) => {
     }
 
     const filePath = path.join(process.cwd(), marksheet.file_path);
-    
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: "File not found" });
     }
@@ -614,9 +614,9 @@ export const downloadMarksheet = async (req, res) => {
     res.download(filePath, marksheet.file_name);
   } catch (error) {
     console.error("❌ Error downloading marksheet:", error);
-    res.status(500).json({ 
-      message: "Error downloading marksheet", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error downloading marksheet",
+      error: error.message
     });
   }
 };
@@ -637,8 +637,8 @@ export const updateGPA = async (req, res) => {
       if (gpaData[field] !== undefined) {
         const value = parseFloat(gpaData[field]);
         if (isNaN(value) || value < 0 || value > 10) {
-          return res.status(400).json({ 
-            message: `${field} must be a number between 0 and 10` 
+          return res.status(400).json({
+            message: `${field} must be a number between 0 and 10`
           });
         }
       }
@@ -646,7 +646,7 @@ export const updateGPA = async (req, res) => {
 
     // Find all courses for the user
     const courses = await Course.findAll({ where: { Userid: userId } });
-    
+
     if (!courses || courses.length === 0) {
       return res.status(404).json({ message: "No courses found for this user" });
     }
@@ -669,15 +669,15 @@ export const updateGPA = async (req, res) => {
 
     await Promise.all(updatePromises);
 
-    res.status(200).json({ 
-      message: "GPA updated successfully", 
-      data: gpaData 
+    res.status(200).json({
+      message: "GPA updated successfully",
+      data: gpaData
     });
   } catch (error) {
     console.error("❌ Error updating GPA:", error);
-    res.status(500).json({ 
-      message: "Error updating GPA", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating GPA",
+      error: error.message
     });
   }
 };

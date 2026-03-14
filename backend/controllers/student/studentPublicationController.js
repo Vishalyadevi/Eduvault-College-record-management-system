@@ -29,8 +29,8 @@ export const addPublication = async (req, res) => {
 
     // Validate publication type
     const validTypes = [
-      'Journal', 'Conference', 'Book', 'Book Chapter', 
-      'Workshop', 'Thesis', 'Preprint', 'White Paper', 
+      'Journal', 'Conference', 'Book', 'Book Chapter',
+      'Workshop', 'Thesis', 'Preprint', 'White Paper',
       'Patent', 'Other',
     ];
     if (!validTypes.includes(publication_type)) {
@@ -39,7 +39,7 @@ export const addPublication = async (req, res) => {
 
     // Validate index type
     const validIndexTypes = [
-      'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore', 
+      'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore',
       'ACM Digital Library', 'SSRN', 'Not Indexed', 'Other',
     ];
     if (index_type && !validIndexTypes.includes(index_type)) {
@@ -93,7 +93,7 @@ export const addPublication = async (req, res) => {
     // Send email to tutor
     if (student && student.tutorEmail) {
       const authorsStr = Array.isArray(parsedAuthors) ? parsedAuthors.join(', ') : 'N/A';
-      const emailText = `Dear Tutor,\n\nA student has submitted a new publication for verification.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nPublication Details:\nType: ${publication_type}\nTitle: ${title}\nAuthors: ${authorsStr}\nStatus: ${publication_status || 'Draft'}\nDOI: ${doi || "N/A"}\nPublisher: ${publisher || "N/A"}\nIndex Type: ${index_type || "Not Indexed"}\nPublication Date: ${publication_date || "N/A"}\n\nThe publication is pending your verification.\n\nBest Regards,\nPublication Management System`;
+      const emailText = `Dear Tutor,\n\nA student has submitted a new publication for verification.\n\nStudent Details:\nRegno: ${student.registerNumber}\nName: ${user.username || "N/A"}\n\nPublication Details:\nType: ${publication_type}\nTitle: ${title}\nAuthors: ${authorsStr}\nStatus: ${publication_status || 'Draft'}\nDOI: ${doi || "N/A"}\nPublisher: ${publisher || "N/A"}\nIndex Type: ${index_type || "Not Indexed"}\nPublication Date: ${publication_date || "N/A"}\n\nThe publication is pending your verification.\n\nBest Regards,\nPublication Management System`;
 
       await sendEmail({
         from: user.email,
@@ -142,12 +142,12 @@ export const updatePublication = async (req, res) => {
 
     // Validate enums if provided
     const validTypes = [
-      'Journal', 'Conference', 'Book', 'Book Chapter', 
-      'Workshop', 'Thesis', 'Preprint', 'White Paper', 
+      'Journal', 'Conference', 'Book', 'Book Chapter',
+      'Workshop', 'Thesis', 'Preprint', 'White Paper',
       'Patent', 'Other',
     ];
     const validIndexTypes = [
-      'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore', 
+      'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore',
       'ACM Digital Library', 'SSRN', 'Not Indexed', 'Other',
     ];
     const validStatuses = ['Draft', 'Under Review', 'Accepted', 'Published', 'Rejected', 'Withdrawn'];
@@ -196,7 +196,7 @@ export const updatePublication = async (req, res) => {
 
     // Send update email to tutor
     if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has updated their publication details.\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.regno}\n\nPublication:\nTitle: ${publication.title}\nType: ${publication.publication_type}\nStatus: ${publication.publication_status}\n\nThe publication is now pending re-verification.\n\nBest Regards,\nPublication Management System`;
+      const emailText = `Dear Tutor,\n\nA student has updated their publication details.\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.registerNumber}\n\nPublication:\nTitle: ${publication.title}\nType: ${publication.publication_type}\nStatus: ${publication.publication_status}\n\nThe publication is now pending re-verification.\n\nBest Regards,\nPublication Management System`;
 
       await sendEmail({
         from: user?.email,
@@ -245,12 +245,12 @@ export const getPendingPublications = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -262,9 +262,10 @@ export const getPendingPublications = async (req, res) => {
       const { organizer, ...rest } = pub.get({ plain: true });
       return {
         ...rest,
-        username: organizer?.username || "N/A",
-        email: organizer?.email || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
+        username: organizer?.userName || "N/A",
+        email: organizer?.userMail || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
+        staffId: organizer?.studentDetails?.staffId || "N/A",
       };
     });
 
@@ -379,12 +380,12 @@ export const getAllPublications = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["Userid", "username", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -397,8 +398,9 @@ export const getAllPublications = async (req, res) => {
       return {
         ...rest,
         username: organizer?.username || "N/A",
-        email: organizer?.email || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
+        email: organizer?.userMail || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
+        staffId: organizer?.studentDetails?.staffId || "N/A",
       };
     });
 

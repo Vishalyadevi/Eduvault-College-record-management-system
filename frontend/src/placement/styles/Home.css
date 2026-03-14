@@ -6,8 +6,6 @@
 }
 
 body {
-  margin-left: 250px;
-  padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -225,7 +223,7 @@ tbody tr:hover {
 .section-title {
   font-size: 1.8rem;
   font-weight: 600;
-  color: #2563eb;
+  color: #4f46e5;
   text-align: center;
   margin-bottom: 1.5rem;
 }

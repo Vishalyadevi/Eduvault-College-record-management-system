@@ -16,7 +16,7 @@ const FormField = React.memo(({ label, name, value, onChange, type = "text", opt
           onChange={onChange}
           required={required}
           disabled={disabled}
-          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
         >
           {placeholder && <option value="">{placeholder}</option>}
           {options.map((opt) =>
@@ -40,7 +40,7 @@ const FormField = React.memo(({ label, name, value, onChange, type = "text", opt
           disabled={disabled}
           placeholder={placeholder}
           rows="3"
-          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
         />
       ) : (
         <input
@@ -51,7 +51,7 @@ const FormField = React.memo(({ label, name, value, onChange, type = "text", opt
           required={required}
           disabled={disabled}
           placeholder={placeholder}
-          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
         />
       )}
     </div>
@@ -325,7 +325,7 @@ const NonCGPACategoryManagement = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-gradient-to-r from-blue-50 to-purple-50 overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 overflow-hidden">
       <div className="flex-1 p-6 overflow-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -333,7 +333,7 @@ const NonCGPACategoryManagement = () => {
           <div className="flex space-x-2">
             <button
               onClick={() => setShowForm(!showForm)}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all flex items-center gap-2"
+              className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-lg shadow-lg hover:from-indigo-600 hover:to-indigo-700 transition-all flex items-center gap-2"
             >
               <FaPlus /> {showForm ? "Hide Form" : "Add Category"}
             </button>
@@ -385,7 +385,7 @@ const NonCGPACategoryManagement = () => {
                 <button
                   type="submit"
                   disabled={localLoading}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all flex items-center gap-2"
+                  className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-lg hover:from-indigo-600 hover:to-indigo-700 transition-all flex items-center gap-2"
                 >
                   {localLoading ? (
                     <><FaSpinner className="animate-spin" /> Processing...</>
@@ -435,14 +435,14 @@ const NonCGPACategoryManagement = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search categories..."
-                className="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All Departments</option>
               {departments.map(dept => (
@@ -453,7 +453,7 @@ const NonCGPACategoryManagement = () => {
             <select
               value={filterSemester}
               onChange={(e) => setFilterSemester(e.target.value)}
-              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All Semesters</option>
               {semesters.map(sem => (
@@ -464,7 +464,7 @@ const NonCGPACategoryManagement = () => {
             <select
               value={filterActive}
               onChange={(e) => setFilterActive(e.target.value)}
-              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All Status</option>
               <option value="true">Active</option>
@@ -474,7 +474,7 @@ const NonCGPACategoryManagement = () => {
 
           <button
             onClick={handleSearch}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2"
+            className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
           >
             <FaSearch /> Search
           </button>
@@ -484,7 +484,7 @@ const NonCGPACategoryManagement = () => {
         <div className="bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
           {loading ? (
             <div className="text-center p-8">
-              <FaSpinner className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
+              <FaSpinner className="animate-spin text-4xl text-indigo-600 mx-auto mb-4" />
               <p className="text-gray-600">Loading categories...</p>
             </div>
           ) : filteredCategories.length === 0 ? (
@@ -494,7 +494,7 @@ const NonCGPACategoryManagement = () => {
           ) : (
            <div className="overflow-x-auto">
   <table className="w-full border-collapse text-sm text-gray-800">
-    <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-left">
+    <thead className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-left">
       <tr>
         <th className="p-3 w-12 text-center">
           <input
@@ -518,7 +518,7 @@ const NonCGPACategoryManagement = () => {
       {filteredCategories.map((category, index) => (
         <tr
           key={category.id}
-          className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50 transition-all border-b`}
+          className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-indigo-50 transition-all border-b`}
         >
           <td className="p-3 text-center">
             <input
@@ -549,7 +549,7 @@ const NonCGPACategoryManagement = () => {
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => handleEdit(category)}
-                className="text-blue-600 hover:text-blue-800 transition"
+                className="text-indigo-600 hover:text-blue-800 transition"
                 title="Edit"
               >
                 <FaEdit className="text-lg" />

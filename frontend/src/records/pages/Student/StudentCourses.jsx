@@ -1,14 +1,19 @@
 import React, { useState, useContext } from "react";
-import { 
-  FaChartLine, FaChevronDown, FaChevronUp, FaEdit, 
-  FaTrash, FaPlus, FaSearch, FaTimes, FaUpload, 
+import {
+  FaChartLine, FaChevronDown, FaChevronUp, FaEdit,
+  FaTrash, FaPlus, FaSearch, FaTimes, FaUpload,
   FaCheck, FaClock, FaFileDownload, FaSpinner
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useCourseContext } from "../../contexts/CourseContext";
 import { toast } from 'react-toastify';
+import config from "../../../config";
+
 
 const CoursesEnrolled = () => {
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
   const {
     courses = [],
     gpaData = {},
@@ -127,7 +132,7 @@ const CoursesEnrolled = () => {
         is_pending: newCourse.pending,
         tutor_approval_status: newCourse.tutor_approval_status
       });
-      
+
       toast.success("Course added successfully!");
       setShowAddCourseForm(false);
       setNewCourse({
@@ -143,7 +148,7 @@ const CoursesEnrolled = () => {
         pending: true,
         tutor_approval_status: false,
       });
-      
+
       await fetchCourses();
     } catch (err) {
       toast.error(err.message || "Failed to add course");
@@ -175,7 +180,7 @@ const CoursesEnrolled = () => {
         is_pending: editingCourse.pending,
         tutor_approval_status: editingCourse.tutor_approval_status
       });
-      
+
       toast.success("Course updated successfully!");
       setEditingCourse(null);
       await fetchCourses();
@@ -202,7 +207,7 @@ const CoursesEnrolled = () => {
         gpa_sem8: parseFloat(newGPA.gpa_sem8) || 0,
         cgpa: parseFloat(newGPA.cgpa) || 0
       });
-      
+
       toast.success("GPA updated successfully!");
       setShowAddGPAForm(false);
       setEditingGPA(null);
@@ -231,16 +236,16 @@ const CoursesEnrolled = () => {
   // Filter courses by selected semesters, search term, and pending status
   const filteredCourses = (() => {
     if (!Array.isArray(courses)) return [];
-    
+
     return courses
-      .filter(course => 
-        (selectedSemesters.length === 0 || 
-        selectedSemesters.includes(course.semester?.toString() || '')) &&
+      .filter(course =>
+        (selectedSemesters.length === 0 ||
+          selectedSemesters.includes(course.semester?.toString() || '')) &&
         (!showPendingOnly || course.pending)
       )
       .filter(course => {
         if (searchTerm === "") return true;
-        
+
         const searchLower = searchTerm.toLowerCase();
         return (
           course.code?.toLowerCase().includes(searchLower) ||
@@ -264,7 +269,7 @@ const CoursesEnrolled = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p>Loading courses...</p>
         </div>
       </div>
@@ -293,19 +298,18 @@ const CoursesEnrolled = () => {
                   placeholder="Search courses..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowPendingOnly(!showPendingOnly)}
-                className={`flex items-center gap-2 py-2 px-4 rounded-lg transition ${
-                  showPendingOnly 
-                    ? 'bg-yellow-100 text-yellow-800' 
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
-                }`}
+                className={`flex items-center gap-2 py-2 px-4 rounded-lg transition ${showPendingOnly
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                  }`}
               >
                 <FaClock className="mr-1" />
                 {showPendingOnly ? "Showing Pending" : "Show Pending"}
@@ -329,7 +333,7 @@ const CoursesEnrolled = () => {
                             type="checkbox"
                             checked={selectedSemesters.includes(sem.toString())}
                             onChange={() => toggleSemester(sem.toString())}
-                            className="rounded text-blue-600"
+                            className="rounded text-indigo-600"
                           />
                           <span>Sem {sem}</span>
                         </label>
@@ -340,14 +344,14 @@ const CoursesEnrolled = () => {
               </div>
 
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => setShowAddCourseForm(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
                 >
                   <FaPlus />
                   Add Course
                 </button>
-                <button 
+                <button
                   onClick={() => setShowAddGPAForm(true)}
                   className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
                 >
@@ -426,13 +430,12 @@ const CoursesEnrolled = () => {
                         <div className="text-sm text-gray-900">{course.credit}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.tutor_approval_status 
-                            ? 'bg-green-100 text-green-800' 
-                            : course.pending 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${course.tutor_approval_status
+                          ? 'bg-green-100 text-green-800'
+                          : course.pending
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                          }`}>
                           {course.tutor_approval_status ? 'Approved' : course.pending ? 'Pending' : 'Rejected'}
                         </span>
                       </td>
@@ -443,11 +446,10 @@ const CoursesEnrolled = () => {
                         <div className="text-sm text-gray-900">{course.iat2}/30</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.grade === 'O' || course.grade === 'A+' ? 'bg-green-100 text-green-800' :
-                          course.grade === 'A' || course.grade === 'B+' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${course.grade === 'O' || course.grade === 'A+' ? 'bg-green-100 text-green-800' :
+                          course.grade === 'A' || course.grade === 'B+' ? 'bg-indigo-100 text-blue-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
                           {course.grade}
                         </span>
                       </td>
@@ -456,14 +458,14 @@ const CoursesEnrolled = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button
                             onClick={() => setEditingCourse(course)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-indigo-600 hover:text-blue-900"
                             title="Edit"
                           >
                             <FaEdit />
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDeleteCourse(course.id)}
                             className="text-red-600 hover:text-red-900"
                             title="Delete"
@@ -510,14 +512,14 @@ const CoursesEnrolled = () => {
                   <h4 className="font-medium text-gray-800">Semester {semester}</h4>
                   {marksheets[semester] && (
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => setEditingMarksheet(semester)}
-                        className="text-blue-500 hover:text-blue-700 text-sm"
+                        className="text-indigo-600 hover:text-indigo-700 text-sm"
                         title="Update"
                       >
                         <FaEdit />
                       </button>
-                      <button 
+                      <button
                         onClick={() => deleteMarksheet(semester)}
                         className="text-red-500 hover:text-red-700 text-sm"
                         title="Delete"
@@ -529,10 +531,11 @@ const CoursesEnrolled = () => {
                 </div>
                 {marksheets[semester] ? (
                   <div className="flex items-center justify-between">
-                    <a 
-                      href={`/api/marksheets/${semester}/download`} 
-                      className="text-blue-600 hover:underline flex items-center text-sm"
+                    <a
+                      href={`${config.backendUrl}/api/marksheets/${semester}/download`}
+                      className="text-indigo-600 hover:underline flex items-center text-sm"
                     >
+
                       <FaFileDownload className="mr-2" />
                       Download Marksheet
                     </a>
@@ -541,9 +544,9 @@ const CoursesEnrolled = () => {
                   <label className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg p-2 cursor-pointer transition text-sm">
                     <FaUpload className="mr-2" />
                     Upload Marksheet
-                    <input 
-                      type="file" 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      className="hidden"
                       onChange={(e) => handleMarksheetUpload(semester, e)}
                       accept=".pdf,.jpg,.jpeg,.png"
                     />
@@ -551,17 +554,17 @@ const CoursesEnrolled = () => {
                 )}
                 {editingMarksheet === semester && (
                   <div className="mt-2">
-                    <label className="flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg p-2 cursor-pointer transition text-sm">
+                    <label className="flex items-center justify-center bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg p-2 cursor-pointer transition text-sm">
                       <FaUpload className="mr-2" />
                       Update Marksheet
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         onChange={(e) => handleMarksheetUpdate(semester, e)}
                         accept=".pdf,.jpg,.jpeg,.png"
                       />
                     </label>
-                    <button 
+                    <button
                       onClick={() => setEditingMarksheet(null)}
                       className="mt-1 w-full text-sm text-gray-500 hover:text-gray-700"
                     >
@@ -577,7 +580,7 @@ const CoursesEnrolled = () => {
         {/* Add/Edit Course Form Popup */}
         {(showAddCourseForm || editingCourse) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -586,25 +589,25 @@ const CoursesEnrolled = () => {
                 <h2 className="text-xl font-semibold text-gray-800">
                   {editingCourse ? "Edit Course" : "Add New Course"}
                 </h2>
-                <button 
+                <button
                   onClick={() => editingCourse ? setEditingCourse(null) : setShowAddCourseForm(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <FaTimes />
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-500 mb-1">Course Code*</label>
                   <input
                     type="text"
                     value={editingCourse ? editingCourse.code : newCourse.code}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, code: e.target.value})
-                      : setNewCourse({...newCourse, code: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, code: e.target.value })
+                      : setNewCourse({ ...newCourse, code: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="CS101"
                     required
                   />
@@ -614,11 +617,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="text"
                     value={editingCourse ? editingCourse.name : newCourse.name}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, name: e.target.value})
-                      : setNewCourse({...newCourse, name: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, name: e.target.value })
+                      : setNewCourse({ ...newCourse, name: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Introduction to Programming"
                     required
                   />
@@ -628,11 +631,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="number"
                     value={editingCourse ? editingCourse.credit : newCourse.credit}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, credit: e.target.value})
-                      : setNewCourse({...newCourse, credit: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, credit: e.target.value })
+                      : setNewCourse({ ...newCourse, credit: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="4"
                     min="0"
                     max="10"
@@ -643,11 +646,11 @@ const CoursesEnrolled = () => {
                   <label className="block text-sm text-gray-500 mb-1">Semester*</label>
                   <select
                     value={editingCourse ? editingCourse.semester : newCourse.semester}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, semester: e.target.value})
-                      : setNewCourse({...newCourse, semester: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, semester: e.target.value })
+                      : setNewCourse({ ...newCourse, semester: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
@@ -660,11 +663,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="number"
                     value={editingCourse ? editingCourse.iat1 : newCourse.iat1}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, iat1: e.target.value})
-                      : setNewCourse({...newCourse, iat1: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, iat1: e.target.value })
+                      : setNewCourse({ ...newCourse, iat1: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="28"
                     min="0"
                     max="30"
@@ -675,11 +678,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="number"
                     value={editingCourse ? editingCourse.iat2 : newCourse.iat2}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, iat2: e.target.value})
-                      : setNewCourse({...newCourse, iat2: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, iat2: e.target.value })
+                      : setNewCourse({ ...newCourse, iat2: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="32"
                     min="0"
                     max="30"
@@ -690,11 +693,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="text"
                     value={editingCourse ? editingCourse.grade : newCourse.grade}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, grade: e.target.value})
-                      : setNewCourse({...newCourse, grade: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, grade: e.target.value })
+                      : setNewCourse({ ...newCourse, grade: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="A"
                   />
                 </div>
@@ -703,11 +706,11 @@ const CoursesEnrolled = () => {
                   <input
                     type="number"
                     value={editingCourse ? editingCourse.gradePoints : newCourse.gradePoints}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, gradePoints: e.target.value})
-                      : setNewCourse({...newCourse, gradePoints: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, gradePoints: e.target.value })
+                      : setNewCourse({ ...newCourse, gradePoints: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="9"
                     min="0"
                     max="10"
@@ -718,26 +721,26 @@ const CoursesEnrolled = () => {
                   <input
                     type="text"
                     value={editingCourse ? editingCourse.instructor : newCourse.instructor}
-                    onChange={(e) => editingCourse 
-                      ? setEditingCourse({...editingCourse, instructor: e.target.value})
-                      : setNewCourse({...newCourse, instructor: e.target.value})
+                    onChange={(e) => editingCourse
+                      ? setEditingCourse({ ...editingCourse, instructor: e.target.value })
+                      : setNewCourse({ ...newCourse, instructor: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Dr. Smith"
                   />
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <button 
+                <button
                   onClick={() => editingCourse ? setEditingCourse(null) : setShowAddCourseForm(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={editingCourse ? handleUpdateCourse : handleAddCourse}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSubmitting && <FaSpinner className="animate-spin" />}
                   {editingCourse ? "Update Course" : "Add Course"}
@@ -750,7 +753,7 @@ const CoursesEnrolled = () => {
         {/* Add/Edit GPA Form Popup */}
         {(showAddGPAForm || editingGPA) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -759,14 +762,14 @@ const CoursesEnrolled = () => {
                 <h2 className="text-xl font-semibold text-gray-800">
                   {editingGPA ? "Edit GPA/CGPA" : "Update GPA/CGPA"}
                 </h2>
-                <button 
+                <button
                   onClick={() => editingGPA ? setEditingGPA(null) : setShowAddGPAForm(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <FaTimes />
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
                   <div key={sem}>
@@ -777,11 +780,11 @@ const CoursesEnrolled = () => {
                       min="0"
                       max="10"
                       value={editingGPA ? editingGPA[`gpa_sem${sem}`] : newGPA[`gpa_sem${sem}`]}
-                      onChange={(e) => editingGPA 
-                        ? setEditingGPA({...editingGPA, [`gpa_sem${sem}`]: e.target.value})
-                        : setNewGPA({...newGPA, [`gpa_sem${sem}`]: e.target.value})
+                      onChange={(e) => editingGPA
+                        ? setEditingGPA({ ...editingGPA, [`gpa_sem${sem}`]: e.target.value })
+                        : setNewGPA({ ...newGPA, [`gpa_sem${sem}`]: e.target.value })
                       }
-                      className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="0.00"
                     />
                   </div>
@@ -794,23 +797,23 @@ const CoursesEnrolled = () => {
                     min="0"
                     max="10"
                     value={editingGPA ? editingGPA.cgpa : newGPA.cgpa}
-                    onChange={(e) => editingGPA 
-                      ? setEditingGPA({...editingGPA, cgpa: e.target.value})
-                      : setNewGPA({...newGPA, cgpa: e.target.value})
+                    onChange={(e) => editingGPA
+                      ? setEditingGPA({ ...editingGPA, cgpa: e.target.value })
+                      : setNewGPA({ ...newGPA, cgpa: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="0.00"
                   />
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <button 
+                <button
                   onClick={() => editingGPA ? setEditingGPA(null) : setShowAddGPAForm(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleSaveGPA}
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2"

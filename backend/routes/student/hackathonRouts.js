@@ -13,7 +13,7 @@ import {
   getStudentHackathonEvents,
   getCertificate,
 } from "../../controllers/student/hackathonController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 // Configure multer for certificate uploads
 const storage = multer.memoryStorage();

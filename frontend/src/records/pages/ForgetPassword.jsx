@@ -82,7 +82,7 @@ const ForgotPassword = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                       placeholder="Enter your email"
                       required
                       disabled={loading}
@@ -93,11 +93,10 @@ const ForgotPassword = () => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${
-                    loading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl"
-                  }`}
+                  className={`w-full py-3 rounded-lg text-white font-semibold transition-all ${loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-lg hover:shadow-xl"
+                    }`}
                   disabled={loading}
                 >
                   {loading ? (
@@ -114,7 +113,7 @@ const ForgotPassword = () => {
                 <div className="text-center">
                   <Link
                     to="/records/login"
-                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 transition-all font-medium"
+                    className="inline-flex items-center text-sm text-indigo-600 hover:text-blue-800 transition-all font-medium"
                   >
                     <FaArrowLeft className="mr-2" />
                     Back to Login
@@ -132,7 +131,7 @@ const ForgotPassword = () => {
                   We've sent a password reset link to <strong>{email}</strong>. Please check your
                   inbox and follow the instructions.
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
                   <p className="text-sm text-gray-700">
                     <strong>Didn't receive the email?</strong>
                     <br />
@@ -141,7 +140,7 @@ const ForgotPassword = () => {
                 </div>
                 <Link
                   to="/records/login"
-                  className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg"
+                  className="inline-block bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-lg"
                 >
                   Return to Login
                 </Link>

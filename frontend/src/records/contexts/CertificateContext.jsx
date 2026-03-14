@@ -1,7 +1,7 @@
-// CertificateContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import API from "../../api";
 import { toast } from "react-toastify";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const CertificateContext = createContext();
 
@@ -9,23 +9,14 @@ export const CertificateProvider = ({ children }) => {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const UserId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   const fetchCertificates = useCallback(async () => {
-    if (!token || !UserId) {
-      console.log("Missing token or UserId");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+    if (!UserId) return;
 
     try {
-      const response = await axios.get(`${backendUrl}/api/certificates?UserId=${UserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await API.get("/student-certificate/list");
 
       console.log("Certificates Response:", response.data);
       setCertificates(Array.isArray(response.data) ? response.data : []);
@@ -36,23 +27,19 @@ export const CertificateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId, backendUrl]);
+  }, [UserId]);
 
-  const uploadCertificate = useCallback(async (file, category, certificateType) => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token found");
-
+  const uploadCertificate = useCallback(async (file, certificateType, certificateName) => {
     setLoading(true);
 
     try {
       const formData = new FormData();
       formData.append("certificate", file);
-      formData.append("category", category);
-      formData.append("certificateType", certificateType);
-      formData.append("UserId", UserId);
+      formData.append("certificate_type", certificateType);
+      formData.append("certificate_name", certificateName || file.name);
 
-      const response = await axios.post(`${backendUrl}/api/upload-certificate`, formData, {
+      const response = await API.post("/student-certificate/upload", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -69,17 +56,13 @@ export const CertificateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId, backendUrl]);
+  }, []);
 
   const deleteCertificate = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     setLoading(true);
 
     try {
-      await axios.delete(`${backendUrl}/api/delete-certificate/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await API.delete(`/student-certificate/delete/${id}`);
 
       setCertificates((prev) => prev.filter((cert) => cert.id !== id));
       toast.success("Certificate deleted successfully!");
@@ -90,11 +73,13 @@ export const CertificateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl]);
+  }, []);
 
   useEffect(() => {
-    fetchCertificates();
-  }, [fetchCertificates]);
+    if (UserId) {
+      fetchCertificates();
+    }
+  }, [fetchCertificates, UserId]);
 
   return (
     <CertificateContext.Provider

@@ -8,7 +8,7 @@
 .title {
   font-size: 1.875rem; /* Equivalent to text-3xl */
   font-weight: 700; /* Equivalent to font-bold */
-  background: linear-gradient(to right, #2563eb, #7e22ce); /* Equivalent to from-blue-600 to-purple-600 */
+  background: linear-gradient(to right, #4f46e5, #7e22ce); /* Equivalent to from-indigo-600 to-indigo-600 */
   background-clip: text; /* Equivalent to bg-clip-text */
   color: transparent; /* Ensures the gradient is applied to the text */
   text-align: center; /* Equivalent to text-center */

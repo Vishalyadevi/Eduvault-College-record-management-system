@@ -9,7 +9,7 @@ import {
   bulkUploadGPA,
   getAllEducationRecords,
 } from "../../controllers/student/studentEducationController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 

@@ -106,16 +106,16 @@ const StaffEducationPage = () => {
 
   const handleSaveGPA = async () => {
     try {
-      // Find student details to get regno
+      // Find student details to get registerNumber
       const studentDetails = allRecords.find(r => r.id === editingRecord.id);
-      if (!studentDetails || !studentDetails.regno) {
+      if (!studentDetails || !studentDetails.registerNumber) {
         alert("Student registration number not found!");
         return;
       }
 
       // Prepare data with only filled GPA values
       const dataToUpload = [{
-        regno: studentDetails.regno,
+        registerNumber: studentDetails.registerNumber,
         sem1: gpaData.semester_1_gpa ? parseFloat(gpaData.semester_1_gpa) : null,
         sem2: gpaData.semester_2_gpa ? parseFloat(gpaData.semester_2_gpa) : null,
         sem3: gpaData.semester_3_gpa ? parseFloat(gpaData.semester_3_gpa) : null,
@@ -159,14 +159,14 @@ const StaffEducationPage = () => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         console.log("Parsed Excel Data:", jsonData);
-        
+
         // Validate required columns
-        const requiredColumns = ['regno', 'sem1', 'sem2', 'sem3', 'sem4', 'sem5', 'sem6', 'sem7', 'sem8', 'cgpa'];
+        const requiredColumns = ['registerNumber', 'sem1', 'sem2', 'sem3', 'sem4', 'sem5', 'sem6', 'sem7', 'sem8', 'cgpa'];
         const firstRow = jsonData[0];
         const hasAllColumns = requiredColumns.every(col => col in firstRow);
 
         if (!hasAllColumns) {
-          setUploadStatus("❌ Error: Excel file must contain columns: regno, sem1-sem8, cgpa");
+          setUploadStatus("❌ Error: Excel file must contain columns: registerNumber, sem1-sem8, cgpa");
           return;
         }
 
@@ -175,22 +175,22 @@ const StaffEducationPage = () => {
           for (let i = 1; i <= 8; i++) {
             const gpa = row[`sem${i}`];
             if (gpa && (gpa < 0 || gpa > 10)) {
-              setUploadStatus(`❌ Error: Invalid GPA value for regno ${row.regno} in sem${i}. Must be between 0-10.`);
+              setUploadStatus(`❌ Error: Invalid GPA value for registration number ${row.registerNumber} in sem${i}. Must be between 0-10.`);
               return;
             }
           }
           if (row.cgpa && (row.cgpa < 0 || row.cgpa > 10)) {
-            setUploadStatus(`❌ Error: Invalid CGPA value for regno ${row.regno}. Must be between 0-10.`);
+            setUploadStatus(`❌ Error: Invalid CGPA value for registration number ${row.registerNumber}. Must be between 0-10.`);
             return;
           }
         }
 
         // Upload to backend
         const result = await bulkUploadGPA(jsonData);
-        
+
         setUploadStatus(`✅ Success! Uploaded GPA data for ${result.successCount} students. ${result.failedCount > 0 ? `Failed: ${result.failedCount}` : ''}`);
         setSelectedFile(null);
-        
+
         if (result.failedRecords && result.failedRecords.length > 0) {
           console.log("Failed records:", result.failedRecords);
         }
@@ -205,7 +205,7 @@ const StaffEducationPage = () => {
   const downloadTemplate = () => {
     const template = [
       {
-        regno: "2021001",
+        registerNumber: "2021001",
         sem1: 8.5,
         sem2: 8.7,
         sem3: 8.9,
@@ -217,7 +217,7 @@ const StaffEducationPage = () => {
         cgpa: 8.94
       },
       {
-        regno: "2021002",
+        registerNumber: "2021002",
         sem1: 7.5,
         sem2: 7.8,
         sem3: 8.0,
@@ -229,7 +229,7 @@ const StaffEducationPage = () => {
         cgpa: 8.33
       },
       {
-        regno: "2021003",
+        registerNumber: "2021003",
         sem1: 6.5,
         sem2: 6.8,
         sem3: 7.0,
@@ -249,9 +249,9 @@ const StaffEducationPage = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 min-h-screen ml-0 md:ml-64">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-pink-50 min-h-screen ml-0 md:ml-64">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-pink-600 bg-clip-text text-transparent">
           Staff - Education Management
         </h2>
 
@@ -264,7 +264,7 @@ const StaffEducationPage = () => {
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+          <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
             Loading...
           </div>
         )}
@@ -273,11 +273,10 @@ const StaffEducationPage = () => {
         <div className="flex gap-2 mb-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
-              activeTab === 'pending'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${activeTab === 'pending'
+              ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
           >
             <FaExclamationTriangle />
             Pending Approvals
@@ -289,22 +288,20 @@ const StaffEducationPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('edit')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
-              activeTab === 'edit'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${activeTab === 'edit'
+              ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
           >
             <FaEye />
             Edit Student GPA
           </button>
           <button
             onClick={() => setActiveTab('upload')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
-              activeTab === 'upload'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${activeTab === 'upload'
+              ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
           >
             <FaUpload />
             Bulk Upload GPA
@@ -331,7 +328,7 @@ const StaffEducationPage = () => {
                     <div>
                       <h3 className="text-xl font-bold text-gray-800">{record.username}</h3>
                       <p className="text-sm text-gray-600">
-                        Reg No: <span className="font-semibold">{record.regno}</span>
+                        Reg No: <span className="font-semibold">{record.registerNumber}</span>
                       </p>
                       <p className="text-xs text-gray-500">
                         Submitted: {new Date(record.createdAt).toLocaleDateString()}
@@ -340,7 +337,7 @@ const StaffEducationPage = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleViewDetails(record)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
                       >
                         <FaEye /> View
                       </button>
@@ -432,11 +429,11 @@ const StaffEducationPage = () => {
             <h3 className="text-2xl font-bold text-gray-800 mb-6">Upload Student GPA Data</h3>
 
             {/* Instructions */}
-            <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <div className="mb-6 p-4 bg-indigo-50 border-2 border-indigo-300 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-3 text-lg">📋 Instructions</h4>
-              <ul className="list-disc list-inside text-sm text-blue-700 space-y-2">
+              <ul className="list-disc list-inside text-sm text-indigo-700 space-y-2">
                 <li>Download the template Excel file using the button below</li>
-                <li>Fill in the student registration numbers (regno) and their GPA for each semester (sem1 to sem8)</li>
+                <li>Fill in the student registration numbers (registerNumber) and their GPA for each semester (sem1 to sem8)</li>
                 <li>Include the overall CGPA in the last column</li>
                 <li><strong>Leave empty cells for semesters not yet completed</strong></li>
                 <li>All GPA values must be between 0 and 10</li>
@@ -449,7 +446,7 @@ const StaffEducationPage = () => {
             <div className="mb-6 flex justify-center">
               <button
                 onClick={downloadTemplate}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 shadow-md hover:shadow-lg"
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md hover:shadow-lg"
               >
                 <FaDownload /> Download Excel Template
               </button>
@@ -463,11 +460,11 @@ const StaffEducationPage = () => {
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
-                  className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 transition cursor-pointer"
+                  className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-600 transition cursor-pointer"
                   id="file-upload"
                 />
-                <label 
-                  htmlFor="file-upload" 
+                <label
+                  htmlFor="file-upload"
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 >
                   {!selectedFile && (
@@ -489,11 +486,10 @@ const StaffEducationPage = () => {
               <button
                 onClick={handleUploadExcel}
                 disabled={!selectedFile || loading}
-                className={`px-8 py-3 rounded-lg font-semibold transition flex items-center gap-2 text-lg ${
-                  selectedFile && !loading
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`px-8 py-3 rounded-lg font-semibold transition flex items-center gap-2 text-lg ${selectedFile && !loading
+                  ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 <FaUpload /> {loading ? 'Uploading...' : 'Upload GPA Data'}
               </button>
@@ -501,63 +497,15 @@ const StaffEducationPage = () => {
 
             {/* Status Message */}
             {uploadStatus && (
-              <div className={`p-4 rounded-lg border-2 ${
-                uploadStatus.includes('Success') || uploadStatus.includes('✅')
-                  ? 'bg-green-50 text-green-700 border-green-300' 
-                  : 'bg-red-50 text-red-700 border-red-300'
-              }`}>
+              <div className={`p-4 rounded-lg border-2 ${uploadStatus.includes('Success') || uploadStatus.includes('✅')
+                ? 'bg-green-50 text-green-700 border-green-300'
+                : 'bg-red-50 text-red-700 border-red-300'
+                }`}>
                 <p className="font-semibold">{uploadStatus}</p>
               </div>
             )}
 
-            {/* Expected Format */}
-            <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h4 className="font-semibold text-gray-800 mb-3 text-lg">Expected Excel Format:</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-purple-100">
-                      <th className="border border-gray-300 p-2 font-semibold">regno</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem1</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem2</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem3</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem4</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem5</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem6</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem7</th>
-                      <th className="border border-gray-300 p-2 font-semibold">sem8</th>
-                      <th className="border border-gray-300 p-2 font-semibold">cgpa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="border border-gray-300 p-2">2021001</td>
-                      <td className="border border-gray-300 p-2">8.5</td>
-                      <td className="border border-gray-300 p-2">8.7</td>
-                      <td className="border border-gray-300 p-2">8.9</td>
-                      <td className="border border-gray-300 p-2">9.0</td>
-                      <td className="border border-gray-300 p-2">8.8</td>
-                      <td className="border border-gray-300 p-2">9.1</td>
-                      <td className="border border-gray-300 p-2">9.2</td>
-                      <td className="border border-gray-300 p-2">9.3</td>
-                      <td className="border border-gray-300 p-2 font-semibold">8.94</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 p-2">2021002</td>
-                      <td className="border border-gray-300 p-2">7.5</td>
-                      <td className="border border-gray-300 p-2">7.8</td>
-                      <td className="border border-gray-300 p-2">8.0</td>
-                      <td className="border border-gray-300 p-2">8.2</td>
-                      <td className="border border-gray-300 p-2">8.5</td>
-                      <td className="border border-gray-300 p-2">8.7</td>
-                      <td className="border border-gray-300 p-2">8.9</td>
-                      <td className="border border-gray-300 p-2">9.0</td>
-                      <td className="border border-gray-300 p-2 font-semibold">8.33</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+
           </motion.div>
         )}
       </div>
@@ -579,17 +527,17 @@ const StaffEducationPage = () => {
                 ×
               </button>
             </div>
-            
+
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="p-4 bg-indigo-50 rounded-lg">
                 <h4 className="font-semibold text-lg mb-2">Student Information</h4>
                 <p><span className="font-medium">Name:</span> {selectedRecord.username}</p>
-                <p><span className="font-medium">Reg No:</span> {selectedRecord.regno}</p>
+                <p><span className="font-medium">Reg No:</span> {selectedRecord.registerNumber}</p>
                 <p><span className="font-medium">Email:</span> {selectedRecord.email}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-gray-50 rounded-lg">registerNumber
                   <h4 className="font-semibold mb-2">10th Standard</h4>
                   <p className="text-sm"><span className="font-medium">School:</span> {selectedRecord.tenth_school_name}</p>
                   <p className="text-sm"><span className="font-medium">Board:</span> {selectedRecord.tenth_board}</p>

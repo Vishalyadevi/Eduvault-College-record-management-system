@@ -1,4 +1,4 @@
-import { BulkUploadHistory, DownloadHistory, User,Department } from "../../models/index.js";
+import { BulkUploadHistory, DownloadHistory, User, Department } from "../../models/index.js";
 
 // Fetch bulk upload history
 export const getBulkHistory = async (req, res) => {
@@ -7,7 +7,7 @@ export const getBulkHistory = async (req, res) => {
   try {
     const bulkHistory = await BulkUploadHistory.findAll({
       order: [["created_at", "DESC"]],
-      include: [{ model: User, attributes: ["username"] }],
+      include: [{ model: User, attributes: ["userName"], as: "user" }],
     });
    
     res.json(bulkHistory);
@@ -21,7 +21,7 @@ export const getUploadHistory = async (req, res) => {
   try {
     const uploadHistory = await DownloadHistory.findAll({
       order: [["created_at", "DESC"]],
-      include: [{ model: User, attributes: ["username"] }], // Include user details
+      include: [{ model: User, attributes: ["userName"], as: "user" }], // Include user details
     });
     res.json(uploadHistory);
   } catch (error) {
@@ -34,11 +34,12 @@ export const getDepartmentWiseCounts = async (req, res) => {
   try {
     // Fetch all users with their department details
     const users = await User.findAll({
-      attributes: ["role", "Deptid"], // Only fetch necessary fields
+      attributes: ["roleId", "departmentId"], // Only fetch necessary fields
       include: [
         {
           model: Department,
-          attributes: ["Deptname", "Deptacronym"], // Include department name and acronym
+          as: "department",
+          attributes: ["departmentName", "departmentAcr"], // Include department name and acronym
         },
       ],
     });
@@ -47,8 +48,8 @@ export const getDepartmentWiseCounts = async (req, res) => {
     const departmentCounts = {};
 
     users.forEach((user) => {
-      const deptAcronym = user.Department?.Deptacronym || "Unknown"; // Use department acronym or "Unknown" if not available
-      const role = user.role; // Role can be "Student", "Staff", or "Admin"
+      const deptAcronym = user.department?.departmentAcr || "Unknown"; // Use department acronym or "Unknown" if not available
+      const roleId = user.roleId; // Role id numeric
 
       // Initialize the department object if it doesn't exist
       if (!departmentCounts[deptAcronym]) {
@@ -59,9 +60,9 @@ export const getDepartmentWiseCounts = async (req, res) => {
       }
 
       // Increment counts based on role
-      if (role === "Student") {
+      if (roleId === 3) {
         departmentCounts[deptAcronym].students += 1;
-      } else if (role === "Staff") {
+      } else if (roleId === 2) {
         departmentCounts[deptAcronym].staff += 1;
       }
     });

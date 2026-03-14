@@ -1,647 +1,355 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import * as XLSX from "xlsx";
+import React, { useState, useEffect } from "react";
+import { Calendar, Clock, MapPin, DollarSign, BookOpen, Award, CheckCircle } from "lucide-react";
+import { useAuth } from "../../../records/pages/auth/AuthContext";
+import api from "../../../records/services/api";
 
-const AdminPlacementDrives = () => {
-  const [driveData, setDriveData] = useState({
-    company_name: "",
-    batch: "",
-    departments: "",
-    tenth_percentage: "",
-    twelfth_percentage: "",
-    cgpa: "",
-    history_of_arrears: "",
-    standing_arrears: "",
-    drive_date: "",
-    drive_time: "",
-    venue: "",
-    salary: "",
-    roles: "",
-  });
+const StaffUpcomingDrives = () => {
+  const [drives, setDrives] = useState([]);
+  const [registeredDrives, setRegisteredDrives] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [selectedDrive, setSelectedDrive] = useState(null);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  const navigate = useNavigate();
-  const [placementDrives, setPlacementDrives] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingDriveId, setEditingDriveId] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
-  const [filterText, setFilterText] = useState("");
-  const [filterField, setFilterField] = useState("all");
-  const [statistics, setStatistics] = useState({
-    total_drives: 0,
-    unique_companies: 0,
-    upcoming_drives: 0,
-  });
+  const { token } = useAuth();
 
-  // Get token from localStorage
-  const token = localStorage.getItem("token");
-
-  // Fetch placement drives when component mounts
   useEffect(() => {
-    fetchPlacementDrives();
-    fetchStatistics();
+    fetchDrives();
+    fetchRegisteredDrives();
   }, []);
 
-  const fetchPlacementDrives = async () => {
+  const fetchDrives = async () => {
     try {
-      const response = await axios.get("http://localhost:4000/api/placement-drives", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log("Fetched placement drives:", response.data);
-      setPlacementDrives(response.data.data || []);
+      setLoading(true);
+      const response = await api.get("/placement/drives");
+      setDrives(response.data.data || []);
     } catch (error) {
-      console.error("Error fetching placement drives:", error.response ? error.response.data : error.message);
-      if (error.response?.status === 401) {
-        alert("Session expired. Please login again.");
-        navigate("/login");
-      }
-      setPlacementDrives([]);
-    }
-  };
-
-  const fetchStatistics = async () => {
-    try {
-      const response = await axios.get("http://localhost:4000/api/placement-drives/stats/overview", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setStatistics(response.data.data || {});
-    } catch (error) {
-      console.error("Error fetching statistics:", error);
-    }
-  };
-
-  // Handle text input changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setDriveData({ ...driveData, [name]: value });
-  };
-
-  // Validate form data
-  const validateForm = () => {
-    const errors = [];
-    if (!driveData.company_name.trim()) errors.push("Company Name");
-    if (!driveData.drive_date) errors.push("Drive Date");
-    if (!driveData.drive_time) errors.push("Drive Time");
-
-    // Validate percentages
-    if (driveData.tenth_percentage && (parseFloat(driveData.tenth_percentage) < 0 || parseFloat(driveData.tenth_percentage) > 100)) {
-      errors.push("10th Percentage (must be between 0-100)");
-    }
-    if (driveData.twelfth_percentage && (parseFloat(driveData.twelfth_percentage) < 0 || parseFloat(driveData.twelfth_percentage) > 100)) {
-      errors.push("12th Percentage (must be between 0-100)");
-    }
-    if (driveData.cgpa && (parseFloat(driveData.cgpa) < 0 || parseFloat(driveData.cgpa) > 10)) {
-      errors.push("CGPA (must be between 0-10)");
-    }
-
-    return errors;
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      alert(`Please fix the following errors:\n• ${validationErrors.join("\n• ")}`);
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const submitData = {
-      company_name: driveData.company_name.trim(),
-      batch: driveData.batch.trim() || null,
-      departments: driveData.departments.trim() || null,
-      tenth_percentage: driveData.tenth_percentage ? parseFloat(driveData.tenth_percentage) : null,
-      twelfth_percentage: driveData.twelfth_percentage ? parseFloat(driveData.twelfth_percentage) : null,
-      cgpa: driveData.cgpa ? parseFloat(driveData.cgpa) : null,
-      history_of_arrears: driveData.history_of_arrears.trim() || null,
-      standing_arrears: driveData.standing_arrears.trim() || null,
-      drive_date: driveData.drive_date,
-      drive_time: driveData.drive_time,
-      venue: driveData.venue.trim() || null,
-      salary: driveData.salary ? parseFloat(driveData.salary) : null,
-      roles: driveData.roles.trim() || null,
-    };
-
-    try {
-      let response;
-      if (isEditing) {
-        response = await axios.put(
-          `http://localhost:4000/api/placement-drives/${editingDriveId}`,
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        alert("Placement drive updated successfully!");
-        setIsEditing(false);
-        setEditingDriveId(null);
-      } else {
-        response = await axios.post(
-          "http://localhost:4000/api/placement-drives",
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        alert("Placement drive created successfully!");
-      }
-
-      await fetchPlacementDrives();
-      await fetchStatistics();
-      resetForm();
-      setShowForm(false);
-    } catch (error) {
-      console.error("Error with placement drive operation:", error);
-      let errorMessage = `Error ${isEditing ? "updating" : "creating"} placement drive: `;
-      if (error.response) {
-        errorMessage += error.response.data?.message || error.response.data || "Server error";
-      } else if (error.request) {
-        errorMessage += "No response from server. Please check your connection.";
-      } else {
-        errorMessage += error.message;
-      }
-      alert(errorMessage);
+      console.error("Error fetching drives:", error);
+      alert("Error loading placement drives");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  // Reset form data
-  const resetForm = () => {
-    setDriveData({
-      company_name: "",
-      batch: "",
-      departments: "",
-      tenth_percentage: "",
-      twelfth_percentage: "",
-      cgpa: "",
-      history_of_arrears: "",
-      standing_arrears: "",
-      drive_date: "",
-      drive_time: "",
-      venue: "",
-      salary: "",
-      roles: "",
-    });
-  };
-
-  // Toggle form visibility
-  const toggleForm = () => {
-    if (showForm) {
-      resetForm();
-      setIsEditing(false);
-      setEditingDriveId(null);
+  const fetchRegisteredDrives = async () => {
+    try {
+      const response = await api.get("/placement/registrations/my");
+      setRegisteredDrives(response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching registrations:", error);
     }
-    setShowForm(!showForm);
   };
 
-  // Edit placement drive
-  const handleEdit = (drive, e) => {
-    e.preventDefault();
-    setDriveData({
-      company_name: drive.company_name || "",
-      batch: drive.batch || "",
-      departments: drive.departments || "",
-      tenth_percentage: drive.tenth_percentage || "",
-      twelfth_percentage: drive.twelfth_percentage || "",
-      cgpa: drive.cgpa || "",
-      history_of_arrears: drive.history_of_arrears || "",
-      standing_arrears: drive.standing_arrears || "",
-      drive_date: drive.drive_date ? drive.drive_date.split('T')[0] : "",
-      drive_time: drive.drive_time || "",
-      venue: drive.venue || "",
-      salary: drive.salary || "",
-      roles: drive.roles || "",
-    });
-    setIsEditing(true);
-    setEditingDriveId(drive.id);
-    setShowForm(true);
+  const isRegistered = (driveId) => {
+    return registeredDrives.some(reg => reg.drive_id === driveId);
   };
 
-  // Delete placement drive
-  const handleDelete = async (driveId, e) => {
-    e.preventDefault();
-    const confirmDelete = window.confirm("Are you sure you want to delete this placement drive? This action cannot be undone.");
-    if (!confirmDelete) return;
+  const getRegistrationStatus = (driveId) => {
+    return registeredDrives.find(reg => reg.drive_id === driveId);
+  };
+
+  const handleRegister = async () => {
+    if (!selectedDrive) return;
 
     try {
-      await axios.delete(`http://localhost:4000/api/placement-drives/${driveId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPlacementDrives((prev) => prev.filter((drive) => drive.id !== driveId));
-      await fetchStatistics();
-      alert("Placement drive deleted successfully.");
+      setLoading(true);
+      await api.post("/placement/registrations", { drive_id: selectedDrive.id });
+
+      alert("Successfully registered for the placement drive!");
+      setShowRegisterModal(false);
+      setSelectedDrive(null);
+      await fetchRegisteredDrives();
     } catch (error) {
-      console.error("Error deleting placement drive:", error.response?.data || error.message);
-      alert("Error deleting placement drive. Please try again.");
+      console.error("Error registering:", error);
+      const message = error.response?.data?.message || "Error registering for drive";
+      alert(message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Download as Excel
-  const handleDownloadExcel = () => {
-    const data = placementDrives.map((drive) => ({
-      "Company Name": drive.company_name || "",
-      "Batch": drive.batch || "",
-      "Departments": drive.departments || "",
-      "10th %": drive.tenth_percentage || "",
-      "12th %": drive.twelfth_percentage || "",
-      "CGPA": drive.cgpa || "",
-      "History of Arrears": drive.history_of_arrears || "",
-      "Standing Arrears": drive.standing_arrears || "",
-      "Drive Date": drive.drive_date ? new Date(drive.drive_date).toLocaleDateString() : "",
-      "Drive Time": drive.drive_time || "",
-      "Venue": drive.venue || "",
-      "Salary (LPA)": drive.salary || "",
-      "Roles": drive.roles || "",
-      "Created By": drive.username || "",
-    }));
+  const filteredDrives = drives.filter(drive => {
+    const now = new Date();
+    const driveDate = new Date(drive.drive_date);
+    const isUpcoming = driveDate >= now;
+    const registered = isRegistered(drive.id);
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Placement Drives");
-    XLSX.writeFile(workbook, "PlacementDrives.xlsx");
+    if (filter === "upcoming") return isUpcoming && !registered;
+    if (filter === "registered") return registered;
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      "Cleared": { bg: "bg-green-100", text: "text-green-800" },
+      "Not Cleared": { bg: "bg-red-100", text: "text-red-800" },
+      "Pending": { bg: "bg-yellow-100", text: "text-yellow-800" },
+      "Attended": { bg: "bg-indigo-100", text: "text-blue-800" },
+    };
+    return badges[status] || badges["Pending"];
   };
 
-  // Handle sorting
-  const requestSort = (key) => {
-    let direction = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
-    }
-    setSortConfig({ key, direction });
+  const getFilterCounts = () => {
+    return {
+      all: drives.length,
+      upcoming: drives.filter(d => new Date(d.drive_date) >= new Date() && !isRegistered(d.id)).length,
+      registered: registeredDrives.length
+    };
   };
 
-  // Filtered and sorted placement drives
-  const filteredAndSortedDrives = useMemo(() => {
-    let filtered = [...placementDrives];
-
-    if (filterText) {
-      filtered = filtered.filter((drive) => {
-        if (filterField === "all") {
-          return Object.values(drive).some((value) =>
-            value && value.toString().toLowerCase().includes(filterText.toLowerCase())
-          );
-        } else {
-          const value = drive[filterField];
-          return value && value.toString().toLowerCase().includes(filterText.toLowerCase());
-        }
-      });
-    }
-
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        if (aValue == null) aValue = "";
-        if (bValue == null) bValue = "";
-
-        if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "ascending" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [placementDrives, filterText, filterField, sortConfig]);
+  const counts = getFilterCounts();
 
   return (
-    <div 
-      className="min-h-screen bg-white text-gray-800" 
-      style={{ marginLeft: "250px", padding: "20px" }}
+    <div
+      className="min-h-screen bg-white"
     >
-      
-      <div style={{ width: "100%" }}>
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-md">
-            <h4 className="text-sm font-medium opacity-90">Total Drives</h4>
-            <p className="text-3xl font-bold mt-2">{statistics.total_drives}</p>
-          </div>
-          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-lg shadow-md">
-            <h4 className="text-sm font-medium opacity-90">Unique Companies</h4>
-            <p className="text-3xl font-bold mt-2">{statistics.unique_companies}</p>
-          </div>
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow-md">
-            <h4 className="text-sm font-medium opacity-90">Upcoming Drives</h4>
-            <p className="text-3xl font-bold mt-2">{statistics.upcoming_drives}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-gray-800">Placement Drives</h3>
-          <div className="space-x-4">
-            <button
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow-md"
-              onClick={handleDownloadExcel}
-            >
-              Download as Excel
-            </button>
-          </div>
-        </div>
-
-        {/* Filter and Sort Section */}
-        <div className="bg-white p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <input
-                type="text"
-                placeholder="Search by company, venue, roles..."
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-              />
-            </div>
-            <div className="w-full md:w-48">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Filter By</label>
-              <select
-                value={filterField}
-                onChange={(e) => setFilterField(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-              >
-                <option value="all">All Fields</option>
-                <option value="company_name">Company Name</option>
-                <option value="batch">Batch</option>
-                <option value="venue">Venue</option>
-                <option value="departments">Departments</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {showForm && (
-          <div className="bg-white p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">
-              {isEditing ? "Edit Placement Drive" : "Add New Placement Drive"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
-                  <input
-                    type="text"
-                    name="company_name"
-                    placeholder="Company Name"
-                    value={driveData.company_name}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-                  <input
-                    type="text"
-                    name="batch"
-                    placeholder="e.g., 2024, 2025"
-                    value={driveData.batch}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
-                  <input
-                    type="text"
-                    name="departments"
-                    placeholder="e.g., CSE, ECE, MECH"
-                    value={driveData.departments}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">10th Percentage</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    name="tenth_percentage"
-                    placeholder="Minimum 10th %"
-                    value={driveData.tenth_percentage}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">12th Percentage</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    name="twelfth_percentage"
-                    placeholder="Minimum 12th %"
-                    value={driveData.twelfth_percentage}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CGPA</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    name="cgpa"
-                    placeholder="Minimum CGPA"
-                    value={driveData.cgpa}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">History of Arrears</label>
-                  <input
-                    type="text"
-                    name="history_of_arrears"
-                    placeholder="e.g., No arrears, Max 2 arrears"
-                    value={driveData.history_of_arrears}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Standing Arrears</label>
-                  <input
-                    type="text"
-                    name="standing_arrears"
-                    placeholder="e.g., 0, Not allowed"
-                    value={driveData.standing_arrears}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Drive Date *</label>
-                  <input
-                    type="date"
-                    name="drive_date"
-                    value={driveData.drive_date}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Drive Time *</label>
-                  <input
-                    type="time"
-                    name="drive_time"
-                    value={driveData.drive_time}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
-                  <input
-                    type="text"
-                    name="venue"
-                    placeholder="Drive Location"
-                    value={driveData.venue}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary (LPA)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    name="salary"
-                    placeholder="Package in LPA"
-                    value={driveData.salary}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
-                <textarea
-                  name="roles"
-                  placeholder="Job roles offered (e.g., Software Engineer, Data Analyst)"
-                  value={driveData.roles}
-                  onChange={handleChange}
-                  rows="2"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow-md disabled:opacity-50"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Processing..." : isEditing ? "Update Drive" : "Create Drive"}
-                </button>
-                {isEditing && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetForm();
-                      setIsEditing(false);
-                      setEditingDriveId(null);
-                      setShowForm(false);
-                    }}
-                    className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition shadow-md"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div className="bg-white overflow-x-auto">
-          <table className="min-w-full table-auto">
-            <thead className="bg-gradient-to-r from-blue-900 to-blue-600 text-white">
-              <tr>
-                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("company_name")}>
-                  Company {sortConfig.key === "company_name" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("batch")}>
-                  Batch {sortConfig.key === "batch" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-3 text-left">Eligibility</th>
-                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("drive_date")}>
-                  Date {sortConfig.key === "drive_date" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("drive_time")}>
-                  Time {sortConfig.key === "drive_time" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-3 text-left">Venue</th>
-                <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("salary")}>
-                  Package {sortConfig.key === "salary" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-3 text-left">Roles</th>
-                <th className="px-4 py-3 text-left">Created By</th>
-                <th className="px-4 py-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSortedDrives.length > 0 ? (
-                filteredAndSortedDrives.map((drive) => (
-                  <tr key={drive.id} className="border-b hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 font-medium">{drive.company_name}</td>
-                    <td className="px-4 py-3">{drive.batch || "-"}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <div>
-                        {drive.tenth_percentage && <div>10th: {drive.tenth_percentage}%</div>}
-                        {drive.twelfth_percentage && <div>12th: {drive.twelfth_percentage}%</div>}
-                        {drive.cgpa && <div>CGPA: {drive.cgpa}</div>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {drive.drive_date ? new Date(drive.drive_date).toLocaleDateString() : "-"}
-                    </td>
-                    <td className="px-4 py-3">{drive.drive_time || "-"}</td>
-                    <td className="px-4 py-3">{drive.venue || "-"}</td>
-                    <td className="px-4 py-3">{drive.salary ? `${drive.salary} LPA` : "-"}</td>
-                    <td className="px-4 py-3">{drive.roles || "-"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{drive.username || "-"}</td>
-                    
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
-                    No placement drives available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Placement Drives</h1>
+        <p className="text-gray-600">View and register for upcoming campus placement opportunities</p>
       </div>
+
+      {/* Filter Tabs */}
+      <div className="mb-6 flex gap-3 flex-wrap">
+        {[
+          { value: "all", label: "All Drives", count: counts.all },
+          { value: "upcoming", label: "Upcoming", count: counts.upcoming },
+          { value: "registered", label: "My Registrations", count: counts.registered },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setFilter(tab.value)}
+            className={`px-6 py-2.5 rounded-lg font-medium transition-all ${filter === tab.value
+              ? "bg-indigo-600 text-white shadow-md"
+              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+              }`}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Drives Grid */}
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 font-medium">Loading drives...</p>
+          </div>
+        </div>
+      ) : filteredDrives.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+          <div className="text-gray-300 mb-4">
+            <BookOpen size={64} className="mx-auto" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Drives Found</h3>
+          <p className="text-gray-500">There are no placement drives matching your filter</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDrives.map((drive) => {
+            const registered = isRegistered(drive.id);
+            const registration = getRegistrationStatus(drive.id);
+            const driveDate = new Date(drive.drive_date);
+            const isPast = driveDate < new Date();
+
+            return (
+              <div
+                key={drive.id}
+                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100"
+              >
+                {/* Card Header with Gradient */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-5">
+                  <h3 className="text-xl font-bold mb-3">{drive.company_name}</h3>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center text-indigo-50 text-sm">
+                      <Calendar size={16} className="mr-2" />
+                      {new Date(drive.drive_date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </div>
+                    <div className="flex items-center text-indigo-50 text-sm">
+                      <Clock size={16} className="mr-2" />
+                      {drive.drive_time}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-5">
+                  <div className="space-y-3 mb-4">
+                    {/* Venue */}
+                    {drive.venue && (
+                      <div className="flex items-start text-gray-700">
+                        <MapPin size={18} className="mr-2 mt-0.5 text-indigo-600 flex-shrink-0" />
+                        <span className="text-sm">{drive.venue}</span>
+                      </div>
+                    )}
+
+                    {/* Salary */}
+                    {drive.salary && (
+                      <div className="flex items-center text-gray-700 bg-green-50 rounded-lg px-3 py-2">
+                        <DollarSign size={18} className="mr-2 text-green-600" />
+                        <span className="text-sm font-semibold text-green-700">{drive.salary} LPA</span>
+                      </div>
+                    )}
+
+                    {/* Roles */}
+                    {drive.roles && (
+                      <div className="flex items-start text-gray-700">
+                        <Award size={18} className="mr-2 mt-0.5 text-indigo-600 flex-shrink-0" />
+                        <span className="text-sm">{drive.roles}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Eligibility Criteria */}
+                  <div className="border-t border-gray-200 pt-4 mb-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="bg-indigo-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">Requirements</span>
+                    </h4>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {drive.tenth_percentage && (
+                        <div className="flex items-center bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-700">10th:</span>
+                          <span className="ml-2">≥ {drive.tenth_percentage}%</span>
+                        </div>
+                      )}
+                      {drive.twelfth_percentage && (
+                        <div className="flex items-center bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-700">12th:</span>
+                          <span className="ml-2">≥ {drive.twelfth_percentage}%</span>
+                        </div>
+                      )}
+                      {drive.cgpa && (
+                        <div className="flex items-center bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-700">CGPA:</span>
+                          <span className="ml-2">≥ {drive.cgpa}</span>
+                        </div>
+                      )}
+                      {drive.departments && (
+                        <div className="bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-700">Departments:</span>
+                          <span className="ml-2">{drive.departments}</span>
+                        </div>
+                      )}
+                      {drive.batch && (
+                        <div className="flex items-center bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-700">Batch:</span>
+                          <span className="ml-2">{drive.batch}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Registration Status */}
+                  {registered && registration && (
+                    <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center text-green-700 font-semibold mb-2">
+                        <CheckCircle size={20} className="mr-2" />
+                        Registered Successfully
+                      </div>
+                      <div className="text-sm space-y-2">
+                        <div className={`inline-block px-3 py-1 rounded-full font-medium ${getStatusBadge(registration.status).bg} ${getStatusBadge(registration.status).text}`}>
+                          {registration.status}
+                        </div>
+                        {registration.current_round && (
+                          <div className="text-green-700 mt-2 font-medium">
+                            📍 Current Round: Round {registration.current_round}
+                          </div>
+                        )}
+                        {registration.placed && (
+                          <div className="mt-2 font-bold text-green-800 text-base">
+                            🎉 Congratulations! You're Placed!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Registration Confirmation Modal */}
+      {showRegisterModal && selectedDrive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full transform transition-all">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Confirm Registration</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Are you sure you want to register for the placement drive at{" "}
+              <span className="font-bold text-indigo-600">{selectedDrive.company_name}</span>?
+            </p>
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-50 rounded-xl p-5 mb-6 space-y-3 border border-indigo-100">
+              <div className="flex items-center text-gray-800">
+                <Calendar size={18} className="mr-3 text-indigo-600" />
+                <span className="font-medium">
+                  {new Date(selectedDrive.drive_date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center text-gray-800">
+                <Clock size={18} className="mr-3 text-indigo-600" />
+                <span className="font-medium">{selectedDrive.drive_time}</span>
+              </div>
+              {selectedDrive.venue && (
+                <div className="flex items-center text-gray-800">
+                  <MapPin size={18} className="mr-3 text-indigo-600" />
+                  <span className="font-medium">{selectedDrive.venue}</span>
+                </div>
+              )}
+              {selectedDrive.salary && (
+                <div className="flex items-center text-gray-800">
+                  <DollarSign size={18} className="mr-3 text-green-600" />
+                  <span className="font-semibold text-green-700">{selectedDrive.salary} LPA</span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={handleRegister}
+                disabled={loading}
+                className="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Registering...
+                  </span>
+                ) : (
+                  "Confirm Registration"
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRegisterModal(false);
+                  setSelectedDrive(null);
+                }}
+                disabled={loading}
+                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default AdminPlacementDrives;
+export default StaffUpcomingDrives;

@@ -22,13 +22,13 @@ export const addInternship = [
 
       // Validate required fields
       if (!provider_name || !domain || !mode || !start_date || !end_date) {
-        return res.status(400).json({ 
-          message: "Missing required fields: provider_name, domain, mode, start_date, end_date are required" 
+        return res.status(400).json({
+          message: "Missing required fields: provider_name, domain, mode, start_date, end_date are required"
         });
       }
 
       const user = await User.findByPk(parsedUserId);
-      if (!user || !user.email) {
+      if (!user || !user.userMail) {
         return res.status(404).json({ message: "Student email not found" });
       }
 
@@ -91,7 +91,7 @@ export const addInternship = [
 
 A student has submitted a new internship for your approval. Please find the details below:
 
-Student Regno: ${student.regno}
+Student registerNumber: ${student.registerNumber}
 Student Name: ${user.username || "N/A"}
 Provider: ${provider_name}
 Domain: ${domain}
@@ -121,10 +121,10 @@ Note: If you have any issues, feel free to contact the system administrator at t
       });
     } catch (error) {
       console.error("❌ Error adding internship:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        message: "Error adding internship", 
-        error: error.message 
+        message: "Error adding internship",
+        error: error.message
       });
     }
   },
@@ -134,11 +134,11 @@ export const updateInternship = [
   upload,
   async (req, res) => {
     const { internshipId } = req.params;
-  
+
     const { status, provider_name, domain, mode, start_date, end_date, stipend_amount, description } = req.body;
     console.log("📥 Update request body:", req.body);
     console.log("📎 Update file:", req.file);
-    
+
     const Userid = req.user.Userid;
     const certFile = req.file ? req.file.path.replace(/\\/g, "/") : null;
 
@@ -147,11 +147,11 @@ export const updateInternship = [
       if (!internship) {
         return res.status(404).json({ message: "Internship not found" });
       }
-      
+
       if (internship.Userid !== Userid && req.user.role !== "tutor") {
         return res.status(403).json({ message: "Unauthorized to update this internship" });
       }
-      
+
       if (status === "completed" && !certFile && !internship.certificate) {
         return res.status(400).json({ message: "Certificate is required for completed internships" });
       }
@@ -198,7 +198,7 @@ export const updateInternship = [
 
 A student has updated their internship details. Please review the updated details:
 
-Student Regno: ${student.regno}
+Student registerNumber: ${student.registerNumber}
 Student Name: ${user.username || "N/A"}
 Provider: ${internship.provider_name}
 Domain: ${internship.domain}
@@ -228,10 +228,10 @@ Note: If you have any issues, feel free to contact the system administrator at t
       });
     } catch (error) {
       console.error("❌ Error updating internship:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        message: "Error updating internship", 
-        error: error.message 
+        message: "Error updating internship",
+        error: error.message
       });
     }
   },
@@ -240,17 +240,17 @@ Note: If you have any issues, feel free to contact the system administrator at t
 export const getPendingInternships = async (req, res) => {
   try {
     const pendingInternships = await Internship.findAll({
-      where: { pending: true, Userid: req.user.Userid },
+      where: { pending: true },
       include: [
         {
           model: User,
           as: "internUser",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -261,8 +261,8 @@ export const getPendingInternships = async (req, res) => {
       const { internUser, ...rest } = internship.get({ plain: true });
       return {
         ...rest,
-        username: internUser?.username || "N/A",
-        regno: internUser?.studentDetails?.regno || "N/A",
+        username: internUser?.userName || "N/A",
+        registerNumber: internUser?.studentDetails?.registerNumber || "N/A",
         staffId: internUser?.studentDetails?.staffId || "N/A",
       };
     });
@@ -345,7 +345,7 @@ Internship Management System`,
 
 The following internship submitted by your student has been deleted:
 
-- **Student Regno**: ${student.regno}  
+- **Student registerNumber**: ${student.registerNumber}  
 - **Student Name**: ${user.username || "N/A"}  
 - **Provider**: ${internship.provider_name}  
 - **Domain**: ${internship.domain}  
@@ -358,16 +358,16 @@ Best,
 Internship Management System`,
     });
 
-    res.status(200).json({ 
-      success: true, 
-      message: "Internship deleted successfully" 
+    res.status(200).json({
+      success: true,
+      message: "Internship deleted successfully"
     });
   } catch (error) {
     console.error("❌ Error deleting internship:", error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Error deleting internship",
-      error: error.message 
+      error: error.message
     });
   }
 };

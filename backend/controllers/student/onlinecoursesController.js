@@ -54,9 +54,9 @@ export const addOnlineCourse = async (req, res) => {
     } = req.body;
     const certificate_file = req.file ? req.file.filename : null;
 
-    // Get Userid from authenticated user
-    const userId = req.user?.Userid;
-    
+    // Standardize User ID resolution
+    const userId = req.user?.userId || req.user?.Userid || (req.body.Userid ? parseInt(req.body.Userid) : null);
+
     if (!userId) {
       return res.status(400).json({ message: "User ID is required. Please log in again." });
     }
@@ -84,21 +84,19 @@ export const addOnlineCourse = async (req, res) => {
       return res.status(400).json({ message: "Certificate file is required for completed courses" });
     }
 
-    // Fetch user details
+    // Fetch user details for notification
     const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    if (!user || !user.userMail) {
+      return res.status(404).json({ message: "Student details not found for notification" });
     }
 
-    // Fetch student details to get tutorEmail
-    const student = await StudentDetails.findOne({ where: { Userid: userId } });
-    if (!student) {
-      return res.status(404).json({ message: "Student details not found" });
-    }
-    
-    if (!student.tutorEmail) {
-      return res.status(400).json({ message: "Tutor email not configured. Please contact administrator." });
-    }
+    // Fetch student details to get tutorEmail with fallback
+    const student = await StudentDetails.findOne({
+      where: { Userid: userId },
+      include: [{ model: User, as: "staffAdvisor", attributes: ["userMail", "userName"] }]
+    });
+
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
 
     // Create the course with pending status
     const newCourse = await OnlineCourses.create({
@@ -116,15 +114,16 @@ export const addOnlineCourse = async (req, res) => {
       Updated_by: userId,
     });
 
-    // Send email notification to the tutor
-    try {
-      await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
-        subject: "New Online Course Added - Pending Approval",
-        text: `Dear Tutor,
+    // Send email notification to the tutor if available
+    if (tutorEmail) {
+      try {
+        await sendEmail({
+          from: user.userMail,
+          to: tutorEmail,
+          subject: "New Online Course Added - Pending Approval",
+          text: `Dear Tutor,
 
-A new online course has been added by ${user.username || "a student"} and is pending your approval.
+A new online course has been added by ${user.userName || "a student"} and is pending your approval.
 
 Course Details:
 - Course Name: ${course_name}
@@ -139,21 +138,21 @@ Please review and approve the course in the system.
 
 Best Regards,
 Online Courses Management System`,
-      });
-    } catch (emailError) {
-      console.error("Failed to send email notification:", emailError);
-      // Continue without failing the course addition
+        });
+      } catch (emailError) {
+        console.error("Failed to send email notification:", emailError);
+      }
     }
 
-    res.status(201).json({ 
-      message: "Online course added successfully and is pending approval.", 
-      course: newCourse 
+    res.status(201).json({
+      message: "Online course added successfully and is pending approval.",
+      course: newCourse
     });
   } catch (error) {
     console.error("Error adding online course:", error);
-    res.status(500).json({ 
-      message: "Error adding online course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error adding online course",
+      error: error.message
     });
   }
 };
@@ -173,9 +172,9 @@ export const updateOnlineCourse = async (req, res) => {
     } = req.body;
     const certificate_file = req.file ? req.file.filename : null;
 
-    // Get Userid from authenticated user
-    const userId = req.user?.Userid;
-    
+    // Standardize User ID resolution
+    const userId = req.user?.userId || req.user?.Userid || (req.body.Userid ? parseInt(req.body.Userid) : null);
+
     if (!userId) {
       return res.status(400).json({ message: "User ID is required. Please log in again." });
     }
@@ -190,18 +189,23 @@ export const updateOnlineCourse = async (req, res) => {
       return res.status(403).json({ message: "You don't have permission to update this course" });
     }
 
-    // Fetch student details to get tutorEmail
-    const student = await StudentDetails.findOne({ where: { Userid: course.Userid } });
-    if (!student) {
-      return res.status(404).json({ message: "Student details not found" });
-    }
+    // Fetch user and student details for notification fallback
+    const user = await User.findByPk(userId);
+    const student = await StudentDetails.findOne({
+      where: { Userid: userId },
+      include: [{ model: User, as: "staffAdvisor", attributes: ["userMail", "userName"] }]
+    });
+
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
 
     // Delete old certificate file if a new one is uploaded
     if (certificate_file && course.certificate_file) {
       const oldFilePath = path.join("uploads/certificates/", course.certificate_file);
-      fs.unlink(oldFilePath, (err) => {
-        if (err) console.error("Error deleting old certificate:", err);
-      });
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlink(oldFilePath, (err) => {
+          if (err) console.error("Error deleting old certificate:", err);
+        });
+      }
     }
 
     // Update course details and set back to pending
@@ -218,17 +222,16 @@ export const updateOnlineCourse = async (req, res) => {
 
     await course.save();
 
-    // Fetch user details to send email
-    const user = await User.findByPk(course.Userid);
-    if (user && student.tutorEmail) {
+    // Send email notification if tutor email is available
+    if (user && user.userMail && tutorEmail) {
       try {
         await sendEmail({
-          from: user.email,
-          to: student.tutorEmail,
+          from: user.userMail,
+          to: tutorEmail,
           subject: "Online Course Updated - Pending Re-approval",
           text: `Dear Tutor,
 
-An online course has been updated by ${user.username || "a student"} and requires re-approval.
+An online course has been updated by ${user.userName || "a student"} and requires re-approval.
 
 Updated Course Details:
 - Course Name: ${course.course_name}
@@ -249,15 +252,15 @@ Online Courses Management System`,
       }
     }
 
-    res.status(200).json({ 
-      message: "Course updated successfully and is pending re-approval.", 
-      course 
+    res.status(200).json({
+      message: "Course updated successfully and is pending re-approval.",
+      course
     });
   } catch (error) {
     console.error("Error updating course:", error);
-    res.status(500).json({ 
-      message: "Error updating course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating course",
+      error: error.message
     });
   }
 };
@@ -267,9 +270,9 @@ export const deleteOnlineCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
 
-    // Get Userid from authenticated user
-    const userId = req.user?.Userid;
-    
+    // Standardize User ID resolution
+    const userId = req.user?.userId || req.user?.Userid;
+
     if (!userId) {
       return res.status(400).json({ message: "User ID is required. Please log in again." });
     }
@@ -284,20 +287,24 @@ export const deleteOnlineCourse = async (req, res) => {
       return res.status(403).json({ message: "You don't have permission to delete this course" });
     }
 
-    // Fetch student details to get tutorEmail
-    const student = await StudentDetails.findOne({ where: { Userid: course.Userid } });
-    
-    // Fetch user details to send email
-    const user = await User.findByPk(course.Userid);
-    if (user && student?.tutorEmail) {
+    // Fetch user and student details for notification callback
+    const user = await User.findByPk(userId);
+    const student = await StudentDetails.findOne({
+      where: { Userid: userId },
+      include: [{ model: User, as: "staffAdvisor", attributes: ["userMail", "userName"] }]
+    });
+
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
+
+    if (user && user.userMail && tutorEmail) {
       try {
         await sendEmail({
-          from: user.email,
-          to: student.tutorEmail,
+          from: user.userMail,
+          to: tutorEmail,
           subject: "Online Course Deleted",
           text: `Dear Tutor,
 
-An online course has been deleted by ${user.username || "a student"}.
+An online course has been deleted by ${user.userName || "a student"}.
 
 Deleted Course Details:
 - Course Name: ${course.course_name}
@@ -317,18 +324,20 @@ Online Courses Management System`,
     // Delete certificate file if it exists
     if (course.certificate_file) {
       const filePath = path.join("uploads/certificates/", course.certificate_file);
-      fs.unlink(filePath, (err) => {
-        if (err) console.error("Error deleting certificate file:", err);
-      });
+      if (fs.existsSync(filePath)) {
+        fs.unlink(filePath, (err) => {
+          if (err) console.error("Error deleting certificate file:", err);
+        });
+      }
     }
 
     await course.destroy();
     res.status(200).json({ message: "Course deleted successfully." });
   } catch (error) {
     console.error("Error deleting course:", error);
-    res.status(500).json({ 
-      message: "Error deleting course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error deleting course",
+      error: error.message
     });
   }
 };
@@ -342,12 +351,12 @@ export const getPendingOnlineCourses = async (req, res) => {
         {
           model: User,
           as: "student",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -359,9 +368,9 @@ export const getPendingOnlineCourses = async (req, res) => {
 
       return {
         ...rest,
-        username: student?.username || "N/A",
-        email: student?.email || "N/A",
-        regno: student?.studentDetails?.regno || "N/A",
+        username: student?.userName || "N/A",
+        email: student?.userMail || "N/A",
+        registerNumber: student?.studentDetails?.registerNumber || "N/A",
         staffId: student?.studentDetails?.staffId || "N/A",
       };
     });
@@ -369,10 +378,10 @@ export const getPendingOnlineCourses = async (req, res) => {
     res.status(200).json({ success: true, courses: formattedCourses });
   } catch (error) {
     console.error("Error fetching pending online courses:", error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Error fetching pending online courses",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -380,13 +389,21 @@ export const getPendingOnlineCourses = async (req, res) => {
 // Get Approved Online Courses
 export const getApprovedCourses = async (req, res) => {
   try {
+    // Standardize User ID resolution
+    const userId = req.user?.userId || req.user?.Userid || (req.query.UserId ? parseInt(req.query.UserId) : null);
+
+    const whereClause = { pending: false };
+    if (userId && req.user?.roleId === 1) { // If student, filter by their own courses
+      whereClause.Userid = userId;
+    }
+
     const approvedCourses = await OnlineCourses.findAll({
-      where: { pending: false },
+      where: whereClause,
       include: [
         {
           model: User,
           as: "student",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
         },
       ],
     });
@@ -394,10 +411,10 @@ export const getApprovedCourses = async (req, res) => {
     res.status(200).json({ success: true, courses: approvedCourses });
   } catch (error) {
     console.error("Error fetching approved courses:", error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Error fetching approved courses",
-      error: error.message 
+      error: error.message
     });
   }
 };

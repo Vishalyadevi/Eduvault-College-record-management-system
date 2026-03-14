@@ -1,20 +1,21 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useState, useCallback } from "react";
 import { FaSearch, FaUserGraduate, FaUndo, FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-
-const backendUrl = "http://localhost:4000";
+import { useAuth } from "../../pages/auth/AuthContext";
+import API from "../../services/api";
+import config from "../../../config";
 
 const MyWard = () => {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
-  const [userId, setUserId] = useState(null);
+  const backendUrl = config.backendUrl;
+
   const [students, setStudents] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(4);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -36,100 +37,77 @@ const MyWard = () => {
   }, []);
 
   // Fetch all required data
-  useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchAllData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const userIdFromStorage = localStorage.getItem("userId");
-        const token = localStorage.getItem("token");
-
-        if (!userIdFromStorage || !token) {
-          throw new Error("Authentication required. Please log in again.");
-        }
-
-        const config = {
-          headers: { Authorization: `Bearer ${token}` },
-        };
-
-        console.log("Fetching data for userId:", userIdFromStorage);
-        setUserId(userIdFromStorage);
-
-        // Fetch students and departments in parallel
-        const [studentsResponse, departmentsResponse] = await Promise.all([
-          axios.get(`${backendUrl}/api/students`, config),
-          axios.get(`${backendUrl}/api/departments`, config)
-        ]);
-
-        console.log("Students Response:", studentsResponse.data);
-        console.log("Departments Response:", departmentsResponse.data);
-        
-        // Extract students array from response
-        let allStudents = [];
-        if (Array.isArray(studentsResponse.data)) {
-          allStudents = studentsResponse.data;
-        } else if (studentsResponse.data?.students) {
-          allStudents = studentsResponse.data.students;
-        } else if (studentsResponse.data?.data) {
-          allStudents = studentsResponse.data.data;
-        }
-
-        // Extract departments array from response
-        let allDepartments = [];
-        if (Array.isArray(departmentsResponse.data)) {
-          allDepartments = departmentsResponse.data;
-        } else if (departmentsResponse.data?.departments) {
-          allDepartments = departmentsResponse.data.departments;
-        } else if (departmentsResponse.data?.data) {
-          allDepartments = departmentsResponse.data.data;
-        }
-
-        console.log("Total Students fetched:", allStudents.length);
-        console.log("Departments fetched:", allDepartments.length);
-
-        if (allStudents.length > 0) {
-          console.log("First Student Structure:", allStudents[0]);
-        }
-
-        setStudents(allStudents);
-        setDepartments(allDepartments);
-
-        // Filter students assigned to this staff member
-        // staffId in student_details stores the staff's Userid
-        const assignedStudents = allStudents.filter((student) => {
-          const studentAssignedStaffUserId = student.staffId;
-          const matchesStaff = String(studentAssignedStaffUserId) === String(userIdFromStorage);
-          
-          if (matchesStaff) {
-            console.log(`✅ Match: Student ${student.regno || student.username} (Userid: ${student.Userid}) is assigned to staff ${userIdFromStorage}`);
-          }
-          
-          return matchesStaff;
-        });
-
-        console.log("Assigned students found:", assignedStudents.length);
-        console.log("Assigned students:", assignedStudents);
-        
-        setFilteredStudents(assignedStudents);
-
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        const errorMessage = error.response?.data?.message || error.message || "Failed to fetch data";
-        setError(errorMessage);
-        
-        // If unauthorized, redirect to login
-        if (error.response?.status === 401) {
-          localStorage.clear();
-          navigate("/records/login");
-        }
-      } finally {
-        setLoading(false);
+      if (!user) {
+        throw new Error("Authentication required. Please log in again.");
       }
-    };
 
-    fetchAllData();
-  }, [navigate]);
+      console.log("Fetching data for staff userId:", user.userId || user.Userid);
+
+      // Fetch students and departments in parallel
+      const [studentsResponse, departmentsResponse] = await Promise.all([
+        API.get('/students'),
+        API.get('/departments')
+      ]);
+
+      // Extract students array from response
+      let allStudents = [];
+      if (Array.isArray(studentsResponse.data)) {
+        allStudents = studentsResponse.data;
+      } else if (studentsResponse.data?.students) {
+        allStudents = studentsResponse.data.students;
+      } else if (studentsResponse.data?.data) {
+        allStudents = studentsResponse.data.data;
+      }
+
+      // Extract departments array from response
+      let allDepartments = [];
+      if (Array.isArray(departmentsResponse.data)) {
+        allDepartments = departmentsResponse.data;
+      } else if (departmentsResponse.data?.departments) {
+        allDepartments = departmentsResponse.data.departments;
+      } else if (departmentsResponse.data?.data) {
+        allDepartments = departmentsResponse.data.data;
+      }
+
+      setStudents(allStudents);
+      setDepartments(allDepartments);
+
+      // Filter students assigned to this staff member
+      const currentStaffId = user.userId || user.Userid;
+      const assignedStudents = allStudents.filter((student) => {
+        // assignedStaffUserid contains the staff's PK (userId/Userid)
+        // staffId contains the staff's human-readable ID (userNumber)
+        return String(student.assignedStaffUserid) === String(currentStaffId) ||
+          String(student.staff_id) === String(currentStaffId) ||
+          String(student.staffId) === String(currentStaffId);
+      });
+
+      console.log("Assigned students found:", assignedStudents.length);
+      setFilteredStudents(assignedStudents);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch data";
+      setError(errorMessage);
+
+      if (error.response?.status === 401) {
+        await logout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, logout]);
+
+  useEffect(() => {
+    if (user) {
+      fetchAllData();
+    }
+  }, [user, fetchAllData]);
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value.toLowerCase());
@@ -139,10 +117,10 @@ const MyWard = () => {
   const displayedStudents = filteredStudents.filter(
     (student) => {
       const username = student.username || '';
-      const regno = student.regno || '';
-      
+      const registerNumber = student.registerNumber || registerNumberent.registerNumber || '';
+
       return username.toLowerCase().includes(searchTerm) ||
-             regno.toLowerCase().includes(searchTerm);
+        registerNumber.toLowerCase().includes(searchTerm);
     }
   );
 
@@ -165,69 +143,67 @@ const MyWard = () => {
   };
 
   const handleView = (student) => {
-    console.log("Navigating to student biodata:", student.Userid);
-    navigate(`/records/student-biodata/${student.Userid}`);
+    navigate(`/records/student-biodata/${student.Userid || student.userId || student.id}`);
   };
 
   const handleRetry = () => {
-    window.location.reload();
+    fetchAllData();
   };
 
-  // Show error state
-  if (error) {
+  if (loading) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-r from-red-50 to-red-100 p-6 ml-64 mt-16 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-red-600 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-red-800 mb-4">Error Loading Data</h2>
-          <p className="text-red-600 mb-6">{error}</p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={handleRetry}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-            >
-              Retry
-            </button>
-            <button
-              onClick={() => navigate("/records/staff")}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+        <p className="text-gray-600">Loading your wards...</p>
       </div>
     );
   }
 
-  // Show loading state
-  if (loading) {
+  if (error) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-r from-blue-50 to-purple-50 p-6 ml-64 mt-16 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your wards...</p>
-          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+        <div className="text-red-600 text-6xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-bold text-red-800 mb-4">Error Loading Data</h2>
+        <p className="text-red-600 mb-6 max-w-md">{error}</p>
+        <div className="flex gap-4">
+          <button
+            onClick={handleRetry}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => navigate("/records/staff")}
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+          >
+            Dashboard
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-r from-blue-50 to-purple-50 p-6 ml-64 mt-16 flex flex-col overflow-hidden">
-     
+    <div className="flex flex-col h-full bg-transparent">
+      {/* Header Section */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent underline decoration-indigo-500/30 underline-offset-8">
+          My Ward Students
+        </h1>
+        <p className="text-gray-600 mt-2">Manage and monitor students assigned to your consultancy.</p>
+      </div>
 
       {/* Search Section */}
-      <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
-        <div className="flex flex-col sm:flex-row gap-2">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by Registration Number or Username"
+              placeholder="Search by Registration Number or Student Name..."
               value={searchTerm}
               onChange={handleSearch}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pl-12 pr-4 py-3 border border-gray-200 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
           <button
@@ -235,161 +211,122 @@ const MyWard = () => {
               setSearchTerm("");
               setCurrentPage(1);
             }}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg flex items-center justify-center hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-all font-medium"
           >
-            <FaUndo className="mr-2" /> Reset
+            <FaUndo className="mr-2" /> Reset Filters
           </button>
         </div>
         {searchTerm && (
-          <p className="mt-2 text-sm text-gray-600">
-            Found {displayedStudents.length} student(s) matching "{searchTerm}"
+          <p className="mt-3 text-sm text-indigo-600 font-medium">
+            Showing {displayedStudents.length} student(s) matching your search
           </p>
         )}
       </div>
 
-      {/* Students Table */}
-      <div className="flex-1 overflow-hidden">
-        <div className="bg-white rounded-lg shadow-lg h-full flex flex-col">
-          {displayedStudents.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <FaUserGraduate className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {filteredStudents.length === 0 ? "No Students Assigned" : "No Students Found"}
-                </h3>
-                <p className="text-gray-600">
-                  {filteredStudents.length === 0 
-                    ? "No students have been assigned to you yet."
-                    : `No students match your search "${searchTerm}".`
-                  }
-                </p>
-                {searchTerm && (
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setCurrentPage(1);
-                    }}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Clear Search
-                  </button>
-                )}
-              </div>
+      {/* Students List */}
+      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+        {displayedStudents.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 p-6">
+            <div className="bg-indigo-50 p-6 rounded-full mb-4">
+              <FaUserGraduate className="h-12 w-12 text-indigo-400" />
             </div>
-          ) : (
-            <>
-              <div className="overflow-y-auto flex-1">
-                <table className="min-w-full">
-                  <thead className="bg-gradient-to-r from-blue-500 to-purple-600 sticky top-0">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Profile
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Batch
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Reg No
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.map((student, index) => {
-                      const username = student.username || 'N/A';
-                      const regno = student.regno || 'N/A';
-                      const batch = student.batch || 'N/A';
-                      const deptAcronym = student.Deptacronym || 'N/A';
-                      const userId = student.Userid;
-                      const image = student.image;
-
-                      return (
-                        <tr key={userId || index} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {filteredStudents.length === 0 ? "No Students Assigned" : "No Match Found"}
+            </h3>
+            <p className="text-gray-500 text-center max-w-sm">
+              {filteredStudents.length === 0
+                ? "You don't have any students currently assigned to you. If this is a mistake, please contact administration."
+                : `We couldn't find any student matching "${searchTerm}" in your assigned list.`
+              }
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Batch</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reg No</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {currentItems.map((student, index) => (
+                    <tr key={student.Userid || student.userId || index} className="hover:bg-indigo-50/30 transition-colors group">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 relative">
                             <img
-                              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-                              src={
-                                image 
-                                  ? `${backendUrl}${image}` 
-                                  : '/default-avatar.png'
-                              }
-                              alt={`${username}'s avatar`}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = '/default-avatar.png';
-                              }}
+                              className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100"
+                              src={student.image || student.profileImage ? `${backendUrl}${student.image || student.profileImage}` : '/default-avatar.png'}
+                              alt=""
+                              onError={(e) => { e.target.src = '/default-avatar.png'; }}
                             />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {username}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {deptAcronym}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {batch}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                            {regno}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button
-                              onClick={() => handleView({...student, Userid: userId})}
-                              className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition group"
-                              title="View Student Details"
-                            >
-                              <FaEye className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{student.username || 'N/A'}</p>
+                            <p className="text-xs text-gray-500">{student.email || 'No email'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {student.Deptacronym || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
+                        {student.batch || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
+                        {student.registerNumber || student.registerNumber || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => handleView(student)}
+                          className="inline-flex items-center px-4 py-2 text-sm font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded-xl transition-all gap-2"
+                        >
+                          <FaEye size={14} /> View Bio
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="bg-gray-50 py-4 px-6 border-t">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-700">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, displayedStudents.length)} of {displayedStudents.length} students
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={goToPreviousPage}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <span className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded-lg">
-                        {currentPage} / {totalPages}
-                      </span>
-                      <button
-                        onClick={goToNextPage}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="p-6 bg-gray-50/30 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-sm text-gray-500 font-medium">
+                  Showing <span className="text-gray-900">{indexOfFirstItem + 1}</span> to <span className="text-gray-900">{Math.min(indexOfLastItem, displayedStudents.length)}</span> of <span className="text-gray-900">{displayedStudents.length}</span> students
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center px-4 text-sm font-bold text-gray-900 bg-white border border-gray-200 rounded-xl">
+                    {currentPage} / {totalPages}
                   </div>
+                  <button
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                  >
+                    Next
+                  </button>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

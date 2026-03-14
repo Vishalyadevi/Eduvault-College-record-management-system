@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Search, 
-  GraduationCap, 
-  RotateCcw, 
-  FileSpreadsheet, 
-  Users, 
-  Calendar, 
-  Award, 
-  BookOpen, 
-  Medal, 
-  School, 
-  Filter, 
+import {
+  Search,
+  GraduationCap,
+  RotateCcw,
+  FileSpreadsheet,
+  Users,
+  Calendar,
+  Award,
+  BookOpen,
+  Medal,
+  School,
+  Filter,
   ChevronDown,
-  AlertCircle 
+  AlertCircle
 } from "lucide-react";
 
 const backendUrl = "http://localhost:4000";
@@ -24,7 +24,7 @@ function StudentActivities() {
   const [studentData, setStudentData] = useState([]);
   const [activityData, setActivityData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
-  
+
   // Filter states
   const [searchDepartment, setSearchDepartment] = useState("");
   const [searchBatch, setSearchBatch] = useState("");
@@ -34,7 +34,7 @@ function StudentActivities() {
   const [availableActivityFields, setAvailableActivityFields] = useState([]);
   const [isActivityFieldsDropdownOpen, setIsActivityFieldsDropdownOpen] = useState(false);
   const [activityColumns, setActivityColumns] = useState([]);
-  
+
   // UI states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -52,7 +52,7 @@ function StudentActivities() {
     { name: 'Internships', table: 'internships' },
     { name: 'Scholarships', table: 'scholarships' },
     { name: 'Student Details', table: 'student_details' },
-    { name: 'Hackathon Event Details', table: 'hackathon_events'},
+    { name: 'Hackathon Event Details', table: 'hackathon_events' },
     { name: 'Extracurricular Details', table: 'extracurricular_activities' },
     { name: 'Project Details', table: 'student_projects' },
     { name: 'Competency Coding Details', table: 'competency_coding' },
@@ -89,13 +89,13 @@ function StudentActivities() {
       const response = await fetch(`${backendUrl}/api/student-admin-panel/batches`);
       if (!response.ok) throw new Error('Failed to fetch batches');
       const data = await response.json();
-      
+
       const batchArray = ensureArray(data);
       const formattedBatches = batchArray.map((batch, index) => ({
         id: index + 1,
         name: batch.batch || batch
       }));
-      
+
       setBatches(formattedBatches);
     } catch (error) {
       console.error('Error fetching batches:', error);
@@ -128,32 +128,32 @@ function StudentActivities() {
       console.log('Fetching fields for activity:', activityName);
       const encodedActivityName = encodeURIComponent(activityName);
       const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-fields/${encodedActivityName}`);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch activity fields: ${errorText}`);
       }
-      
+
       const fields = await response.json();
       console.log('Received fields:', fields);
-      
+
       const cols = Array.isArray(fields) ? fields : [];
       console.log('Processed fields array:', cols);
-      
+
       if (cols.length === 0) {
         setFieldsFetchError(`No fields available for ${activityName}`);
       }
-      
+
       // Define default fields that should always be displayed
       const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no', 'Userid', 'userid'];
-      
+
       // Filter out default fields from available fields for selection
-      const selectableFields = cols.filter(field => 
-        !defaultFields.some(defaultField => 
+      const selectableFields = cols.filter(field =>
+        !defaultFields.some(defaultField =>
           field.toLowerCase() === defaultField.toLowerCase()
         )
       );
-      
+
       console.log('Selectable fields:', selectableFields);
       setAvailableActivityFields(selectableFields);
       setSelectedActivityFields([]);
@@ -219,13 +219,13 @@ function StudentActivities() {
         const errorText = await response.text();
         throw new Error(`Failed to fetch ${activityName} data: ${errorText}`);
       }
-      
+
       const responseData = await response.json();
-      
+
       if (responseData && responseData.data && responseData.columns) {
         const activityArray = Array.isArray(responseData.data) ? responseData.data : [responseData.data];
         const columnsArray = Array.isArray(responseData.columns) ? responseData.columns : [];
-        
+
         setActivityData(activityArray);
         setActivityColumns(columnsArray);
         setFilteredData(activityArray);
@@ -283,7 +283,7 @@ function StudentActivities() {
     setLoading(true);
     try {
       if (searchActivity) {
-        const selectedDept = departments.find(dept => 
+        const selectedDept = departments.find(dept =>
           dept.Deptacronym && dept.Deptacronym.toLowerCase() === searchDepartment.toLowerCase()
         );
         await fetchActivityData(searchActivity, selectedDept?.Deptid, null, selectedActivityFields);
@@ -296,9 +296,9 @@ function StudentActivities() {
 
           const departmentMatch = searchDepartment
             ? departments
-                .find((dept) => dept.Deptid === student.Deptid)
-                ?.Deptacronym?.toLowerCase()
-                .includes(searchDepartment.toLowerCase())
+              .find((dept) => dept.Deptid === student.Deptid)
+              ?.Deptacronym?.toLowerCase()
+              .includes(searchDepartment.toLowerCase())
             : true;
 
           return departmentMatch && rollNumberMatch;
@@ -330,7 +330,7 @@ function StudentActivities() {
     setError(null);
     setFieldsFetchError(null);
     setIsActivityFieldsDropdownOpen(false);
-    
+
     setLoading(true);
     try {
       await fetchStudentData();
@@ -342,7 +342,7 @@ function StudentActivities() {
   const handleExportToExcel = async () => {
     try {
       const dataToExport = ensureArray(filteredData);
-      
+
       if (dataToExport.length === 0) {
         alert('No data to export');
         return;
@@ -394,7 +394,7 @@ function StudentActivities() {
   };
 
   const safeFilteredData = ensureArray(filteredData);
-  
+
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -424,7 +424,7 @@ function StudentActivities() {
 
   const renderStudentTable = () => (
     <table className="min-w-full">
-      <thead className="bg-gradient-to-r from-purple-500 to-blue-500">
+      <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500">
         <tr>
           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Image</th>
           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Student ID</th>
@@ -444,16 +444,16 @@ function StudentActivities() {
                   <img
                     src={`${backendUrl}${student.image}`}
                     alt={`${student.username || "Unknown"}'s avatar`}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-purple-200"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center border-2 border-purple-200">
-                    <GraduationCap className="w-6 h-6 text-purple-500" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-100 rounded-full flex items-center justify-center border-2 border-indigo-200">
+                    <GraduationCap className="w-6 h-6 text-indigo-600" />
                   </div>
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
                   {student.studentId || "N/A"}
                 </span>
               </td>
@@ -462,10 +462,10 @@ function StudentActivities() {
                 <div className="text-xs text-gray-500">Student</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {student.email || "Unknown"}
+                {student.userMail || "Unknown"}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   {department}
                 </span>
               </td>
@@ -502,20 +502,20 @@ function StudentActivities() {
 
   const formatColumnValue = (value, columnName) => {
     if (value === null || value === undefined) return "N/A";
-    
+
     if (columnName && columnName.includes('date') && value) {
       const date = new Date(value);
       return date.toLocaleDateString();
     }
-    
+
     if (columnName && columnName.includes('amount') && value) {
       return `₹${parseFloat(value).toLocaleString()}`;
     }
-    
+
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No';
     }
-    
+
     if (typeof value === 'string' && value.length > 50) {
       return (
         <span title={value}>
@@ -523,29 +523,29 @@ function StudentActivities() {
         </span>
       );
     }
-    
+
     return value;
   };
 
   const renderActivityTable = () => {
     const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no'];
-    
-    const existingDefaultColumns = activityColumns.filter(column => 
-      defaultFields.some(defaultField => 
+
+    const existingDefaultColumns = activityColumns.filter(column =>
+      defaultFields.some(defaultField =>
         column.toLowerCase().includes(defaultField.toLowerCase())
       )
     );
-    
+
     const displayColumns = [
       ...existingDefaultColumns,
       ...selectedActivityFields
     ];
-    
+
     const uniqueDisplayColumns = [...new Set(displayColumns)];
-    
+
     return (
       <table className="min-w-full" style={{ tableLayout: 'fixed' }}>
-        <thead className="bg-gradient-to-r from-purple-500 to-blue-500">
+        <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500">
           <tr>
             {uniqueDisplayColumns.map((column, index) => (
               <th
@@ -597,37 +597,37 @@ function StudentActivities() {
           type="button"
           onClick={() => setIsActivityFieldsDropdownOpen(!isActivityFieldsDropdownOpen)}
           disabled={!searchActivity || !availableActivityFields || availableActivityFields.length === 0}
-          className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-left bg-white flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-left bg-white flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <span className="text-gray-700 flex items-center">
-            <Filter className="mr-2 text-purple-500" />
-            {!searchActivity 
-              ? "Select activity first" 
-              : availableActivityFields.length === 0 
+            <Filter className="mr-2 text-indigo-600" />
+            {!searchActivity
+              ? "Select activity first"
+              : availableActivityFields.length === 0
                 ? "No fields available"
-                : selectedActivityFields.length === 0 
-                  ? "Select fields to display" 
+                : selectedActivityFields.length === 0
+                  ? "Select fields to display"
                   : `${selectedActivityFields.length} field(s) selected`
-                  
+
             }
           </span>
           <ChevronDown className={`w-4 h-4 transition-transform ${isActivityFieldsDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
-        
+
         {fieldsFetchError && (
           <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800 flex items-start">
             <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
             <span>{fieldsFetchError}</span>
           </div>
         )}
-        
+
         {isActivityFieldsDropdownOpen && availableActivityFields.length > 0 && (
           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
             <div className="p-2 border-b">
               <button
                 type="button"
                 onClick={handleSelectAllActivityFields}
-                className="w-full text-left p-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded"
+                className="w-full text-left p-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded"
               >
                 {selectedActivityFields.length === availableActivityFields.length ? 'Deselect All' : 'Select All'}
               </button>
@@ -639,7 +639,7 @@ function StudentActivities() {
                     type="checkbox"
                     checked={selectedActivityFields.includes(field)}
                     onChange={() => handleActivityFieldToggle(field)}
-                    className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-700">
                     {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -656,7 +656,7 @@ function StudentActivities() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen text-gray-600">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
         <span className="ml-3 text-lg">Loading student admin panel...</span>
       </div>
     );
@@ -670,7 +670,7 @@ function StudentActivities() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mr-4 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+            className="mr-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600"
           >
             Retry
           </button>
@@ -686,7 +686,7 @@ function StudentActivities() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-purple-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -699,7 +699,7 @@ function StudentActivities() {
         {/* Search Section */}
         <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Filter Options</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             {/* Department Filter */}
             <div className="space-y-2">
@@ -707,7 +707,7 @@ function StudentActivities() {
               <select
                 value={searchDepartment}
                 onChange={(e) => handleDepartmentChange(e.target.value)}
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">All Departments</option>
                 {departments.map((dept) => (
@@ -724,7 +724,7 @@ function StudentActivities() {
               <select
                 value={searchBatch}
                 onChange={(e) => setSearchBatch(e.target.value)}
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">All Batches</option>
                 {batches.map((batch) => (
@@ -743,17 +743,17 @@ function StudentActivities() {
                 value={searchRollNumber}
                 onChange={(e) => setSearchRollNumber(e.target.value)}
                 placeholder="Enter roll number"
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               />
             </div>
-            
+
             {/* Activity Filter */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Activities</label>
               <select
                 value={searchActivity}
                 onChange={(e) => handleActivityChange(e.target.value)}
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">All Activities (Student View)</option>
                 {activities.map((activity) => (
@@ -774,7 +774,7 @@ function StudentActivities() {
                 <button
                   onClick={handleSearch}
                   disabled={loading}
-                  className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50"
+                  className="p-3 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50"
                 >
                   <Search className="mr-2 w-4 h-4" /> Search
                 </button>
@@ -807,12 +807,12 @@ function StudentActivities() {
                 Showing {currentItems.length} of {safeFilteredData.length} {viewMode === 'student' ? 'students' : 'records'}
               </span>
               {viewMode === 'activity' && searchActivity && (
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   Activity: {searchActivity}
                 </span>
               )}
               {searchDepartment && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   Department: {searchDepartment}
                 </span>
               )}
@@ -822,7 +822,7 @@ function StudentActivities() {
                 </span>
               )}
             </div>
-            <div className="text-sm text-purple-600 font-medium">
+            <div className="text-sm text-indigo-600 font-medium">
               Page {currentPage} of {totalPages || 1}
             </div>
           </div>
@@ -830,21 +830,21 @@ function StudentActivities() {
 
         {/* Active Activity Fields Display */}
         {selectedActivityFields.length > 0 && (
-          <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg mb-6">
-            <h3 className="text-sm font-medium text-purple-800 mb-2 flex items-center">
+          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg mb-6">
+            <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
               <Filter className="mr-2 w-4 h-4" />
               Active Activity Fields:
             </h3>
             <div className="flex flex-wrap gap-2">
               {selectedActivityFields.map(field => (
-                <span 
+                <span
                   key={field}
-                  className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium flex items-center"
+                  className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium flex items-center"
                 >
                   {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   <button
                     onClick={() => handleActivityFieldToggle(field)}
-                    className="ml-2 text-purple-600 hover:text-purple-800"
+                    className="ml-2 text-indigo-600 hover:text-blue-800"
                   >
                     ×
                   </button>
@@ -852,7 +852,7 @@ function StudentActivities() {
               ))}
               <button
                 onClick={() => setSelectedActivityFields([])}
-                className="text-purple-600 hover:text-purple-800 text-xs font-medium underline"
+                className="text-indigo-600 hover:text-blue-800 text-xs font-medium underline"
               >
                 Clear all fields
               </button>
@@ -883,21 +883,21 @@ function StudentActivities() {
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
-                
+
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-700">
                     Page {currentPage} of {totalPages}
                   </span>
                 </div>
-                
+
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

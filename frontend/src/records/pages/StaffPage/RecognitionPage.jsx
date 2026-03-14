@@ -1,365 +1,253 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
 import {
-  getResourcePersonEntries,
-  createResourcePersonEntry,
-  updateResourcePersonEntry,
-  deleteResourcePersonEntry
+  getRecognitions,
+  createRecognition,
+  updateRecognition,
+  deleteRecognition
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
-const ResourcePersonPage = () => {
-  const [entries, setEntries] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+const RecognitionPage = () => {
+  const [recognitions, setRecognitions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [currentRecognition, setCurrentRecognition] = useState(null);
+
   const [formData, setFormData] = useState({
-    programSpecification: '',
-    title: '',
-    venue: '',
-    eventDate: '',
-    proofFile: null,
-    photoFile: null
-  });
-  const [fileNames, setFileNames] = useState({
-    proofFile: '',
-    photoFile: ''
+    category: '',
+    program_name: '',
+    recognition_date: '',
+    proof_link: ''
   });
 
-  const fetchData = async () => {
+  const fetchRecognitions = async () => {
     try {
-      const response = await getResourcePersonEntries();
-      setEntries(response.data);
+      setLoading(true);
+      const response = await getRecognitions();
+      setRecognitions(response.data);
     } catch (error) {
-      toast.error('Failed to fetch entries');
+      console.error('Error fetching recognitions:', error);
+      toast.error('Failed to load recognitions');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchRecognitions();
   }, []);
 
-  useEffect(() => {
-    if (editingItem) {
-      setFormData({
-        programSpecification: editingItem.program_specification || '',
-        title: editingItem.title || '',
-        venue: editingItem.venue || '',
-        eventDate: editingItem.event_date ? editingItem.event_date.split('T')[0] : '',
-        proofFile: null,
-        photoFile: null
-      });
-      setFileNames({
-        proofFile: editingItem.proof_link || '',
-        photoFile: editingItem.photo_link || ''
-      });
-    } else {
-      setFormData({
-        programSpecification: '',
-        title: '',
-        venue: '',
-        eventDate: '',
-        proofFile: null,
-        photoFile: null
-      });
-      setFileNames({
-        proofFile: '',
-        photoFile: ''
-      });
-    }
-  }, [editingItem]);
-
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData({
+      ...formData,
+      [name]: value
+    });
   };
 
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    if (files && files[0]) {
-      const file = files[0];
-      
-      // Validate file type
-      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Invalid file type. Only PNG, JPEG, PDF, GIF, and WebP files are allowed.');
-        return;
-      }
+  const resetForm = () => {
+    setFormData({
+      category: '',
+      program_name: '',
+      recognition_date: '',
+      proof_link: ''
+    });
+    setCurrentRecognition(null);
+    setIsViewMode(false);
+  };
 
-      // Validate file size (10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size exceeds 10MB limit');
-        return;
-      }
+  const handleAddNew = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
 
-      setFormData(prev => ({
-        ...prev,
-        [name]: file
-      }));
-      setFileNames(prev => ({
-        ...prev,
-        [name]: file.name
-      }));
+  const handleEdit = (recognition) => {
+    setCurrentRecognition(recognition);
+    setFormData({
+      category: recognition.category || '',
+      program_name: recognition.program_name || '',
+      recognition_date: recognition.recognition_date ? recognition.recognition_date.split('T')[0] : '',
+      proof_link: recognition.proof_link || ''
+    });
+    setIsViewMode(false);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (recognition) => {
+    setCurrentRecognition(recognition);
+    setFormData({
+      category: recognition.category || '',
+      program_name: recognition.program_name || '',
+      recognition_date: recognition.recognition_date ? recognition.recognition_date.split('T')[0] : '',
+      proof_link: recognition.proof_link || ''
+    });
+    setIsViewMode(true);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (recognition) => {
+    if (window.confirm(`Are you sure you want to delete this recognition: ${recognition.program_name}?`)) {
+      try {
+        await deleteRecognition(recognition.id);
+        toast.success('Recognition deleted successfully');
+        fetchRecognitions();
+      } catch (error) {
+        console.error('Error deleting recognition:', error);
+        toast.error('Failed to delete recognition');
+      }
     }
-  };
-
-  const removeFile = (fieldName) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: null
-    }));
-    setFileNames(prev => ({
-      ...prev,
-      [fieldName]: ''
-    }));
   };
 
   const handleSubmit = async () => {
-    if (!formData.programSpecification.trim() || !formData.title.trim() || 
-        !formData.venue.trim() || !formData.eventDate) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-
     try {
-      const formDataObj = new FormData();
-      formDataObj.append('program_specification', formData.programSpecification.trim());
-      formDataObj.append('title', formData.title.trim());
-      formDataObj.append('venue', formData.venue.trim());
-      formDataObj.append('event_date', formData.eventDate);
-      
-      if (formData.proofFile) {
-        formDataObj.append('proofFile', formData.proofFile);
-      }
-      if (formData.photoFile) {
-        formDataObj.append('photoFile', formData.photoFile);
+      setIsSubmitting(true);
+
+      if (!formData.category || !formData.program_name || !formData.recognition_date) {
+        toast.error('Please fill in all required fields');
+        setIsSubmitting(false);
+        return;
       }
 
-      if (editingItem) {
-        await updateResourcePersonEntry(editingItem.id, formDataObj);
-        toast.success('Entry updated successfully');
+      const submitData = {
+        category: formData.category,
+        program_name: formData.program_name,
+        recognition_date: formData.recognition_date,
+        proof_link: formData.proof_link || null
+      };
+
+      if (currentRecognition) {
+        await updateRecognition(currentRecognition.id, submitData);
+        toast.success('Recognition updated successfully');
       } else {
-        await createResourcePersonEntry(formDataObj);
-        toast.success('Entry added successfully');
+        await createRecognition(submitData);
+        toast.success('Recognition created successfully');
       }
-      setModalOpen(false);
-      setEditingItem(null);
-      fetchData();
+
+      setIsModalOpen(false);
+      resetForm();
+      fetchRecognitions();
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to save entry');
+      console.error('Error saving recognition:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to save recognition';
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this entry?')) {
-      try {
-        await deleteResourcePersonEntry(id);
-        toast.success('Entry deleted');
-        fetchData();
-      } catch (error) {
-        toast.error('Failed to delete entry');
-      }
+  const renderProofLink = (row) => {
+    if (!row.proof_link) {
+      return <span className="text-gray-400">No link</span>;
     }
-  };
 
-  const handleView = (item) => {
-    setEditingItem(item);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (item) => {
-    setEditingItem(item);
-    setModalOpen(true);
-  };
-
-  // Format date function
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (error) {
-      return 'Invalid Date';
-    }
-  };
-
-  const FileLink = ({ filename }) => {
-    if (!filename) return 'N/A';
     return (
-      <a 
-        href={`/uploads/resource_person/${filename}`}
-        target="_blank" 
-        rel="noreferrer"
-        className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
-        download
+      <a
+        href={row.proof_link}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
+        title="Open proof link"
       >
-        <Download size={14} />
-        Download
+        <ExternalLink size={14} />
+        View Proof
       </a>
     );
   };
 
   const columns = [
-    { header: 'Program Specification', field: 'program_specification' },
-    { header: 'Title', field: 'title' },
-    { header: 'Venue', field: 'venue' },
-    { 
-      header: 'Date', 
-      field: 'event_date',
-      render: (row) => formatDate(row.event_date)
+    { field: 'category', header: 'Category' },
+    { field: 'program_name', header: 'Program Name' },
+    {
+      field: 'recognition_date',
+      header: 'Recognition Date',
+      render: (row) => new Date(row.recognition_date).toLocaleDateString()
     },
     {
-      header: 'Proof',
       field: 'proof_link',
-      render: (row) => <FileLink filename={row.proof_link} />
-    },
-    {
-      header: 'Photo',
-      field: 'photo_link',
-      render: (row) => <FileLink filename={row.photo_link} />
-    },
+      header: 'Proof Link',
+      render: (row) => renderProofLink(row)
+    }
   ];
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
+    <div>
+      <div className="mb-6 flex justify-between items-center">
         <button
-          onClick={() => {
-            setEditingItem(null);
-            setModalOpen(true);
-          }}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-pink-500 to-purple-400 hover:from-pink-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          onClick={handleAddNew}
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
-          Add Recognition 
+          Add New Recognition
         </button>
       </div>
 
       <DataTable
-        data={entries}
+        data={recognitions}
         columns={columns}
         onView={handleView}
         onEdit={handleEdit}
-        onDelete={(item) => handleDelete(item.id)}
+        onDelete={handleDelete}
+        isLoading={loading}
       />
 
       <Modal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingItem(null);
-        }}
-        title={editingItem ? 'Edit Entry' : 'Add Resource Person Entry'}
-        onSubmit={handleSubmit}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isViewMode ? 'View Recognition' : currentRecognition ? 'Edit Recognition' : 'Add New Recognition'}
+        onSubmit={!isViewMode ? handleSubmit : null}
+        isSubmitting={isSubmitting}
       >
-        <FormField 
-          label="Program Specification*" 
-          name="programSpecification" 
-          value={formData.programSpecification} 
-          onChange={handleChange}
-          required
-        />
-        <FormField 
-          label="Title*" 
-          name="title" 
-          value={formData.title} 
-          onChange={handleChange}
-          required
-        />
-        <FormField 
-          label="Venue*" 
-          name="venue" 
-          value={formData.venue} 
-          onChange={handleChange}
-          required
-        />
-        <FormField 
-          label="Date*" 
-          name="eventDate" 
-          type="date" 
-          value={formData.eventDate} 
-          onChange={handleChange}
-          required
-        />
+        <div className="grid grid-cols-1 gap-4">
+          <FormField
+            label="Category"
+            name="category"
+            value={formData.category}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            placeholder="e.g., Best Paper Award, Excellence Award"
+          />
 
-        {/* Proof File Upload */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Proof File (PNG, JPEG, PDF, GIF, WebP)
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              name="proofFile"
-              onChange={handleFileChange}
-              accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
-            />
-          </div>
-          {(fileNames.proofFile || editingItem?.proof_link) && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              <span>{formData.proofFile?.name || editingItem?.proof_link || 'File selected'}</span>
-              <button
-                type="button"
-                onClick={() => removeFile('proofFile')}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+          <FormField
+            label="Program Name"
+            name="program_name"
+            value={formData.program_name}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+            placeholder="e.g., International Conference on AI"
+          />
 
-        {/* Photo File Upload */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Photo File (PNG, JPEG, PDF, GIF, WebP)
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              name="photoFile"
-              onChange={handleFileChange}
-              accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
-            />
-          </div>
-          {(fileNames.photoFile || editingItem?.photo_link) && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              <span>{formData.photoFile?.name || editingItem?.photo_link || 'File selected'}</span>
-              <button
-                type="button"
-                onClick={() => removeFile('photoFile')}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
+          <FormField
+            label="Recognition Date"
+            name="recognition_date"
+            type="date"
+            value={formData.recognition_date}
+            onChange={handleInputChange}
+            required
+            disabled={isViewMode}
+          />
+
+          <FormField
+            label="Proof Link (Optional)"
+            name="proof_link"
+            type="url"
+            value={formData.proof_link}
+            onChange={handleInputChange}
+            disabled={isViewMode}
+            placeholder="https://example.com/certificate"
+          />
         </div>
       </Modal>
     </div>
   );
 };
 
-export default ResourcePersonPage;
+export default RecognitionPage;

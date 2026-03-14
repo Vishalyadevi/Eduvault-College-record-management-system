@@ -11,7 +11,7 @@ import {
   getProjectsByDomain,
   getProjectStatistics,
 } from "../../controllers/student/projectController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 

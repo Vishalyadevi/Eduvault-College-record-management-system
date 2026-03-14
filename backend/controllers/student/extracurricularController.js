@@ -38,17 +38,42 @@ export const addExtracurricularActivity = async (req, res) => {
       return res.status(400).json({ message: "End date must be after start date" });
     }
 
+    const targetUserId = Userid || req.user?.userId || req.user?.Userid || req.body.userId || req.query.UserId;
+
+    console.log(`[Extracurricular] Adding activity. Userid from body: ${Userid}, req.user?.userId: ${req.user?.userId}, req.user?.Userid: ${req.user?.Userid}`);
+    console.log(`[Extracurricular] Resolved targetUserId: ${targetUserId}`);
+
+    if (!targetUserId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
     // Fetch user details
-    const user = await User.findByPk(Userid);
-    if (!user || !user.email) {
+    const user = await User.findByPk(targetUserId);
+    if (!user || !user.userMail) {
       return res.status(404).json({ message: "Student email not found" });
     }
 
-    // Fetch student details
-    const student = await StudentDetails.findOne({ where: { Userid } });
-    if (!student || !student.tutorEmail) {
-      return res.status(404).json({ message: "Tutor email not found" });
+    // Fetch student details with staff advisor include
+    const student = await StudentDetails.findOne({
+      where: { Userid: targetUserId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
+
+    if (!student) {
+      console.log(`[Extracurricular] ❌ StudentDetails not found for Userid: ${targetUserId}`);
+      return res.status(404).json({ message: `Student profile details not found for ID: ${targetUserId}. Please complete your profile first.` });
     }
+    console.log(`[Extracurricular] ✅ Found student details for: ${student.registerNumber}`);
+
+    // Determine tutor email - check both tutorEmail field and staffAdvisor's email
+    const tutorEmail = student.tutorEmail || student.staffAdvisor?.userMail;
+    const tutorName = student.staffAdvisor?.userName || "Tutor";
 
     // Create extracurricular activity
     const activity = await Extracurricular.create({
@@ -66,22 +91,33 @@ export const addExtracurricularActivity = async (req, res) => {
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: user.Userid,
-      Updated_by: user.Userid,
+      Created_by: user.userId,
+      Updated_by: user.userId,
     });
 
-    // Send email to tutor
-    const emailText = `Dear Tutor,\n\nA student has submitted a new extracurricular activity for your approval.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nActivity Details:\nType: ${type}\nLevel: ${level}\nFrom Date: ${from_date}\nTo Date: ${to_date}\nStatus: ${status}\nPrize Position: ${prize || "N/A"}\nAmount: ${amount || "N/A"}\nDescription: ${description || "N/A"}\n\nThe activity is currently pending your approval. Please review and approve or reject.\n\nBest Regards,\nExtracurricular Management System`;
+    // Send email to tutor only if email found
+    if (tutorEmail) {
+      try {
+        const emailText = `Dear ${tutorName},\n\nA student has submitted a new extracurricular activity for your approval.\n\nStudent Details:\nRegno: ${student.registerNumber}\nName: ${user.userName || "N/A"}\n\nActivity Details:\nType: ${type}\nLevel: ${level}\nFrom Date: ${from_date}\nTo Date: ${to_date}\nStatus: ${status}\nPrize Position: ${prize || "N/A"}\nAmount: ${amount || "N/A"}\nDescription: ${description || "N/A"}\n\nThe activity is currently pending your approval. Please review and approve or reject.\n\nBest Regards,\nExtracurricular Management System`;
 
-    await sendEmail({
-      from: user.email,
-      to: student.tutorEmail,
-      subject: "New Extracurricular Activity Pending Approval",
-      text: emailText,
-    });
+        await sendEmail({
+          from: user.userMail,
+          to: tutorEmail,
+          subject: "New Extracurricular Activity Pending Approval",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Failed to send notification email:", emailError.message);
+        // Don't fail the request if email fails
+      }
+    } else {
+      console.log("ℹ️ No tutor email found for notification, but record saved.");
+    }
 
     res.status(201).json({
-      message: "Extracurricular activity submitted for approval. Tutor notified.",
+      message: tutorEmail
+        ? "Extracurricular activity submitted for approval. Tutor notified."
+        : "Extracurricular activity submitted for approval. (No tutor email found for notification)",
       activity,
     });
   } catch (error) {
@@ -101,8 +137,10 @@ export const updateExtracurricularActivity = async (req, res) => {
       return res.status(404).json({ message: "Activity not found" });
     }
 
+    const targetUserId = Userid || req.user?.userId || req.body.userId;
+
     // Check authorization
-    if (activity.Userid !== parseInt(Userid)) {
+    if (activity.Userid !== parseInt(targetUserId)) {
       return res.status(403).json({ message: "Unauthorized to update this activity" });
     }
 
@@ -133,11 +171,25 @@ export const updateExtracurricularActivity = async (req, res) => {
       }
     }
 
-    const user = await User.findByPk(Userid);
-    const student = await StudentDetails.findOne({ where: { Userid } });
+    const user = await User.findByPk(targetUserId);
+    const student = await StudentDetails.findOne({
+      where: { Userid: targetUserId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
+
     if (!user || !student) {
       return res.status(404).json({ message: "User or Student details not found" });
     }
+
+    // Determine tutor email
+    const tutorEmail = student.tutorEmail || student.staffAdvisor?.userMail;
+    const tutorName = student.staffAdvisor?.userName || "Tutor";
 
     // Update fields
     activity.type = type ?? activity.type;
@@ -149,7 +201,7 @@ export const updateExtracurricularActivity = async (req, res) => {
     activity.amount = amount ?? activity.amount;
     activity.description = description ?? activity.description;
     activity.certificate_url = certificate_url ?? activity.certificate_url;
-    activity.Updated_by = Userid;
+    activity.Updated_by = targetUserId;
     activity.pending = true;
     activity.tutor_approval_status = false;
     activity.Approved_by = null;
@@ -157,20 +209,26 @@ export const updateExtracurricularActivity = async (req, res) => {
 
     await activity.save();
 
-    // Send update email to tutor
-    if (student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has updated their extracurricular activity details.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nUpdated Activity Details:\nType: ${activity.type}\nLevel: ${activity.level}\nFrom Date: ${activity.from_date}\nTo Date: ${activity.to_date}\nStatus: ${activity.status}\nPrize Position: ${activity.prize || "N/A"}\nAmount: ${activity.amount || "N/A"}\n\nThis activity is now pending approval. Please review the updated details.\n\nBest Regards,\nExtracurricular Management System`;
+    // Send update email to tutor if email found
+    if (tutorEmail) {
+      try {
+        const emailText = `Dear ${tutorName},\n\nA student has updated their extracurricular activity details.\n\nStudent Details:\nRegno: ${student.registerNumber}\nName: ${user.userName || "N/A"}\n\nUpdated Activity Details:\nType: ${activity.type}\nLevel: ${activity.level}\nFrom Date: ${activity.from_date}\nTo Date: ${activity.to_date}\nStatus: ${activity.status}\nPrize Position: ${activity.prize || "N/A"}\nAmount: ${activity.amount || "N/A"}\n\nThis activity is now pending approval. Please review the updated details.\n\nBest Regards,\nExtracurricular Management System`;
 
-      await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
-        subject: "Extracurricular Activity Updated - Requires Review",
-        text: emailText,
-      });
+        await sendEmail({
+          from: user.userMail,
+          to: tutorEmail,
+          subject: "Extracurricular Activity Updated - Requires Review",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Failed to send update notification email:", emailError.message);
+      }
     }
 
     res.status(200).json({
-      message: "Activity updated successfully. Tutor notified.",
+      message: tutorEmail
+        ? "Activity updated successfully. Tutor notified."
+        : "Activity updated successfully. (No tutor email found for notification)",
       activity,
     });
   } catch (error) {
@@ -188,12 +246,12 @@ export const getPendingExtracurricularActivities = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -205,8 +263,8 @@ export const getPendingExtracurricularActivities = async (req, res) => {
       const { organizer, ...rest } = activity.get({ plain: true });
       return {
         ...rest,
-        username: organizer?.username || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
+        username: organizer?.userName || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
         staffId: organizer?.studentDetails?.staffId || "N/A",
       };
     });
@@ -220,7 +278,7 @@ export const getPendingExtracurricularActivities = async (req, res) => {
 
 // Get approved extracurricular activities
 export const getApprovedExtracurricularActivities = async (req, res) => {
-  const userId = req.user?.Userid || req.query.UserId;
+  const userId = req.user?.userId || req.query.UserId;
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }
@@ -259,11 +317,11 @@ export const approveExtracurricularActivity = async (req, res) => {
 
     // Send approval email to student
     const user = await User.findByPk(activity.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour extracurricular activity has been approved.\n\nActivity Type: ${activity.type}\nLevel: ${activity.level}\nStatus: ${activity.status}\nPrize Position: ${activity.prize || "N/A"}\nAmount: ${activity.amount || "N/A"}\n\nComments: ${comments || "None"}\n\nBest Regards,\nExtracurricular Management System`;
+    if (user && user.userMail) {
+      const emailText = `Dear ${user.userName},\n\nYour extracurricular activity has been approved.\n\nActivity Type: ${activity.type}\nLevel: ${activity.level}\nStatus: ${activity.status}\nPrize Position: ${activity.prize || "N/A"}\nAmount: ${activity.amount || "N/A"}\n\nComments: ${comments || "None"}\n\nBest Regards,\nExtracurricular Management System`;
 
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: "Extracurricular Activity Approved",
         text: emailText,
       });
@@ -297,11 +355,11 @@ export const rejectExtracurricularActivity = async (req, res) => {
 
     // Send rejection email to student
     const user = await User.findByPk(activity.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour extracurricular activity has been rejected.\n\nActivity: ${activity.type} (${activity.level})\n\nReason: ${comments || "No comments provided"}\n\nYou can resubmit your activity after making necessary changes.\n\nBest Regards,\nExtracurricular Management System`;
+    if (user && user.userMail) {
+      const emailText = `Dear ${user.userName},\n\nYour extracurricular activity has been rejected.\n\nActivity: ${activity.type} (${activity.level})\n\nReason: ${comments || "No comments provided"}\n\nYou can resubmit your activity after making necessary changes.\n\nBest Regards,\nExtracurricular Management System`;
 
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: "Extracurricular Activity Rejected",
         text: emailText,
       });
@@ -330,11 +388,11 @@ export const deleteExtracurricularActivity = async (req, res) => {
     await activity.destroy();
 
     // Send deletion notification to student
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour extracurricular activity has been deleted.\n\nActivity Type: ${activity.type}\nLevel: ${activity.level}\n\nIf this was an error, please contact your tutor.\n\nBest Regards,\nExtracurricular Management System`;
+    if (user && user.userMail) {
+      const emailText = `Dear ${user.userName},\n\nYour extracurricular activity has been deleted.\n\nActivity Type: ${activity.type}\nLevel: ${activity.level}\n\nIf this was an error, please contact your tutor.\n\nBest Regards,\nExtracurricular Management System`;
 
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: "Extracurricular Activity Deleted",
         text: emailText,
       });
@@ -342,7 +400,7 @@ export const deleteExtracurricularActivity = async (req, res) => {
 
     // Send deletion notification to tutor
     if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nThe following extracurricular activity has been deleted:\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.regno}\nActivity: ${activity.type} (${activity.level})\n\nBest Regards,\nExtracurricular Management System`;
+      const emailText = `Dear Tutor,\n\nThe following extracurricular activity has been deleted:\n\nStudent: ${user?.userName || "N/A"}\nRegno: ${student.registerNumber}\nActivity: ${activity.type} (${activity.level})\n\nBest Regards,\nExtracurricular Management System`;
 
       await sendEmail({
         to: student.tutorEmail,
@@ -360,7 +418,7 @@ export const deleteExtracurricularActivity = async (req, res) => {
 
 // Get all extracurricular activities for a student
 export const getStudentExtracurricularActivities = async (req, res) => {
-  const userId = req.user?.Userid || req.query.UserId;
+  const userId = req.user?.userId || req.query.UserId;
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }
@@ -380,7 +438,7 @@ export const getStudentExtracurricularActivities = async (req, res) => {
 
 // Get extracurricular activity statistics
 export const getExtracurricularStatistics = async (req, res) => {
-  const userId = req.user?.Userid || req.query.UserId;
+  const userId = req.user?.userId || req.query.UserId;
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }

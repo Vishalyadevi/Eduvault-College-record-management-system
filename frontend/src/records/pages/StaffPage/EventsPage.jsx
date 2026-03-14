@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import { getEvents, createEvent, updateEvent, deleteEvent } from '../../services/api';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventDocument } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const EventsPage = () => {
@@ -59,8 +59,15 @@ const EventsPage = () => {
     try {
       setLoading(true);
       const response = await getEvents();
-      const eventsData = response.data || response || [];
-      setEvents(Array.isArray(eventsData) ? eventsData : []);
+      let eventsData = [];
+      if (response) {
+        if (Array.isArray(response)) eventsData = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) eventsData = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) eventsData = response.data.data;
+        }
+      }
+      setEvents(eventsData);
     } catch (error) {
       console.error('Error fetching events:', error);
       toast.error('Failed to load events');
@@ -76,10 +83,25 @@ const EventsPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
+
+    if (type === 'checkbox') {
+      setFormData({
+        ...formData,
+        [name]: checked
+      });
+    } else if (name === 'participants' || name === 'support_amount') {
+      // For number fields, only allow valid numbers
+      const numValue = value.replace(/[^0-9.]/g, ''); // Remove non-numeric characters except decimal
+      setFormData({
+        ...formData,
+        [name]: numValue
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -314,19 +336,10 @@ const EventsPage = () => {
 
   const handleViewDocument = async (eventId, docType) => {
     try {
-      const response = await fetch(`/api/events/${eventId}/document/${docType}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      } else {
-        toast.error('Document not found');
-      }
+      const response = await getEventDocument(eventId, docType);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
     } catch (error) {
       console.error('Error viewing document:', error);
       toast.error('Failed to view document');
@@ -377,9 +390,9 @@ const EventsPage = () => {
           {rowData.has_permission_letter ? (
             <button
               onClick={() => handleViewDocument(rowData.id, 'permission_letter_link')}
-              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
             >
-              View
+              View PDF
             </button>
           ) : (
             <span className="text-gray-400 text-sm">-</span>
@@ -395,9 +408,9 @@ const EventsPage = () => {
           {rowData.has_certificate ? (
             <button
               onClick={() => handleViewDocument(rowData.id, 'certificate_link')}
-              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
             >
-              View
+              View PDF
             </button>
           ) : (
             <span className="text-gray-400 text-sm">-</span>
@@ -413,9 +426,9 @@ const EventsPage = () => {
           {rowData.has_financial_proof ? (
             <button
               onClick={() => handleViewDocument(rowData.id, 'financial_proof_link')}
-              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
             >
-              View
+              View PDF
             </button>
           ) : (
             <span className="text-gray-400 text-sm">-</span>
@@ -431,7 +444,7 @@ const EventsPage = () => {
           {rowData.has_programme_report ? (
             <button
               onClick={() => handleViewDocument(rowData.id, 'programme_report_link')}
-              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
             >
               View
             </button>
@@ -448,10 +461,10 @@ const EventsPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
-          Add New Event
+          Add New Event Attended
         </button>
       </div>
 
@@ -488,7 +501,7 @@ const EventsPage = () => {
               onChange={handleInputChange}
               required
               disabled={isViewMode}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-600 sm:text-sm disabled:bg-gray-100"
             >
               {programmeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -537,7 +550,7 @@ const EventsPage = () => {
               onChange={handleInputChange}
               required
               disabled={isViewMode}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-600 sm:text-sm disabled:bg-gray-100"
             >
               {modeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -606,7 +619,7 @@ const EventsPage = () => {
                       name="permission_letter_link"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                     {files.permission_letter_link && (
                       <p className="text-xs text-green-600 mt-1">Selected: {files.permission_letter_link.name}</p>
@@ -616,13 +629,22 @@ const EventsPage = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Certificate
                     </label>
-                    <input
-                      type="file"
-                      name="certificate_link"
-                      accept="application/pdf"
-                      onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
+                    <div className="relative">
+                      <input
+                        type="file"
+                        name="certificate_link"
+                        accept="application/pdf"
+                        onChange={handleFileChange}
+                        className="w-full opacity-0 absolute inset-0 cursor-pointer"
+                        id="certificate-upload"
+                      />
+                      <label
+                        htmlFor="certificate-upload"
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-pointer hover:bg-gray-100 transition text-sm text-gray-500"
+                      >
+                        {files.certificate_link?.name || "Events Attended"}
+                      </label>
+                    </div>
                     {files.certificate_link && (
                       <p className="text-xs text-green-600 mt-1">Selected: {files.certificate_link.name}</p>
                     )}
@@ -636,7 +658,7 @@ const EventsPage = () => {
                       name="financial_proof_link"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                     {files.financial_proof_link && (
                       <p className="text-xs text-green-600 mt-1">Selected: {files.financial_proof_link.name}</p>
@@ -651,7 +673,7 @@ const EventsPage = () => {
                       name="programme_report_link"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                     {files.programme_report_link && (
                       <p className="text-xs text-green-600 mt-1">Selected: {files.programme_report_link.name}</p>
@@ -667,7 +689,7 @@ const EventsPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Permission Letter</label>
                       <button
                         onClick={() => handleViewDocument(currentEvent.id, 'permission_letter_link')}
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        className="text-indigo-600 hover:text-blue-800 underline"
                       >
                         View Permission Letter
                       </button>
@@ -678,7 +700,7 @@ const EventsPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Certificate</label>
                       <button
                         onClick={() => handleViewDocument(currentEvent.id, 'certificate_link')}
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        className="text-indigo-600 hover:text-blue-800 underline"
                       >
                         View Certificate
                       </button>
@@ -689,7 +711,7 @@ const EventsPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Financial Assistance Proof</label>
                       <button
                         onClick={() => handleViewDocument(currentEvent.id, 'financial_proof_link')}
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        className="text-indigo-600 hover:text-blue-800 underline"
                       >
                         View Financial Proof
                       </button>
@@ -700,7 +722,7 @@ const EventsPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Programme Report</label>
                       <button
                         onClick={() => handleViewDocument(currentEvent.id, 'programme_report_link')}
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        className="text-indigo-600 hover:text-blue-800 underline"
                       >
                         View Programme Report
                       </button>

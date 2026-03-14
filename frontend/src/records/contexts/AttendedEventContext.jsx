@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import API from "../../api";
 import { toast } from "react-toastify";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const AttendedEventContext = createContext();
 
@@ -8,25 +9,14 @@ export const AttendedEventProvider = ({ children }) => {
   const [eventsAttended, setEventsAttended] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const UserId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   const fetchEventsAttended = useCallback(async () => {
-    if (!token || !UserId) {
-      console.warn("No token or user ID found");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+    if (!UserId) return;
 
     try {
-      const response = await axios.get(`${backendUrl}/api/events-attended?UserId=${UserId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get(`/event-attended/list?UserId=${UserId}`);
 
       if (Array.isArray(response.data)) {
         setEventsAttended(response.data);
@@ -43,25 +33,18 @@ export const AttendedEventProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId, backendUrl]);
+  }, [UserId]);
 
   const addEventAttended = useCallback(async (eventData) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await axios.post(`${backendUrl}/api/add-event-attended`, eventData, {
+      const response = await API.post("/event-attended/add", eventData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
 
-      // Refresh the events list after adding
       await fetchEventsAttended();
       toast.success("Event attended added successfully!");
       return response.data;
@@ -73,29 +56,18 @@ export const AttendedEventProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl, fetchEventsAttended]);
+  }, [fetchEventsAttended]);
 
   const updateEventAttended = useCallback(async (id, eventData) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await axios.put(
-        `${backendUrl}/api/update-event-attended/${id}`,
-        eventData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      
-      // Refresh the events list after updating
+      const response = await API.put(`/event-attended/update/${id}`, eventData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
       await fetchEventsAttended();
       toast.success("Event attended updated successfully!");
       return response.data;
@@ -107,14 +79,9 @@ export const AttendedEventProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl, fetchEventsAttended]);
+  }, [fetchEventsAttended]);
 
   const deleteEventAttended = useCallback(async (id) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
     if (!window.confirm("Are you sure you want to delete this event?")) {
       return;
     }
@@ -122,11 +89,7 @@ export const AttendedEventProvider = ({ children }) => {
     setLoading(true);
 
     try {
-      await axios.delete(`${backendUrl}/api/delete-event-attended/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await API.delete(`/event-attended/delete/${id}`);
 
       setEventsAttended((prevEvents) => prevEvents.filter((event) => event.id !== id));
       toast.success("Event attended deleted successfully!");
@@ -137,13 +100,13 @@ export const AttendedEventProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, backendUrl]);
+  }, []);
 
   useEffect(() => {
-    if (token && UserId) {
+    if (UserId) {
       fetchEventsAttended();
     }
-  }, [fetchEventsAttended, token, UserId]);
+  }, [fetchEventsAttended, UserId]);
 
   return (
     <AttendedEventContext.Provider

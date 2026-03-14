@@ -62,15 +62,15 @@ async function fetchStudentData(userId) {
     // Fetch basic student info
     const basicInfo = await sequelize.query(`
       SELECT u.username, u.email, u.staffId, u.image,
-             sd.regno, sd.batch, sd.gender, sd.date_of_birth as dob,
+             registerNumber, sd.batch, sd.gender, sd.date_of_birth as dob,
              CONCAT_WS(', ', sd.door_no, sd.street) as address,
              c.name as city, di.name as district, s.name as state,
              sd.pincode, sd.personal_phone as student_phone,
              sd.blood_group, sd.aadhar_card_no as aadhar_number,
-             d.Deptname as department, d.Deptacronym as dept_code
+             d.departmentName as department, d.departmentAcr as dept_code
       FROM users u
       LEFT JOIN student_details sd ON u.Userid = sd.Userid
-      LEFT JOIN department d ON u.Deptid = d.Deptid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
       LEFT JOIN cities c ON sd.cityID = c.id
       LEFT JOIN districts di ON sd.districtID = di.id
       LEFT JOIN states s ON sd.stateID = s.id
@@ -224,14 +224,14 @@ async function generatePDFContent(doc, data) {
   const addPageHeader = (title = 'STUDENT REPORT') => {
     const headerY = 30;
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.title.size).fillColor(COLORS.primary)
-       .text(title, MARGINS.left, headerY, { width: CONTENT_WIDTH, align: 'center' });
+      .text(title, MARGINS.left, headerY, { width: CONTENT_WIDTH, align: 'center' });
 
     // Add a subtle line below header
     const lineY = headerY + 25;
     doc.lineWidth(0.5)
-       .moveTo(MARGINS.left, lineY)
-       .lineTo(doc.page.width - MARGINS.right, lineY)
-       .stroke(COLORS.border);
+      .moveTo(MARGINS.left, lineY)
+      .lineTo(doc.page.width - MARGINS.right, lineY)
+      .stroke(COLORS.border);
   };
 
   // Helper function to add page number (for pages after first)
@@ -239,7 +239,7 @@ async function generatePDFContent(doc, data) {
     const pageNumber = doc.bufferedPageRange().start + 1;
     if (pageNumber > 1) {
       doc.font('Helvetica').fontSize(TYPOGRAPHY.footer.size).fillColor(COLORS.textLight)
-         .text(`Page ${pageNumber}`, doc.page.width - MARGINS.right - 50, 30, { align: 'right' });
+        .text(`Page ${pageNumber}`, doc.page.width - MARGINS.right - 50, 30, { align: 'right' });
     }
   };
 
@@ -250,15 +250,15 @@ async function generatePDFContent(doc, data) {
 
     // Footer line
     doc.lineWidth(0.5)
-       .moveTo(MARGINS.left, footerY)
-       .lineTo(doc.page.width - MARGINS.right, footerY)
-       .stroke(COLORS.border);
+      .moveTo(MARGINS.left, footerY)
+      .lineTo(doc.page.width - MARGINS.right, footerY)
+      .stroke(COLORS.border);
 
     // Footer text
     doc.font('Helvetica').fontSize(TYPOGRAPHY.footer.size).fillColor(COLORS.textLight)
-       .text(`Generated on ${new Date().toLocaleString('en-IN')} | Student Activity Management System`,
-             MARGINS.left, footerY + 8, { width: CONTENT_WIDTH, align: 'center' })
-       .text(`Page ${pageNumber}`, doc.page.width - MARGINS.right - 50, footerY + 8, { align: 'right' });
+      .text(`Generated on ${new Date().toLocaleString('en-IN')} | Student Activity Management System`,
+        MARGINS.left, footerY + 8, { width: CONTENT_WIDTH, align: 'center' })
+      .text(`Page ${pageNumber}`, doc.page.width - MARGINS.right - 50, footerY + 8, { align: 'right' });
   };
 
   // Helper function to add section header
@@ -267,13 +267,13 @@ async function generatePDFContent(doc, data) {
     doc.moveDown(1);
 
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.sectionHeader.size).fillColor(COLORS.primary)
-       .text(title, LABEL_X, doc.y);
+      .text(title, LABEL_X, doc.y);
 
     const lineY = doc.y + 3;
     doc.lineWidth(1)
-       .moveTo(LABEL_X, lineY)
-       .lineTo(doc.page.width - MARGINS.right, lineY)
-       .stroke(COLORS.primary);
+      .moveTo(LABEL_X, lineY)
+      .lineTo(doc.page.width - MARGINS.right, lineY)
+      .stroke(COLORS.primary);
 
     doc.moveDown(0.8);
     doc.fillColor(COLORS.text).font('Helvetica').fontSize(TYPOGRAPHY.body.size);
@@ -283,7 +283,7 @@ async function generatePDFContent(doc, data) {
   const addSubsectionHeader = (title) => {
     checkPageBreak(60);
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.subsection.size).fillColor(COLORS.accent)
-       .text(title, LABEL_X + 10, doc.y);
+      .text(title, LABEL_X + 10, doc.y);
     doc.moveDown(0.5);
     doc.fillColor(COLORS.text).font('Helvetica').fontSize(TYPOGRAPHY.body.size);
   };
@@ -295,16 +295,16 @@ async function generatePDFContent(doc, data) {
 
     // Label
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.secondary)
-       .text(label + ':', LABEL_X, startY);
+      .text(label + ':', LABEL_X, startY);
 
     // Value
     doc.font('Helvetica').fontSize(TYPOGRAPHY.body.size).fillColor(COLORS.text)
-       .text(value || 'N/A', VALUE_X, startY, {
-         width: VALUE_WIDTH,
-         lineGap: LINE_GAP,
-         continued: options.continued || false,
-         ...options
-       });
+      .text(value || 'N/A', VALUE_X, startY, {
+        width: VALUE_WIDTH,
+        lineGap: LINE_GAP,
+        continued: options.continued || false,
+        ...options
+      });
 
     doc.moveDown(0.4);
   };
@@ -315,7 +315,7 @@ async function generatePDFContent(doc, data) {
 
     // Main item title
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.subsection.size).fillColor(COLORS.text)
-       .text(`${index}. ${title}`, LABEL_X + 10, doc.y);
+      .text(`${index}. ${title}`, LABEL_X + 10, doc.y);
 
     doc.moveDown(0.3);
 
@@ -325,11 +325,11 @@ async function generatePDFContent(doc, data) {
       const isLastDetail = detailIndex === details.length - 1;
 
       doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-         .text(`   ${detail}`, LABEL_X + 20, doc.y, {
-           width: VALUE_WIDTH - 20,
-           lineGap: LINE_GAP,
-           continued: !isLastDetail
-         });
+        .text(`   ${detail}`, LABEL_X + 20, doc.y, {
+          width: VALUE_WIDTH - 20,
+          lineGap: LINE_GAP,
+          continued: !isLastDetail
+        });
 
       if (!isLastDetail) {
         doc.moveDown(0.2);
@@ -365,13 +365,13 @@ async function generatePDFContent(doc, data) {
 
   // Student name - prominent display
   doc.font('Helvetica-Bold').fontSize(18).fillColor(COLORS.primary)
-     .text((basicInfo.username || 'Student Name').toUpperCase(), LABEL_X, titleY);
+    .text((basicInfo.username || 'Student Name').toUpperCase(), LABEL_X, titleY);
 
   doc.moveDown(0.5);
 
   // Department and code
   doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.subsection.size).fillColor(COLORS.accent)
-     .text('Department Information', LABEL_X, doc.y);
+    .text('Department Information', LABEL_X, doc.y);
 
   doc.moveDown(0.3);
   doc.font('Helvetica').fontSize(TYPOGRAPHY.body.size).fillColor(COLORS.text);
@@ -389,20 +389,20 @@ async function generatePDFContent(doc, data) {
   // Contact information
   doc.moveDown(0.5);
   doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.subsection.size).fillColor(COLORS.accent)
-     .text('Contact Information', LABEL_X, doc.y);
+    .text('Contact Information', LABEL_X, doc.y);
 
   doc.moveDown(0.3);
   doc.font('Helvetica').fontSize(TYPOGRAPHY.body.size).fillColor(COLORS.text);
 
   addField('Email', basicInfo.email);
-  addField('Registration Number', basicInfo.regno);
+  addField('Registration Number', basicInfo.registerNumber);
   addField('Batch', basicInfo.batch);
   addField('Phone', basicInfo.student_phone || basicInfo.phone);
 
   // Address information
   doc.moveDown(0.5);
   doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.subsection.size).fillColor(COLORS.accent)
-     .text('Address Information', LABEL_X, doc.y);
+    .text('Address Information', LABEL_X, doc.y);
 
   doc.moveDown(0.3);
   doc.font('Helvetica').fontSize(TYPOGRAPHY.body.size).fillColor(COLORS.text);
@@ -439,7 +439,7 @@ async function generatePDFContent(doc, data) {
   checkPageBreak(60);
   doc.moveDown(2);
   doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-     .text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`, MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
+    .text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`, MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
 
   // Continue to next section
 
@@ -449,7 +449,7 @@ async function generatePDFContent(doc, data) {
   // Basic Information
   addSubsectionHeader('Basic Details');
   addField('Full Name', basicInfo.username);
-  addField('Registration Number', basicInfo.regno);
+  addField('Registration Number', basicInfo.registerNumber);
   addField('Email', basicInfo.email);
   addField('Department', basicInfo.department);
   addField('Batch', basicInfo.batch);
@@ -480,7 +480,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('ONLINE COURSES');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Courses: ${courses.length} | Approved: ${courses.filter(c => c.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Courses: ${courses.length} | Approved: ${courses.filter(c => c.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -508,7 +508,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('INTERNSHIPS');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Internships: ${internships.length} | Approved: ${internships.filter(i => i.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Internships: ${internships.length} | Approved: ${internships.filter(i => i.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -537,7 +537,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('EVENTS ORGANIZED');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Events: ${organizedEvents.length} | Approved: ${organizedEvents.filter(e => e.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Events: ${organizedEvents.length} | Approved: ${organizedEvents.filter(e => e.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -568,7 +568,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('EVENTS ATTENDED');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Events: ${attendedEvents.length} | Approved: ${attendedEvents.filter(e => e.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Events: ${attendedEvents.length} | Approved: ${attendedEvents.filter(e => e.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -598,7 +598,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('SCHOLARSHIPS');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Scholarships: ${scholarships.length} | Approved: ${scholarships.filter(s => s.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Scholarships: ${scholarships.length} | Approved: ${scholarships.filter(s => s.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -628,7 +628,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('ACHIEVEMENTS');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Achievements: ${achievements.length} | Approved: ${achievements.filter(a => a.tutor_approval_status).length}`, LABEL_X, doc.y);
+      .text(`Total Achievements: ${achievements.length} | Approved: ${achievements.filter(a => a.tutor_approval_status).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -653,7 +653,7 @@ async function generatePDFContent(doc, data) {
     addSectionHeader('LEAVE APPLICATIONS');
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-       .text(`Total Applications: ${leaves.length} | Approved: ${leaves.filter(l => l.leave_status === true).length}`, LABEL_X, doc.y);
+      .text(`Total Applications: ${leaves.length} | Approved: ${leaves.filter(l => l.leave_status === true).length}`, LABEL_X, doc.y);
 
     doc.moveDown(0.5);
 
@@ -682,7 +682,7 @@ async function generatePDFContent(doc, data) {
 
   // Summary title
   doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.sectionHeader.size).fillColor(COLORS.primary)
-     .text('Activity Overview', LABEL_X, doc.y + 20);
+    .text('Activity Overview', LABEL_X, doc.y + 20);
 
   doc.moveDown(1.5);
 
@@ -703,14 +703,14 @@ async function generatePDFContent(doc, data) {
 
     // Label
     doc.font('Helvetica-Bold').fontSize(TYPOGRAPHY.body.size).fillColor(COLORS.text)
-       .text(stat.label + ':', LABEL_X, startY);
+      .text(stat.label + ':', LABEL_X, startY);
 
     // Value with approval status
     const approvalPercentage = stat.value > 0 ? Math.round((stat.approved / stat.value) * 100) : 0;
     const statusColor = approvalPercentage >= 70 ? COLORS.accent : approvalPercentage >= 40 ? COLORS.warning : COLORS.secondary;
 
     doc.font('Helvetica').fontSize(TYPOGRAPHY.body.size).fillColor(statusColor)
-       .text(`${stat.value} total (${stat.approved} approved - ${approvalPercentage}%)`, VALUE_X, startY);
+      .text(`${stat.value} total (${stat.approved} approved - ${approvalPercentage}%)`, VALUE_X, startY);
 
     doc.moveDown(0.6);
   });
@@ -720,8 +720,8 @@ async function generatePDFContent(doc, data) {
 
   // Additional footer text
   doc.font('Helvetica').fontSize(TYPOGRAPHY.bodySmall.size).fillColor(COLORS.textLight)
-     .text('This report was generated automatically and contains all student activities as recorded in the system.',
-           MARGINS.left, doc.page.height - 80, { width: CONTENT_WIDTH, align: 'center' });
+    .text('This report was generated automatically and contains all student activities as recorded in the system.',
+      MARGINS.left, doc.page.height - 80, { width: CONTENT_WIDTH, align: 'center' });
 }
 
 export default router;

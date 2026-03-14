@@ -32,8 +32,15 @@ const CertificationsPage = () => {
     try {
       setLoading(true);
       const response = await api.get('/certifications');
-      const certsData = response.data || response || [];
-      setCertifications(Array.isArray(certsData) ? certsData : []);
+      let certsData = [];
+      if (response) {
+        if (Array.isArray(response)) certsData = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) certsData = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) certsData = response.data.data;
+        }
+      }
+      setCertifications(certsData);
     } catch (error) {
       console.error('Error fetching certifications:', error);
       toast.error('Failed to load certifications');
@@ -302,10 +309,9 @@ const CertificationsPage = () => {
               href={getFileUrl(rowData.certificate_pdf)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1"
-            >
+              className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200">
               <File size={14} />
-              View
+              View PDF
             </a>
           ) : (
             <span className="text-gray-400 text-sm">-</span>
@@ -320,7 +326,7 @@ const CertificationsPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Certification
@@ -421,63 +427,71 @@ const CertificationsPage = () => {
 
           {/* File Upload Section */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Certificate PDF
-              {!isViewMode && !currentCertification && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {isViewMode ? (
-              currentCertification?.certificate_pdf ? (
-                <a
-                  href={getFileUrl(currentCertification.certificate_pdf)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
-                >
-                  <File size={16} />
-                  View Certificate Document
-                </a>
-              ) : (
-                <span className="text-gray-500 text-sm">No file uploaded</span>
-              )
-            ) : (
-              <div>
-                <div className="mt-1 flex items-center gap-2">
-                  <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
-                    <Upload size={16} />
-                    <span className="text-sm">Choose PDF File</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      disabled={isViewMode}
-                    />
-                  </label>
-                  {certificateFile && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <File size={14} />
-                      {certificateFile.name}
-                    </span>
-                  )}
-                  {currentCertification?.certificate_pdf && !certificateFile && (
-                    <a
-                      href={getFileUrl(currentCertification.certificate_pdf)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    >
-                      <File size={14} />
-                      Current File
-                    </a>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {currentCertification ? 'Upload new file to replace existing' : 'Max file size: 10MB'}
-                </p>
-              </div>
-            )}
-          </div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Certificate PDF
+    {!isViewMode && !currentCertification && (
+      <span className="text-red-500 ml-1">*</span>
+    )}
+  </label>
+
+  {isViewMode ? (
+    currentCertification?.certificate_pdf ? (
+      <a
+        href={getFileUrl(currentCertification.certificate_pdf)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-600 hover:text-blue-800 underline flex items-center gap-1"
+      >
+        <File size={16} />
+        View Certificate Document
+      </a>
+    ) : (
+      <span className="text-gray-500 text-sm">No file uploaded</span>
+    )
+  ) : (
+    <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleFileChange}
+        disabled={isViewMode}
+        className="block w-full text-sm text-gray-500
+          file:mr-4 file:py-2 file:px-4
+          file:rounded-md file:border-0
+          file:text-sm file:font-semibold
+          file:bg-indigo-50 file:text-indigo-700
+          hover:file:bg-indigo-100"
+      />
+
+      {certificateFile && (
+        <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+          <File size={14} />
+          Selected: {certificateFile.name}
+        </p>
+      )}
+
+      {currentCertification?.certificate_pdf && !certificateFile && (
+        <a
+          href={getFileUrl(currentCertification.certificate_pdf)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 text-xs text-indigo-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          <File size={14} />
+          Current File
+        </a>
+      )}
+
+      <p className="text-xs text-gray-500 mt-1">
+        {currentCertification
+          ? 'Upload new file to replace existing'
+          : 'Max file size: 10MB'}
+      </p>
+    </div>
+  )}
+</div>
+
         </div>
       </Modal>
     </div>

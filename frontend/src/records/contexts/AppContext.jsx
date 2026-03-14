@@ -17,7 +17,7 @@ export const AppProvider = ({ children }) => {
           axios.get(`${backendUrl}/api/departments`),
           axios.get(`${backendUrl}/api/get-staff`, { params: { role: "Staff" } }),
         ]);
-      
+
         setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);
         //console.log("Departments:", deptRes.data);
         setStaffs(staffRes.data.staff || []);

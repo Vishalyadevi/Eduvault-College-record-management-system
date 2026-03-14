@@ -136,7 +136,7 @@ const Navbar = () => {
                 )}
               </div>
             ))}
-                <Link to="/login" className="nav-button px-3 py-2 rounded-md text-sm font-medium hover:bg-[#1a4b8c]">
+                <Link to="/records/login" className="nav-button px-3 py-2 rounded-md text-sm font-medium hover:bg-[#1a4b8c]">
                   Login
                 </Link>
 

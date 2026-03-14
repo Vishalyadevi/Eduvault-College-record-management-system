@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useMemo, useEffect } from "react";
-import axios from "axios";
+import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
+import API from "../../api";
 import { useAppContext } from "./AppContext";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const StudentContext = createContext();
 
@@ -10,93 +11,75 @@ export const StudentProvider = ({ children }) => {
   const { departments } = useAppContext();
   const [loading, setLoading] = useState(true);
   const [usersWithDepartments, setUsersWithDepartments] = useState([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, isAuthenticated } = useAuth();
 
-  const backendUrl = "http://localhost:4000";
+  const fetchData = useCallback(async () => {
+    try {
+      if (!isAuthenticated) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      // Fetch all data in parallel
+      const [studentsRes, staffRes, usersWithDeptRes] = await Promise.all([
+        API.get("/students"),
+        API.get("/get-staff", { params: { role: "Staff" } }),
+        API.get("/department-counts"),
+      ]);
+
+      // Extract data safely
+      let allStudents = Array.isArray(studentsRes.data)
+        ? studentsRes.data
+        : studentsRes.data.students || [];
+
+      let allStaff = Array.isArray(staffRes.data)
+        ? staffRes.data
+        : staffRes.data.staff || [];
+
+      let allUsersWithDept = Array.isArray(usersWithDeptRes.data)
+        ? usersWithDeptRes.data
+        : usersWithDeptRes.data.users || [];
+
+      // Apply role-based filtering
+      const userRole = user?.role;
+      const userDeptId = user?.departmentId;
+
+      if (userRole === "DeptAdmin" && userDeptId) {
+        const deptIdNum = parseInt(userDeptId);
+
+        // Filter students by department
+        allStudents = allStudents.filter(student => (student.departmentId || student.Deptid) === deptIdNum);
+
+        // Filter staff by department
+        allStaff = allStaff.filter(staffMember => staffMember.Deptid === deptIdNum);
+
+        // Filter department counts by department
+        allUsersWithDept = allUsersWithDept.filter(userCount => userCount.Deptid === deptIdNum);
+      }
+
+      setStudents(allStudents);
+      setStaff(allStaff);
+      setUsersWithDepartments(allUsersWithDept);
+    } catch (error) {
+      console.error("Error fetching student/staff data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const userRole = localStorage.getItem("userRole");
-        const userDeptId = localStorage.getItem("deptid");
-
-        // Check if user is authenticated
-        if (!token) {
-          setIsAuthenticated(false);
-          setLoading(false);
-          console.log("User not authenticated - skipping data fetch");
-          return;
-        }
-
-        setIsAuthenticated(true);
-
-        const config = {
-          headers: { Authorization: `Bearer ${token}` },
-        };
-
-        // Fetch all data in parallel
-        const [studentsRes, staffRes, usersWithDeptRes] = await Promise.all([
-          axios.get(`${backendUrl}/api/students`, config),
-          axios.get(`${backendUrl}/api/get-staff`, {
-            params: { role: "Staff" },
-            headers: config.headers,
-          }),
-          axios.get(`${backendUrl}/api/department-counts`, config),
-        ]);
-
-        // Extract data safely
-        let allStudents = Array.isArray(studentsRes.data)
-          ? studentsRes.data
-          : studentsRes.data.students || [];
-        
-        let allStaff = Array.isArray(staffRes.data)
-          ? staffRes.data
-          : staffRes.data.staff || [];
-        
-        let allUsersWithDept = Array.isArray(usersWithDeptRes.data)
-          ? usersWithDeptRes.data
-          : usersWithDeptRes.data.users || [];
-
-        // Apply role-based filtering
-        if (userRole === "DeptAdmin" && userDeptId) {
-          const deptIdNum = parseInt(userDeptId);
-          
-          // Filter students by department
-          allStudents = allStudents.filter(student => student.Deptid === deptIdNum);
-          
-          // Filter staff by department
-          allStaff = allStaff.filter(staffMember => staffMember.Deptid === deptIdNum);
-          
-          // Filter department counts by department
-          allUsersWithDept = allUsersWithDept.filter(user => user.Deptid === deptIdNum);
-        }
-        // SuperAdmin sees all data (no filtering)
-
-        setStudents(allStudents);
-        setStaff(allStaff);
-        setUsersWithDepartments(allUsersWithDept);
-      } catch (error) {
-        console.error(
-          "Error fetching data:",
-          error.response?.data || error.message
-        );
-        setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Calculate batch-wise student counts
   const batchWiseCounts = useMemo(() => {
     const counts = {};
     (Array.isArray(students) ? students : []).forEach((student) => {
-      const deptId = student.Deptid || "Unknown";
+      const deptId = student.departmentId || student.Deptid || "Unknown";
       const department = (Array.isArray(departments) ? departments : []).find(
-        (dept) => dept.Deptid === deptId
+        (dept) => (dept.departmentId || dept.Deptid) === deptId
       );
 
       const deptAcronym = department ? department.Deptacronym : "Unknown";
@@ -120,17 +103,17 @@ export const StudentProvider = ({ children }) => {
     (Array.isArray(usersWithDepartments)
       ? usersWithDepartments
       : []
-    ).forEach((user) => {
-      const deptAcronym = user.deptAcronym || "Unknown";
+    ).forEach((userCount) => {
+      const deptAcronym = userCount.deptAcronym || "Unknown";
 
-      if (user.students !== undefined && user.students !== null) {
+      if (userCount.students !== undefined && userCount.students !== null) {
         deptStudentCounts[deptAcronym] =
-          (deptStudentCounts[deptAcronym] || 0) + user.students;
+          (deptStudentCounts[deptAcronym] || 0) + userCount.students;
       }
 
-      if (user.staff !== undefined && user.staff !== null) {
+      if (userCount.staff !== undefined && userCount.staff !== null) {
         deptStaffCounts[deptAcronym] =
-          (deptStaffCounts[deptAcronym] || 0) + user.staff;
+          (deptStaffCounts[deptAcronym] || 0) + userCount.staff;
       }
     });
 
@@ -140,7 +123,7 @@ export const StudentProvider = ({ children }) => {
   // Calculate city-wise student distribution
   const cityWiseCounts = useMemo(() => {
     const counts = {};
-    
+
     (Array.isArray(students) ? students : []).forEach((student) => {
       const city = student.city || "Not Specified";
       counts[city] = (counts[city] || 0) + 1;
@@ -187,12 +170,13 @@ export const StudentProvider = ({ children }) => {
         totalStudents,
         totalStaff,
         getStudentsByCity,
+        fetchData
       }}
     >
       {loading ? (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mx-auto mb-4"></div>
             <h3 className="text-xl font-semibold text-gray-700">Loading data...</h3>
           </div>
         </div>

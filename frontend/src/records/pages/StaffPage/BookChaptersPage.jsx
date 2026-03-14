@@ -33,7 +33,16 @@ const BookChaptersPage = () => {
     try {
       setLoading(true);
       const response = await getBookChapters();
-      setBookChapters(response.data);
+      // unwrap new response shape
+      let arr = [];
+      if (response) {
+        if (Array.isArray(response)) arr = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) arr = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) arr = response.data.data;
+        }
+      }
+      setBookChapters(arr);
     } catch (error) {
       console.error('Error fetching book chapters:', error);
       toast.error('Failed to load book chapters');
@@ -84,7 +93,7 @@ const BookChaptersPage = () => {
       publication_type: bookChapter.publication_type || 'book_chapter',
       publication_name: bookChapter.publication_name || '',
       publication_title: bookChapter.publication_title || '',
-      authors: bookChapter.authors || '',
+      authors: Array.isArray(bookChapter.authors) ? bookChapter.authors.join(', ') : (bookChapter.authors || ''),
       index_type: bookChapter.index_type || '',
       doi: bookChapter.doi || '',
       citations: bookChapter.citations?.toString() || '',
@@ -104,7 +113,7 @@ const BookChaptersPage = () => {
       publication_type: bookChapter.publication_type || 'book_chapter',
       publication_name: bookChapter.publication_name || '',
       publication_title: bookChapter.publication_title || '',
-      authors: bookChapter.authors || '',
+      authors: Array.isArray(bookChapter.authors) ? bookChapter.authors.join(', ') : (bookChapter.authors || ''),
       index_type: bookChapter.index_type || '',
       doi: bookChapter.doi || '',
       citations: bookChapter.citations?.toString() || '',
@@ -188,7 +197,7 @@ const BookChaptersPage = () => {
         href={value}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 hover:text-blue-800"
+        className="text-indigo-600 hover:text-blue-800"
       >
         View
       </a>
@@ -196,27 +205,31 @@ const BookChaptersPage = () => {
   };
 
   const columns = [
-  { field: 'publication_type', header: 'Type' },
-  { field: 'publication_name', header: 'Publication Name' },
-  { field: 'publication_title', header: 'Title' },
-  { field: 'authors', header: 'Authors' },
-  { field: 'index_type', header: 'Index Type' },
-  {
-    field: 'publication_date',
-    header: 'Date',
-    render: (item) => formatDate(item.publication_date)
-  },
-  { field: 'publisher', header: 'Publisher' },
-  { field: 'citations', header: 'Citations' },
-  { field: 'impact_factor', header: 'Impact Factor' },
-  { field: 'doi', header: 'DOI' }, // Added DOI column
-  { field: 'page_no', header: 'Page No.' }, // Added Page No. column
-  {
-    field: 'publication_link',
-    header: 'Link',
-    render: renderPublicationLink
-  }
-];
+    { field: 'publication_type', header: 'Type' },
+    { field: 'publication_name', header: 'Publication Name' },
+    { field: 'publication_title', header: 'Title' },
+    {
+      field: 'authors',
+      header: 'Authors',
+      render: (item) => Array.isArray(item.authors) ? item.authors.join(', ') : item.authors
+    },
+    { field: 'index_type', header: 'Index Type' },
+    {
+      field: 'publication_date',
+      header: 'Date',
+      render: (item) => formatDate(item.publication_date)
+    },
+    { field: 'publisher', header: 'Publisher' },
+    { field: 'citations', header: 'Citations' },
+    { field: 'impact_factor', header: 'Impact Factor' },
+    { field: 'doi', header: 'DOI' }, // Added DOI column
+    { field: 'page_no', header: 'Page No.' }, // Added Page No. column
+    {
+      field: 'publication_link',
+      header: 'Link',
+      render: renderPublicationLink
+    }
+  ];
   const publicationTypes = [
     { value: 'journal', label: 'Journal Article' },
     { value: 'book_chapter', label: 'Book Chapter' },
@@ -239,7 +252,7 @@ const BookChaptersPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Publication

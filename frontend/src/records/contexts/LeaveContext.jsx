@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import API from "../../api";
+import { toast } from "react-toastify";
+import { useAuth } from "../pages/auth/AuthContext";
 
 // Create the context
 const LeaveContext = createContext();
@@ -19,104 +21,100 @@ export const LeaveProvider = ({ children }) => {
   const [approvedLeaves, setApprovedLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000"; // Update if needed
-
-  // Extract `userid` from the token
-  const getUserId = () => {
-    const Userid = localStorage.getItem("userId");
-    return Userid;
-  };
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch pending leaves
   const fetchPendingLeaves = useCallback(async () => {
-    setLoading(true);
-    const Userid = getUserId();
-    if (!Userid) {
-      setError("User ID not found. Please log in again.");
-      setLoading(false);
+    if (!UserId) {
+      console.warn("User ID not found for pending leaves fetch");
       return;
     }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const response = await axios.get(`${backendUrl}/api/pending-leaves`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params: { Userid }, // Send userid as a parameter
+      const response = await API.get("/pending-leaves", {
+        params: { Userid: UserId },
       });
+
+      console.log("✅ Pending leaves fetched:", response.data);
       setPendingLeaves(response.data.leaves || []);
-      setError(null);
     } catch (error) {
-      console.error("Error fetching pending leaves:", error);
-      setError("Failed to fetch pending leaves.");
+      console.error("❌ Error fetching pending leaves:", error);
+      setError(error.response?.data?.message || "Failed to fetch pending leaves.");
       setPendingLeaves([]);
     } finally {
       setLoading(false);
     }
-  }, [backendUrl]);
+  }, [UserId]);
 
   // Fetch approved leaves
   const fetchApprovedLeaves = useCallback(async () => {
-    setLoading(true);
-    const Userid = getUserId();
-    if (!Userid) {
-      setError("User ID not found. Please log in again.");
-      setLoading(false);
+    if (!UserId) {
+      console.warn("User ID not found for approved leaves fetch");
       return;
     }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const response = await axios.get(`${backendUrl}/api/fetch-leaves`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params: { Userid },
+      const response = await API.get("/fetch-leaves", {
+        params: { Userid: UserId },
       });
+
+      console.log("✅ Approved leaves fetched:", response.data);
       setApprovedLeaves(response.data || []);
-      setError(null);
     } catch (error) {
-      console.error("Error fetching approved leaves:", error);
-      setError("Failed to fetch approved leaves.");
+      console.error("❌ Error fetching approved leaves:", error);
+      setError(error.response?.data?.message || "Failed to fetch approved leaves.");
       setApprovedLeaves([]);
     } finally {
       setLoading(false);
     }
-  }, [backendUrl]);
+  }, [UserId]);
 
   // Add a new leave request
   const addLeave = async (leaveData) => {
-    setLoading(true);
-    const Userid = getUserId();
-    if (!Userid) {
+    if (!UserId) {
       setError("User ID not found. Please log in again.");
-      setLoading(false);
-      return;
+      return { success: false, error: "User ID not found" };
     }
 
-    try {
-      // Create a FormData object
-      const formData = new FormData();
+    setLoading(true);
+    setError(null);
 
-      // Append all fields to the FormData object
+    try {
+      const formData = new FormData();
       formData.append("leave_type", leaveData.leave_type);
       formData.append("start_date", leaveData.start_date);
       formData.append("end_date", leaveData.end_date);
       formData.append("reason", leaveData.reason);
       formData.append("leave_status", leaveData.leave_status);
-      formData.append("Userid", Userid);
+      formData.append("Userid", UserId);
 
-      // Append the document file if it exists
       if (leaveData.document) {
         formData.append("document", leaveData.document);
       }
 
-      // Send the request with FormData
-      const response = await axios.post(`${backendUrl}/api/add-leave`, formData, {
+      const response = await API.post("/add-leave", formData, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-          "Content-Type": "multipart/form-data", // Important for file uploads
+          "Content-Type": "multipart/form-data",
         },
       });
 
+      console.log("✅ Leave added successfully:", response.data);
+      toast.success("Leave request submitted successfully!");
       await fetchPendingLeaves();
-      return response.data;
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error("Error adding leave request:", error);
-      setError("Error adding leave request");
+      console.error("❌ Error adding leave request:", error);
+      const errorMessage = error.response?.data?.message || "Error adding leave request";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -124,48 +122,47 @@ export const LeaveProvider = ({ children }) => {
 
   // Update a leave request
   const updateLeave = async (leaveId, updatedData) => {
-    setLoading(true);
-    const Userid = getUserId();
-    if (!Userid) {
+    if (!UserId) {
       setError("User ID not found. Please log in again.");
-      setLoading(false);
-      return;
+      return { success: false, error: "User ID not found" };
     }
 
-    try {
-      // Create a FormData object
-      const formData = new FormData();
+    setLoading(true);
+    setError(null);
 
-      // Append all fields to the FormData object
+    try {
+      const formData = new FormData();
       formData.append("leave_type", updatedData.leave_type);
       formData.append("start_date", updatedData.start_date);
       formData.append("end_date", updatedData.end_date);
       formData.append("reason", updatedData.reason);
       formData.append("leave_status", updatedData.leave_status);
-      formData.append("Userid", Userid);
+      formData.append("Userid", UserId);
 
-      // Append the document file if it exists
       if (updatedData.document) {
         formData.append("document", updatedData.document);
       }
 
-      // Send the request with FormData
-      const response = await axios.patch(
-        `${backendUrl}/api/student-leave/update-leave/${leaveId}`,
+      const response = await API.patch(
+        `/student-leave/update-leave/${leaveId}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "multipart/form-data", // Important for file uploads
+            "Content-Type": "multipart/form-data",
           },
         }
       );
 
+      console.log("✅ Leave updated successfully:", response.data);
+      toast.success("Leave request updated successfully!");
       await fetchPendingLeaves();
-      return response.data;
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error("Error updating leave request:", error);
-      setError("Error updating leave request");
+      console.error("❌ Error updating leave request:", error);
+      const errorMessage = error.response?.data?.message || "Error updating leave request";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -173,23 +170,29 @@ export const LeaveProvider = ({ children }) => {
 
   // Delete a leave request
   const deleteLeave = async (leaveId) => {
-    setLoading(true);
-    const Userid = getUserId();
-    if (!Userid) {
+    if (!UserId) {
       setError("User ID not found. Please log in again.");
-      setLoading(false);
-      return;
+      return { success: false, error: "User ID not found" };
     }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const response = await axios.delete(`${backendUrl}/api/delete-leave/${leaveId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params: { Userid },
+      const response = await API.delete(`/delete-leave/${leaveId}`, {
+        params: { Userid: UserId },
       });
+
+      console.log("✅ Leave deleted successfully:", response.data);
+      toast.success("Leave request deleted successfully!");
       await fetchPendingLeaves();
-      return response.data;
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error("Error deleting leave request:", error);
-      setError("Error deleting leave request");
+      console.error("❌ Error deleting leave request:", error);
+      const errorMessage = error.response?.data?.message || "Error deleting leave request";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -197,9 +200,11 @@ export const LeaveProvider = ({ children }) => {
 
   // Fetch leaves on mount
   useEffect(() => {
-    fetchPendingLeaves();
-    fetchApprovedLeaves();
-  }, [fetchPendingLeaves, fetchApprovedLeaves]);
+    if (UserId) {
+      fetchPendingLeaves();
+      fetchApprovedLeaves();
+    }
+  }, [fetchPendingLeaves, fetchApprovedLeaves, UserId]);
 
   // Context value
   const value = {

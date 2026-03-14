@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
-import { 
-  FaHome, 
-  FaBuilding, 
-  FaCalendarAlt, 
-  FaUserGraduate, 
-  FaCode, 
-  FaUsers, 
+import { useAuth } from "../../../records/pages/auth/AuthContext";
+import api from "../../../api";
+import {
+  FaHome,
+  FaBuilding,
+  FaCalendarAlt,
+  FaUserGraduate,
+  FaCode,
+  FaUsers,
   FaComments,
   FaBell
 } from "react-icons/fa";
 
 const Sidebar = () => {
+  const { user, refresh, logout } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios
-      .get("http://localhost:4000/api/placement/notifications")
+    api.get("/placement/notifications")
       .then((res) => setNotifications(res.data || []))
       .catch((err) => console.error("Error fetching notifications:", err));
   }, []);
@@ -35,22 +36,21 @@ const Sidebar = () => {
     { name: "Upcoming Drive", path: "/placement/admin-upcoming-drive", icon: <FaCalendarAlt /> },
     { name: "Registered Student", path: "/placement/admin-registered-students", icon: <FaUserGraduate /> },
     { name: "Hackathon", path: "/placement/admin-hackathon", icon: <FaCode /> },
-        { name: "Report Hackathon", path: "/placement/admin-hackathon-report", icon: <FaCode /> },
+    { name: "Report Hackathon", path: "/placement/admin-hackathon-report", icon: <FaCode /> },
 
     { name: "Eligible Students", path: "/placement/eligible-students", icon: <FaUsers /> },
     { name: "Feedback", path: "/placement/admin-feedback", icon: <FaComments /> },
   ];
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/placement/login");
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
     <div className="fixed w-64 h-screen flex flex-col shadow-xl"
       style={{
-background: "linear-gradient(135deg, #1c1182ff 0%, #180e9cff 100%)"
-   }}
+        background: "linear-gradient(135deg, #1c1182ff 0%, #180e9cff 100%)"
+      }}
     >
       {/* Logo Section */}
       <div className="p-6 border-b border-white/20 flex flex-col items-center">
@@ -75,10 +75,9 @@ background: "linear-gradient(135deg, #1c1182ff 0%, #180e9cff 100%)"
             key={item.name}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3 px-4 mb-2 text-sm font-medium rounded-xl transition-all duration-300 ${
-                isActive 
-                  ? "bg-white/20 text-white shadow-lg backdrop-blur-sm border border-white/30" 
-                  : "text-white/90 hover:bg-white/10 hover:shadow-md backdrop-blur-sm border border-transparent"
+              `flex items-center gap-3 py-3 px-4 mb-2 text-sm font-medium rounded-xl transition-all duration-300 ${isActive
+                ? "bg-white/20 text-white shadow-lg backdrop-blur-sm border border-white/30"
+                : "text-white/90 hover:bg-white/10 hover:shadow-md backdrop-blur-sm border border-transparent"
               }`
             }
           >
@@ -93,41 +92,6 @@ background: "linear-gradient(135deg, #1c1182ff 0%, #180e9cff 100%)"
       {/* Notifications & Logout Section */}
       <div className="p-4 border-t border-white/20">
         {/* Notifications */}
-        <div className="relative mb-3">
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center justify-between w-full py-3 px-4 text-sm font-medium text-white bg-white/15 hover:bg-white/25 rounded-xl transition-all duration-300 backdrop-blur-sm border border-white/20 hover:shadow-md"
-          >
-            <span className="flex items-center gap-3">
-              <FaBell className="text-lg" />
-              Notifications
-            </span>
-            {notifications.length > 0 && (
-              <span className="bg-rose-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                {notifications.length}
-              </span>
-            )}
-          </button>
-
-          {showDropdown && (
-            <div className="absolute bottom-full left-0 mb-2 w-full bg-white/95 backdrop-blur-lg border border-white/30 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto z-50">
-              {notifications.length === 0 ? (
-                <div className="p-4 text-center text-gray-600 text-sm">
-                  No new notifications
-                </div>
-              ) : (
-                notifications.map((notif, index) => (
-                  <div
-                    key={index}
-                    className="px-4 py-3 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    {notif.message}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Logout Button */}
         <button

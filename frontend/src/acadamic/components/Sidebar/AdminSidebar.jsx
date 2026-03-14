@@ -1,0 +1,171 @@
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { logout } from '../../services/authService';
+
+import {
+  LayoutDashboard,
+  CalendarDays,
+  ShieldCheck,
+  GitMerge,
+  Library,
+  UserCheck,
+  UserCog,
+  UserRoundCheck,
+  CalendarClock,
+  Calculator,
+  BarChart3,
+  Sparkles,
+  FilePieChart,
+  FileSearch,
+  Network,
+  Award,
+  MessageSquarePlus,
+  MousePointerClick,
+  FileClock,
+  CalendarCheck2,
+  BookCheck,
+  Route,
+  GraduationCap,
+  HandCoins,
+  BookOpenCheck,
+  ListChecks,
+  X,      
+  LogOut,  
+  Menu,
+} from "lucide-react";
+
+const AdminSidebar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const sidebarItems = [
+    // { to: "/admin/adduser", icon: UserCheck, label: "Add User" },
+    { to: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/admin/manage-semesters", icon: CalendarDays, label: "Manage Semesters" },
+    { to: "/admin/manage-regulations", icon: ShieldCheck, label: "Manage Regulations" },
+    { to: "/admin/manage-batches", icon: GitMerge, label: "Allocate Regulation to Batch" },
+    { to: "/admin/manage-courses", icon: Library, label: "Manage Courses" },
+    { to: "/admin/manage-staff", icon: UserCog, label: "Allocate Staff to Course" },
+    { to: "/admin/manage-students", icon: UserRoundCheck, label: "Allocate Students to Staff" },
+    { to: "/admin/semester-upgrade", icon: CalendarDays, label: "Semester Upgrade" },
+    { to: "/admin/student-staff-mapping", icon: Network, label: "Staff Course Mapping" },
+    { to: "/admin/student-course-mapping", icon: Route, label: "Student Course Mapping" },
+    { to: "/admin/timetable", icon: CalendarClock, label: "Timetable" },
+    { to: "/admin/periods", icon: CalendarClock, label: "Timetable Periods" },
+    { to: "/admin/adminattendance", icon: BookCheck, label: "Subjectwise Day Attendance" },
+    { to: "/admin/bulk-od", icon: FileClock, label: "Bulk OD" },
+    { to: "/admin/periodAttendance", icon: CalendarCheck2, label: "Day Attendance" },
+    { to: "/admin/consolidated-marks", icon: Calculator, label: "Consolidated Marks" },
+    { to: "/admin/subjectwise-marks", icon: BarChart3, label: "Subjectwise Marks" },
+    { to: "/admin/cgpa-allocation", icon: Award, label: "CGPA Allocation" },
+    { to: "/admin/course-recommendation", icon: Sparkles, label: "Course Recommendation" },
+    { to: "/admin/request-courses", icon: MessageSquarePlus, label: "Request Courses" },
+    { to: "/admin/attendance-report", icon: FilePieChart, label: "Attendance Report" },
+    { to: "/admin/report", icon: FileSearch, label: "General Report" },
+    { to: "/admin/cbcs-creation", icon: MousePointerClick, label: "CBCS Creation" }, 
+    { to: "/admin/cbcs-list", icon: ListChecks, label: "CBCS List" },
+    { to: "/admin/nptel-courses", icon: GraduationCap, label: "NPTEL Courses" },
+    { to: "/admin/nptel-approvals", icon: BookOpenCheck, label: "NPTEL Approvals" },
+    { to: "/admin/elective-reselection-requests", icon: HandCoins, label: "Elective Reselection" },
+  ];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/records/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    setIsOpen(false);
+  };
+
+  return (
+    <>
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      {isOpen && (
+        <div 
+          className="fixed inset-0 backdrop-blur-sm z-40 lg:hidden bg-black/50"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <div className={`
+        fixed inset-y-0 left-0 z-50
+        w-64 bg-[#11101d] text-white
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        flex flex-col shadow-2xl font-sans
+      `}>
+        
+        <div className="flex items-center justify-between h-20 px-6 border-b border-[#1d1b31] shrink-0">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-8 h-8 text-indigo-500" />
+            <span className="text-xl font-bold tracking-wide">Admin Panel</span>
+          </div>
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="lg:hidden p-2 text-gray-400 hover:text-white"
+          >
+            {/* This was causing the error because X wasn't imported */}
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto no-scrollbar py-4 px-3">
+          <ul className="space-y-1.5">
+            {sidebarItems.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <li key={index}>
+                  <NavLink
+                    to={item.to}
+                    onClick={() => setIsOpen(false)}
+                    className={({ isActive }) => `
+                      flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200
+                      text-sm font-medium leading-relaxed
+                      ${isActive 
+                        ? 'bg-white text-[#11101d] shadow-md transform scale-[1.02]' 
+                        : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              );
+            })}
+            
+            <li className="pt-4 mt-2 border-t border-[#1d1b31]">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-4 px-4 py-3 rounded-xl w-full text-left 
+                           text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200"
+              >
+                {/* This was also missing from imports */}
+                <LogOut className="w-5 h-5 shrink-0" />
+                <span className="font-medium text-sm">Logout</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      {!isOpen && (
+        <button
+          className="fixed top-4 left-4 z-50 lg:hidden p-2.5 rounded-lg bg-[#11101d] text-white shadow-lg"
+          onClick={() => setIsOpen(true)}
+        >
+          {/* This was also missing from imports */}
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
+    </>
+  );
+};
+
+export default AdminSidebar;

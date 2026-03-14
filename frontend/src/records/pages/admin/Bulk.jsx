@@ -36,10 +36,10 @@ const Bulk = () => {
       const response = await axios.post("http://localhost:4000/api/bulk/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      
+
       // Show success message
       toast.success(response.data.message);
-      
+
       // If there are duplicates in the file itself
       if (response.data.duplicates) {
         toast.warning(
@@ -90,8 +90,8 @@ const Bulk = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-purple-50 to-blue-50 p-6">
-      <ToastContainer 
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-6">
+      <ToastContainer
         position="top-center"
         autoClose={5000}
         hideProgressBar={false}
@@ -103,9 +103,9 @@ const Bulk = () => {
         pauseOnHover
         style={{ width: "500px" }}
       />
-      
+
       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
-        <h2 className="text-2xl font-semibold text-purple-800 mb-6 text-center">
+        <h2 className="text-2xl font-semibold text-blue-800 mb-6 text-center">
           Bulk User Upload
         </h2>
 
@@ -118,7 +118,7 @@ const Bulk = () => {
             <li>email</li>
             <li>role (Student/Staff)</li>
             <li>staffId (for both Students and Staff)</li>
-            <li>For Students: regno, Deptid, batch</li>
+            <li>For Students: registerNumber, departmentId, batch</li>
           </ul>
           <p className="text-xs text-gray-500">
             Max file size: 5MB. Duplicate emails will be skipped.
@@ -126,9 +126,9 @@ const Bulk = () => {
         </div>
 
         {/* File Upload Section */}
-        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-purple-300 rounded-lg cursor-pointer hover:bg-purple-50 transition mb-4">
-          <FaCloudUploadAlt className="text-purple-500 text-4xl mb-3" />
-          <span className="text-purple-600 text-sm">
+        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:bg-indigo-50 transition mb-4">
+          <FaCloudUploadAlt className="text-indigo-600 text-4xl mb-3" />
+          <span className="text-indigo-600 text-sm">
             {file ? file.name : "Click to upload file (CSV/XLSX)"}
           </span>
           <input
@@ -143,11 +143,10 @@ const Bulk = () => {
         <button
           onClick={handleUpload}
           disabled={loading}
-          className={`w-full mt-4 py-3 text-white rounded-lg transition ${
-            loading
-              ? "bg-purple-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-          }`}
+          className={`w-full mt-4 py-3 text-white rounded-lg transition ${loading
+              ? "bg-indigo-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-indigo-500 to-indigo-500 hover:from-indigo-600 hover:to-indigo-600"
+            }`}
         >
           {loading ? (
             <span className="flex items-center justify-center">

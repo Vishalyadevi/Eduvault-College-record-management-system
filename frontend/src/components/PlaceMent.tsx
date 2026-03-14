@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import "./Placement.css"; // make sure this file exists
+import "./Placement.css"; // Use the new CSS file
 
 const data = [
   {
@@ -82,6 +82,12 @@ export default function PlacementHighlights() {
                   key={idx}
                   className="placement-card relative overflow-hidden rounded-0xl p-6 flex items-center justify-center transform transition-transform duration-500 hover:scale-105 hover:-translate-y-2 cursor-pointer"
                 >
+                  {/* Blueprint corner markers (only for Option 5) */}
+                  <div className="blueprint-corners corner-tl"></div>
+                  <div className="blueprint-corners corner-tr"></div>
+                  <div className="blueprint-corners corner-bl"></div>
+                  <div className="blueprint-corners corner-br"></div>
+                  
                   <img
                     src={item.imageUrl}
                     alt={`placement-${idx}`}

@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getCertificates, uploadCertificate, deleteCertificate } from "../../controllers/student/certificateController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,12 +41,12 @@ const upload = multer({
 });
 
 // Get all certificates
-router.get("/certificates", authenticate, getCertificates);
+router.get("/list", authenticate, getCertificates);
 
 // Upload certificate
-router.post("/upload-certificate", authenticate, upload.single("certificate"), uploadCertificate);
+router.post("/upload", authenticate, upload.single("certificate"), uploadCertificate);
 
 // Delete certificate
-router.delete("/delete-certificate/:id", authenticate, deleteCertificate);
+router.delete("/delete/:id", authenticate, deleteCertificate);
 
 export default router;

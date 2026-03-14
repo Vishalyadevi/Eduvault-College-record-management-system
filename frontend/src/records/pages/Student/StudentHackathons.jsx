@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrash, FaUpload, FaEye, FaDownload } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useHackathon } from "../../contexts/HackathonContext";
+import { useAuth } from "../auth/AuthContext";
+import config from "../../../config";
+
 
 const HackathonEvents = () => {
   const {
@@ -31,9 +34,12 @@ const HackathonEvents = () => {
   const [localLoading, setLocalLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [viewingCertificate, setViewingCertificate] = useState(null);
-  //const userId = localStorage.getItem("userId");
-const user = JSON.parse(localStorage.getItem("user") || "{}");
-const userId = user?.Userid;
+
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+  const backendUrl = config.backendUrl;
+
+
   useEffect(() => {
     if (userId) {
       fetchStudentEvents();
@@ -107,8 +113,8 @@ const userId = user?.Userid;
 
   const handleSubmit = async (e) => {
     console.log("Current localStorage user:", localStorage.getItem("user"));
-console.log("Extracted userId:", userId);
-console.log("Sending Userid:", parseInt(userId));
+    console.log("Extracted userId:", userId);
+    console.log("Sending Userid:", parseInt(userId));
     e.preventDefault();
     clearError();
     setLocalLoading(true);
@@ -129,12 +135,6 @@ console.log("Sending Userid:", parseInt(userId));
       submitData.append('level_cleared', parseInt(formData.level_cleared));
       submitData.append('rounds', parseInt(formData.rounds));
       submitData.append('status', formData.status);
-      submitData.append('Userid', parseInt(userId));
-
-      // Log FormData contents
-      for (let [key, value] of submitData.entries()) {
-        console.log(`${key}: ${value}`);
-      }
 
       if (certificateFile) {
         submitData.append('certificate', certificateFile);
@@ -215,16 +215,15 @@ console.log("Sending Userid:", parseInt(userId));
 
   const handleViewCertificate = async (eventId) => {
     try {
-      const token = localStorage.getItem('token');
-const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      // Updated to match the backend route prefix and standardized path
+      const response = await fetch(`${backendUrl}/api/hackathon/certificate/${eventId}`, {
+        credentials: 'include'
       });
 
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        setViewingCertificate(url);
+        window.open(url, '_blank');
       } else {
         alert('Failed to load certificate');
       }
@@ -236,11 +235,8 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
 
   const handleDownloadCertificate = async (eventId, eventName) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/student/hackathon/certificate/${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${backendUrl}/api/hackathon/certificate/${eventId}`, {
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -263,7 +259,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case "approved": return "bg-green-100 text-green-800";
       case "pending": return "bg-yellow-100 text-yellow-800";
       case "rejected": return "bg-red-100 text-red-800";
@@ -272,8 +268,8 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Hackathon Events
       </h2>
 
@@ -284,7 +280,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -298,7 +294,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           {editingId ? "Edit Hackathon Event" : "Add Hackathon Event"}
         </h3>
-        <form onSubmit={handleSubmit}>
+        <div onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="col-span-1">
               <label className="block text-gray-700 font-medium mb-1">Event Name *</label>
@@ -307,7 +303,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="event_name"
                 value={formData.event_name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Event Name"
                 required
               />
@@ -320,7 +316,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="organized_by"
                 value={formData.organized_by}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Organizer"
                 required
               />
@@ -333,7 +329,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="from_date"
                 value={formData.from_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -345,7 +341,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="to_date"
                 value={formData.to_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -357,7 +353,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="level_cleared"
                 value={formData.level_cleared}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="1-10"
                 min="1"
                 max="10"
@@ -372,7 +368,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="rounds"
                 value={formData.rounds}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Rounds"
                 min="1"
                 required
@@ -385,7 +381,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="participate">Participate</option>
@@ -394,36 +390,37 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div className="col-span-1">
-              <label className="block text-gray-700 font-medium mb-1">
-                Certificate Upload
-                <span className="text-xs text-gray-500 ml-2">(JPG, PNG, PDF - Max 5MB)</span>
+          {/* <div className="mb-4">
+            <label className="block text-gray-700 font-medium mb-2">
+              Certificate File
+            </label>
+            <div className="flex items-center gap-3">
+              <label 
+                htmlFor="certificate-upload"
+                className="inline-block px-4 py-2 bg-white border border-gray-300 rounded text-gray-700 text-sm cursor-pointer hover:bg-gray-50 transition"
+              >
+                Choose file
               </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,application/pdf"
-                  onChange={handleCertificateChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                  id="certificate-upload"
-                />
-                {certificateFile && (
-                  <div className="mt-2 text-sm text-green-600 flex items-center">
-                    <FaUpload className="mr-2" />
-                    {certificateFile.name}
-                  </div>
-                )}
-              </div>
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,application/pdf"
+                onChange={handleCertificateChange}
+                className="hidden"
+                id="certificate-upload"
+              />
+              <span className="text-gray-500 text-sm">
+                {certificateFile ? certificateFile.name : 'No file chosen'}
+              </span>
             </div>
-          </div>
+            <p className="text-xs text-gray-500 mt-1">JPG, PNG, or PDF - Max 5MB</p>
+          </div> */}
 
           {certificatePreview && (
             <div className="mb-4">
               <label className="block text-gray-700 font-medium mb-2">Certificate Preview:</label>
-              <img 
-                src={certificatePreview} 
-                alt="Certificate Preview" 
+              <img
+                src={certificatePreview}
+                alt="Certificate Preview"
                 className="max-w-md h-auto border rounded shadow-md"
               />
             </div>
@@ -432,8 +429,8 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
           {uploadProgress > 0 && uploadProgress < 100 && (
             <div className="mb-4">
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
@@ -456,14 +453,15 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              type="button"
+              onClick={handleSubmit}
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update" : "Add"}
             </motion.button>
           </div>
-        </form>
+        </div>
       </motion.div>
 
       <motion.div
@@ -477,49 +475,49 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
           <p className="text-gray-500">No hackathon events available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2000px', width: '100%' }}>
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2200px', width: '100%' }}>
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
-                  <th className="border border-gray-300 p-3 text-left">Event Name</th>
-                  <th className="border border-gray-300 p-3 text-left">Organized By</th>
-                  <th className="border border-gray-300 p-3 text-left">From Date</th>
-                  <th className="border border-gray-300 p-3 text-left">To Date</th>
-                  <th className="border border-gray-300 p-3 text-left">Level</th>
-                  <th className="border border-gray-300 p-3 text-left">Rounds</th>
-                  <th className="border border-gray-300 p-3 text-left">Type</th>
-                  <th className="border border-gray-300 p-3 text-left">Certificate</th>
-                  <th className="border border-gray-300 p-3 text-left">Status</th>
-                  <th className="border border-gray-300 p-3 text-left">Actions</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Event Name</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Organized By</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">From Date</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">To Date</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Level</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Rounds</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Type</th>
+                  {/* <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Certificate</th> */}
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Status</th>
+                  <th className="border border-gray-300 p-3 text-left whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {hackathonEvents.map((event) => (
                   <tr key={event.id} className="bg-white hover:bg-gray-50 transition">
-                    <td className="border border-gray-300 p-3">{event.event_name}</td>
-                    <td className="border border-gray-300 p-3">{event.organized_by}</td>
-                    <td className="border border-gray-300 p-3">
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">{event.event_name}</td>
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">{event.organized_by}</td>
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">
                       {new Date(event.from_date).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
                       })}
                     </td>
-                    <td className="border border-gray-300 p-3">
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">
                       {new Date(event.to_date).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
                       })}
                     </td>
-                    <td className="border border-gray-300 p-3">{event.level_cleared}/10</td>
-                    <td className="border border-gray-300 p-3">{event.rounds}</td>
-                    <td className="border border-gray-300 p-3 capitalize">{event.status}</td>
-                    <td className="border border-gray-300 p-3">
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">{event.level_cleared}/10</td>
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">{event.rounds}</td>
+                    <td className="border border-gray-300 p-3 capitalize whitespace-nowrap">{event.status}</td>
+                    {/* <td className="border border-gray-300 p-3 whitespace-nowrap">
                       {event.hasCertificate ? (
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewCertificate(event.id)}
-                            className="p-1 text-blue-600 hover:text-blue-800 transition"
+                            className="p-1 text-indigo-600 hover:text-blue-800 transition"
                             title="View Certificate"
                           >
                             <FaEye />
@@ -535,14 +533,14 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                       ) : (
                         <span className="text-gray-400 text-sm">No Certificate</span>
                       )}
-                    </td>
-                    <td className="border border-gray-300 p-3">
+                    </td> */}
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        event.pending ? "pending" : 
-                        event.tutor_approval_status ? "approved" : "rejected"
+                        event.pending ? "pending" :
+                          event.tutor_approval_status ? "approved" : "rejected"
                       )}`}>
-                        {event.pending ? "Pending" : 
-                         event.tutor_approval_status ? "Approved" : "Rejected"}
+                        {event.pending ? "Pending" :
+                          event.tutor_approval_status ? "Approved" : "Rejected"}
                       </span>
                       {event.comments && (
                         <div className="text-xs text-gray-600 mt-1">
@@ -550,22 +548,22 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
                         </div>
                       )}
                     </td>
-                    <td className="border border-gray-300 p-3">
+                    <td className="border border-gray-300 p-3 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(event)}
-                          className={`p-1 ${event.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${event.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={event.pending ? "Edit" : "Cannot edit approved/rejected events"}
                           disabled={!event.pending}
                         >
                           <FaEdit />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(event.id)}
-                          className={`p-1 ${event.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${event.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={event.pending ? "Delete" : "Cannot delete approved/rejected events"}
                           disabled={!event.pending}
@@ -583,7 +581,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
       </motion.div>
 
       {/* Certificate Viewer Modal */}
-      {viewingCertificate && (
+      {/* {viewingCertificate && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => {
@@ -611,7 +609,7 @@ const response = await fetch(`/api/hackathon/certificate/${eventId}`, {        h
             />
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

@@ -150,7 +150,7 @@ const ScholarManagementPage = () => {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <button
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-500 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
           onClick={() => {
             setEditingItem(null);
             setModalOpen(true);

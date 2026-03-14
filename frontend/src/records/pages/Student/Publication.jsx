@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { usePublication } from "../../contexts/PublicationContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 const Publications = () => {
   const {
@@ -16,18 +18,18 @@ const Publications = () => {
   } = usePublication();
 
   const publicationTypes = [
-    'Journal',  'Book', 'Book Chapter', 
-    'Workshop', 'Thesis', 
+    'Journal', 'Book', 'Book Chapter',
+    'Workshop', 'Thesis',
     'Patent'
   ];
 
   const indexTypes = [
-    'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore', 
+    'Scopus', 'Web of Science', 'PubMed', 'IEEE Xplore',
     'ACM Digital Library', 'SSRN', 'Not Indexed', 'Other'
   ];
 
   const publicationStatuses = [
-    'Draft', 'Under Review', 'Accepted', 'Published', 
+    'Draft', 'Under Review', 'Accepted', 'Published',
     'Rejected', 'Withdrawn'
   ];
 
@@ -45,7 +47,9 @@ const Publications = () => {
 
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
-  const userId = parseInt(localStorage.getItem("userId"));
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
 
   useEffect(() => {
     if (userId) {
@@ -65,7 +69,7 @@ const Publications = () => {
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+
     try {
       const data = {
         Userid: userId,
@@ -137,13 +141,13 @@ const Publications = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case "Published": return "bg-green-100 text-green-800";
-      case "Accepted": return "bg-blue-100 text-blue-800";
+      case "Accepted": return "bg-indigo-100 text-blue-800";
       case "Under Review": return "bg-yellow-100 text-yellow-800";
       case "Draft": return "bg-gray-100 text-gray-800";
       case "Rejected": return "bg-red-100 text-red-800";
-      case "Withdrawn": return "bg-purple-100 text-purple-800";
+      case "Withdrawn": return "bg-indigo-100 text-blue-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -155,8 +159,8 @@ const Publications = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Research Publications
       </h2>
 
@@ -167,7 +171,7 @@ const Publications = () => {
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -181,7 +185,7 @@ const Publications = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           {editingId ? "Edit Publication" : "Add Publication"}
         </h3>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div>
@@ -190,7 +194,7 @@ const Publications = () => {
                 name="publication_type"
                 value={formData.publication_type}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 {publicationTypes.map(type => (
@@ -206,7 +210,7 @@ const Publications = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Publication Title"
                 required
               />
@@ -218,7 +222,7 @@ const Publications = () => {
                 name="publication_status"
                 value={formData.publication_status}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {publicationStatuses.map(status => (
                   <option key={status} value={status}>{status}</option>
@@ -233,7 +237,7 @@ const Publications = () => {
                 name="publication_name"
                 value={formData.publication_name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Journal/Conference Name"
               />
             </div>
@@ -245,7 +249,7 @@ const Publications = () => {
                 name="authors"
                 value={formData.authors}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="John Doe, Jane Smith"
               />
             </div>
@@ -257,7 +261,7 @@ const Publications = () => {
                 name="publication_date"
                 value={formData.publication_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -267,7 +271,7 @@ const Publications = () => {
                 name="index_type"
                 value={formData.index_type}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {indexTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -282,7 +286,7 @@ const Publications = () => {
                 name="doi"
                 value={formData.doi}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="10.1000/xyz123"
               />
             </div>
@@ -294,7 +298,7 @@ const Publications = () => {
                 name="publisher"
                 value={formData.publisher}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Publisher Name"
               />
             </div>
@@ -316,7 +320,7 @@ const Publications = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update Publication" : "Add Publication"}
@@ -337,7 +341,7 @@ const Publications = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse border border-gray-300">
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Title</th>
                   <th className="border border-gray-300 p-3 text-left">Type</th>
@@ -361,15 +365,15 @@ const Publications = () => {
                       )}
                     </td>
                     <td className="border border-gray-300 p-3">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
+                      <span className="px-2 py-1 bg-indigo-100 text-blue-800 rounded text-xs font-semibold">
                         {publication.publication_type}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="text-sm">
                         {Array.isArray(publication.authors) && publication.authors.length > 0
-                          ? publication.authors.slice(0, 2).join(", ") + 
-                            (publication.authors.length > 2 ? "..." : "")
+                          ? publication.authors.slice(0, 2).join(", ") +
+                          (publication.authors.length > 2 ? "..." : "")
                           : "N/A"}
                       </div>
                     </td>
@@ -390,10 +394,10 @@ const Publications = () => {
                     <td className="border border-gray-300 p-3 text-sm">
                       {publication.publication_date
                         ? new Date(publication.publication_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })
                         : "N/A"}
                     </td>
                     <td className="border border-gray-300 p-3">
@@ -404,8 +408,8 @@ const Publications = () => {
                         {publication.tutor_verification_status
                           ? "Verified"
                           : publication.pending
-                          ? "Pending"
-                          : "Not Verified"}
+                            ? "Pending"
+                            : "Not Verified"}
                       </span>
                       {publication.verification_comments && (
                         <div className="text-xs text-gray-600 mt-1" title={publication.verification_comments}>
@@ -415,20 +419,20 @@ const Publications = () => {
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(publication)}
-                          className={`p-1 ${publication.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${publication.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={publication.pending ? "Edit" : "Cannot edit verified publications"}
                           disabled={!publication.pending}
                         >
                           <FaEdit />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(publication.id)}
-                          className={`p-1 ${publication.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${publication.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={publication.pending ? "Delete" : "Cannot delete verified publications"}
                           disabled={!publication.pending}

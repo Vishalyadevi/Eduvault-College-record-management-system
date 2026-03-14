@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaDownload, FaFilter, FaTable, FaUsers, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import * as XLSX from 'xlsx';
+import api from "../../../records/services/api";
 
 const HackathonReports = () => {
   const [hackathons, setHackathons] = useState([]);
@@ -21,40 +22,17 @@ const HackathonReports = () => {
   const years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
   const statuses = ['All', 'Registered', 'Attempted', 'Not Attempted'];
 
-  const API_BASE = 'http://localhost:4000';
-
-  const getAuthToken = () => localStorage.getItem('token');
-
-  const fetchWithAuth = async (url, options = {}) => {
-    const token = getAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers
-    };
-
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401 || response.status === 403) {
-      alert('Session expired. Please login again.');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-      throw new Error('Unauthorized');
-    }
-    return response;
-  };
-
   useEffect(() => {
     fetchHackathons();
   }, []);
 
   const fetchHackathons = async () => {
     try {
-      const response = await fetchWithAuth(`${API_BASE}/api/placement-hackathons`);
-      const data = await response.json();
-      setHackathons(data.data || []);
+      const response = await api.get('/placement/hackathons');
+      setHackathons(response.data.data || []);
     } catch (error) {
       console.error('Error fetching hackathons:', error);
-      alert(error.message || 'Error fetching hackathons');
+      alert(error.response?.data?.message || 'Error fetching hackathons');
     }
   };
 
@@ -72,9 +50,8 @@ const HackathonReports = () => {
       if (filters.year) params.append('year', filters.year);
       if (filters.status && filters.status !== 'All') params.append('status', filters.status);
 
-      const response = await fetchWithAuth(`${API_BASE}/api/placement-hackathons/reports/students?${params}`);
-      const data = await response.json();
-      const studentData = data.data || [];
+      const response = await api.get(`/placement/hackathons/reports/students?${params}`);
+      const studentData = response.data.data || [];
       setStudents(studentData);
 
       const total = studentData.length;
@@ -107,12 +84,29 @@ const HackathonReports = () => {
       'Contest Name': student.contest_name || 'N/A',
       Status: student.attempted === 1 ? 'Attempted' : 'Registered',
       'Registered Date': student.registered_at ? new Date(student.registered_at).toLocaleDateString() : 'N/A',
-      'Attempt Date': student.attempt_date ? new Date(student.attempt_date).toLocaleDateString() : 'N/A'
+      'Attempt Date': student.attempt_date && student.attempted === 1
+        ? new Date(student.attempt_date).toLocaleDateString()
+        : 'N/A'
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Hackathon Reports');
+
+    // Auto-size columns
+    const maxWidth = data.reduce((w, r) => Math.max(w, r.Name?.length || 0), 10);
+    ws['!cols'] = [
+      { wch: maxWidth },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 25 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 }
+    ];
+
     XLSX.writeFile(wb, `hackathon_report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
@@ -122,12 +116,26 @@ const HackathonReports = () => {
     setStats({ total_students: 0, registered: 0, attempted: 0 });
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 p-6"      style={{ marginLeft: "250px", padding: "20px" }}
->
-      <div className="max-w-7xl mx-auto bg-white  shadow-2xl overflow-hidden">
+    <div
+      className="min-h-screen bg-gray-50"
+    >
+      <div className="max-w-7xl mx-auto bg-white shadow-2xl overflow-hidden rounded-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-indigo-600 to-blue-800 p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FaTable className="text-3xl text-white" />
             <h1 className="text-2xl font-bold text-white">Hackathon Reports</h1>
@@ -137,10 +145,10 @@ const HackathonReports = () => {
         {/* Statistics Cards */}
         {students.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium">Total Students</p>
+                  <p className="text-indigo-100 text-sm font-medium">Total Students</p>
                   <p className="text-3xl font-bold mt-2">{stats.total_students}</p>
                 </div>
                 <FaUsers className="text-4xl opacity-80" />
@@ -155,12 +163,12 @@ const HackathonReports = () => {
                 <FaCheckCircle className="text-4xl opacity-80" />
               </div>
             </div>
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm font-medium">Attempted</p>
+                  <p className="text-indigo-100 text-sm font-medium">Attempted</p>
                   <p className="text-3xl font-bold mt-2">{stats.attempted}</p>
-                  <p className="text-purple-100 text-xs mt-1">
+                  <p className="text-indigo-100 text-xs mt-1">
                     {stats.registered > 0 ? `${((stats.attempted / stats.registered) * 100).toFixed(1)}%` : '0%'}
                   </p>
                 </div>
@@ -173,6 +181,8 @@ const HackathonReports = () => {
         {/* Filters */}
         <div className="p-6 border-t border-gray-200">
           <div className="flex items-center gap-2 mb-4">
+            <FaFilter className="text-indigo-600 text-xl" />
+            <h2 className="text-lg font-semibold text-gray-800">Filter Reports</h2>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
@@ -181,7 +191,7 @@ const HackathonReports = () => {
                 required
                 value={filters.contest_name}
                 onChange={(e) => setFilters({ ...filters, contest_name: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-shadow"
               >
                 <option value="">Select Contest</option>
                 {hackathons.map(hackathon => (
@@ -194,7 +204,7 @@ const HackathonReports = () => {
               <select
                 value={filters.year}
                 onChange={(e) => setFilters({ ...filters, year: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-shadow"
               >
                 <option value="">All Years</option>
                 {years.map(year => <option key={year} value={year}>{year}</option>)}
@@ -205,7 +215,7 @@ const HackathonReports = () => {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-shadow"
               >
                 <option value="">All Status</option>
                 {statuses.map(status => <option key={status} value={status}>{status}</option>)}
@@ -215,7 +225,7 @@ const HackathonReports = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-semibold transition-colors disabled:bg-blue-300 flex items-center justify-center gap-2"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg font-semibold transition-colors disabled:bg-indigo-300 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -237,14 +247,14 @@ const HackathonReports = () => {
             >
               Reset Filters
             </button>
-            
+            {students.length > 0 && (
               <button
                 onClick={handleExport}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
               >
                 <FaDownload /> Export to Excel
               </button>
-        
+            )}
           </div>
         </div>
 
@@ -254,7 +264,7 @@ const HackathonReports = () => {
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-blue-600">
+                  <thead className="bg-indigo-600">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Register No</th>
@@ -269,13 +279,13 @@ const HackathonReports = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {students.map((student, index) => (
-                      <tr key={index} className="hover:bg-blue-50 transition-colors">
+                      <tr key={index} className="hover:bg-indigo-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name || 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.register_no || 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.batch || 'N/A'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.department || 'N/A'}</td>
+                        <td className="px-6 py-4 min-w-[200px] whitespace-normal break-words text-sm text-gray-500">{student.department || 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.year || 'N/A'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.contest_name || 'N/A'}</td>
+                        <td className="px-6 py-4 min-w-[200px] whitespace-normal break-words text-sm text-gray-500">{student.contest_name || 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {student.attempted === 1 ? (
                             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
@@ -288,10 +298,10 @@ const HackathonReports = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {student.registered_at ? new Date(student.registered_at).toLocaleDateString() : 'N/A'}
+                          {formatDate(student.registered_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {student.attempt_date ? new Date(student.attempt_date).toLocaleDateString() : 'N/A'}
+                          {student.attempted === 1 ? formatDate(student.attempt_date) : 'N/A'}
                         </td>
                       </tr>
                     ))}

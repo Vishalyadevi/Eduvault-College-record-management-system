@@ -1,81 +1,65 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const ScholarshipContext = createContext();
 
 export const ScholarshipProvider = ({ children }) => {
   const [scholarships, setScholarships] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl ="http://localhost:4000"; // Base URL for the backend
-  const token = localStorage.getItem("token");
-  const UserId = localStorage.getItem("userId"); // Assuming userID is stored in localStorage
- 
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch all scholarships
-  const fetchScholarships = async () => {
-    if (!token||!UserId) return toast.error("Unauthorized: No token found");
+  const fetchScholarships = useCallback(async () => {
+    if (!UserId) return;
 
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/fetch-scholarships?UserId=${UserId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get(`/fetch-scholarships?UserId=${UserId}`);
+      const data = response.data;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setScholarships(data);
-        } else {
-          console.error("Expected an array but got:", data);
-          setScholarships([]); // Fallback to an empty array
-        }
+      if (Array.isArray(data)) {
+        setScholarships(data);
       } else {
-        console.error("Error fetching scholarships:", response.status);
-        toast.error("Failed to fetch scholarships.");
+        console.error("Expected an array but got:", data);
+        setScholarships([]);
       }
     } catch (err) {
       console.error("Error fetching scholarships:", err);
       setError(err.message);
-      toast.error("Server error while fetching scholarships.");
+      if (err.response?.status !== 401) {
+        toast.error("Failed to fetch scholarships.");
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [UserId]);
 
   // Add a new scholarship
-  const addScholarship = async (scholarship) => {
-    console.log(scholarship)
-    if (!token) return toast.error("Unauthorized: No token found");
-
+  const addScholarship = async (scholarshipData) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/add-scholarship`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(scholarship),
+      const response = await API.post("/add-scholarship", {
+        ...scholarshipData,
+        Userid: UserId
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setScholarships([...scholarships, data]);
+      const newScholarship = response.data?.data || response.data;
+      if (newScholarship) {
+        setScholarships(prev => [...prev, newScholarship]);
         toast.success("Scholarship added successfully!");
-      } else {
-        console.error("Error adding scholarship:", response.status);
-        toast.error("Failed to add scholarship.");
       }
+      return newScholarship;
     } catch (err) {
       console.error("Error adding scholarship:", err);
       setError(err.message);
-      toast.error("Server error while adding scholarship.");
+      toast.error("Failed to add scholarship.");
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -83,32 +67,23 @@ export const ScholarshipProvider = ({ children }) => {
 
   // Update a scholarship
   const updateScholarship = async (id, updatedScholarship) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/update-scholarship/${id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedScholarship),
+      const response = await API.put(`/update-scholarship/${id}`, {
+        ...updatedScholarship,
+        Userid: UserId
       });
+      const data = response.data;
 
-      if (response.ok) {
-        const data = await response.json();
-        setScholarships(scholarships.map((s) => (s.id === id ? data : s)));
-        toast.success("Scholarship updated successfully!");
-      } else {
-        console.error("Error updating scholarship:", response.status);
-        toast.error("Failed to update scholarship.");
-      }
+      setScholarships(prev => prev.map((s) => (s.id === id ? data : s)));
+      toast.success("Scholarship updated successfully!");
+      return data;
     } catch (err) {
       console.error("Error updating scholarship:", err);
       setError(err.message);
-      toast.error("Server error while updating scholarship.");
+      toast.error("Failed to update scholarship.");
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -116,37 +91,28 @@ export const ScholarshipProvider = ({ children }) => {
 
   // Delete a scholarship
   const deleteScholarship = async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/delete-scholarship/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        setScholarships(scholarships.filter((s) => s.id !== id));
-        toast.success("Scholarship deleted successfully!");
-      } else {
-        console.error("Error deleting scholarship:", response.status);
-        toast.error("Failed to delete scholarship.");
-      }
+      await API.delete(`/delete-scholarship/${id}`);
+      setScholarships(prev => prev.filter((s) => s.id !== id));
+      toast.success("Scholarship deleted successfully!");
+      return true;
     } catch (err) {
       console.error("Error deleting scholarship:", err);
       setError(err.message);
-      toast.error("Server error while deleting scholarship.");
+      toast.error("Failed to delete scholarship.");
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchScholarships();
-  }, []);
+    if (UserId) {
+      fetchScholarships();
+    }
+  }, [fetchScholarships, UserId]);
 
   return (
     <ScholarshipContext.Provider

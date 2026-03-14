@@ -51,8 +51,15 @@ const MOUPage = () => {
     try {
       setLoading(true);
       const response = await api.get('/mou');
-      const mousData = response.data || response || [];
-      setMous(Array.isArray(mousData) ? mousData : []);
+      let mousData = [];
+      if (response) {
+        if (Array.isArray(response)) mousData = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) mousData = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) mousData = response.data.data;
+        }
+      }
+      setMous(mousData);
     } catch (error) {
       console.error('Error fetching MOUs:', error);
       toast.error('Failed to load MOUs');
@@ -66,10 +73,17 @@ const MOUPage = () => {
   const fetchActivities = async (mouId) => {
     try {
       const response = await api.get(`/mou/${mouId}/activities`);
-      const activitiesData = response.data || response || [];
+      let activitiesData = [];
+      if (response) {
+        if (Array.isArray(response)) activitiesData = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) activitiesData = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) activitiesData = response.data.data;
+        }
+      }
       setMouActivities(prev => ({
         ...prev,
-        [mouId]: Array.isArray(activitiesData) ? activitiesData : []
+        [mouId]: activitiesData
       }));
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -485,7 +499,7 @@ const MOUPage = () => {
               href={getFileUrl(rowData.proof_link)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1"
+              className="text-indigo-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1"
             >
               <File size={14} />
               View
@@ -503,7 +517,7 @@ const MOUPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNewMOU}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New MOU
@@ -543,7 +557,7 @@ const MOUPage = () => {
                       href={getFileUrl(mou.mou_copy_link)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-600 rounded-md flex items-center gap-1"
+                      className="px-3 py-1 text-sm text-indigo-600 hover:text-blue-800 border border-indigo-600 rounded-md flex items-center gap-1"
                     >
                       <File size={14} />
                       View MOU
@@ -557,7 +571,7 @@ const MOUPage = () => {
                   </button>
                   <button
                     onClick={() => handleEditMOU(mou)}
-                    className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-600 rounded-md"
+                    className="px-3 py-1 text-sm text-indigo-600 hover:text-blue-800 border border-indigo-600 rounded-md"
                   >
                     Edit
                   </button>
@@ -653,7 +667,7 @@ const MOUPage = () => {
                   href={getFileUrl(currentMOU.mou_copy_link)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                  className="text-indigo-600 hover:text-blue-800 underline flex items-center gap-1"
                 >
                   <File size={16} />
                   View MOU Document
@@ -667,7 +681,7 @@ const MOUPage = () => {
                 <div
                   className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                     isMOUDragActive && !isViewMode
-                      ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+                      ? 'border-indigo-600 bg-indigo-50 scale-[1.02]'
                       : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                   } ${isViewMode ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}
                   onDragEnter={handleMOUDragIn}
@@ -687,7 +701,7 @@ const MOUPage = () => {
                   <Upload 
                     size={24} 
                     className={`mx-auto mb-2 transition-colors ${
-                      isMOUDragActive ? 'text-blue-500' : 'text-gray-400'
+                      isMOUDragActive ? 'text-indigo-600' : 'text-gray-400'
                     }`}
                   />
                   <p className="text-sm font-medium text-gray-900 mb-1">
@@ -723,7 +737,7 @@ const MOUPage = () => {
                       href={getFileUrl(currentMOU.mou_copy_link)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      className="text-sm text-indigo-600 hover:text-blue-800 flex items-center gap-1"
                     >
                       <File size={14} />
                       Current File
@@ -800,7 +814,7 @@ const MOUPage = () => {
                   href={getFileUrl(currentActivity.proof_link)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                  className="text-indigo-600 hover:text-blue-800 underline flex items-center gap-1"
                 >
                   <File size={16} />
                   View Proof Document
@@ -814,7 +828,7 @@ const MOUPage = () => {
                 <div
                   className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                     isActivityDragActive && !isViewMode
-                      ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+                      ? 'border-indigo-600 bg-indigo-50 scale-[1.02]'
                       : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                   } ${isViewMode ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}
                   onDragEnter={handleActivityDragIn}
@@ -834,7 +848,7 @@ const MOUPage = () => {
                   <Upload 
                     size={24} 
                     className={`mx-auto mb-2 transition-colors ${
-                      isActivityDragActive ? 'text-blue-500' : 'text-gray-400'
+                      isActivityDragActive ? 'text-indigo-600' : 'text-gray-400'
                     }`}
                   />
                   <p className="text-sm font-medium text-gray-900 mb-1">
@@ -870,7 +884,7 @@ const MOUPage = () => {
                       href={getFileUrl(currentActivity.proof_link)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      className="text-sm text-indigo-600 hover:text-blue-800 flex items-center gap-1"
                     >
                       <File size={14} />
                       Current File

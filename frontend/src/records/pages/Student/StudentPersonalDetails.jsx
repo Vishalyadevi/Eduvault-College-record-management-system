@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { FaEdit, FaSave, FaTimes, FaPlus } from "react-icons/fa";
 import { motion } from "framer-motion";
+import API from "../../../api";
+import { useAuth } from "../auth/AuthContext";
 
 const StudentPersonalDetails = () => {
+  const { user } = useAuth();
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,40 +16,41 @@ const StudentPersonalDetails = () => {
   useEffect(() => {
     const fetchStudentDetails = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("No authentication token found.");
-          setLoading(false);
-          return;
-        }
+        setLoading(true);
+        const response = await API.get("/student"); // Fixed route to match backend
 
-        const response = await axios.get("http://localhost:4000/api/student", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
         console.log("Fetched student data:", response.data);
-        setStudent(response.data);
+        if (response.data) {
+          setStudent(response.data);
+        } else {
+          // Handle null/empty response as "No data yet"
+          setStudent({});
+        }
       } catch (err) {
         console.error("Error fetching student details:", err);
-        setError("Failed to load student details");
+        // Fail silently - treat as no data yet
+        setStudent({});
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStudentDetails();
-  }, []);
+    if (user) {
+      fetchStudentDetails();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (student) {
       setFormData({
-        regno: student?.regno || "",
+        registerNumber: student?.registerNumber || "",
         username: student?.studentUser?.username || "",
         email: student?.studentUser?.email || "",
         role: student?.studentUser?.role || "",
         status: student?.studentUser?.status || "",
         blood_group: student?.blood_group || "O+",
-        date_of_birth: student?.date_of_birth 
-          ? new Date(student.date_of_birth).toISOString().split("T")[0] 
+        date_of_birth: student?.date_of_birth
+          ? new Date(student.date_of_birth).toISOString().split("T")[0]
           : null,
         batch: student?.batch || "",
         tutorEmail: student?.tutorEmail || "",
@@ -65,10 +68,10 @@ const StudentPersonalDetails = () => {
         city: student?.city || "",
         pincode: student?.pincode || "",
         personal_phone: student?.personal_phone || "",
-        deptid: student?.Deptid || "",
-        deptname: student?.studentUser?.Department?.Deptname || "",
+        departmentId: student?.departmentId || "",
+        departmentName: student?.studentUser?.department?.departmentName || "",
         course: "B.E",
-        Semester: student?.Semester || "",
+        semester: student?.semester || "",
         staffid: student?.staffId || "",
         staffname: student?.staffAdvisor?.username || "",
         bank_name: student?.studentUser?.bankDetails?.bank_name || "",
@@ -107,13 +110,23 @@ const StudentPersonalDetails = () => {
 
   const handleSaveClick = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("No authentication token found.");
-        return;
+      if (formData.ifsc_code) {
+        const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+        if (!ifscRegex.test(formData.ifsc_code)) {
+          setError("Invalid IFSC Code format (e.g., ABCD0123456).");
+          return;
+        }
       }
 
-      const updatedRelations = formData.relations.map((relation) => ({
+      if (formData.micr_code) {
+        const micrRegex = /^[0-9]{9}$/;
+        if (!micrRegex.test(formData.micr_code)) {
+          setError("MICR Code must be exactly 9 digits.");
+          return;
+        }
+      }
+
+      const updatedRelations = (formData.relations || []).map((relation) => ({
         ...relation,
         income: relation.income || "0",
         phone: relation.phone?.trim() || "",
@@ -125,20 +138,12 @@ const StudentPersonalDetails = () => {
         relations: updatedRelations,
       };
 
-      console.log("🛠 Data being sent to backend:", JSON.stringify(updatedData, null, 2));
+      await API.put("/student/update", updatedData);
 
-      await axios.put("http://localhost:4000/api/student/update", updatedData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const response = await axios.get("http://localhost:4000/api/student", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log("Updated data received:", response.data);
-      setStudent(null);
-      setTimeout(() => setStudent(response.data), 10);
+      const response = await API.get("/student");
+      setStudent(response.data);
       setIsEditing(false);
+      setError(null);
     } catch (error) {
       console.error("❌ Update failed:", error.response?.data || error.message);
       setError(error.response?.data?.message || "Failed to update student details.");
@@ -175,13 +180,13 @@ const StudentPersonalDetails = () => {
   const renderPersonalDetails = () => (
     <form className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {[
-        { label: "Reg No", name: "regno", readOnly: true },
+        { label: "Reg No", name: "registerNumber", readOnly: true },
         { label: "Username", name: "username" },
         { label: "Email", name: "email" },
         { label: "Course", name: "course", readOnly: true },
-        { label: "Department Name", name: "deptname", readOnly: true },
+        { label: "Department Name", name: "departmentName", readOnly: true },
         { label: "Batch", name: "batch", readOnly: true },
-        { label: "Semester", name: "Semester" },
+        { label: "Semester", name: "semester" },
         { label: "Section", name: "section" },
         { label: "Tutor Name", name: "staffname", readOnly: true },
         { label: "Tutor Email", name: "tutorEmail" },
@@ -194,11 +199,10 @@ const StudentPersonalDetails = () => {
             value={formData[field.name] || ""}
             onChange={handleInputChange}
             readOnly={field.readOnly || !isEditing}
-            className={`border rounded px-3 py-2 ${
-              field.readOnly || !isEditing 
-                ? "bg-gray-100 border-gray-300 cursor-not-allowed" 
-                : "bg-white border-gray-400"
-            }`}
+            className={`border rounded px-3 py-2 ${field.readOnly || !isEditing
+              ? "bg-gray-100 border-gray-300 cursor-not-allowed"
+              : "bg-white border-gray-400"
+              }`}
           />
         </div>
       ))}
@@ -237,11 +241,10 @@ const StudentPersonalDetails = () => {
             value={formData[field.name] || ""}
             onChange={handleInputChange}
             readOnly={!isEditing}
-            className={`border rounded px-3 py-2 ${
-              isEditing 
-                ? "bg-white border-gray-400" 
-                : "bg-gray-100 border-gray-300"
-            }`}
+            className={`border rounded px-3 py-2 ${isEditing
+              ? "bg-white border-gray-400"
+              : "bg-gray-100 border-gray-300"
+              }`}
             placeholder={isEditing ? `Enter ${field.label.toLowerCase()}` : ""}
           />
         </div>
@@ -284,7 +287,7 @@ const StudentPersonalDetails = () => {
   const renderFamilyDetails = () => (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse border border-gray-300">
-        <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
           <tr>
             <th className="border border-gray-300 p-3 text-left">Relationship</th>
             <th className="border border-gray-300 p-3 text-left">Name</th>
@@ -302,11 +305,10 @@ const StudentPersonalDetails = () => {
                 <select
                   value={relation.relationship || ""}
                   onChange={(e) => handleRelationChange(index, "relationship", e.target.value)}
-                  className={`w-full border rounded px-2 py-1 ${
-                    isEditing 
-                      ? "bg-white border-gray-400" 
-                      : "bg-gray-100 border-gray-300"
-                  }`}
+                  className={`w-full border rounded px-2 py-1 ${isEditing
+                    ? "bg-white border-gray-400"
+                    : "bg-gray-100 border-gray-300"
+                    }`}
                   disabled={!isEditing}
                 >
                   <option value="">Select</option>
@@ -323,18 +325,17 @@ const StudentPersonalDetails = () => {
                     value={
                       isEditing
                         ? relation[field] || ""
-                        : relation[field] === null || relation[field] === "" 
-                          ? "-" 
+                        : relation[field] === null || relation[field] === ""
+                          ? "-"
                           : relation[field]
                     }
                     onChange={(e) => handleRelationChange(index, field, e.target.value)}
                     readOnly={!isEditing}
                     placeholder={isEditing ? `Enter ${field}` : ""}
-                    className={`w-full border rounded px-2 py-1 ${
-                      isEditing 
-                        ? "bg-white border-gray-400" 
-                        : "bg-gray-100 border-gray-300"
-                    }`}
+                    className={`w-full border rounded px-2 py-1 ${isEditing
+                      ? "bg-white border-gray-400"
+                      : "bg-gray-100 border-gray-300"
+                      }`}
                   />
                 </td>
               ))}
@@ -364,11 +365,10 @@ const StudentPersonalDetails = () => {
             onChange={handleInputChange}
             readOnly={!isEditing}
             placeholder={isEditing ? `Enter ${field.label.toLowerCase()}` : ""}
-            className={`border rounded px-3 py-2 ${
-              isEditing 
-                ? "bg-white border-gray-400" 
-                : "bg-gray-100 border-gray-300"
-            }`}
+            className={`border rounded px-3 py-2 ${isEditing
+              ? "bg-white border-gray-400"
+              : "bg-gray-100 border-gray-300"
+              }`}
           />
         </div>
       ))}
@@ -402,26 +402,18 @@ const StudentPersonalDetails = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-500 text-lg">Loading student details...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border border-red-300 rounded-lg p-6 max-w-md">
-          <p className="text-red-600 text-center text-lg">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  // Error block removed to handle errors silently as requested
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Student Personal Details
       </h2>
 
@@ -431,7 +423,7 @@ const StudentPersonalDetails = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleEditClick}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
           >
             <FaEdit className="inline-block mr-2" /> Edit
           </motion.button>
@@ -474,11 +466,10 @@ const StudentPersonalDetails = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 rounded text-lg font-medium transition ${
-              activeTab === tab
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                : "bg-gray-200 hover:bg-gray-300"
-            }`}
+            className={`px-6 py-3 rounded text-lg font-medium transition ${activeTab === tab
+              ? "bg-gradient-to-r from-indigo-600 to-indigo-600 text-white shadow-lg"
+              : "bg-gray-200 hover:bg-gray-300"
+              }`}
           >
             {tab === "personal" && "Personal Details"}
             {tab === "family" && "Family Details"}

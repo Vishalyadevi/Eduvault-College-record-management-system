@@ -205,7 +205,7 @@ const ProjectProposalsPage = () => {
           e.stopPropagation();
           handleViewFile();
         }}
-        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors duration-200 border border-blue-200"
+        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
         title={`View ${label}`}
       >
         <FileText size={14} />
@@ -489,7 +489,7 @@ const ProjectProposalsPage = () => {
               e.stopPropagation();
               handleViewAmountDetails(row.id);
             }}
-            className="text-blue-500 hover:text-blue-700 flex items-center"
+            className="text-indigo-600 hover:text-indigo-700 flex items-center"
             title="View Payment Details"
           >
           <h3>₹</h3>
@@ -524,10 +524,10 @@ const ProjectProposalsPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-pink-600 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
-          Add New Funded Proposal
+          Add New Project Proposal
         </button>
       </div>
 
@@ -557,7 +557,7 @@ const ProjectProposalsPage = () => {
             <div className="flex gap-2">
               <button
                 onClick={handleAddPaymentDetail}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md flex items-center gap-2 text-sm"
+                className="bg-indigo-600 hover:bg-indigo-600 text-white px-3 py-2 rounded-md flex items-center gap-2 text-sm"
               >
                 <Plus size={14} />
                 Add Payment
@@ -609,7 +609,7 @@ const ProjectProposalsPage = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleViewPaymentDetail(detail)}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="text-indigo-600 hover:text-blue-900"
                               title="View"
                             >
                               <Eye size={16} />
@@ -682,12 +682,12 @@ const ProjectProposalsPage = () => {
                   value={coPiInput}
                   onChange={(e) => setCoPiInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCoPi())}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 bg-gray-50 focus:bg-white"
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-all duration-300 bg-gray-50 focus:bg-white"
                 />
                 <button
                   type="button"
                   onClick={handleAddCoPi}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md flex items-center gap-1"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md flex items-center gap-1"
                 >
                   <Plus size={16} />
                   Add
@@ -806,7 +806,7 @@ const ProjectProposalsPage = () => {
                   <div>
                     <label 
                       htmlFor="file-upload-proof" 
-                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
                     >
                       Choose File
                       <input 
@@ -846,7 +846,7 @@ const ProjectProposalsPage = () => {
                   <div>
                     <label 
                       htmlFor="file-upload-yearly" 
-                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
                     >
                       Choose File
                       <input 
@@ -886,7 +886,7 @@ const ProjectProposalsPage = () => {
                   <div>
                     <label 
                       htmlFor="file-upload-final" 
-                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
                     >
                       Choose File
                       <input 

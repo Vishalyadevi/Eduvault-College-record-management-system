@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../uploads/mou');
+const uploadsDir = path.join(__dirname, '../uploads/activity');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -25,12 +25,17 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter - only accept PDFs
+// File filter - accept PDFs and any common image mime (including webp)
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only PDF files are allowed!'), false);
+  try {
+    const mimetype = file.mimetype || '';
+    if (mimetype === 'application/pdf' || mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and image files are allowed!'), false);
+    }
+  } catch (err) {
+    cb(new Error('Invalid file upload'), false);
   }
 };
 
@@ -47,7 +52,10 @@ const upload = multer({
 export const uploadMOUFile = upload.single('mou_copy');
 
 // Multer fields for Activity
-export const uploadActivityFile = upload.single('proof_file');
+export const uploadActivityFile = upload.single('report_file');
+
+// Multer field for TLP image uploads
+export const uploadTlpImage = upload.single('image');
 
 // Helper function to delete file
 export const deleteFile = (filePath) => {

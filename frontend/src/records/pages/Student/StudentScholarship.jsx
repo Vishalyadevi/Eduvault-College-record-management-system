@@ -1,34 +1,10 @@
-import React, { useState, useCallback, memo } from "react";
-import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
+import React, { useState, useCallback, memo, useEffect } from "react";
+import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { useScholarship } from "../../contexts/ScholarshipContext";
+import { useAuth } from "../auth/AuthContext";
 
-// Memoized FormField Component
-const FormField = memo(({ type, name, value, onChange, placeholder, required }) => (
-  <input
-    type={type}
-    name={name}
-    value={value}
-    onChange={onChange}
-    placeholder={placeholder}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-    required={required}
-  />
-));
-
-// Memoized Select Component
-const Select = memo(({ name, value, onChange, children, required }) => (
-  <select
-    name={name}
-    value={value}
-    onChange={onChange}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-    required={required}
-  >
-    {children}
-  </select>
-));
 
 const StudentScholarship = () => {
   const {
@@ -39,7 +15,10 @@ const StudentScholarship = () => {
     updateScholarship,
     deleteScholarship,
   } = useScholarship();
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [editingScholarship, setEditingScholarship] = useState({
     name: "",
     provider: "",
@@ -51,6 +30,24 @@ const StudentScholarship = () => {
     receivedAmount: "",
     receivedDate: "",
   });
+
+  // Default types
+  const defaultTypes = ["Merit-Based", "Need-Based", "Athletic", "Other"];
+
+  // State to hold dynamic types (starts with defaults, grows with custom ones)
+  const [availableTypes, setAvailableTypes] = useState(defaultTypes);
+
+  // Load custom types from already added scholarships (so they appear on page load)
+  useEffect(() => {
+    const customTypes = scholarships
+      .filter((scholarship) => scholarship.type === "Other" && scholarship.customType?.trim())
+      .map((scholarship) => scholarship.customType.trim())
+      .filter((value, index, self) => self.indexOf(value) === index); // unique only
+
+    if (customTypes.length > 0) {
+      setAvailableTypes([...defaultTypes, ...customTypes]);
+    }
+  }, [scholarships]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,13 +89,6 @@ const StudentScholarship = () => {
   // Total Pages
   const totalPages = Math.ceil(filteredScholarships.length / itemsPerPage);
 
-  // Reusable Label Component
-  const Label = ({ children, htmlFor }) => (
-    <label htmlFor={htmlFor} className="block text-gray-700 font-medium mb-2">
-      {children}
-    </label>
-  );
-
   // Handle Next Page
   const handleNextPage = useCallback(() => {
     if (currentPage < totalPages) {
@@ -116,6 +106,7 @@ const StudentScholarship = () => {
   // Handle Edit Click
   const handleEdit = useCallback((scholarship) => {
     setEditingScholarship(scholarship);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   // Handle Form Submission
@@ -123,20 +114,7 @@ const StudentScholarship = () => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      return toast.error("No token found. Please log in.");
-    }
-    let decodedData;
-    try {
-      const base64Url = token.split(".")[1];
-      decodedData = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch (error) {
-      return toast.error("Error fetching user details");
-    }
-
     setIsSubmitting(true);
-
     try {
       const scholarshipData = {
         name: editingScholarship.name,
@@ -148,29 +126,23 @@ const StudentScholarship = () => {
         appliedDate: editingScholarship.appliedDate,
         receivedAmount: editingScholarship.status === "Received" ? editingScholarship.receivedAmount : "",
         receivedDate: editingScholarship.status === "Received" ? editingScholarship.receivedDate : "",
-        Userid: String(decodedData.Userid),
       };
 
       if (editingScholarship.id) {
         await updateScholarship(editingScholarship.id, scholarshipData);
-        toast.success("Scholarship updated successfully!");
       } else {
         await addScholarship(scholarshipData);
-        toast.success("Scholarship added successfully!");
       }
 
-      setEditingScholarship({
-        id: "",
-        name: "",
-        provider: "",
-        type: "",
-        customType: "",
-        year: "",
-        status: "",
-        appliedDate: "",
-        receivedAmount: "",
-        receivedDate: "",
-      });
+      // If user added a new "Other" type → add it to dropdown options
+      if (editingScholarship.type === "Other" && editingScholarship.customType?.trim()) {
+        const newType = editingScholarship.customType.trim();
+        setAvailableTypes((prev) =>
+          prev.includes(newType) ? prev : [...prev, newType]
+        );
+      }
+
+      resetForm();
     } catch (error) {
       console.error("Error submitting scholarship:", error);
       toast.error("Failed to submit scholarship. Please try again.");
@@ -180,7 +152,7 @@ const StudentScholarship = () => {
   };
 
   // Handle Field Changes
-  const handleFieldChange = useCallback((e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setEditingScholarship((prev) => ({
       ...prev,
@@ -188,12 +160,28 @@ const StudentScholarship = () => {
     }));
   }, []);
 
+  // Reset form
+  const resetForm = () => {
+    setEditingScholarship({
+      id: "",
+      name: "",
+      provider: "",
+      type: "",
+      customType: "",
+      year: "",
+      status: "",
+      appliedDate: "",
+      receivedAmount: "",
+      receivedDate: "",
+    });
+  };
+
   if (loading) {
-    return <div className="text-center text-gray-700">Loading scholarships...</div>;
+    return <p className="text-center p-6">Loading scholarships...</p>;
   }
 
   if (error) {
-    return <div className="text-center text-red-600">Error: {error}</div>;
+    return <p className="text-red-500 text-center p-6">{error}</p>;
   }
 
   if (!Array.isArray(scholarships)) {
@@ -201,8 +189,8 @@ const StudentScholarship = () => {
   }
 
   return (
-    <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-sm w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Scholarships Details
       </h2>
 
@@ -211,153 +199,211 @@ const StudentScholarship = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full p-6 bg-white rounded-lg shadow-md mb-6 relative"
+        className="w-full p-6 bg-white rounded-lg shadow-lg mb-6"
       >
-        {/* Submit Button (Top-Right Corner) */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          type="submit"
-          onClick={handleSubmit}
-          className="absolute top-4 right-4 p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition"
-          title={editingScholarship.id ? "Update" : "Submit"}
-        >
-          <FaPlus size={20} />
-        </motion.button>
-
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">
-          {editingScholarship.id ? "Edit Scholarship" : "Add Scholarship"}
-        </h3>
-        <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-4">
-          {/* Row 1 */}
-          <div>
-            <Label htmlFor="name">Scholarship Name</Label>
-            <FormField
-              type="text"
-              name="name"
-              value={editingScholarship.name}
-              onChange={handleFieldChange}
-              placeholder="Enter scholarship name"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="provider">Provider Name</Label>
-            <FormField
-              type="text"
-              name="provider"
-              value={editingScholarship.provider}
-              onChange={handleFieldChange}
-              placeholder="Enter provider name"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="type">Type</Label>
-            <Select
-              name="type"
-              value={editingScholarship.type}
-              onChange={handleFieldChange}
-              required
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-gray-800">
+            {editingScholarship.id ? "Edit Scholarship" : "Add Scholarship"}
+          </h3>
+          {editingScholarship.id && (
+            <button
+              onClick={resetForm}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
             >
-              <option value="">Select Type</option>
-              <option value="Merit-Based">Merit-Based</option>
-              <option value="Need-Based">Need-Based</option>
-              <option value="Athletic">Athletic</option>
-              <option value="Other">Other</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="year">Year</Label>
-            <Select
-              name="year"
-              value={editingScholarship.year}
-              onChange={handleFieldChange}
-              required
-            >
-              <option value="">Select Year</option>
-              <option value="1st Year">1st Year</option>
-              <option value="2nd Year">2nd Year</option>
-              <option value="3rd Year">3rd Year</option>
-              <option value="4th Year">4th Year</option>
-            </Select>
-          </div>
+              Cancel
+            </button>
+          )}
+        </div>
 
-          {/* Row 2 */}
-          {editingScholarship.type === "Other" && (
-            <div>
-              <Label htmlFor="customType">Custom Type</Label>
-              <FormField
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Grid Container */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Scholarship Name */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Scholarship Name <span className="text-red-500">*</span>
+              </label>
+              <input
                 type="text"
-                name="customType"
-                value={editingScholarship.customType}
-                onChange={handleFieldChange}
-                placeholder="Enter custom type"
+                name="name"
+                value={editingScholarship.name}
+                onChange={handleChange}
+                placeholder="Enter scholarship name"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
               />
             </div>
-          )}
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select
-              name="status"
-              value={editingScholarship.status}
-              onChange={handleFieldChange}
-              required
-            >
-              <option value="">Select Status</option>
-              <option value="Applied">Applied</option>
-              <option value="Received">Received</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="appliedDate">Applied Date</Label>
-            <FormField
-              type="date"
-              name="appliedDate"
-              value={editingScholarship.appliedDate}
-              onChange={handleFieldChange}
-              required
-            />
-          </div>
-          {editingScholarship.status === "Received" && (
-            <div>
-              <Label htmlFor="receivedAmount">Amount Received</Label>
-              <FormField
-                type="number"
-                name="receivedAmount"
-                value={editingScholarship.receivedAmount}
-                onChange={handleFieldChange}
-                placeholder="Enter amount received"
-              />
-            </div>
-          )}
 
-          {/* Row 3 */}
-          {editingScholarship.status === "Received" && (
-            <div>
-              <Label htmlFor="receivedDate">Received Date</Label>
-              <FormField
-                type="date"
-                name="receivedDate"
-                value={editingScholarship.receivedDate}
-                onChange={handleFieldChange}
+            {/* Provider Name */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Provider Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="provider"
+                value={editingScholarship.provider}
+                onChange={handleChange}
+                placeholder="Enter provider name"
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
               />
             </div>
-          )}
+
+            {/* Type */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="type"
+                value={editingScholarship.type}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Select Type</option>
+                {availableTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Year <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="year"
+                value={editingScholarship.year}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Select Year</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+              </select>
+            </div>
+
+            {/* Custom Type (Conditional) */}
+            {editingScholarship.type === "Other" && (
+              <div className="col-span-1">
+                <label className="block text-gray-700 font-medium mb-1">
+                  Custom Type <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="customType"
+                  value={editingScholarship.customType}
+                  onChange={handleChange}
+                  placeholder="Enter custom type"
+                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="status"
+                value={editingScholarship.status}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Select Status</option>
+                <option value="Applied">Applied</option>
+                <option value="Received">Received</option>
+              </select>
+            </div>
+
+            {/* Applied Date */}
+            <div className="col-span-1">
+              <label className="block text-gray-700 font-medium mb-1">
+                Applied Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="appliedDate"
+                value={editingScholarship.appliedDate}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            {/* Amount Received (Conditional) */}
+            {editingScholarship.status === "Received" && (
+              <div className="col-span-1">
+                <label className="block text-gray-700 font-medium mb-1">
+                  Amount Received <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="receivedAmount"
+                  value={editingScholarship.receivedAmount}
+                  onChange={handleChange}
+                  placeholder="Enter amount received"
+                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Received Date (Conditional) */}
+            {editingScholarship.status === "Received" && (
+              <div className="col-span-1">
+                <label className="block text-gray-700 font-medium mb-1">
+                  Received Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="receivedDate"
+                  value={editingScholarship.receivedDate}
+                  onChange={handleChange}
+                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Submit/Update Button */}
+          <div className="flex justify-center mt-6">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+            >
+              {editingScholarship.id ? "Update Scholarship" : "Add Scholarship"}
+            </motion.button>
+          </div>
         </form>
       </motion.div>
 
       {/* Filter Controls */}
       <div className="flex justify-end mb-6">
-        <Select
+        <select
           name="filterStatus"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
+          className="p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="All">All</option>
           <option value="Applied">Applied</option>
           <option value="Received">Received</option>
-        </Select>
+        </select>
       </div>
 
       {/* Scholarship Details Table */}
@@ -365,78 +411,93 @@ const StudentScholarship = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full p-6 bg-white rounded-lg shadow-md"
+        className="w-full p-6 bg-white rounded-lg shadow-lg"
       >
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Scholarship Details</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-200"style={{ minWidth: '1700px', width: '100%' }}>
-            <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-              <tr>
-                <th className="border border-gray-200 p-3 text-left">Scholarship Name</th>
-                <th className="border border-gray-200 p-3 text-left">Provider</th>
-                <th className="border border-gray-200 p-3 text-left">Type</th>
-                <th className="border border-gray-200 p-3 text-left">Year</th>
-                <th className="border border-gray-200 p-3 text-left">Status</th>
-                <th className="border border-gray-200 p-3 text-left">Applied Date</th>
-                <th className="border border-gray-200 p-3 text-left">Amount Received</th>
-                <th className="border border-gray-200 p-3 text-left">Received Date</th>
-                <th className="border border-gray-200 p-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentScholarships.map((scholarship) => (
-                <tr key={`${scholarship.name}-${scholarship.provider}`} className="bg-white hover:bg-gray-50 transition">
-                  <td className="border border-gray-200 p-3">{scholarship.name}</td>
-                  <td className="border border-gray-200 p-3">{scholarship.provider}</td>
-                  <td className="border border-gray-200 p-3">{scholarship.type}</td>
-                  <td className="border border-gray-200 p-3">{scholarship.years.join(", ")}</td>
-                  <td className="border border-gray-200 p-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        scholarship.status === "Received"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {scholarship.status}
-                    </span>
-                  </td>
-                  <td className="border border-gray-200 p-3">{scholarship.appliedDate}</td>
-                  <td className="border border-gray-200 p-3">
-                    {Object.entries(scholarship.amounts).map(([year, amount]) => (
-                      <div key={year}>
-                        {year}: ₹{amount}
-                      </div>
-                    ))}
-                  </td>
-                  <td className="border border-gray-200 p-3">{scholarship.receivedDate || "-"}</td>
-                  <td className="border border-gray-200 p-3">
-                    <div className="flex justify-center space-x-4">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleEdit(scholarship)}
-                        className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all duration-200"
-                        title="Edit"
-                      >
-                        <FaEdit size={18} />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => deleteScholarship(scholarship.id)}
-                        className="p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-all duration-200"
-                        title="Delete"
-                      >
-                        <FaTrash size={18} />
-                      </motion.button>
-                    </div>
-                  </td>
+        {currentScholarships.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No scholarships available. Add your first scholarship above!</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2200px', width: '100%' }}>
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
+                <tr>
+                  <th className="border border-gray-300 p-3 text-left">Scholarship Name</th>
+                  <th className="border border-gray-300 p-3 text-left">Provider</th>
+                  <th className="border border-gray-300 p-3 text-left">Type</th>
+                  <th className="border border-gray-300 p-3 text-left">Year</th>
+                  <th className="border border-gray-300 p-3 text-left">Status</th>
+                  <th className="border border-gray-300 p-3 text-left">Approval Status</th>
+                  <th className="border border-gray-300 p-3 text-left">Applied Date</th>
+                  <th className="border border-gray-300 p-3 text-left">Amount Received</th>
+                  <th className="border border-gray-300 p-3 text-left">Received Date</th>
+                  <th className="border border-gray-300 p-3 text-center">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {currentScholarships.map((scholarship) => (
+                  <tr key={`${scholarship.name}-${scholarship.provider}`} className="bg-white hover:bg-gray-50 transition">
+                    <td className="border border-gray-300 p-3">{scholarship.name}</td>
+                    <td className="border border-gray-300 p-3">{scholarship.provider}</td>
+                    <td className="border border-gray-300 p-3">
+                      {scholarship.type}
+                      {scholarship.customType && (
+                        <span className="text-gray-500 text-sm ml-2">({scholarship.customType})</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 p-3">{scholarship.years.join(", ")}</td>
+                    <td className="border border-gray-300 p-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-sm ${scholarship.status === "Received"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-orange-100 text-orange-800"
+                          }`}
+                      >
+                        {scholarship.status}
+                      </span>
+                    </td>
+                    <td className="border border-gray-300 p-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-sm ${scholarship.tutor_approval_status
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                          }`}
+                      >
+                        {scholarship.tutor_approval_status ? "Approved" : "Pending"}
+                      </span>
+                    </td>
+                    <td className="border border-gray-300 p-3">{scholarship.appliedDate}</td>
+                    <td className="border border-gray-300 p-3">
+                      {Object.entries(scholarship.amounts).map(([year, amount]) => (
+                        <div key={year}>
+                          {year}: ₹{amount}
+                        </div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 p-3">{scholarship.receivedDate || "-"}</td>
+                    <td className="border border-gray-300 p-3">
+                      <div className="flex justify-center space-x-2">
+                        <button
+                          onClick={() => handleEdit(scholarship)}
+                          className="text-indigo-600 hover:text-indigo-700 transition"
+                          title="Edit"
+                        >
+                          <FaEdit className="inline-block text-xl" />
+                        </button>
+                        <button
+                          onClick={() => deleteScholarship(scholarship.id)}
+                          className="text-red-500 hover:text-red-700 transition"
+                          title="Delete"
+                        >
+                          <FaTrash className="inline-block text-xl" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Pagination Controls */}
         <div className="flex justify-between items-center mt-6">
@@ -449,11 +510,10 @@ const StudentScholarship = () => {
               whileTap={{ scale: 0.9 }}
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className={`p-2 rounded-full ${
-                currentPage === 1
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-              } transition-all duration-200`}
+              className={`p-2 rounded-full ${currentPage === 1
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                } transition-all duration-200`}
             >
               <FaChevronLeft size={18} />
             </motion.button>
@@ -465,11 +525,10 @@ const StudentScholarship = () => {
               whileTap={{ scale: 0.9 }}
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className={`p-2 rounded-full ${
-                currentPage === totalPages
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-              } transition-all duration-200`}
+              className={`p-2 rounded-full ${currentPage === totalPages
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                } transition-all duration-200`}
             >
               <FaChevronRight size={18} />
             </motion.button>

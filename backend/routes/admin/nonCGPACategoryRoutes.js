@@ -13,7 +13,7 @@ import {
   getNonCGPACategoriesByDepartment,
   getNonCGPACategoriesBySemester,
 } from "../../controllers/admin/nonCGPACategoryController.js";
-import { authenticate} from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 
@@ -33,8 +33,8 @@ router.get("/by-code/:courseCode", authenticate, getNonCGPACategoryByCourseCode)
 router.put("/update/:id", authenticate, updateNonCGPACategory);
 
 // Delete
-router.delete("/delete/:id", authenticate,  deleteNonCGPACategory);
-router.post("/bulk-delete", authenticate,  bulkDeleteNonCGPACategories);
+router.delete("/delete/:id", authenticate, deleteNonCGPACategory);
+router.post("/bulk-delete", authenticate, bulkDeleteNonCGPACategories);
 
 // ========================
 // 🔍 SEARCH & FILTER
@@ -48,7 +48,7 @@ router.get("/by-semester/:semester", authenticate, getNonCGPACategoriesBySemeste
 // 📊 BULK OPERATIONS & ANALYTICS
 // ========================
 
-router.post("/bulk-upload", authenticate,  bulkUploadNonCGPACategories);
+router.post("/bulk-upload", authenticate, bulkUploadNonCGPACategories);
 router.get("/statistics", authenticate, getNonCGPACategoryStatistics);
 
 export default router;

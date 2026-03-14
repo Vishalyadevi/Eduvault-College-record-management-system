@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const AchievementContext = createContext();
 
@@ -16,17 +17,14 @@ export const AchievementProvider = ({ children }) => {
   const [pendingAchievements, setPendingAchievements] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api"; // Matches your server.js route
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch all achievements
   const fetchAllAchievements = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${apiBase}/fetch-achievements`, getAuthHeader());
+      const response = await API.get("/fetch-achievements");
       setAchievements(response.data || []);
       setError(null);
     } catch (err) {
@@ -35,16 +33,15 @@ export const AchievementProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   // Fetch user-specific achievements
-  const fetchUserAchievements = useCallback(async (userId) => {
+  const fetchUserAchievements = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/user-achievements/${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/user-achievements/${id}`);
       setAchievements(response.data || []);
       setError(null);
     } catch (err) {
@@ -53,16 +50,13 @@ export const AchievementProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Fetch pending achievements (admin)
   const fetchPendingAchievements = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/pending-achievements`,
-        getAuthHeader()
-      );
+      const response = await API.get("/pending-achievements");
       setPendingAchievements(response.data || []);
       setError(null);
     } catch (err) {
@@ -71,21 +65,21 @@ export const AchievementProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   // Add new achievement with file upload
   const addAchievement = async (formData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/add-achievement`,
-        formData,
-        {
-          ...getAuthHeader(),
+      if (!formData.has("Userid") && UserId) {
+        formData.append("Userid", UserId);
+      }
+      const response = await API.post("/add-achievement", formData, {
+        headers: {
           "Content-Type": "multipart/form-data"
         }
-      );
-      await fetchUserAchievements(formData.get("Userid"));
+      });
+      await fetchUserAchievements(formData.get("Userid") || UserId);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || "Failed to add achievement");
@@ -100,14 +94,11 @@ export const AchievementProvider = ({ children }) => {
   const updateAchievement = async (achievementId, formData) => {
     setLoading(true);
     try {
-      const response = await axios.patch(
-        `${apiBase}/update-achievement/${achievementId}`,
-        formData,
-        {
-          ...getAuthHeader(),
+      const response = await API.patch(`/update-achievement/${achievementId}`, formData, {
+        headers: {
           "Content-Type": "multipart/form-data"
         }
-      );
+      });
       await fetchAllAchievements();
       return response.data;
     } catch (err) {
@@ -123,10 +114,7 @@ export const AchievementProvider = ({ children }) => {
   const deleteAchievement = async (achievementId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/delete-achievement/${achievementId}`,
-        getAuthHeader()
-      );
+      const response = await API.delete(`/delete-achievement/${achievementId}`);
       await fetchAllAchievements();
       return response.data;
     } catch (err) {
@@ -146,8 +134,10 @@ export const AchievementProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Initial data fetch could be done here if needed
-  }, []);
+    if (UserId) {
+      fetchUserAchievements();
+    }
+  }, [UserId, fetchUserAchievements]);
 
   return (
     <AchievementContext.Provider

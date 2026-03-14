@@ -3,11 +3,11 @@ import axios from 'axios';
 const generatePdf = async (data) => {
   try {
     // Get userId from the data or localStorage
-    const userId = data.studentData?.Userid || 
-                  data.studentData?.studentUser?.Userid || 
-                  data.studentData?.id ||
-                  localStorage.getItem('userId') ||
-                  'demo-user-123'; // Fallback for demo
+    const userId = data.studentData?.Userid ||
+      data.studentData?.studentUser?.Userid ||
+      data.studentData?.id ||
+      localStorage.getItem('userId') ||
+      'demo-user-123'; // Fallback for demo
 
     if (!userId) {
       throw new Error('User ID not found. Please ensure you are logged in.');
@@ -35,10 +35,10 @@ const generatePdf = async (data) => {
 
     // MOCK PDF GENERATION FOR DEMO
     return await generateMockPdf(data);
-    
+
   } catch (error) {
     console.error('Error generating PDF:', error);
-    
+
     if (error.response) {
       switch (error.response.status) {
         case 404:
@@ -65,7 +65,7 @@ const generatePdf = async (data) => {
 // Mock PDF generation for demonstration
 const generateMockPdf = async (data) => {
   const { jsPDF } = await import('jspdf');
-  
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -106,7 +106,7 @@ const generateMockPdf = async (data) => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(75, 85, 99);
     doc.text(label + ':', 20, yPosition);
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 24, 39);
     const textWidth = pageWidth - 80;
@@ -145,13 +145,13 @@ const generateMockPdf = async (data) => {
 
   // Generate PDF content
   addTitle('STUDENT ACTIVITY REPORT');
-  
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
   doc.text(data.studentData?.username || 'Student Name', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += lineHeight;
-  doc.text(`${data.studentData?.department || 'Department'} | ${data.studentData?.regno || 'Registration Number'}`, pageWidth / 2, yPosition, { align: 'center' });
+  doc.text(`${data.studentData?.department || 'Department'} | ${data.studentData?.registerNumber || 'Registration Number'}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += sectionSpacing;
 
   doc.setFontSize(10);
@@ -161,7 +161,7 @@ const generateMockPdf = async (data) => {
   // Personal Information
   addSectionHeader('PERSONAL INFORMATION');
   addField('Full Name', data.studentData?.username);
-  addField('Registration Number', data.studentData?.regno);
+  addField('Registration Number', data.studentData?.registerNumber);
   addField('Email', data.studentData?.email);
   addField('Department', data.studentData?.department);
   addField('Batch', data.studentData?.batch);
@@ -305,7 +305,7 @@ const generateMockPdf = async (data) => {
   doc.addPage();
   yPosition = 20;
   addSectionHeader('ACTIVITY SUMMARY');
-  
+
   const stats = [
     { label: 'Total Online Courses', value: data.courses?.length || 0, approved: data.courses?.filter(c => c.tutor_approval_status).length || 0 },
     { label: 'Total Internships', value: data.internships?.length || 0, approved: data.internships?.filter(i => i.tutor_approval_status).length || 0 },
@@ -331,7 +331,7 @@ const generateMockPdf = async (data) => {
   // Convert to blob
   const pdfBlob = doc.output('blob');
   console.log('Mock PDF generated successfully, size:', pdfBlob.size, 'bytes');
-  
+
   return pdfBlob;
 };
 

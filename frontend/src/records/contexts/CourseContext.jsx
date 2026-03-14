@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import API from "../../api";
 import { toast } from 'react-toastify';
+import { useAuth } from "../pages/auth/AuthContext";
 
 const CourseContext = createContext();
 
@@ -10,9 +11,8 @@ export const CourseProvider = ({ children }) => {
   const [marksheets, setMarksheets] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const UserId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Initialize marksheets for all semesters
   const initializeMarksheets = useCallback(() => {
@@ -25,25 +25,17 @@ export const CourseProvider = ({ children }) => {
 
   // Fetch all courses
   const fetchCourses = useCallback(async () => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
+    if (!UserId) return;
 
     try {
       setLoading(true);
       setError(null);
-      
+
       const [coursesResponse, gpaResponse] = await Promise.all([
-        axios.get(`${backendUrl}/api/courses-enrollment?UserId=${UserId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }),
-        axios.get(`${backendUrl}/api/gpa?UserId=${UserId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        API.get(`/courses-enrollment?UserId=${UserId}`),
+        API.get(`/gpa?UserId=${UserId}`)
       ]);
-      
+
       // Handle courses response
       let coursesData = [];
       if (Array.isArray(coursesResponse.data)) {
@@ -67,22 +59,18 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [UserId]);
 
   // Fetch marksheets
   const fetchMarksheets = useCallback(async () => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
+    if (!UserId) return;
 
     try {
       setLoading(true);
-      const response = await axios.get(`${backendUrl}/api/marksheets?UserId=${UserId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
+      const response = await API.get(`/marksheets?UserId=${UserId}`);
+
       const marksheetsData = response.data?.data || response.data || {};
-      
+
       // Merge with initialized marksheets
       setMarksheets({
         ...initializeMarksheets(),
@@ -96,24 +84,17 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId, initializeMarksheets]);
+  }, [UserId, initializeMarksheets]);
 
   // Add new course
   const addCourse = useCallback(async (courseData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-    console.log(courseData)
     try {
       setLoading(true);
-      const response = await axios.post(`${backendUrl}/api/add-course-enrollment`, {
+      const response = await API.post("/add-course-enrollment", {
         ...courseData,
         UserId
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
       });
-      
+
       const newCourse = response.data?.data || response.data;
       if (newCourse) {
         setCourses(prev => [...prev, newCourse]);
@@ -128,24 +109,17 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [UserId]);
 
   // Update course
   const updateCourse = useCallback(async (id, courseData) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     try {
       setLoading(true);
-      const response = await axios.put(`${backendUrl}/api/courses/${id}`, courseData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
+      const response = await API.put(`/courses/${id}`, courseData);
+
       const updatedCourse = response.data?.data || response.data;
       if (updatedCourse) {
-        setCourses(prev => prev.map(course => 
+        setCourses(prev => prev.map(course =>
           course.id === id ? updatedCourse : course
         ));
         toast.success("Course updated successfully!");
@@ -159,19 +133,13 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Delete course
   const deleteCourse = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     try {
       setLoading(true);
-      await axios.delete(`${backendUrl}/api/courses/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await API.delete(`/courses/${id}`);
       setCourses(prev => prev.filter(course => course.id !== id));
       toast.success("Course deleted successfully!");
       return true;
@@ -183,24 +151,17 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Update GPA
   const updateGPA = useCallback(async (gpaData) => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
-
     try {
       setLoading(true);
-      const response = await axios.put(`${backendUrl}/api/gpa`, {
+      const response = await API.put("/gpa", {
         ...gpaData,
         UserId
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
       });
-      
+
       const updatedGPA = response.data?.data || response.data;
       if (updatedGPA) {
         setGpaData(updatedGPA);
@@ -215,26 +176,23 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [UserId]);
 
   // Upload marksheet
   const uploadMarksheet = useCallback(async (semester, file) => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
-
     try {
       setLoading(true);
       const formData = new FormData();
       formData.append('marksheet', file);
       formData.append('UserId', UserId);
       formData.append('semester', semester);
-      
-      const response = await axios.post(`${backendUrl}/api/marksheets`, formData, {
+
+      const response = await API.post("/marksheets", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
-      
+
       const fileName = response.data?.fileName || response.data?.data?.fileName;
       if (fileName) {
         setMarksheets(prev => ({
@@ -252,18 +210,13 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [UserId]);
 
   // Delete marksheet
   const deleteMarksheet = useCallback(async (semester) => {
-    if (!token || !UserId) return toast.error("Unauthorized: No token or user ID found");
-
     try {
       setLoading(true);
-      await axios.delete(`${backendUrl}/api/marksheets/${semester}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      await API.delete(`/marksheets/${semester}`, {
         data: { UserId }
       });
       setMarksheets(prev => ({
@@ -280,23 +233,17 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, UserId]);
+  }, [UserId]);
 
   // Approve course
   const approveCourse = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     try {
       setLoading(true);
-      const response = await axios.patch(`${backendUrl}/api/courses/${id}/approve`, null, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
+      const response = await API.patch(`/courses/${id}/approve`, null);
+
       const approvedCourse = response.data?.data || response.data;
       if (approvedCourse) {
-        setCourses(prev => prev.map(course => 
+        setCourses(prev => prev.map(course =>
           course.id === id ? approvedCourse : course
         ));
         toast.success("Course approved successfully!");
@@ -310,23 +257,17 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Reject course
   const rejectCourse = useCallback(async (id) => {
-    if (!token) return toast.error("Unauthorized: No token found");
-
     try {
       setLoading(true);
-      const response = await axios.patch(`${backendUrl}/api/courses/${id}/reject`, null, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
+      const response = await API.patch(`/courses/${id}/reject`, null);
+
       const rejectedCourse = response.data?.data || response.data;
       if (rejectedCourse) {
-        setCourses(prev => prev.map(course => 
+        setCourses(prev => prev.map(course =>
           course.id === id ? rejectedCourse : course
         ));
         toast.success("Course rejected successfully!");
@@ -340,7 +281,7 @@ export const CourseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchCourses();

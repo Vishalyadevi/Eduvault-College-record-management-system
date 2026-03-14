@@ -72,14 +72,14 @@ const Navbar = () => {
         <img
           src={currentUser.profileImage}
           alt="profile"
-          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
           onClick={() => setShowDropdown(!showDropdown)}
         />
         {showDropdown && (
           <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
             <button
               className="block w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/records/profile")}
             >
               My Profile
             </button>

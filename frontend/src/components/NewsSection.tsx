@@ -1,5 +1,6 @@
 import React from 'react';
 import Marquee from './Marquee';
+import './NewsSection.css';
 
 const NewsSection = () => {
   const news = [
@@ -24,21 +25,54 @@ const NewsSection = () => {
   ];
 
   return (
-    <div className="py-16 bg-white">
+    <div className="nec-news-wrapper">
+      {/* Animated Background Elements */}
+      <div className="nec-news-animated-bg-1"></div>
+      <div className="nec-news-animated-shape-1"></div>
+      <div className="nec-news-animated-shape-2"></div>
+      <div className="nec-news-animated-shape-3"></div>
+      <div className="nec-news-particle nec-news-particle-1"></div>
+      <div className="nec-news-particle nec-news-particle-2"></div>
+      <div className="nec-news-particle nec-news-particle-3"></div>
+      <div className="nec-news-particle nec-news-particle-4"></div>
+      <div className="nec-news-particle nec-news-particle-5"></div>
+      <div className="nec-news-animated-line nec-news-animated-line-1"></div>
+      <div className="nec-news-animated-line nec-news-animated-line-2"></div>
+
       <div className="max-w-7xl mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-8 text-gray-900">Latest News</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Header Section */}
+        <div className="nec-news-header">
+          <h2 className="nec-news-title">Latest News</h2>
+        </div>
+
+        {/* News Grid */}
+        <div className="nec-news-grid">
           {news.map((item, index) => (
-            <div key={index} className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition duration-300">
-              <img src={item.image} alt={item.title} className="w-full h-48 object-cover" />
-              <div className="p-6">
-                <div className="text-sm text-[#8C1515] font-semibold mb-2">{item.category}</div>
-                <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-                <p className="text-gray-600 text-sm">{item.date}</p>
+            <div key={index} className="nec-news-card">
+              {/* Image Section */}
+              <div className="nec-news-image-wrapper">
+                <img 
+                  src={item.image} 
+                  alt={item.title} 
+                  className="nec-news-image"
+                />
+              </div>
+
+              {/* Content Section */}
+              <div className="nec-news-content">
+                <div className="nec-news-category">{item.category}</div>
+                <h3 className="nec-news-title-text">{item.title}</h3>
+                <p className="nec-news-date">{item.date}</p>
+                
+                {/* Know More Button */}
+                <button className="nec-know-more-btn">
+                  <span>Know more</span>
+                </button>
               </div>
             </div>
           ))}
         </div>
+
         <Marquee />
       </div>
     </div>

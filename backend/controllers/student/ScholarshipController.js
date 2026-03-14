@@ -15,9 +15,13 @@ export const addScholarship = async (req, res) => {
       appliedDate,
       receivedAmount,
       receivedDate,
-      Userid,
     } = req.body;
-    console.log(req.body)
+
+    // Robust User ID retrieval
+    const Userid = req.user?.Userid || req.body?.Userid || req.body?.UserId;
+
+    console.log("Add Scholarship Payload:", req.body);
+    console.log("Resolved Userid:", Userid);
 
     // Validate User ID
     if (!Userid) {
@@ -26,7 +30,7 @@ export const addScholarship = async (req, res) => {
 
     // Fetch user details
     const user = await User.findByPk(Userid);
-    if (!user || !user.email) {
+    if (!user || !user.userMail) {
       return res.status(404).json({ message: "Student email not found" });
     }
 
@@ -52,22 +56,22 @@ export const addScholarship = async (req, res) => {
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: user.Userid,
-      Updated_by: user.Userid,
+      Created_by: user.userId,
+      Updated_by: user.userId,
     });
-   
+
 
     // Send email to tutor
     const emailResponse = await sendEmail({
-      from: user.email,
+      from: user.userMail,
       to: student.tutorEmail,
       subject: "New Scholarship Pending Approval",
       text: `Dear Tutor,
 
 A student has submitted a new scholarship for your approval. Please find the details below:
 
-Student Regno: ${student.regno}
-Student Name: ${user.username || "N/A"}
+Student registerNumber: ${student.registerNumber}
+Student Name: ${user.userName || "N/A"}
 Scholarship Name: ${name}
 Provider: ${provider}
 Type: ${type}${type === "Other" ? ` (${customType})` : ""}
@@ -114,25 +118,27 @@ export const updateScholarship = async (req, res) => {
     appliedDate,
     receivedAmount,
     receivedDate,
-    Userid,
   } = req.body;
 
-  console.log("Userid:", Userid);
+  const Userid = req.user?.Userid || req.body?.Userid || req.body?.UserId;
+
+  console.log("Update Scholarship - Target ID:", id);
+  console.log("Update Scholarship - Resolved Userid:", Userid);
 
   try {
-   
+
 
     // Find the scholarship by ID
     const scholarship = await Scholarship.findByPk(id);
     if (!scholarship) {
       return res.status(404).json({ message: "Scholarship not found" });
     }
-    
+
     if (scholarship.Userid !== parseInt(Userid)) {
       return res.status(403).json({ message: "Unauthorized to update this scholarship" });
     }
-    
-   
+
+
     // Find the user and student details
     const user = await User.findByPk(Userid);
 
@@ -177,8 +183,8 @@ export const updateScholarship = async (req, res) => {
 
 A student has updated their scholarship details. Please review the updated details:
 
-Student Regno: ${student.regno}
-Student Name: ${user.username || "N/A"}
+Student registerNumber: ${student.registerNumber}
+Student Name: ${user.userName || "N/A"}
 Scholarship Name: ${scholarship.name}
 Provider: ${scholarship.provider}
 Type: ${scholarship.type}${scholarship.type === "Other" ? ` (${scholarship.customType})` : ""}
@@ -196,7 +202,7 @@ Scholarship Management System
 Note: If you have any issues, feel free to contact the system administrator at tutorsjf@gmail.com.`;
 
       const emailResponse = await sendEmail({
-        from: user.email,
+        from: user.userMail,
         to: student.tutorEmail,
         subject: emailSubject,
         text: emailText,
@@ -228,12 +234,12 @@ export const getPendingScholarships = async (req, res) => {
         {
           model: User,
           as: "student", // Use the correct alias for the student association
-          attributes: ["Userid", "username", "email"], // Include username and email
+          attributes: ["userId", "userName", "userMail"], // Use correct column names
           include: [
             {
               model: StudentDetails,
               as: "studentDetails", // Alias for the student details
-              attributes: ["regno", "staffId"], // Include regno and staffId
+              attributes: ["registerNumber", "staffId"], // Include registerNumber and staffId
             },
           ],
         },
@@ -242,15 +248,16 @@ export const getPendingScholarships = async (req, res) => {
 
 
 
-    // Format the response to include all scholarship details, username, and regno
+    // Format the response to include all scholarship details, username, and registerNumber
     const formattedScholarships = pendingScholarships.map((scholarship) => {
       const { student, ...rest } = scholarship.get({ plain: true }); // Destructure student
 
 
       return {
         ...rest, // Include all fields from the Scholarship model
-        username: student?.username || "N/A", // Include username (fallback to "N/A" if undefined)
-        regno: student?.studentDetails?.regno || "N/A", // Include regno (fallback to "N/A" if undefined)
+        username: student?.userName || "N/A", // Use userName (fallback to "N/A" if undefined)
+        email: student?.userMail || "N/A", // Use userMail as email
+        registerNumber: student?.studentDetails?.registerNumber || "N/A", // Include registerNumber (fallback to "N/A" if undefined)
         staffId: student?.studentDetails?.staffId || "N/A", // Include staffId (fallback to "N/A" if undefined)
       };
     });
@@ -267,21 +274,21 @@ export const getPendingScholarships = async (req, res) => {
 // Get approved scholarships
 export const getApprovedScholarships = async (req, res) => {
   try {
-   
 
-    const userId = req.user?.Userid || req.query.UserId; // Match casing exactly
+
+    const userId = req.user?.Userid || req.body?.UserId || req.query?.UserId;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-  
+
     const approvedScholarships = await Scholarship.findAll({
-      where: { tutor_approval_status: true, Userid: userId }, // Filter by userId
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId }, // Filter by Userid only to include both pending and approved
+      order: [["createdAt", "DESC"]],
     });
 
- 
+
     return res.status(200).json(approvedScholarships);
   } catch (error) {
     console.error("Error fetching approved scholarships:", error);
@@ -305,9 +312,9 @@ export const deleteScholarship = async (req, res) => {
     await Scholarship.destroy({ where: { id } });
 
     sendEmail({
-      to: user.email,
+      to: user.userMail,
       subject: "Scholarship Deleted Notification",
-      text: `Dear ${user.username || "Student"},
+      text: `Dear ${user.userName || "Student"},
 
 Your scholarship has been removed.
 
@@ -330,8 +337,8 @@ Scholarship Management System`,
 
 The following scholarship submitted by your student has been deleted:
 
-- **Student Regno**: ${student.regno}  
-- **Student Name**: ${user.username || "N/A"}  
+- **Student registerNumber**: ${student.registerNumber}  
+- **Student Name**: ${user.userName || "N/A"}  
 - **Scholarship Name**: ${scholarship.name}  
 - **Provider**: ${scholarship.provider}  
 - **Type**: ${scholarship.type}${scholarship.type === "Other" ? ` (${scholarship.customType})` : ""}  

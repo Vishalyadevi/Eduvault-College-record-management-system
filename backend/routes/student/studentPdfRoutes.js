@@ -9,9 +9,14 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { authenticate as requireAuth } from '../../middlewares/requireauth.js';
+
 const router = express.Router();
 
-// Fetch all student data from database
+// ─────────────────────────────────────────────
+// Fetch ALL student data from the database
+// Uses the same proven SQL as studentPDF.js
+// ─────────────────────────────────────────────
 async function fetchStudentData(userId) {
   const data = {
     basicInfo: null,
@@ -25,147 +30,124 @@ async function fetchStudentData(userId) {
   };
 
   try {
-    console.log('Fetching data for userId:', userId);
+    console.log('[studentPdfRoutes] Fetching data for userId:', userId);
 
-    // Fetch basic student info with proper joins
+    // Basic student info
     const basicInfo = await sequelize.query(`
-      SELECT
-        u.Userid, u.username, u.email, u.staffId, u.image,
-        sd.regno, sd.batch, sd.gender, sd.date_of_birth,
-        CONCAT_WS(', ', sd.door_no, sd.street) as address,
-        c.name as city, di.name as district, s.name as state,
-        sd.pincode, sd.personal_phone as phone,
-        sd.blood_group, sd.aadhar_card_no as aadhar_number,
-        d.Deptname as department, d.Deptacronym as dept_code
+      SELECT u.userName as username, u.userMail as email, u.userNumber as rollNo, u.profileImage as image,
+             sd.registerNumber, sd.batch, sd.gender, sd.date_of_birth as dob,
+             CONCAT_WS(', ', sd.door_no, sd.street) as address,
+             sd.city, di.name as district, s.name as state,
+             sd.pincode, sd.personal_phone as student_phone,
+             sd.blood_group, sd.aadhar_card_no as aadhar_number,
+             d.departmentName as department, d.departmentAcr as dept_code
       FROM users u
-      LEFT JOIN student_details sd ON u.Userid = sd.Userid
-      LEFT JOIN department d ON u.Deptid = d.Deptid
-      LEFT JOIN cities c ON sd.cityID = c.id
+      LEFT JOIN student_details sd ON u.userId = sd.Userid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
       LEFT JOIN districts di ON sd.districtID = di.id
       LEFT JOIN states s ON sd.stateID = s.id
-      WHERE u.Userid = ? AND u.role = 'Student'
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+      WHERE u.userId = ?
+    `, { replacements: [userId], type: QueryTypes.SELECT });
 
     if (basicInfo && basicInfo.length > 0) {
       data.basicInfo = basicInfo[0];
-      console.log('Basic info found:', data.basicInfo.username);
+      console.log('[studentPdfRoutes] Basic info found for:', data.basicInfo.username);
     } else {
-      console.log('No basic info found for userId:', userId);
+      console.log('[studentPdfRoutes] No basic info found for userId:', userId);
       return data;
     }
 
-    // Fetch online courses
+    // Online courses
     const courses = await sequelize.query(`
       SELECT course_name, type, provider_name, instructor_name, status,
              tutor_approval_status, created_at
       FROM online_courses
-      WHERE Userid = ?
+      WHERE userid = ?
       ORDER BY created_at DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.courses = courses || [];
-    console.log('Courses found:', data.courses.length);
 
-    // Fetch internships
+    // Internships
     const internships = await sequelize.query(`
       SELECT description, provider_name, domain, mode, start_date, end_date,
              status, stipend_amount, tutor_approval_status, created_at
       FROM internships
       WHERE Userid = ?
       ORDER BY start_date DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.internships = internships || [];
-    console.log('Internships found:', data.internships.length);
 
-    // Fetch organized events
+    // Events organized
     const organizedEvents = await sequelize.query(`
-      SELECT program_name, program_title, coordinator_name, co_coordinator_names,
-             speaker_details, from_date, to_date, days, sponsored_by,
-             amount_sanctioned, participants, created_at
-      FROM events_organized
+      SELECT event_name, club_name, role, staff_incharge, start_date, end_date,
+             number_of_participants, mode, funding_agency, funding_amount,
+             tutor_approval_status, created_at
+      FROM events_organized_student
       WHERE Userid = ?
-      ORDER BY from_date DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+      ORDER BY start_date DESC
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.organizedEvents = organizedEvents || [];
-    console.log('Organized events found:', data.organizedEvents.length);
 
-    // Fetch attended events
+    // Events attended
     const attendedEvents = await sequelize.query(`
-      SELECT event_name, description, type_of_event, organized_by, mode,
+      SELECT event_name, description, event_type, institution_name, mode,
              from_date, to_date, participation_status, achievement_details,
              tutor_approval_status, created_at
       FROM event_attended
-      WHERE Userid = ?
+      WHERE userid = ?
       ORDER BY from_date DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.attendedEvents = attendedEvents || [];
-    console.log('Attended events found:', data.attendedEvents.length);
 
-    // Fetch scholarships
+    // Scholarships
     const scholarships = await sequelize.query(`
-      SELECT name, provider, type, year, status, created_at as appliedDate,
-             receivedAmount, updated_at as receivedDate, tutor_approval_status
+      SELECT name, provider, type, year, status, appliedDate, receivedAmount,
+             receivedDate, tutor_approval_status
       FROM scholarships
       WHERE Userid = ?
       ORDER BY year DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.scholarships = scholarships || [];
-    console.log('Scholarships found:', data.scholarships.length);
 
-    // Fetch achievements
+    // Achievements
     const achievements = await sequelize.query(`
-      SELECT title, description, date_awarded, tutor_approval_status, created_at
+      SELECT title, description, date_awarded, tutor_approval_status
       FROM achievements
       WHERE Userid = ?
-      ORDER BY date_awarded DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
-    data.achievements = achievements || [];
-    console.log('Achievements found:', data.achievements.length);
-
-    // Fetch leaves
-    const leaves = await sequelize.query(`
-      SELECT reason, start_date, end_date, leave_type,
-             DATEDIFF(end_date, start_date) + 1 as number_of_days,
-             tutor_approval_status as leave_status, created_at as applied_date
-      FROM student_leave
-      WHERE Userid = ?
       ORDER BY created_at DESC
-    `, {
-      replacements: [userId],
-      type: QueryTypes.SELECT
-    });
+    `, { replacements: [userId], type: QueryTypes.SELECT });
+    data.achievements = achievements || [];
+
+    // Leave applications
+    const leaves = await sequelize.query(`
+      SELECT reason, start_date, end_date,
+             DATEDIFF(end_date, start_date) + 1 as number_of_days,
+             leave_type, leave_status, created_at as applied_date
+      FROM student_leave
+      WHERE userid = ?
+      ORDER BY created_at DESC
+    `, { replacements: [userId], type: QueryTypes.SELECT });
     data.leaves = leaves || [];
-    console.log('Leaves found:', data.leaves.length);
+
+    console.log('[studentPdfRoutes] Data loaded \u2014 courses:', data.courses.length,
+      '| internships:', data.internships.length,
+      '| events org:', data.organizedEvents.length,
+      '| events att:', data.attendedEvents.length,
+      '| scholarships:', data.scholarships.length,
+      '| achievements:', data.achievements.length,
+      '| leaves:', data.leaves.length);
 
   } catch (error) {
-    console.error('Error fetching student data:', error);
+    console.error('[studentPdfRoutes] Error fetching student data:', error);
     throw error;
   }
 
   return data;
 }
 
-// Generate PDF content (your existing function - keeping it as is)
+// ─────────────────────────────────────────────
+// Build PDF content into a PDFDocument object
+// ─────────────────────────────────────────────
 async function generatePDFContent(doc, data) {
   const { basicInfo, courses, internships, organizedEvents, attendedEvents, scholarships, leaves, achievements } = data;
 
@@ -184,47 +166,45 @@ async function generatePDFContent(doc, data) {
     border: '#E5E7EB'
   };
 
-  const addSectionHeader = (title) => {
-    if (doc.y > doc.page.height - 150) {
+  const checkPageBreak = (buffer = 80) => {
+    if (doc.y > doc.page.height - MARGINS.bottom - buffer) {
       doc.addPage();
     }
+  };
+
+  const addSectionHeader = (title) => {
+    checkPageBreak(100);
     doc.moveDown(1);
     doc.font('Helvetica-Bold').fontSize(16).fillColor(COLORS.primary)
-       .text(title, LABEL_X, doc.y);
+      .text(title, LABEL_X, doc.y);
     const lineY = doc.y + 3;
     doc.lineWidth(1)
-       .moveTo(LABEL_X, lineY)
-       .lineTo(doc.page.width - MARGINS.right, lineY)
-       .stroke(COLORS.primary);
+      .moveTo(LABEL_X, lineY)
+      .lineTo(doc.page.width - MARGINS.right, lineY)
+      .stroke(COLORS.primary);
     doc.moveDown(0.8);
     doc.fillColor(COLORS.text).font('Helvetica').fontSize(11);
   };
 
   const addField = (label, value) => {
-    if (doc.y > doc.page.height - 100) {
-      doc.addPage();
-    }
+    checkPageBreak(40);
     const startY = doc.y;
     doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.secondary)
-       .text(label + ':', LABEL_X, startY);
+      .text(label + ':', LABEL_X, startY);
     doc.font('Helvetica').fontSize(11).fillColor(COLORS.text)
-       .text(value || 'N/A', VALUE_X, startY, { width: VALUE_WIDTH });
+      .text(String(value || 'N/A'), VALUE_X, startY, { width: VALUE_WIDTH });
     doc.moveDown(0.4);
   };
 
   const addListItem = (index, title, details = []) => {
-    if (doc.y > doc.page.height - 120) {
-      doc.addPage();
-    }
+    checkPageBreak(100);
     doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.text)
-       .text(`${index}. ${title}`, LABEL_X + 10, doc.y);
+      .text(`${index}. ${title}`, LABEL_X + 10, doc.y);
     doc.moveDown(0.3);
-    details.forEach((detail) => {
-      if (doc.y > doc.page.height - 80) {
-        doc.addPage();
-      }
+    details.forEach(detail => {
+      checkPageBreak(30);
       doc.font('Helvetica').fontSize(10).fillColor(COLORS.textLight)
-         .text(`   ${detail}`, LABEL_X + 20, doc.y, { width: VALUE_WIDTH - 20 });
+        .text(`   ${detail}`, LABEL_X + 20, doc.y, { width: VALUE_WIDTH - 20 });
       doc.moveDown(0.2);
     });
     doc.moveDown(0.5);
@@ -232,116 +212,113 @@ async function generatePDFContent(doc, data) {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-IN');
+    try { return new Date(dateStr).toLocaleDateString('en-IN'); } catch { return 'N/A'; }
   };
 
-  // Header
+  // ── Header ──
   doc.font('Helvetica-Bold').fontSize(20).fillColor(COLORS.primary)
-     .text('STUDENT ACTIVITY REPORT', MARGINS.left, 30, { width: CONTENT_WIDTH, align: 'center' });
-  
-  doc.moveDown(1);
+    .text('STUDENT ACTIVITY REPORT', MARGINS.left, 30, { width: CONTENT_WIDTH, align: 'center' });
+
+  doc.moveDown(0.8);
   doc.fontSize(14).fillColor(COLORS.text)
-     .text(basicInfo.username || 'Student Name', MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
-  
-  doc.moveDown(0.5);
+    .text(basicInfo.username || 'Student Name', MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
+
+  doc.moveDown(0.4);
   doc.fontSize(11).fillColor(COLORS.secondary)
-     .text(`${basicInfo.department || 'Department'} | ${basicInfo.regno || 'Reg No'}`, MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
-  
-  doc.moveDown(0.5);
+    .text(`${basicInfo.department || 'Department'} | ${basicInfo.registerNumber || 'Reg No'}`,
+      MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
+
+  doc.moveDown(0.4);
   doc.fontSize(10)
-     .text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`, MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
-  
+    .text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`,
+      MARGINS.left, doc.y, { width: CONTENT_WIDTH, align: 'center' });
+
   doc.moveDown(2);
 
-  // Personal Information
+  // ── Personal Information ──
   addSectionHeader('PERSONAL INFORMATION');
   addField('Full Name', basicInfo.username);
-  addField('Registration Number', basicInfo.regno);
+  addField('Registration Number', basicInfo.registerNumber);
   addField('Email', basicInfo.email);
   addField('Department', basicInfo.department);
   addField('Batch', basicInfo.batch);
   addField('Gender', basicInfo.gender);
-  addField('Date of Birth', formatDate(basicInfo.date_of_birth));
+  addField('Date of Birth', formatDate(basicInfo.dob));
   addField('Blood Group', basicInfo.blood_group);
-  addField('Phone', basicInfo.phone);
-  // addField('Father\'s Name', basicInfo.father_name);
-  // addField('Mother\'s Name', basicInfo.mother_name);
-  addField('Address', `${basicInfo.address || ''}, ${basicInfo.city || ''}, ${basicInfo.state || ''} - ${basicInfo.pincode || ''}`);
+  addField('Phone', basicInfo.student_phone);
+  addField('Address', [basicInfo.address, basicInfo.city, basicInfo.state, basicInfo.pincode ? `- ${basicInfo.pincode}` : ''].filter(Boolean).join(', '));
 
-  // Online Courses
-  if (courses && courses.length > 0) {
+  // ── Online Courses ──
+  if (courses.length > 0) {
     addSectionHeader('ONLINE COURSES');
-    courses.forEach((course, index) => {
-      const details = [
+    courses.forEach((course, i) => {
+      addListItem(i + 1, course.course_name || 'Course', [
         `Provider: ${course.provider_name || 'N/A'}`,
         `Type: ${course.type || 'N/A'}`,
         `Instructor: ${course.instructor_name || 'N/A'}`,
         `Status: ${course.status || 'N/A'}`,
         `Approval: ${course.tutor_approval_status ? 'Approved' : 'Pending'}`,
         `Date: ${formatDate(course.created_at)}`
-      ];
-      addListItem(index + 1, course.course_name || 'Course', details);
+      ]);
     });
   }
 
-  // Internships
-  if (internships && internships.length > 0) {
+  // ── Internships ──
+  if (internships.length > 0) {
     addSectionHeader('INTERNSHIPS');
-    internships.forEach((internship, index) => {
-      const details = [
+    internships.forEach((internship, i) => {
+      addListItem(i + 1, internship.provider_name || 'Internship', [
         `Description: ${internship.description || 'N/A'}`,
         `Domain: ${internship.domain || 'N/A'}`,
         `Mode: ${internship.mode || 'N/A'}`,
-        `Duration: ${formatDate(internship.start_date)} - ${formatDate(internship.end_date)}`,
+        `Duration: ${formatDate(internship.start_date)} – ${formatDate(internship.end_date)}`,
         `Status: ${internship.status || 'N/A'}`,
         `Stipend: ${internship.stipend_amount ? `₹${internship.stipend_amount}` : 'N/A'}`,
         `Approval: ${internship.tutor_approval_status ? 'Approved' : 'Pending'}`
-      ];
-      addListItem(index + 1, internship.provider_name || 'Internship', details);
+      ]);
     });
   }
 
-  // Events Attended
-  if (attendedEvents && attendedEvents.length > 0) {
+  // ── Events Organized ──
+  if (organizedEvents.length > 0) {
+    addSectionHeader('EVENTS ORGANIZED');
+    organizedEvents.forEach((event, i) => {
+      addListItem(i + 1, event.event_name || 'Event', [
+        `Club: ${event.club_name || 'N/A'}`,
+        `Role: ${event.role || 'N/A'}`,
+        `Staff In-charge: ${event.staff_incharge || 'N/A'}`,
+        `Duration: ${formatDate(event.start_date)} – ${formatDate(event.end_date)}`,
+        `Participants: ${event.number_of_participants || 'N/A'}`,
+        `Mode: ${event.mode || 'N/A'}`,
+        `Funding Agency: ${event.funding_agency || 'N/A'}`,
+        `Funding Amount: ${event.funding_amount ? `₹${event.funding_amount}` : 'N/A'}`,
+        `Approval: ${event.tutor_approval_status ? 'Approved' : 'Pending'}`
+      ]);
+    });
+  }
+
+  // ── Events Attended ──
+  if (attendedEvents.length > 0) {
     addSectionHeader('EVENTS ATTENDED');
-    attendedEvents.forEach((event, index) => {
-      const details = [
+    attendedEvents.forEach((event, i) => {
+      addListItem(i + 1, event.event_name || 'Event', [
         `Description: ${event.description || 'N/A'}`,
         `Type: ${event.event_type || 'N/A'}`,
         `Institution: ${event.institution_name || 'N/A'}`,
         `Mode: ${event.mode || 'N/A'}`,
-        `Duration: ${formatDate(event.from_date)} - ${formatDate(event.to_date)}`,
-        `Status: ${event.participation_status || 'N/A'}`,
+        `Duration: ${formatDate(event.from_date)} – ${formatDate(event.to_date)}`,
+        `Participation: ${event.participation_status || 'N/A'}`,
         `Achievement: ${event.achievement_details || 'N/A'}`,
         `Approval: ${event.tutor_approval_status ? 'Approved' : 'Pending'}`
-      ];
-      addListItem(index + 1, event.event_name || 'Event', details);
+      ]);
     });
   }
 
-  // Events Organized
-  if (organizedEvents && organizedEvents.length > 0) {
-    addSectionHeader('EVENTS ORGANIZED');
-    organizedEvents.forEach((event, index) => {
-      const details = [
-        `Club: ${event.club_name || 'N/A'}`,
-        `Role: ${event.role || 'N/A'}`,
-        `Staff: ${event.staff_incharge || 'N/A'}`,
-        `Duration: ${formatDate(event.start_date)} - ${formatDate(event.end_date)}`,
-        `Participants: ${event.number_of_participants || 'N/A'}`,
-        `Mode: ${event.mode || 'N/A'}`,
-        `Funding: ${event.funding_agency || 'N/A'} - ₹${event.funding_amount || 0}`,
-        `Approval: ${event.tutor_approval_status ? 'Approved' : 'Pending'}`
-      ];
-      addListItem(index + 1, event.program_name || 'Event', details);
-    });
-  }
-
-  // Scholarships
-  if (scholarships && scholarships.length > 0) {
+  // ── Scholarships ──
+  if (scholarships.length > 0) {
     addSectionHeader('SCHOLARSHIPS');
-    scholarships.forEach((scholarship, index) => {
-      const details = [
+    scholarships.forEach((scholarship, i) => {
+      addListItem(i + 1, scholarship.name || 'Scholarship', [
         `Provider: ${scholarship.provider || 'N/A'}`,
         `Type: ${scholarship.type || 'N/A'}`,
         `Year: ${scholarship.year || 'N/A'}`,
@@ -349,41 +326,38 @@ async function generatePDFContent(doc, data) {
         `Amount: ${scholarship.receivedAmount ? `₹${scholarship.receivedAmount}` : 'N/A'}`,
         `Applied: ${formatDate(scholarship.appliedDate)}`,
         `Approval: ${scholarship.tutor_approval_status ? 'Approved' : 'Pending'}`
-      ];
-      addListItem(index + 1, scholarship.name || 'Scholarship', details);
+      ]);
     });
   }
 
-  // Achievements
-  if (achievements && achievements.length > 0) {
+  // ── Achievements ──
+  if (achievements.length > 0) {
     addSectionHeader('ACHIEVEMENTS');
-    achievements.forEach((achievement, index) => {
-      const details = [
+    achievements.forEach((achievement, i) => {
+      addListItem(i + 1, achievement.title || 'Achievement', [
         `Description: ${achievement.description || 'N/A'}`,
         `Date: ${formatDate(achievement.date_awarded)}`,
         `Approval: ${achievement.tutor_approval_status ? 'Approved' : 'Pending'}`
-      ];
-      addListItem(index + 1, achievement.title || 'Achievement', details);
+      ]);
     });
   }
 
-  // Leave Applications
-  if (leaves && leaves.length > 0) {
+  // ── Leave Applications ──
+  if (leaves.length > 0) {
     addSectionHeader('LEAVE APPLICATIONS');
-    leaves.forEach((leave, index) => {
-      const details = [
+    leaves.forEach((leave, i) => {
+      addListItem(i + 1, 'Leave Application', [
         `Reason: ${leave.reason || 'N/A'}`,
         `Type: ${leave.leave_type || 'N/A'}`,
-        `Duration: ${formatDate(leave.start_date)} - ${formatDate(leave.end_date)}`,
+        `Duration: ${formatDate(leave.start_date)} \u2013 ${formatDate(leave.end_date)}`,
         `Days: ${leave.number_of_days || 'N/A'}`,
-        `Status: ${leave.leave_status ? 'Approved' : 'Pending'}`,
+        `Status: ${leave.leave_status ? String(leave.leave_status).charAt(0).toUpperCase() + String(leave.leave_status).slice(1) : 'Pending'}`,
         `Applied: ${formatDate(leave.applied_date)}`
-      ];
-      addListItem(index + 1, 'Leave Application', details);
+      ]);
     });
   }
 
-  // Summary
+  // ── Activity Summary ──
   doc.addPage();
   addSectionHeader('ACTIVITY SUMMARY');
   addField('Total Courses', `${courses.length} (${courses.filter(c => c.tutor_approval_status).length} approved)`);
@@ -395,26 +369,36 @@ async function generatePDFContent(doc, data) {
   addField('Leave Applications', `${leaves.length} (${leaves.filter(l => l.leave_status).length} approved)`);
 
   // Footer
-  const footerY = doc.page.height - 40;
   doc.fontSize(8).fillColor(COLORS.textLight)
-     .text('Generated automatically by Student Activity Management System', MARGINS.left, footerY, { width: CONTENT_WIDTH, align: 'center' });
+    .text('Generated automatically by Student Activity Management System',
+      MARGINS.left, doc.page.height - 40, { width: CONTENT_WIDTH, align: 'center' });
 }
 
-// ROUTE: Generate and download PDF
-router.get('/generate-pdf/:userId', async (req, res) => {
+// ─────────────────────────────────────────────
+// ROUTE: Download PDF (attachment)
+// GET /api/student/generate-pdf/:userId
+// ─────────────────────────────────────────────
+router.get('/generate-pdf/:userId', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log('Generate PDF request for userId:', userId);
+
+    // Ownership check
+    const authenticatedUserId = req.user.userId || req.user.Userid;
+    const isAdmin = ['Admin', 'SuperAdmin'].includes(req.user.roleName) || ['Admin', 'SuperAdmin'].includes(req.user.role);
+
+    if (authenticatedUserId !== parseInt(userId) && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied. You can only view your own report.' });
+    }
+    console.log('[studentPdfRoutes] Download PDF request for userId:', userId);
 
     const studentData = await fetchStudentData(userId);
 
     if (!studentData.basicInfo) {
-      console.log('Student not found for userId:', userId);
       return res.status(404).json({ error: 'Student not found' });
     }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const filename = `student_report_${studentData.basicInfo.regno || userId}_${Date.now()}.pdf`;
+    const filename = `student_report_${studentData.basicInfo.registerNumber || userId}_${Date.now()}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -423,23 +407,35 @@ router.get('/generate-pdf/:userId', async (req, res) => {
     await generatePDFContent(doc, studentData);
     doc.end();
 
-    console.log('PDF generated successfully for:', studentData.basicInfo.username);
+    console.log('[studentPdfRoutes] PDF download complete for:', studentData.basicInfo.username);
   } catch (error) {
-    console.error('Error generating PDF:', error);
-    res.status(500).json({ error: 'Failed to generate PDF', details: error.message });
+    console.error('[studentPdfRoutes] Error generating download PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF', details: error.message });
+    }
   }
 });
 
-// ROUTE: View PDF (inline)
-router.get('/view-pdf/:userId', async (req, res) => {
+// ─────────────────────────────────────────────
+// ROUTE: Preview PDF inline (opens in browser tab)
+// GET /api/student/view-pdf/:userId
+// ─────────────────────────────────────────────
+router.get('/view-pdf/:userId', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log('View PDF request for userId:', userId);
+
+    // Ownership check
+    const authenticatedUserId = req.user.userId || req.user.Userid;
+    const isAdmin = ['Admin', 'SuperAdmin'].includes(req.user.roleName) || ['Admin', 'SuperAdmin'].includes(req.user.role);
+
+    if (authenticatedUserId !== parseInt(userId) && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied. You can only view your own report.' });
+    }
+    console.log('[studentPdfRoutes] Preview PDF request for userId:', userId);
 
     const studentData = await fetchStudentData(userId);
 
     if (!studentData.basicInfo) {
-      console.log('Student not found for userId:', userId);
       return res.status(404).json({ error: 'Student not found' });
     }
 
@@ -452,26 +448,37 @@ router.get('/view-pdf/:userId', async (req, res) => {
     await generatePDFContent(doc, studentData);
     doc.end();
 
-    console.log('PDF viewed successfully for:', studentData.basicInfo.username);
+    console.log('[studentPdfRoutes] PDF preview complete for:', studentData.basicInfo.username);
   } catch (error) {
-    console.error('Error viewing PDF:', error);
-    res.status(500).json({ error: 'Failed to view PDF', details: error.message });
+    console.error('[studentPdfRoutes] Error generating preview PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to preview PDF', details: error.message });
+    }
   }
 });
 
-// ROUTE: Get student data as JSON (for debugging)
-router.get('/data/:userId', async (req, res) => {
+// ─────────────────────────────────────────────
+// ROUTE: Debug — return raw student data as JSON
+// GET /api/student/data/:userId
+// ─────────────────────────────────────────────
+router.get('/data/:userId', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    const authenticatedUserId = req.user.userId || req.user.Userid;
+    const isAdmin = ['Admin', 'SuperAdmin'].includes(req.user.roleName) || ['Admin', 'SuperAdmin'].includes(req.user.role);
+
+    if (authenticatedUserId !== parseInt(userId) && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
     const studentData = await fetchStudentData(userId);
-    
     if (!studentData.basicInfo) {
       return res.status(404).json({ error: 'Student not found' });
     }
-
     res.json(studentData);
   } catch (error) {
-    console.error('Error fetching student data:', error);
+    console.error('[studentPdfRoutes] Error fetching student data:', error);
     res.status(500).json({ error: 'Failed to fetch student data', details: error.message });
   }
 });

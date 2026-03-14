@@ -3,6 +3,8 @@ import { useInternContext } from "../../contexts/InternContext.jsx";
 import { toast } from "react-toastify";
 import { FaEye, FaEdit, FaTrash, FaSpinner, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { useAuth } from "../auth/AuthContext";
+
 
 const backendUrl = "http://localhost:4000";
 
@@ -15,7 +17,7 @@ const Field = ({ label, name, value, onChange, type = "text", options, required 
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
         disabled={disabled}
       >
         {options.map((opt) => (
@@ -30,7 +32,7 @@ const Field = ({ label, name, value, onChange, type = "text", options, required 
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
         required={required}
         disabled={disabled}
         placeholder={placeholder}
@@ -84,7 +86,7 @@ const FormSection = ({ formData, handleInputChange, isEditMode }) => (
         name="certificate"
         checked={formData.certificate}
         onChange={handleInputChange}
-        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+        className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
         disabled={formData.status === "ongoing"}
       />
       <label className="text-gray-700">Provide Certificate</label>
@@ -135,9 +137,9 @@ const StudentInternship = () => {
   const currentInternships = filteredInternships.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredInternships.length / itemsPerPage);
 
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user?.Userid;
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -195,7 +197,8 @@ const StudentInternship = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) return toast.error("User not logged in");
+    if (!userId) return toast.error("User not logged in");
+
     if (new Date(formData.end_date) <= new Date(formData.start_date)) return toast.error("End date must be after the start date.");
     if (!window.confirm("Are you sure you want to proceed?")) return;
 
@@ -242,14 +245,13 @@ const StudentInternship = () => {
   const renderTable = (data, showActions = true) => (
     <div className="overflow-x-auto">
       <div className="max-h-[400px] overflow-y-auto">
-        <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm"style={{ minWidth: '2200px', width: '100%' }}>
+        <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm" style={{ minWidth: '2200px', width: '100%' }}>
           <thead>
             <tr className="bg-[#4f46e5] text-white">
               <th className="py-3 px-4 text-left font-medium">Provider</th>
               <th className="py-3 px-4 text-left font-medium">Domain</th>
               <th className="py-3 px-4 text-left font-medium">Mode</th>
-              <th className="py-3 px-4 text-left font-medium"style={{ minWidth: '800px'}}>Duration</th>
-              <th className="py-3 px-4 text-left font-medium">Stipend</th>
+              <th className="py-3 px-4 text-left font-medium" style={{ width: '400px' }}>Duration</th>              <th className="py-3 px-4 text-left font-medium">Stipend</th>
               <th className="py-3 px-4 text-left font-medium">Certificate</th>
               <th className="py-3 px-4 text-left font-medium">Status</th>
               <th className="py-3 px-4 text-left font-medium">Approval Status</th>
@@ -277,7 +279,7 @@ const StudentInternship = () => {
                       href={`${backendUrl}/${encodeURI(internship.certificate.replace(/\\/g, "/"))}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700 transition"
+                      className="text-indigo-600 hover:text-indigo-700 transition"
                     >
                       <FaEye className="inline-block text-xl" />
                     </a>
@@ -285,22 +287,20 @@ const StudentInternship = () => {
                 </td>
                 <td className="py-3 px-4">
                   <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      internship.status.toLowerCase() === "completed"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${internship.status.toLowerCase() === "completed"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                      }`}
                   >
                     {internship.status}
                   </span>
                 </td>
                 <td className="py-3 px-4">
                   <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      internship.tutor_approval_status === true
-                        ? "bg-green-100 text-green-700"
-                        : "bg-orange-100 text-orange-700"
-                    }`}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${internship.tutor_approval_status === true
+                      ? "bg-green-100 text-green-700"
+                      : "bg-orange-100 text-orange-700"
+                      }`}
                   >
                     {internship.tutor_approval_status === true ? "Approved" : "Pending"}
                   </span>
@@ -309,7 +309,7 @@ const StudentInternship = () => {
                   <td className="py-3 px-4 space-x-2">
                     <button
                       onClick={() => handleEdit(internship)}
-                      className="text-blue-500 hover:text-blue-700 transition"
+                      className="text-indigo-600 hover:text-indigo-700 transition"
                       aria-label="Edit"
                     >
                       <FaEdit className="inline-block text-xl" />
@@ -346,8 +346,8 @@ const StudentInternship = () => {
   }, [currentPage]);
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Internships
       </h2>
 
@@ -366,7 +366,7 @@ const StudentInternship = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
             >
               {isEditMode ? "Update Internship" : "Add Internship"}
             </motion.button>
@@ -426,11 +426,10 @@ const StudentInternship = () => {
               whileTap={{ scale: 0.9 }}
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className={`p-2 rounded-full ${
-                currentPage === 1
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-              } transition-all duration-200`}
+              className={`p-2 rounded-full ${currentPage === 1
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                } transition-all duration-200`}
             >
               <FaChevronLeft size={18} />
             </motion.button>
@@ -442,11 +441,10 @@ const StudentInternship = () => {
               whileTap={{ scale: 0.9 }}
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className={`p-2 rounded-full ${
-                currentPage === totalPages
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-              } transition-all duration-200`}
+              className={`p-2 rounded-full ${currentPage === totalPages
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                } transition-all duration-200`}
             >
               <FaChevronRight size={18} />
             </motion.button>

@@ -1,6 +1,6 @@
-// contexts/NPTELContext.jsx
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const NPTELContext = createContext();
 
@@ -18,11 +18,8 @@ export const NPTELProvider = ({ children }) => {
   const [pendingEnrollments, setPendingEnrollments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/nptel";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // ========================
   // ADMIN FUNCTIONS
@@ -32,11 +29,7 @@ export const NPTELProvider = ({ children }) => {
   const addCourse = async (courseData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/admin/add-course`,
-        courseData,
-        getAuthHeader()
-      );
+      const response = await API.post("/nptel/admin/add-course", courseData);
       await fetchAllCourses();
       setError(null);
       return response.data;
@@ -52,11 +45,7 @@ export const NPTELProvider = ({ children }) => {
   const updateCourse = async (courseId, courseData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/admin/update-course/${courseId}`,
-        courseData,
-        getAuthHeader()
-      );
+      const response = await API.put(`/nptel/admin/update-course/${courseId}`, courseData);
       await fetchAllCourses();
       setError(null);
       return response.data;
@@ -72,10 +61,7 @@ export const NPTELProvider = ({ children }) => {
   const deleteCourse = async (courseId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/admin/delete-course/${courseId}`,
-        getAuthHeader()
-      );
+      const response = await API.delete(`/nptel/admin/delete-course/${courseId}`);
       await fetchAllCourses();
       setError(null);
       return response.data;
@@ -91,10 +77,7 @@ export const NPTELProvider = ({ children }) => {
   const fetchAllCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/admin/courses`,
-        getAuthHeader()
-      );
+      const response = await API.get("/nptel/admin/courses");
       setCourses(response.data.courses || []);
       setError(null);
     } catch (err) {
@@ -112,12 +95,11 @@ export const NPTELProvider = ({ children }) => {
   const enrollCourse = async (enrollmentData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/student/enroll`,
-        enrollmentData,
-        getAuthHeader()
-      );
-      await fetchStudentEnrollments(enrollmentData.Userid);
+      const response = await API.post("/nptel/student/enroll", {
+        ...enrollmentData,
+        Userid: UserId
+      });
+      await fetchStudentEnrollments();
       setError(null);
       return response.data;
     } catch (err) {
@@ -132,12 +114,11 @@ export const NPTELProvider = ({ children }) => {
   const updateEnrollment = async (enrollmentId, enrollmentData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/student/update/${enrollmentId}`,
-        enrollmentData,
-        getAuthHeader()
-      );
-      await fetchStudentEnrollments(enrollmentData.Userid);
+      const response = await API.put(`/nptel/student/update/${enrollmentId}`, {
+        ...enrollmentData,
+        Userid: UserId
+      });
+      await fetchStudentEnrollments();
       setError(null);
       return response.data;
     } catch (err) {
@@ -149,17 +130,13 @@ export const NPTELProvider = ({ children }) => {
   };
 
   // Delete enrollment (Student)
-  const deleteEnrollment = async (enrollmentId, userId) => {
+  const deleteEnrollment = async (enrollmentId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/student/delete/${enrollmentId}`,
-        {
-          ...getAuthHeader(),
-          data: { Userid: userId }
-        }
-      );
-      await fetchStudentEnrollments(userId);
+      const response = await API.delete(`/nptel/student/delete/${enrollmentId}`, {
+        data: { Userid: UserId }
+      });
+      await fetchStudentEnrollments();
       setError(null);
       return response.data;
     } catch (err) {
@@ -171,13 +148,12 @@ export const NPTELProvider = ({ children }) => {
   };
 
   // Fetch student enrollments
-  const fetchStudentEnrollments = useCallback(async (userId) => {
+  const fetchStudentEnrollments = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/student/my-courses?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/nptel/student/my-courses?UserId=${id}`);
       setEnrollments(response.data.enrollments || []);
       setError(null);
     } catch (err) {
@@ -185,7 +161,7 @@ export const NPTELProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [UserId]);
 
   // ========================
   // TUTOR/ADMIN FUNCTIONS
@@ -195,10 +171,7 @@ export const NPTELProvider = ({ children }) => {
   const fetchPendingEnrollments = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/pending`,
-        getAuthHeader()
-      );
+      const response = await API.get("/nptel/pending");
       setPendingEnrollments(response.data.enrollments || []);
       setError(null);
     } catch (err) {
@@ -209,17 +182,13 @@ export const NPTELProvider = ({ children }) => {
   }, []);
 
   // Verify enrollment
-  const verifyEnrollment = async (enrollmentId, verifierId, comments = "") => {
+  const verifyEnrollment = async (enrollmentId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/verify/${enrollmentId}`,
-        {
-          Userid: verifierId,
-          verification_comments: comments
-        },
-        getAuthHeader()
-      );
+      const response = await API.put(`/nptel/verify/${enrollmentId}`, {
+        Userid: targetUserId,
+        verification_comments: comments
+      });
       await fetchPendingEnrollments();
       setError(null);
       return response.data;
@@ -232,6 +201,13 @@ export const NPTELProvider = ({ children }) => {
   };
 
   const clearError = () => setError(null);
+
+  useEffect(() => {
+    fetchAllCourses();
+    if (UserId) {
+      fetchStudentEnrollments();
+    }
+  }, [UserId, fetchAllCourses, fetchStudentEnrollments]);
 
   return (
     <NPTELContext.Provider

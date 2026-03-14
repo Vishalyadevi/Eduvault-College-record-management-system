@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FaPlus, FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useAchievement } from "../../contexts/AchievementContext";
+import { useAuth } from "../auth/AuthContext";
+import config from "../../../config";
+
 
 const Achievements = () => {
   const {
@@ -24,7 +27,11 @@ const Achievements = () => {
 
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
-  const userId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
+  const backendUrl = config.backendUrl;
+
 
   useEffect(() => {
     if (userId) {
@@ -44,24 +51,24 @@ const Achievements = () => {
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+
     try {
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description || "");
-      
+
       // Validate and format date
       if (!formData.date_awarded) {
         throw new Error("Date awarded is required");
       }
-      
+
       const dateObj = new Date(formData.date_awarded);
       if (isNaN(dateObj.getTime())) {
         throw new Error("Invalid date format");
       }
-      
+
       data.append("date_awarded", dateObj.toISOString().split('T')[0]);
-      
+
       if (formData.certificate) {
         data.append("certificate_file", formData.certificate);
       }
@@ -114,7 +121,7 @@ const Achievements = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case "approved": return "bg-green-100 text-green-800";
       case "pending": return "bg-yellow-100 text-yellow-800";
       case "rejected": return "bg-red-100 text-red-800";
@@ -123,8 +130,8 @@ const Achievements = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Achievements
       </h2>
 
@@ -135,7 +142,7 @@ const Achievements = () => {
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -158,7 +165,7 @@ const Achievements = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Title"
                 required
               />
@@ -171,7 +178,7 @@ const Achievements = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Description"
               />
             </div>
@@ -183,7 +190,7 @@ const Achievements = () => {
                 name="date_awarded"
                 value={formData.date_awarded}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 max={new Date().toISOString().split('T')[0]}
               />
@@ -197,7 +204,7 @@ const Achievements = () => {
                 type="file"
                 name="certificate"
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
               />
             </div>
@@ -227,7 +234,7 @@ const Achievements = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update" : "Add"}
@@ -247,8 +254,8 @@ const Achievements = () => {
           <p className="text-gray-500">No achievements available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '2000px', width: '100%' }}>
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"style={{ minWidth: '1500px', width: '100%' }}>
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2000px', width: '100%' }}>
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white" style={{ minWidth: '1500px', width: '100%' }}>
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Title</th>
                   <th className="border border-gray-300 p-3 text-left">Description</th>
@@ -273,42 +280,43 @@ const Achievements = () => {
                     <td className="border border-gray-300 p-3">
                       {achievement.certificate_file ? (
                         <a
-                          href={`http://localhost:4000/uploads/achievements/${achievement.certificate_file}`}
+                          href={`${backendUrl}/uploads/achievements/${achievement.certificate_file}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 transition"
+                          className="text-indigo-600 hover:text-indigo-700 transition"
                         >
                           <FaEye className="inline-block text-xl" />
                         </a>
                       ) : (
                         "No Certificate"
                       )}
+
                     </td>
                     <td className="border border-gray-300 p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        achievement.pending ? "pending" : 
-                        achievement.tutor_approval_status ? "approved" : "rejected"
+                        achievement.pending ? "pending" :
+                          achievement.tutor_approval_status ? "approved" : "rejected"
                       )}`}>
-                        {achievement.pending ? "Pending" : 
-                         achievement.tutor_approval_status ? "Approved" : "Rejected"}
+                        {achievement.pending ? "Pending" :
+                          achievement.tutor_approval_status ? "Approved" : "Rejected"}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(achievement)}
-                          className={`p-1 ${achievement.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${achievement.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={achievement.pending ? "Edit" : "Cannot edit approved/rejected achievements"}
                           disabled={!achievement.pending}
                         >
                           <FaEdit />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(achievement.id)}
-                          className={`p-1 ${achievement.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${achievement.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={achievement.pending ? "Delete" : "Cannot delete approved/rejected achievements"}
                           disabled={!achievement.pending}

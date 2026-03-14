@@ -48,16 +48,16 @@ const Modal = ({
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         }
       `}</style>
       
       <div className={`bg-white rounded-xl shadow-2xl w-full ${sizeClasses[size]} overflow-hidden transform transition-all duration-300 scale-100`}>
-        <div className="flex items-center justify-between p-5 border-b bg-gradient-to-r from-blue-600 via-blue-500 to-purple-600">
+        <div className="flex items-center justify-between p-5 border-b bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600">
           <h3 className="text-xl font-bold text-white">{title}</h3>
           <button
             onClick={onClose}
@@ -86,7 +86,7 @@ const Modal = ({
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 via-blue-500 to-purple-600 text-white text-sm font-semibold hover:from-blue-700 hover:via-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transform hover:scale-105"
+                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 text-white text-sm font-semibold hover:from-indigo-700 hover:via-indigo-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transform hover:scale-105"
                 >
                   {isSubmitting ? 'Saving...' : submitText}
                 </button>

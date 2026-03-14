@@ -6,8 +6,8 @@ import './index.css';
 import { StudentProvider } from './records/contexts/StudentContext.jsx';
 import { StaffProvider } from './records/contexts/StaffContext.jsx';
 import { UserProvider } from './records/contexts/UserContext.jsx';
-import { InternProvider } from "./records/contexts/InternContext"; 
-import { DashboardProvider } from "./records/contexts/DashboardContext"; 
+import { InternProvider } from "./records/contexts/InternContext";
+import { DashboardProvider } from "./records/contexts/DashboardContext";
 import { OrganizedEventProvider } from "./records/contexts/OrganizedEventContext";
 import { AttendedEventProvider } from "./records/contexts/AttendedEventContext";
 import { AppProvider } from './records/contexts/AppContext.jsx';
@@ -28,12 +28,16 @@ import { NonCGPAProvider } from "./records/contexts/NonCGPAContext.jsx"; // NEW
 import { NonCGPACategoryProvider } from "./records/contexts/NonCGPACategoryContext.jsx"; // NEW
 import { CertificateProvider } from "./records/contexts/CertificateContext.jsx";
 import { NPTELProvider } from './records/contexts/NPTELContext';
+import { SkillRackProvider } from './records/contexts/SkillRackContext';
+import { AuthProvider, useAuth } from './records/pages/auth/AuthContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
 
 
 
 // Main Website Components (from project/src/)
 import Navbar from './components/Navbar';
-import Sidebar from './records/components/Sidebar';
+// Duplicate Sidebar import removed
 import Hero from './components/Hero';
 //import QuickLinks from './components/QuickLinks';
 import AcademicsOverview from './components/AcademicsOverview';
@@ -46,7 +50,7 @@ import CompaniesList from './components/CompaniesList';
 import Preloader from './components/Preloader';
 import FlashNews from './components/FlashNews';
 import WhyNEC from './components/WhyNEC';
-import VisionMissionSection from './components/VisionMissionSection';
+import VisionMissionSection from './components/VissionMissionSection.tsx';
 import PlaceMent from './components/PlaceMent';
 import ProgramsOffered from './components/ProgramsOffered';
 import Events from './components/Events';
@@ -79,30 +83,23 @@ import ApplyNowButton from './components/ApplyNowButton';
 
 // Placement System Components (from placement/src/)
 import PublicHome from './placement/components/publichome';
-import Login from './placement/components/Login';
+import Login from './placement/components/Login.jsx';
 import HomePage from './placement/components/admin/AdminHome';
 import AdminRecruiters from './placement/components/admin/company/AdminRecruiters';
 import Drive from './placement/components/Drive';
-import CompanyDetails from './placement/components/admin/company/CompanyDetails';
-import StudentNavbar from './placement/components/student/navbar';
-import StudentHome from './placement/components/student/home';
+
 import AdminUpcomingDrives from './placement/components/admin/AdminUpcommingDrives';
 import AdminNavbar from './placement/components/admin/AdminNavbar';
-import StudentProfile from './placement/components/student/profile';
 import UpcomingDrives from './placement/components/student/UpcomingDrive';
 import RegisteredStudents from './placement/components/admin/AdminRegisteredStudents';
-import Status from './placement/components/student/Status';
 import StudentRecruiter from './placement/components/student/StudentRecruiter';
-import StaffHome from './placement/components/staff/staffHome';
-import StaffNavbar from './placement/components/staff/staffnavbar';
+
 import StaffRecruiter from './placement/components/staff/staffRecruiters';
 import StaffUpcommingDrive from './placement/components/staff/staffUpcommingDrive';
-import Tutorward from './placement/components/staff/tutorward';
 import AdminHackathon from './placement/components/admin/Hackathon';
 import StudentHackathon from './placement/components/student/Hackathon';
-import EditCompany from './placement/components/admin/company/EditCompanyDetails';
 import StaffHackathon from './placement/components/staff/staffhackathon';
-import PlacementFeedback from './placement/components/student/placementFeedback';
+import StudentPlacementFeedback from './placement/components/student/placementFeedback';
 import EligibleStudents from './placement/components/admin/elegibleStudents';
 import AdminFeedback from './placement/components/admin/feedback';
 import StaffEligibleStudents from './placement/components/staff/eligiblestudents';
@@ -112,7 +109,7 @@ import AdminNPTEL from './records/pages/admin/AdminNPTEL';
 
 
 // Records System Components (from records/src/)
-import RecordsLogin from './records/pages/Login';
+import RecordsLogin from './records/pages/auth/Login';
 import AdminPanel from './records/pages/admin/AdminPanel';
 import AddUser from './records/pages/admin/AddUser';
 import StaffList from './records/pages/admin/StaffList';
@@ -137,7 +134,17 @@ import StudentEducation from './records/pages/Student/Education.jsx';
 import NonCGPACourses from './records/pages/Student/NonCGPACourses.jsx';
 import NonCGPACategoryManagement from './records/pages/admin/NonCGPACategoryManagement.jsx';
 import StudentLeaveApproval from './records/pages/admin/StudentLeaveApproval.jsx'
+import StudentSkillRackPage from './records/pages/Student/SkillrackPage.jsx';
 
+import DepartmentManagement from './records/pages/admin/DepartmentManagement.jsx';
+import RoleManagement from './records/pages/admin/RoleManagement.jsx';
+
+import ActivityPage from './records/pages/StaffPage/ActivityPage.jsx';
+import ActivityApprovalPage from './records/pages/admin/ActivityApprovalPage.clean.jsx';
+import TLPApprovalPage from './records/pages/admin/TLPApprovalPage.jsx';
+import TLPManagementPage from './records/pages/StaffPage/TLPManagementPage.jsx';
+import TlpCommentsAdmin from './records/pages/admin/TlpCommentsAdmin.jsx';
+import ResumeGenerator from './records/pages/Student/ResumeGenerator.jsx';
 
 
 import Dashboard from './records/pages/StaffPage/Dashboard';
@@ -150,6 +157,7 @@ import MyWard from './records/pages/StaffPage/MyWard';
 import ForgotPassword from './records/pages/ForgetPassword';
 import ResetPassword from './records/pages/ResetPassword';
 import StudentBioData from './records/pages/Student/StudentBioData';
+import StaffBioData from './records/pages/StaffPage/StaffBioData';
 import StudentActivity from './records/pages/Student/StudentActivity';
 
 // New Staff Pages for Records
@@ -178,46 +186,20 @@ import StudentActivitiesPage from './records/pages/admin/StudentActivities';
 import StaffFeedback from './placement/components/staff/stafffeedback';
 import StaffMou from './records/pages/StaffPage/MOUPage';
 import UploadSemMarksStaff from './records/pages/StaffPage/UploadSemMarks.jsx';
+import StaffSkillRackManagement from './records/pages/StaffPage/StaffSkillRackPage.jsx';
+import ITLPPage from './components/CSE/ITLPPage.tsx';
+import EnhancedStaffResumeGenerator from './records/pages/StaffPage/staffResumeGenerator.jsx';
 
-// Authentication helper functions
-const getToken = (): string | null => {
-  return localStorage.getItem("token");
-};
+//Acadamic Routes
+import AcadamicRoutes from "./acadamic/acadamicRoutes.jsx";
+import { AuthProvider as AcadamicAuthProvider } from './acadamic/pages/auth/AuthContext';
+import { Outlet } from 'react-router-dom';
 
-const getUserRole = (): string | null => {
-  // Try multiple possible keys for role storage
-  const role = localStorage.getItem("role") || 
-                localStorage.getItem("userRole") || 
-                localStorage.getItem("user_role");
-  
-  if (!role) return null;
-  
-  // Normalize role names to match expected values
-  const normalizedRole = role.toLowerCase();
-  
-  switch (normalizedRole) {
-    case 'admin':
-    case 'administrator':
-      return 'Admin';
-    case 'student':
-      return 'Student';
-    case 'staff':
-    case 'faculty':
-    case 'teacher':
-      return 'Staff';
-    default:
-      // Return the role as-is if it doesn't match known patterns
-      return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
-  }
-};
 
-const isAuthenticated = (): boolean => {
-  const token = getToken();
-  const role = getUserRole();
-  return !!(token && role);
-};
+
 
 // Get system context based on current path
+
 const getCurrentSystem = (pathname: string): string => {
   if (pathname.startsWith('/placement/')) return 'placement';
   if (pathname.startsWith('/records/')) return 'records';
@@ -231,22 +213,15 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const isAuth = isAuthenticated();
-  const userRole = getUserRole();
+  const { user, loading } = useAuth() as any;
+
   const currentPath = window.location.pathname;
   const system = getCurrentSystem(currentPath);
 
-  console.log('ProtectedRoute Debug:', {
-    isAuth,
-    userRole,
-    currentPath,
-    system,
-    allowedRoles,
-    token: getToken()
-  });
+  // Wait until AuthContext finishes loading initial state
+  if (loading) return null;
 
-  // If not authenticated, redirect to appropriate login
-  if (!isAuth) {
+  if (!user) {
     switch (system) {
       case 'placement':
         window.location.href = '/placement/login';
@@ -261,9 +236,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return null;
   }
 
-  // If role restrictions exist and user doesn't have required role
   if (allowedRoles && allowedRoles.length > 0) {
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    const userRole = user.role;
+    // Check if userRole matches any allowed role (case-insensitive)
+    // Also treat 'acadamicadmin' as admin-level so it matches Superadmin/Deptadmin routes
+    const isAdminLevel = userRole?.toLowerCase() === 'acadamicadmin' &&
+      allowedRoles.some(r => ['superadmin','deptadmin','admin'].includes(r.toLowerCase()));
+    if (!userRole || (!isAdminLevel && !allowedRoles.some(role => userRole.toLowerCase().includes(role.toLowerCase())))) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50">
           <div className="text-center p-8 bg-white rounded-lg shadow-md">
@@ -272,17 +251,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
             <p className="text-sm text-gray-500 mb-4">
               Current role: {userRole || 'Unknown'} | Required roles: {allowedRoles.join(', ')}
             </p>
-            <button 
+            <button
               onClick={() => {
-                // Clear localStorage and redirect to login
                 localStorage.clear();
-                if (system === 'placement') {
-                  window.location.href = '/placement/login';
-                } else if (system === 'records') {
-                  window.location.href = '/records/login';
-                } else {
-                  window.location.href = '/';
-                }
+                window.location.href = system === 'placement'
+                  ? '/placement/login'
+                  : system === 'records'
+                    ? '/records/login'
+                    : '/';
               }}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
             >
@@ -303,15 +279,18 @@ interface PlacementLayoutProps {
 }
 
 const PlacementLayout: React.FC<PlacementLayoutProps> = ({ children }) => {
-  const role = getUserRole();
+  const { user } = useAuth() as any;
+
+  const role = user?.role;
+  const isPlacementAdmin = role?.toLowerCase().includes("placementadmin");
 
   return (
-    <>
-      {role === "Placementadmin" && <AdminNavbar />}
-      {role === "Student" && <StudentNavbar />}
-      {role === "Staff" && <StaffNavbar />}
-      {children}
-    </>
+    <div className="flex min-h-screen bg-gray-50">
+      {isPlacementAdmin && <AdminNavbar />}
+      <div className={`${isPlacementAdmin ? "ml-64" : ""} flex-grow w-full p-6 md:p-8`}>
+        {children}
+      </div>
+    </div>
   );
 };
 
@@ -322,34 +301,38 @@ interface RecordsLayoutProps {
 }
 
 const RecordsLayout: React.FC<RecordsLayoutProps> = ({ children, location }) => {
+  const { user, loading } = useAuth();
   const noSidebarRoutes = [
-    "/records/login", 
+    "/records/login",
     "/records/forgot-password"
   ];
-  
+
   const shouldShowSidebar =
     !noSidebarRoutes.includes(location.pathname) &&
     !location.pathname.startsWith("/records/reset-password") &&
-    isAuthenticated();
+    !loading &&
+    !!user;
 
   return (
     <div className="min-h-screen bg-gray-50">
       {shouldShowSidebar && <RecordsSidebar />}
-      <div className={shouldShowSidebar ? "ml-64 p-4 mt-4" : ""}>
+      <div className={shouldShowSidebar ? "ml-64 min-h-screen p-8" : ""}>
         <ToastContainer />
-        {children}
+        <div className={shouldShowSidebar ? "max-w-[1600px] mx-auto" : ""}>
+          {children}
+        </div>
       </div>
     </div>
   );
 };
 
 // Component to get location for Records Layout with StudentProvider
-const RecordsLayoutWithLocation: React.FC<{ children: React.ReactNode; includeStudentProvider?: boolean }> = ({ 
-  children, 
-  includeStudentProvider = false 
+const RecordsLayoutWithLocation: React.FC<{ children: React.ReactNode; includeStudentProvider?: boolean }> = ({
+  children,
+  includeStudentProvider = false
 }) => {
   const location = useLocation();
-  
+
   if (includeStudentProvider) {
     return (
       <StudentProvider>
@@ -357,8 +340,32 @@ const RecordsLayoutWithLocation: React.FC<{ children: React.ReactNode; includeSt
       </StudentProvider>
     );
   }
-  
+
   return <RecordsLayout location={location}>{children}</RecordsLayout>;
+};
+
+// Acadamic Routes Wrapper
+const AcadamicRoutesWrapper = () => {
+  return (
+    <AcadamicAuthProvider>
+      <Outlet />
+    </AcadamicAuthProvider>
+  );
+};
+
+const renderAcadamicRoutes = (routes: any[], isRoot = true) => {
+  return routes
+    .filter((route: any) => !(isRoot && route.path === "*"))
+    .map((route: any, index: number) => {
+      if (route.children) {
+        return (
+          <Route key={index} path={route.path} element={route.element}>
+            {renderAcadamicRoutes(route.children, false)}
+          </Route>
+        );
+      }
+      return <Route key={index} index={route.index} path={route.path} element={route.element} />;
+    });
 };
 
 // App Routes Component
@@ -416,6 +423,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/mech-dept" element={<><Navbar /><ApplyNowButton /><MechDept /><Footer /></>} />
       <Route path="/civil-dept" element={<><Navbar /><ApplyNowButton /><CivilDept /><Footer /></>} />
       <Route path="/it-dept" element={<><Navbar /><ApplyNowButton /><ItDept /><Footer /></>} />
+      <Route path="/departments/cse/itlp" element={<><Navbar /><ApplyNowButton /><ITLPPage /><Footer /></>} />
+
 
       {/* ==================== PLACEMENT SYSTEM ROUTES ==================== */}
       {/* Placement Public Routes */}
@@ -454,11 +463,7 @@ const AppRoutes: React.FC = () => {
           <PlacementLayout><AdminFeedback /></PlacementLayout>
         </ProtectedRoute>
       } />
-      <Route path="/placement/company/:companyName" element={
-        <ProtectedRoute allowedRoles={['Placementadmin', 'Staff']}>
-          <PlacementLayout><CompanyDetails /></PlacementLayout>
-        </ProtectedRoute>
-      } />
+
       <Route path="/placement/admin-registered-students" element={
         <ProtectedRoute allowedRoles={['Placementadmin']}>
           <PlacementLayout><RegisteredStudents /></PlacementLayout>
@@ -466,99 +471,119 @@ const AppRoutes: React.FC = () => {
       } />
       <Route path="/placement/admin-hackathon" element={
         <ProtectedRoute allowedRoles={['Placementadmin']}>
-          <AdminNavbar /><AdminHackathon />
+          <PlacementLayout><AdminHackathon /></PlacementLayout>
         </ProtectedRoute>
       } />
       <Route path="/placement/admin-hackathon-report" element={
         <ProtectedRoute allowedRoles={['Placementadmin']}>
-          <AdminNavbar /><HackathonReport />
-        </ProtectedRoute>
-      } />
-      <Route path="/placement/admin/edit-company/:companyName" element={
-        <ProtectedRoute allowedRoles={['Placementadmin']}>
-          <AdminNavbar /><EditCompany />
+          <PlacementLayout><HackathonReport /></PlacementLayout>
         </ProtectedRoute>
       } />
 
-      {/* Student Routes */}
-      <Route path="/placement/home" element={
-        <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><StudentHome />
-        </ProtectedRoute>
-      } />
+
+
       <Route path="/placement/recruiters" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><StudentRecruiter />
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentRecruiter />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/placement/feedback" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div ><PlacementFeedback /></div>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentPlacementFeedback />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/placement/upcoming-drive" element={
         <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div ><UpcomingDrives /></div>
-        </ProtectedRoute>
-      } />
-      <Route path="/placement/status" element={
-        <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div ><Status /></div>
-        </ProtectedRoute>
-      } />
-      <Route path="/placement/studentprofile" element={
-        <ProtectedRoute allowedRoles={['Student']}>
-          <Sidebar /><div ><StudentProfile /></div>
-        </ProtectedRoute>
-      } />
-      <Route path="/placement/hackathon" element={
-        <ProtectedRoute allowedRoles={['Student']}>
-           <Sidebar /><div ><StudentHackathon /></div>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <UpcomingDrives />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
 
-      {/* Staff Routes */}
-      <Route path="/placement/staff-home" element={
-        <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><div ><StaffHome /></div>
+      <Route path="/placement/hackathon" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentHackathon />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+
+
       <Route path="/records/staff-recruiters" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><div ><StaffRecruiter /></div>
+          <RecordsLayoutWithLocation>
+            <StaffRecruiter />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-upcomingdrive" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffUpcommingDrive />
+          <RecordsLayoutWithLocation>
+            <StaffUpcommingDrive />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/eligible-staff-students" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffEligibleStudents/>
+          <RecordsLayoutWithLocation>
+            <StaffEligibleStudents />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-feedback" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffFeedback/>
+          <RecordsLayoutWithLocation>
+            <StaffFeedback />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
-      <Route path="/records/staff-tutorward" element={
-        <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><Tutorward />
-        </ProtectedRoute>
-      } />
+
       <Route path="/records/staff-hackathon" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><StaffHackathon />
+          <RecordsLayoutWithLocation>
+            <StaffHackathon />
+          </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/upload-semmarks" element={
         <ProtectedRoute allowedRoles={['Staff']}>
-          <Sidebar /><UploadSemMarksStaff />
+          <RecordsLayoutWithLocation>
+            <UploadSemMarksStaff />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/tlp-comments" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation><TlpCommentsAdmin /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
 
+      <Route path="/records/activity" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><ActivityPage /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/records/tlp-management" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><TLPManagementPage /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/records/activity-approval" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation><ActivityApprovalPage /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/tlp-approval" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation><TLPApprovalPage /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
       {/* ==================== RECORDS SYSTEM ROUTES ==================== */}
       {/* Records Public Routes */}
@@ -567,45 +592,55 @@ const AppRoutes: React.FC = () => {
       <Route path="/records/reset-password/:token" element={<ResetPassword />} />
 
       {/* Records Protected Routes */}
-      
+
       {/* Admin Routes */}
       <Route path="/records/admin" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><AdminPanel /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/student-list" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StudentList /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-list" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StaffList /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/add-user" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin']}>
           <RecordsLayoutWithLocation><AddUser /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/bulk" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><Bulk /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-activities" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StaffActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/department-management" element={
+        <ProtectedRoute allowedRoles={['Superadmin']}>
+          <RecordsLayoutWithLocation><DepartmentManagement /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/role-management" element={
+        <ProtectedRoute allowedRoles={['Superadmin']}>
+          <RecordsLayoutWithLocation><RoleManagement /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/student-activities" element={
-        <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StudentActivitiesPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
- <Route path="/records/student-leave-approval" element={
-        <ProtectedRoute allowedRoles={['Deptadmin']}>
+      <Route path="/records/student-leave-approval" element={
+        <ProtectedRoute allowedRoles={['Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StudentLeaveApproval /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
@@ -618,15 +653,12 @@ const AppRoutes: React.FC = () => {
       } /> */}
 
       <Route path="/records/staff" element={
-  <ProtectedRoute allowedRoles={['Staff']}>
-    <div className="flex">
-      <Sidebar />
-      <div className="ml-64 flex-1 min-h-screen">
-        <DashboardPage />
-      </div>
-    </div>
-  </ProtectedRoute>
-} />
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation>
+            <DashboardPage />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/staff-dashboard" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation>
@@ -641,6 +673,12 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><MyWard /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/skillrack" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><StaffSkillRackManagement /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
 
       <Route path="/records/proposals" element={
         <ProtectedRoute allowedRoles={['Staff']}>
@@ -738,8 +776,13 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><StaffMou /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
-     
-      
+      <Route path="/records/staff-resume-generator" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><EnhancedStaffResumeGenerator /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
+
 
       {/* Student Routes - WITH StudentProvider */}
       <Route path="/records/student" element={
@@ -753,6 +796,13 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute allowedRoles={['Student']}>
           <RecordsLayoutWithLocation includeStudentProvider={true}>
             <StudentBackground />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/student-skillrack" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentSkillRackPage />
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
@@ -848,10 +898,16 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } /> */}
-
+      <Route path="/records/student-resume-generator" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <ResumeGenerator />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/student-profile" element={
         <ProtectedRoute allowedRoles={['Student']}>
-          <RecordsLayoutWithLocation><MyProfile /></RecordsLayoutWithLocation>
+          <RecordsLayoutWithLocation includeStudentProvider={true}><MyProfile /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/student-biodata/:userId" element={
@@ -861,72 +917,79 @@ const AppRoutes: React.FC = () => {
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/staff-biodata/:userId" element={
+        <ProtectedRoute allowedRoles={['Staff', 'Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation>
+            <StaffBioData />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/student-extracurricular" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <ExtracurricularActivities />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <ExtracurricularActivities />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/student-project" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <StudentProject />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentProject />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
-<Route path="/records/student-competency" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <StudentCompetency />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
+      <Route path="/records/student-competency" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentCompetency />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
-<Route path="/records/student-publication" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <Publication />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
-<Route path="/records/student-education" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <StudentEducation />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
+      <Route path="/records/student-publication" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <Publication />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/student-education" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentEducation />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
-<Route path="/records/noncgpa" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <NonCGPACourses />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
-<Route path="/records/noncgpa-category" element={
-  <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <NonCGPACategoryManagement />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
-<Route path="/records/nptel" element={
-  <ProtectedRoute allowedRoles={['Student']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <StudentNPTEL />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
-<Route path="/records/nptel-course" element={
-  <ProtectedRoute allowedRoles={['Superadmin','Deptadmin']}>
-    <RecordsLayoutWithLocation includeStudentProvider={true}>
-      <AdminNPTEL />
-    </RecordsLayoutWithLocation>
-  </ProtectedRoute>
-} />
+      <Route path="/records/noncgpa" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <NonCGPACourses />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/noncgpa-category" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <NonCGPACategoryManagement />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/nptel" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentNPTEL />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/nptel-course" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <AdminNPTEL />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
 
 
@@ -936,7 +999,7 @@ const AppRoutes: React.FC = () => {
       {/* Common Protected Routes (All authenticated users) */}
       <Route path="/records/profile" element={
         <ProtectedRoute>
-          <RecordsLayoutWithLocation><MyProfile /></RecordsLayoutWithLocation>
+          <RecordsLayoutWithLocation includeStudentProvider={true}><MyProfile /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/dashboard" element={
@@ -954,6 +1017,10 @@ const AppRoutes: React.FC = () => {
         </ProtectedRoute>
       } />
 
+      <Route element={<AcadamicRoutesWrapper />}>
+        {renderAcadamicRoutes(AcadamicRoutes)}
+      </Route>
+
       {/* Catch all route - redirect to home */}
       <Route path="*" element={
         <div className="flex flex-col min-h-screen bg-white">
@@ -963,8 +1030,8 @@ const AppRoutes: React.FC = () => {
             <div className="text-center">
               <h1 className="text-4xl font-bold text-gray-800 mb-4">404 - Page Not Found</h1>
               <p className="text-gray-600 mb-8">The page you're looking for doesn't exist.</p>
-              <a 
-                href="/" 
+              <a
+                href="/"
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Go Home
@@ -991,63 +1058,67 @@ function App() {
   if (loading) return <Preloader />;
 
   return (
-    <StudentDataProvider>
-      <NPTELProvider>
-      
-          <CertificateProvider>
+    <GoogleOAuthProvider clientId="493948268457-pop93h1dek4qf9tdnqancgrtcetrg1n7.apps.googleusercontent.com">
+      <AuthProvider>
+        <StudentDataProvider>
+          <NPTELProvider>
 
-      
-        <NonCGPACategoryProvider>
-        <NonCGPAProvider>
-        <StudentEducationProvider>
-        <ExtracurricularProvider>
-          <ProjectProvider>
-            <CompetencyCodingProvider>
-              <PublicationProvider>
-                <HackathonProvider>
-          <AchievementProvider>
-            <OnlineCoursesProvider>
-              <LeaveProvider>
-                <OrganizedEventProvider>
-                  <ScholarshipProvider>
-                    <LocationProvider>
-                      <AppProvider>
-                        <AttendedEventProvider>
-                          <InternProvider> 
-                            <DashboardProvider> 
-                              <UserProvider>
-                                <StudentProvider>
-                                  <StaffProvider>
-                                    <Router>
-                                      <AppRoutes />
-                                    </Router>
-                                  </StaffProvider>
-                                </StudentProvider>
-                              </UserProvider>
-                            </DashboardProvider>
-                          </InternProvider>
-                        </AttendedEventProvider>
-                      </AppProvider>
-                    </LocationProvider>
-                  </ScholarshipProvider>
-                </OrganizedEventProvider>
-              </LeaveProvider>
-            </OnlineCoursesProvider>
-          </AchievementProvider>
-        </HackathonProvider>
-        </PublicationProvider>
-        </CompetencyCodingProvider>
-        </ProjectProvider>
-        </ExtracurricularProvider>
-</StudentEducationProvider>
-</NonCGPAProvider>
-</NonCGPACategoryProvider>
-     
-          </CertificateProvider>
+            <CertificateProvider>
+              <SkillRackProvider>
+
+                <NonCGPACategoryProvider>
+                  <NonCGPAProvider>
+                    <StudentEducationProvider>
+                      <ExtracurricularProvider>
+                        <ProjectProvider>
+                          <CompetencyCodingProvider>
+                            <PublicationProvider>
+                              <HackathonProvider>
+                                <AchievementProvider>
+                                  <OnlineCoursesProvider>
+                                    <LeaveProvider>
+                                      <OrganizedEventProvider>
+                                        <ScholarshipProvider>
+                                          <LocationProvider>
+                                            <AppProvider>
+                                              <AttendedEventProvider>
+                                                <InternProvider>
+                                                  <DashboardProvider>
+                                                    <UserProvider>
+                                                      <StudentProvider>
+                                                        <StaffProvider>
+                                                          <Router>
+                                                            <AppRoutes />
+                                                          </Router>
+                                                        </StaffProvider>
+                                                      </StudentProvider>
+                                                    </UserProvider>
+                                                  </DashboardProvider>
+                                                </InternProvider>
+                                              </AttendedEventProvider>
+                                            </AppProvider>
+                                          </LocationProvider>
+                                        </ScholarshipProvider>
+                                      </OrganizedEventProvider>
+                                    </LeaveProvider>
+                                  </OnlineCoursesProvider>
+                                </AchievementProvider>
+                              </HackathonProvider>
+                            </PublicationProvider>
+                          </CompetencyCodingProvider>
+                        </ProjectProvider>
+                      </ExtracurricularProvider>
+                    </StudentEducationProvider>
+                  </NonCGPAProvider>
+                </NonCGPACategoryProvider>
+              </SkillRackProvider>
+            </CertificateProvider>
           </NPTELProvider>
-   
 
-    </StudentDataProvider>
+
+        </StudentDataProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 

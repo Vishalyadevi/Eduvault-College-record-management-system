@@ -181,16 +181,16 @@ const AdminPanel = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-r from-blue-50 to-purple-50 p-8">
+      <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-8">
         <div className="text-red-500 text-center text-xl">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-purple-50 p-8">
+    <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-8">
       {/* Header */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg text-white">
+      <div className="mb-8 p-6 bg-gradient-to-r from-indigo-600 to-indigo-600 rounded-lg shadow-lg text-white">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold mb-2 flex items-center">
@@ -277,7 +277,7 @@ const AdminPanel = () => {
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-purple-400 to-purple-600 p-6 rounded-lg shadow-lg text-white"
+          className="bg-gradient-to-r from-indigo-400 to-indigo-600 p-6 rounded-lg shadow-lg text-white"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -295,7 +295,7 @@ const AdminPanel = () => {
         className="bg-white p-6 rounded-lg shadow-lg mb-8"
       >
         <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUsers className="mr-3 text-purple-600" /> 
+          <FaUsers className="mr-3 text-indigo-600" /> 
           {isSuperAdmin ? "Total Staff in Each Department" : `Staff in ${availableDepartments[0] || "Department"}`}
         </h2>
         <ResponsiveContainer width="100%" height={400}>
@@ -329,25 +329,25 @@ const AdminPanel = () => {
         className="bg-white p-6 rounded-lg shadow-lg mb-8"
       >
         <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUserGraduate className="mr-3 text-purple-600" /> 
+          <FaUserGraduate className="mr-3 text-indigo-600" /> 
           Batch-wise Students in {availableDepartments[currentDeptIndex] || "Department"}
         </h2>
         {isSuperAdmin && availableDepartments.length > 1 && (
           <div className="flex justify-between items-center mb-4">
             <button
               onClick={handlePrevious}
-              className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
+              className="p-2 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors"
             >
-              <FaChevronLeft className="text-purple-600" />
+              <FaChevronLeft className="text-indigo-600" />
             </button>
             <span className="text-gray-600 font-medium">
               Department {currentDeptIndex + 1} of {availableDepartments.length}
             </span>
             <button
               onClick={handleNext}
-              className="p-2 bg-purple-100 rounded-full hover:bg-purple-200 transition-colors"
+              className="p-2 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors"
             >
-              <FaChevronRight className="text-purple-600" />
+              <FaChevronRight className="text-indigo-600" />
             </button>
           </div>
         )}
@@ -384,7 +384,7 @@ const AdminPanel = () => {
           className="bg-white p-6 rounded-lg shadow-lg"
         >
           <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <FaUpload className="mr-3 text-purple-600" /> Bulk Upload History
+            <FaUpload className="mr-3 text-indigo-600" /> Bulk Upload History
           </h2>
           <div className="mb-4">
             <div className="relative">
@@ -393,7 +393,7 @@ const AdminPanel = () => {
                 placeholder="Search uploads..."
                 value={uploadSearchQuery}
                 onChange={(e) => setUploadSearchQuery(e.target.value)}
-                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600"
               />
               <FaSearch className="absolute left-3 top-3 text-gray-400" />
             </div>
@@ -428,7 +428,7 @@ const AdminPanel = () => {
             <button
               onClick={() => setCurrentUploadPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentUploadPage === 1}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
             >
               Previous
             </button>
@@ -436,7 +436,7 @@ const AdminPanel = () => {
             <button
               onClick={() => setCurrentUploadPage((prev) => prev + 1)}
               disabled={paginatedUploadHistory.length < itemsPerPage}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
             >
               Next
             </button>
@@ -449,7 +449,7 @@ const AdminPanel = () => {
           className="bg-white p-6 rounded-lg shadow-lg"
         >
           <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <FaDownload className="mr-3 text-purple-600" /> Download History
+            <FaDownload className="mr-3 text-indigo-600" /> Download History
           </h2>
           <div className="mb-4">
             <div className="relative">
@@ -458,7 +458,7 @@ const AdminPanel = () => {
                 placeholder="Search downloads..."
                 value={downloadSearchQuery}
                 onChange={(e) => setDownloadSearchQuery(e.target.value)}
-                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600"
               />
               <FaSearch className="absolute left-3 top-3 text-gray-400" />
             </div>
@@ -493,7 +493,7 @@ const AdminPanel = () => {
             <button
               onClick={() => setCurrentDownloadPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentDownloadPage === 1}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
             >
               Previous
             </button>
@@ -501,7 +501,7 @@ const AdminPanel = () => {
             <button
               onClick={() => setCurrentDownloadPage((prev) => prev + 1)}
               disabled={paginatedDownloadHistory.length < itemsPerPage}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
             >
               Next
             </button>

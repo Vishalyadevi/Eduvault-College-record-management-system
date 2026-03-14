@@ -15,7 +15,6 @@ const HIndexPage = () => {
   const [currentRecord, setCurrentRecord] = useState(null);
 
   const [formData, setFormData] = useState({
-    faculty_name: '',
     citations: '',
     h_index: '',
     i_index: '',
@@ -30,47 +29,25 @@ const HIndexPage = () => {
       setLoading(true);
       const response = await getHIndexes();
       
-      // Enhanced error handling for response structure
-      console.log('API Response:', response); // Debug log
-      console.log('Response.data:', response.data); // Debug log
+      console.log('API Response:', response);
       
-      // Handle different possible response structures
       let dataArray = [];
       
-      // Check if it's an Axios response (has .data property)
       if (response && response.data) {
-        // If response.data has a data property (backend returns {success: true, data: []})
-        if (response.data.data && Array.isArray(response.data.data)) {
-          dataArray = response.data.data;
-        }
-        // If response.data is directly an array
-        else if (Array.isArray(response.data)) {
+        if (Array.isArray(response.data)) {
           dataArray = response.data;
-        }
-        // If response.data has success property and data is an array
-        else if (response.data.success && Array.isArray(response.data.data)) {
+        } else if (response.data.data && Array.isArray(response.data.data)) {
           dataArray = response.data.data;
         }
-        else {
-          console.warn('Unexpected response.data structure:', response.data);
-          dataArray = [];
-        }
-      }
-      // If response is directly an array (unlikely with Axios)
-      else if (Array.isArray(response)) {
+      } else if (Array.isArray(response)) {
         dataArray = response;
       }
-      else {
-        console.warn('Unexpected response structure:', response);
-        dataArray = [];
-      }
       
-      console.log('Final dataArray:', dataArray); // Debug log
+      console.log('Final dataArray:', dataArray);
       setHIndexes(dataArray);
     } catch (error) {
       console.error('Error fetching H Index data:', error);
       toast.error(error.response?.data?.message || 'Failed to load H Index data');
-      // Ensure hIndexes is always an array even on error
       setHIndexes([]);
     } finally {
       setLoading(false);
@@ -84,15 +61,8 @@ const HIndexPage = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Faculty name validation
-    if (!formData.faculty_name?.trim()) {
-      newErrors.faculty_name = 'Faculty name is required';
-    } else if (formData.faculty_name.trim().length > 100) {
-      newErrors.faculty_name = 'Faculty name cannot exceed 100 characters';
-    }
-
     // Citations validation
-    if (!formData.citations) {
+    if (!formData.citations || formData.citations === '') {
       newErrors.citations = 'Citations field is required';
     } else {
       const citationsNum = parseInt(formData.citations);
@@ -102,7 +72,7 @@ const HIndexPage = () => {
     }
 
     // H-index validation
-    if (!formData.h_index) {
+    if (!formData.h_index || formData.h_index === '') {
       newErrors.h_index = 'H-index field is required';
     } else {
       const hIndexNum = parseInt(formData.h_index);
@@ -112,7 +82,7 @@ const HIndexPage = () => {
     }
 
     // I-index validation
-    if (!formData.i_index) {
+    if (!formData.i_index || formData.i_index === '') {
       newErrors.i_index = 'I-index field is required';
     } else {
       const iIndexNum = parseFloat(formData.i_index);
@@ -122,7 +92,7 @@ const HIndexPage = () => {
     }
 
     // Google citations validation
-    if (!formData.google_citations) {
+    if (!formData.google_citations || formData.google_citations === '') {
       newErrors.google_citations = 'Google citations field is required';
     } else {
       const googleCitationsNum = parseInt(formData.google_citations);
@@ -132,7 +102,7 @@ const HIndexPage = () => {
     }
 
     // Scopus citations validation
-    if (!formData.scopus_citations) {
+    if (!formData.scopus_citations || formData.scopus_citations === '') {
       newErrors.scopus_citations = 'Scopus citations field is required';
     } else {
       const scopusCitationsNum = parseInt(formData.scopus_citations);
@@ -158,7 +128,6 @@ const HIndexPage = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -166,7 +135,6 @@ const HIndexPage = () => {
 
   const resetForm = () => {
     setFormData({
-      faculty_name: '',
       citations: '',
       h_index: '',
       i_index: '',
@@ -186,7 +154,6 @@ const HIndexPage = () => {
   const handleEdit = (record) => {
     setCurrentRecord(record);
     setFormData({
-      faculty_name: record.faculty_name || '',
       citations: record.citations?.toString() || '',
       h_index: record.h_index?.toString() || '',
       i_index: record.i_index?.toString() || '',
@@ -201,7 +168,6 @@ const HIndexPage = () => {
   const handleView = (record) => {
     setCurrentRecord(record);
     setFormData({
-      faculty_name: record.faculty_name || '',
       citations: record.citations?.toString() || '',
       h_index: record.h_index?.toString() || '',
       i_index: record.i_index?.toString() || '',
@@ -214,7 +180,7 @@ const HIndexPage = () => {
   };
 
   const handleDelete = async (record) => {
-    if (window.confirm(`Are you sure you want to delete the record for ${record.faculty_name}?`)) {
+    if (window.confirm('Are you sure you want to delete this H Index record?')) {
       try {
         await deleteHIndex(record.id);
         toast.success('H Index record deleted successfully');
@@ -235,15 +201,16 @@ const HIndexPage = () => {
     try {
       setIsSubmitting(true);
 
-      // Prepare data with proper data types
       const submitData = {
-        faculty_name: formData.faculty_name.trim(),
         citations: parseInt(formData.citations),
         h_index: parseInt(formData.h_index),
         i_index: parseFloat(formData.i_index),
         google_citations: parseInt(formData.google_citations),
         scopus_citations: parseInt(formData.scopus_citations)
       };
+
+      console.log('=== Frontend Submitting ===');
+      console.log('Submit Data:', submitData);
 
       if (currentRecord) {
         await updateHIndex(currentRecord.id, submitData);
@@ -258,10 +225,9 @@ const HIndexPage = () => {
       fetchHIndexes();
     } catch (error) {
       console.error('Error saving H Index:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to save H Index';
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to save H Index';
       toast.error(errorMessage);
       
-      // Handle validation errors from backend
       if (error.response?.status === 400) {
         console.log('Validation error from backend:', error.response.data);
       }
@@ -276,11 +242,6 @@ const HIndexPage = () => {
   };
 
   const columns = [
-    { 
-      field: 'faculty_name', 
-      header: 'Name of the Faculty',
-      render: (row) => row.faculty_name || 'N/A'
-    },
     { 
       field: 'citations', 
       header: 'No of Citations',
@@ -318,16 +279,14 @@ const HIndexPage = () => {
     }
   ];
 
-  // Debug log to help identify the issue
   console.log('hIndexes state:', hIndexes, 'Type:', typeof hIndexes, 'IsArray:', Array.isArray(hIndexes));
 
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-        
         <button 
           onClick={handleAddNew}           
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New H Index
@@ -353,19 +312,6 @@ const HIndexPage = () => {
         size="lg"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <FormField
-              label="Name of the Faculty"
-              name="faculty_name"
-              value={formData.faculty_name}
-              onChange={handleInputChange}
-              required
-              disabled={isViewMode}
-              error={errors.faculty_name}
-              placeholder="Enter faculty name"
-              maxLength={100}
-            />
-          </div>
           <FormField
             label="No of Citations"
             name="citations"
@@ -430,8 +376,8 @@ const HIndexPage = () => {
         </div>
         
         {!isViewMode && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-md">
-            <p className="text-sm text-blue-700">
+          <div className="mt-4 p-3 bg-indigo-50 rounded-md">
+            <p className="text-sm text-indigo-700">
               <strong>Note:</strong> H-index cannot be greater than the total number of citations.
             </p>
           </div>
@@ -450,14 +396,12 @@ const HIndexPage = () => {
               </p>
             </div>
             {currentRecord.updated_at && currentRecord.updated_at !== currentRecord.created_at && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Updated</label>
-                  <p className="text-sm text-gray-900">
-                    {new Date(currentRecord.updated_at).toLocaleString()}
-                  </p>
-                </div>
-              </>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Last Updated</label>
+                <p className="text-sm text-gray-900">
+                  {new Date(currentRecord.updated_at).toLocaleString()}
+                </p>
+              </div>
             )}
           </div>
         )}

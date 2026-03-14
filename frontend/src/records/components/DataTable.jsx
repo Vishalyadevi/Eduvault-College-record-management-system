@@ -52,7 +52,7 @@ const DataTable = ({
     return (
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="animate-pulse">
-          <div className="h-10 bg-gradient-to-r from-blue-200 to-purple-200 rounded-lg mb-4"></div>
+          <div className="h-10 bg-gradient-to-r from-indigo-200 to-indigo-200 rounded-lg mb-4"></div>
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-12 bg-gray-100 rounded-lg mb-2"></div>
           ))}
@@ -74,7 +74,7 @@ const DataTable = ({
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="overflow-x-auto" style={{
         scrollbarWidth: 'thin',
-        scrollbarColor: '#3b82f6 #e5e7eb'
+        scrollbarColor: '#4f46e5 #e5e7eb'
       }}>
         <style jsx>{`
           div::-webkit-scrollbar {
@@ -86,16 +86,16 @@ const DataTable = ({
             border-radius: 10px;
           }
           div::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
             border-radius: 10px;
           }
           div::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
           }
         `}</style>
         
         <table className="min-w-full table-auto">
-          <thead className="bg-gradient-to-r from-blue-600 via-blue-500 to-purple-600">
+          <thead className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">
                 S.No
@@ -132,7 +132,7 @@ const DataTable = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {currentData.map((row, index) => (
-              <tr key={row.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-150">
+              <tr key={row.id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-indigo-50 transition-all duration-150">
                 <td className="px-4 py-3 text-xs text-gray-700 font-medium">
                   {startIndex + index + 1}
                 </td>
@@ -148,7 +148,7 @@ const DataTable = ({
                     {onView && (
                       <button
                         onClick={() => onView(row)}
-                        className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                        className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                         title="View"
                       >
                         <Eye size={14} />
@@ -192,7 +192,7 @@ const DataTable = ({
           <button
             onClick={() => goToPage(1)}
             disabled={currentPage === 1}
-            className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+            className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-500 text-white hover:from-indigo-600 hover:to-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
             title="First Page"
           >
             <ChevronsLeft size={14} />
@@ -201,7 +201,7 @@ const DataTable = ({
           <button
             onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage === 1}
-            className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+            className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-500 text-white hover:from-indigo-600 hover:to-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
             title="Previous Page"
           >
             <ChevronLeft size={14} />
@@ -221,8 +221,8 @@ const DataTable = ({
                     onClick={() => goToPage(pageNum)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-200 ${
                       currentPage === pageNum
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                        : 'bg-white text-gray-700 hover:bg-gradient-to-r hover:from-blue-100 hover:to-purple-100 border border-gray-300'
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-600 text-white shadow-lg'
+                        : 'bg-white text-gray-700 hover:bg-gradient-to-r hover:from-indigo-100 hover:to-indigo-100 border border-gray-300'
                     }`}
                   >
                     {pageNum}
@@ -238,7 +238,7 @@ const DataTable = ({
           <button
             onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+            className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-500 text-white hover:from-indigo-600 hover:to-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
             title="Next Page"
           >
             <ChevronRight size={14} />
@@ -247,7 +247,7 @@ const DataTable = ({
           <button
             onClick={() => goToPage(totalPages)}
             disabled={currentPage === totalPages}
-            className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+            className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-500 text-white hover:from-indigo-600 hover:to-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
             title="Last Page"
           >
             <ChevronsRight size={14} />

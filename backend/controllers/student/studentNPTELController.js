@@ -1,6 +1,6 @@
 // controllers/student/studentNPTELController.js
-import StudentNPTEL from "../../models/StudentNPTEL.js";
-import NPTELCourse from "../../models/NPTELCourse.js";
+import StudentNPTEL from "../../models/student/StudentNPTEL.js";
+import NPTELCourse from "../../models/student/NPTELCourse.js";
 import { User, StudentDetails } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
 
@@ -28,8 +28,8 @@ export const enrollNPTELCourse = async (req, res) => {
     } = req.body;
 
     if (!Userid || !course_id) {
-      return res.status(400).json({ 
-        message: "User ID and Course ID are required" 
+      return res.status(400).json({
+        message: "User ID and Course ID are required"
       });
     }
 
@@ -45,8 +45,8 @@ export const enrollNPTELCourse = async (req, res) => {
     });
 
     if (existingEnrollment) {
-      return res.status(400).json({ 
-        message: "Already enrolled in this course" 
+      return res.status(400).json({
+        message: "Already enrolled in this course"
       });
     }
 
@@ -73,7 +73,7 @@ export const enrollNPTELCourse = async (req, res) => {
     const student = await StudentDetails.findOne({ where: { Userid } });
 
     if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has enrolled in an NPTEL course.\n\nStudent: ${user?.username || 'N/A'}\nRegno: ${student.regno}\n\nCourse: ${course.course_name}\nInstructor: ${course.instructor_name}\nStatus: ${status || 'In Progress'}\n\nBest Regards,\nNPTEL Management System`;
+      const emailText = `Dear Tutor,\n\nA student has enrolled in an NPTEL course.\n\nStudent: ${user?.username || 'N/A'}\nRegno: ${student.registerNumber}\n\nCourse: ${course.course_name}\nInstructor: ${course.instructor_name}\nStatus: ${status || 'In Progress'}\n\nBest Regards,\nNPTEL Management System`;
 
       await sendEmail({
         from: user?.email,
@@ -89,9 +89,9 @@ export const enrollNPTELCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error enrolling in course:", error);
-    res.status(500).json({ 
-      message: "Error enrolling in course", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error enrolling in course",
+      error: error.message
     });
   }
 };
@@ -118,8 +118,8 @@ export const updateStudentNPTEL = async (req, res) => {
 
     // Check authorization
     if (enrollment.Userid !== parseInt(Userid)) {
-      return res.status(403).json({ 
-        message: "Unauthorized to update this enrollment" 
+      return res.status(403).json({
+        message: "Unauthorized to update this enrollment"
       });
     }
 
@@ -127,11 +127,11 @@ export const updateStudentNPTEL = async (req, res) => {
     const course = await NPTELCourse.findByPk(enrollment.course_id);
 
     // Calculate new total and grade
-    const assessmentMarks = assessment_marks !== undefined 
-      ? parseFloat(assessment_marks) 
+    const assessmentMarks = assessment_marks !== undefined
+      ? parseFloat(assessment_marks)
       : enrollment.assessment_marks;
-    const examMarks = exam_marks !== undefined 
-      ? parseFloat(exam_marks) 
+    const examMarks = exam_marks !== undefined
+      ? parseFloat(exam_marks)
       : enrollment.exam_marks;
     const totalMarks = assessmentMarks + examMarks;
     const grade = calculateGrade(totalMarks, course);
@@ -156,9 +156,9 @@ export const updateStudentNPTEL = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating enrollment:", error);
-    res.status(500).json({ 
-      message: "Error updating enrollment", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating enrollment",
+      error: error.message
     });
   }
 };
@@ -179,7 +179,7 @@ export const getStudentNPTELCourses = async (req, res) => {
           model: NPTELCourse,
           as: 'course',
           attributes: [
-            'id', 'course_name', 'provider_name', 'instructor_name', 
+            'id', 'course_name', 'provider_name', 'instructor_name',
             'department', 'weeks', 'grade_O_min', 'grade_A_plus_min',
             'grade_A_min', 'grade_B_plus_min', 'grade_B_min', 'grade_C_min'
           ],
@@ -195,9 +195,9 @@ export const getStudentNPTELCourses = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching student enrollments:", error);
-    res.status(500).json({ 
-      message: "Error fetching enrollments", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error fetching enrollments",
+      error: error.message
     });
   }
 };
@@ -215,8 +215,8 @@ export const deleteStudentNPTEL = async (req, res) => {
 
     // Check authorization
     if (enrollment.Userid !== parseInt(Userid)) {
-      return res.status(403).json({ 
-        message: "Unauthorized to delete this enrollment" 
+      return res.status(403).json({
+        message: "Unauthorized to delete this enrollment"
       });
     }
 
@@ -225,9 +225,9 @@ export const deleteStudentNPTEL = async (req, res) => {
     res.status(200).json({ message: "Enrollment deleted successfully" });
   } catch (error) {
     console.error("Error deleting enrollment:", error);
-    res.status(500).json({ 
-      message: "Error deleting enrollment", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error deleting enrollment",
+      error: error.message
     });
   }
 };
@@ -245,12 +245,12 @@ export const getPendingNPTELEnrollments = async (req, res) => {
         {
           model: User,
           as: 'student',
-          attributes: ['Userid', 'username', 'email'],
+          attributes: ['userId', 'userName', 'userMail'],
           include: [
             {
               model: StudentDetails,
               as: 'studentDetails',
-              attributes: ['regno', 'staffId'],
+              attributes: ['registerNumber', 'staffId'],
             }
           ],
         }
@@ -265,9 +265,9 @@ export const getPendingNPTELEnrollments = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching pending enrollments:", error);
-    res.status(500).json({ 
-      message: "Error fetching pending enrollments", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error fetching pending enrollments",
+      error: error.message
     });
   }
 };
@@ -311,9 +311,9 @@ export const verifyStudentNPTEL = async (req, res) => {
     });
   } catch (error) {
     console.error("Error verifying enrollment:", error);
-    res.status(500).json({ 
-      message: "Error verifying enrollment", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error verifying enrollment",
+      error: error.message
     });
   }
 };

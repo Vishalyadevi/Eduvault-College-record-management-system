@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaPlus, FaEdit, FaTrash, FaFilePdf, FaCalendarAlt, FaClock } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useNonCGPA } from "../../contexts/NonCGPAContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 const NonCGPACourses = () => {
   const {
@@ -31,7 +33,9 @@ const NonCGPACourses = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
-  const userId = parseInt(localStorage.getItem("userId"));
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
 
   useEffect(() => {
     if (userId) {
@@ -45,7 +49,7 @@ const NonCGPACourses = () => {
     if (formData.from_date && formData.to_date) {
       const fromDate = new Date(formData.from_date);
       const toDate = new Date(formData.to_date);
-      
+
       if (toDate >= fromDate) {
         const days = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
         setFormData(prev => ({ ...prev, no_of_days: days }));
@@ -84,7 +88,7 @@ const NonCGPACourses = () => {
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+
     try {
       const data = {
         Userid: userId,
@@ -173,8 +177,8 @@ const NonCGPACourses = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Non-CGPA Courses
       </h2>
 
@@ -185,7 +189,7 @@ const NonCGPACourses = () => {
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -199,7 +203,7 @@ const NonCGPACourses = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           {editingId ? "Edit Course Record" : "Add Course Record"}
         </h3>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div className="md:col-span-3">
@@ -208,7 +212,7 @@ const NonCGPACourses = () => {
                 name="category_id"
                 value={formData.category_id}
                 onChange={handleCategoryChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="">-- Select a Course --</option>
@@ -221,7 +225,7 @@ const NonCGPACourses = () => {
             </div>
 
             {selectedCategory && (
-              <div className="md:col-span-3 p-4 bg-blue-50 rounded-lg">
+              <div className="md:col-span-3 p-4 bg-indigo-50 rounded-lg">
                 <h4 className="font-semibold text-gray-800 mb-2">Course Details:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                   <div>
@@ -250,7 +254,7 @@ const NonCGPACourses = () => {
                 name="from_date"
                 value={formData.from_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 max={new Date().toISOString().split('T')[0]}
               />
@@ -263,7 +267,7 @@ const NonCGPACourses = () => {
                 name="to_date"
                 value={formData.to_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 min={formData.from_date}
                 max={new Date().toISOString().split('T')[0]}
@@ -277,7 +281,7 @@ const NonCGPACourses = () => {
                 name="no_of_days"
                 value={formData.no_of_days}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50"
                 readOnly
                 placeholder="Auto-calculated"
               />
@@ -290,7 +294,7 @@ const NonCGPACourses = () => {
                 name="certificate_proof_pdf"
                 value={formData.certificate_proof_pdf}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="https://example.com/certificate.pdf"
               />
             </div>
@@ -302,7 +306,7 @@ const NonCGPACourses = () => {
                 name="certificate_proof_filename"
                 value={formData.certificate_proof_filename}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="certificate.pdf"
               />
             </div>
@@ -324,7 +328,7 @@ const NonCGPACourses = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update Record" : "Add Record"}
@@ -344,8 +348,8 @@ const NonCGPACourses = () => {
           <p className="text-gray-500">No records available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '1500px', width: '100%' }}>
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '1500px', width: '100%' }}>
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Category No</th>
                   <th className="border border-gray-300 p-3 text-left">Course Code</th>
@@ -361,10 +365,10 @@ const NonCGPACourses = () => {
                 {records.map((record) => (
                   <tr key={record.id} className="bg-white hover:bg-gray-50 transition">
                     <td className="border border-gray-300 p-3">
-                      <span className="font-semibold text-blue-600">{record.category_no}</span>
+                      <span className="font-semibold text-indigo-600">{record.category_no}</span>
                     </td>
                     <td className="border border-gray-300 p-3">
-                      <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-semibold">
+                      <span className="px-2 py-1 bg-indigo-100 text-blue-800 rounded text-sm font-semibold">
                         {record.course_code}
                       </span>
                     </td>
@@ -431,20 +435,20 @@ const NonCGPACourses = () => {
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(record)}
-                          className={`p-1 ${record.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${record.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={record.pending ? "Edit" : "Cannot edit verified/rejected records"}
                           disabled={!record.pending}
                         >
                           <FaEdit />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(record.id)}
-                          className={`p-1 ${record.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${record.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={record.pending ? "Delete" : "Cannot delete verified/rejected records"}
                           disabled={!record.pending}

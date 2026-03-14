@@ -1,4 +1,4 @@
-import { User, StudentDetails,EventOrganized } from "../../models/index.js";
+import { User, StudentDetails, EventOrganized } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
 
 // Add a new event
@@ -7,22 +7,33 @@ export const addEvent = async (req, res) => {
   try {
     const { event_name, club_name, role, staff_incharge, start_date, end_date, number_of_participants, mode, funding_agency, funding_amount, Userid } = req.body;
     console.log(req.body)
-    // Validate User ID
-    if (!Userid) {
+    // Standardize User ID resolution
+    const userId = req.user?.userId || req.user?.Userid || (req.body.Userid ? parseInt(req.body.Userid) : null);
+
+    if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    const userId = parseInt(Userid);
-
-    // Fetch user details
+    // Fetch user details with correct field names
     const user = await User.findByPk(userId);
-    if (!user || !user.email) {
+    if (!user || !user.userMail) {
       return res.status(404).json({ message: "Student email not found" });
     }
 
-    // Fetch student details
-    const student = await StudentDetails.findOne({ where: { Userid: userId } });
-    if (!student || !student.tutorEmail) {
+    // Fetch student details with staffAdvisor association
+    const student = await StudentDetails.findOne({
+      where: { Userid: userId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
+
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
+    if (!tutorEmail) {
       return res.status(404).json({ message: "Tutor email not found" });
     }
 
@@ -43,16 +54,41 @@ export const addEvent = async (req, res) => {
       tutor_approval_status: false,
       Approved_by: null,
       approved_at: null,
-      Created_by: parseInt(user.Userid),
-      Updated_by: parseInt(user.Userid),
+      Created_by: userId,
+      Updated_by: userId,
     });
+
+    console.log("✅ Event Organized created successfully:", event.id);
 
     // Send email to tutor
     const emailResponse = await sendEmail({
-      from: user.email,
-      to: student.tutorEmail,
-      subject: "New Event Pending Approval",
-      text: `Dear Tutor,\n\nA student has submitted a new event for your approval. Please find the details below:\n\nStudent Regno: ${student.regno}\nStudent Name: ${user.username || "N/A"}\nEvent Name: ${event_name}\nClub Name: ${club_name}\nRole: ${role}\nStaff Incharge: ${staff_incharge}\nStart Date: ${start_date}\nEnd Date: ${end_date}\nNumber of Participants: ${number_of_participants}\nMode: ${mode}\nFunding Agency: ${funding_agency || "N/A"}\nFunding Amount: ${funding_amount || "N/A"}\n\nThe event is currently pending your approval. Please review the details and either approve or reject the event.\n\nBest Regards,\nEvent Management System\n\nNote: If you have any issues, feel free to contact the system administrator at tutorsjf@gmail.com.`,
+      from: user.userMail,
+      to: tutorEmail,
+      subject: "New Event Organized Pending Approval",
+      text: `Dear Tutor,
+
+A student has submitted a new event organized record for your approval. 
+
+Student Details:
+- Registration Number: ${student?.registerNumber || "N/A"}
+- Name: ${user.userName || "N/A"}
+
+Event Details:
+- Event Name: ${event_name}
+- Club Name: ${club_name}
+- Role: ${role}
+- Staff Incharge: ${staff_incharge}
+- Start Date: ${start_date}
+- End Date: ${end_date}
+- Participants: ${number_of_participants}
+- Mode: ${mode}
+- Funding Agency: ${funding_agency || "N/A"}
+- Funding Amount: ${funding_amount || "N/A"}
+
+Please review the details in the system.
+
+Best Regards,
+College Record Management System`,
     });
 
     // Handle email sending errors
@@ -77,7 +113,7 @@ export const updateEvent = async (req, res) => {
   const { event_name, club_name, role, staff_incharge, start_date, end_date, number_of_participants, mode, funding_agency, funding_amount, Userid } = req.body;
 
   try {
-    const userId = parseInt(Userid);
+    const userId = req.user?.userId || req.user?.Userid || (req.body.Userid ? parseInt(req.body.Userid) : null);
 
     // Find the event by ID
     const event = await EventOrganized.findByPk(id);
@@ -92,22 +128,41 @@ export const updateEvent = async (req, res) => {
 
     // Find the user and student details
     const user = await User.findByPk(userId);
-    const student = await StudentDetails.findOne({ where: { Userid: userId } });
+    const student = await StudentDetails.findOne({
+      where: { Userid: userId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
+
     if (!user || !student) {
       return res.status(404).json({ message: "User or Student details not found" });
     }
 
-    // Update event details
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
+
+    // Update event details with proper null handling for numeric fields
     event.event_name = event_name ?? event.event_name;
     event.club_name = club_name ?? event.club_name;
     event.role = role ?? event.role;
     event.staff_incharge = staff_incharge ?? event.staff_incharge;
-    event.start_date = start_date ?? event.start_date; // Updated field name
-    event.end_date = end_date ?? event.end_date; // Updated field name
-    event.number_of_participants = number_of_participants ?? event.number_of_participants;
+    event.start_date = start_date ?? event.start_date;
+    event.end_date = end_date ?? event.end_date;
+    event.number_of_participants = number_of_participants ? parseInt(number_of_participants) : event.number_of_participants;
     event.mode = mode ?? event.mode;
     event.funding_agency = funding_agency ?? event.funding_agency;
-    event.funding_amount = funding_amount ?? event.funding_amount;
+
+    // FIX: Convert empty string to null for funding_amount
+    if (funding_amount === "" || funding_amount === null || funding_amount === undefined) {
+      event.funding_amount = null;
+    } else {
+      event.funding_amount = parseFloat(funding_amount);
+    }
+
     event.Updated_by = userId;
     event.pending = true;
     event.tutor_approval_status = false;
@@ -118,13 +173,36 @@ export const updateEvent = async (req, res) => {
     await event.save();
 
     // Send email to tutor if tutor's email is available
-    if (student.tutorEmail) {
-      const emailSubject = "Event Updated - Requires Review";
-      const emailText = `Dear Tutor,\n\nA student has updated their event details. Please review the updated details:\n\nStudent Regno: ${student.regno}\nStudent Name: ${user.username || "N/A"}\nEvent Name: ${event.event_name}\nClub Name: ${event.club_name}\nRole: ${event.role}\nStaff Incharge: ${event.staff_incharge}\nStart Date: ${event.start_date}\nEnd Date: ${event.end_date}\nNumber of Participants: ${event.number_of_participants}\nMode: ${event.mode}\nFunding Agency: ${event.funding_agency || "N/A"}\nFunding Amount: ${event.funding_amount || "N/A"}\n\nThis event is now pending approval. Please review the details.\n\nBest Regards,\nEvent Management System\n\nNote: If you have any issues, feel free to contact the system administrator at tutorsjf@gmail.com.`;
+    if (tutorEmail) {
+      const emailSubject = "Event Organized Updated - Requires Review";
+      const emailText = `Dear Tutor,
+
+A student has updated their event organized record. 
+
+Student Details:
+- Registration Number: ${student.registerNumber}
+- Name: ${user.userName || "N/A"}
+
+Updated Event Details:
+- Name: ${event.event_name}
+- Club Name: ${event.club_name}
+- Role: ${event.role}
+- Staff Incharge: ${event.staff_incharge}
+- Start Date: ${event.start_date}
+- End Date: ${event.end_date}
+- Participants: ${event.number_of_participants}
+- Mode: ${event.mode}
+- Funding Agency: ${event.funding_agency || "N/A"}
+- Funding Amount: ${event.funding_amount || "N/A"}
+
+This event is now pending approval. Please review the details.
+
+Best Regards,
+College Record Management System`;
 
       const emailResponse = await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
+        from: user.userMail,
+        to: tutorEmail,
         subject: emailSubject,
         text: emailText,
       });
@@ -146,7 +224,6 @@ export const updateEvent = async (req, res) => {
     res.status(500).json({ message: "Error updating event", error: error.message });
   }
 };
-
 // Get pending events
 export const getPendingEvents = async (req, res) => {
   try {
@@ -156,26 +233,26 @@ export const getPendingEvents = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno","staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
       ],
     });
 
-    // Format the response to include all event details, username, and regno
+    // Format the response to include all event details, username, and registerNumber
     const formattedEvents = pendingEvents.map((event) => {
       const { organizer, ...rest } = event.get({ plain: true });
       return {
         ...rest,
-        username: organizer?.username || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
-        staffId:  organizer?.studentDetails?.staffId || "N/A", // Include staffId
+        username: organizer?.userName || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
+        staffId: organizer?.studentDetails?.staffId || "N/A", // Include staffId
       };
     });
 
@@ -214,24 +291,50 @@ export const deleteEvent = async (req, res) => {
     const event = await EventOrganized.findByPk(id);
     if (!event) return;
 
-    const student = await StudentDetails.findOne({ where: { Userid: event.Userid } });
+    const student = await StudentDetails.findOne({
+      where: { Userid: event.Userid },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
     const user = await User.findByPk(event.Userid);
 
-    if (!user || !student) return;
+    if (!user || !student) return res.status(404).json({ message: "User or Student not found" });
+
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
 
     await event.destroy();
 
-    sendEmail({
-      to: user.email,
-      subject: "Event Deleted Notification",
-      text: `Dear ${user.username || "Student"},\n\nYour event has been removed.\n\n- **Name**: ${event.event_name}\n- **Club Name**: ${event.club_name}\n- **Role**: ${event.role}\n- **Staff Incharge**: ${event.staff_incharge}\n- **Start Date**: ${event.start_date}\n- **End Date**: ${event.end_date}\n- **Participants**: ${event.number_of_participants}\n- **Mode**: ${event.mode}\n- **Funding Agency**: ${event.funding_agency || "N/A"}\n- **Funding Amount**: ${event.funding_amount || "N/A"}\n\nIf this was an error, contact **tutorsjf@gmail.com**.\n\nBest,\nEvent Management System`,
-    });
+    if (user.userMail) {
+      sendEmail({
+        to: user.userMail,
+        subject: "Event Organized Deleted Notification",
+        text: `Dear ${user.userName || "Student"},
 
-    sendEmail({
-      to: student.tutorEmail,
-      subject: "Event Deleted Notification",
-      text: `Dear Tutor,\n\nThe following event submitted by your student has been deleted:\n\n- **Student Regno**: ${student.regno}\n- **Student Name**: ${user.username || "N/A"}\n- **Event Name**: ${event.event_name}\n- **Club Name**: ${event.club_name}\n- **Role**: ${event.role}\n- **Staff Incharge**: ${event.staff_incharge}\n- **Start Date**: ${event.start_date}\n- **End Date**: ${event.end_date}\n- **Participants**: ${event.number_of_participants}\n- **Mode**: ${event.mode}\n- **Funding Agency**: ${event.funding_agency || "N/A"}\n- **Funding Amount**: ${event.funding_amount || "N/A"}\n\nIf you need further details, contact **tutorsjf@gmail.com**.\n\nBest,\nEvent Management System`,
-    });
+Your event organized record "${event.event_name}" has been deleted.
+
+Best Regards,
+College Record Management System`,
+      });
+    }
+
+    if (tutorEmail) {
+      sendEmail({
+        to: tutorEmail,
+        subject: "Event Organized Deleted Notification",
+        text: `Dear Tutor,
+
+The following event organized record submitted by ${user.userName || "a student"} (Registration Number: ${student.registerNumber}) has been deleted:
+- Event Name: ${event.event_name}
+
+Best Regards,
+College Record Management System`,
+      });
+    }
 
     res.status(200).json({ message: "Event deleted successfully" });
   } catch (error) {

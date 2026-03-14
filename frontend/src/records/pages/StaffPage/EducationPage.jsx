@@ -1,60 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2 } from 'lucide-react';
 
-// API Configuration - Updated to match your backend
-const API_BASE_URL = 'http://localhost:4000/api';
+// reuse shared axios instance so token/interceptors work consistently
+import {
+  getEducationEntries,
+  createEducationEntry,
+  updateEducationEntry,
+  deleteEducationEntry,
+} from '../../services/api.js';
 
-const apiCall = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-      ...options.headers,
-    },
-    ...options,
-  };
+// NOTE: previously this file implemented its own fetch helper that did not
+// benefit from the axios interceptors used across the app. the missing
+// Authorization header was causing 401 responses even though a token was
+// present in localStorage. by importing the existing helpers we eliminate a
+// common source of bugs and keep all network logic in one place.
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
-  }
-};
-
-// Updated API functions to match your backend routes
-const getEducationEntries = async () => {
-  return await apiCall('/education');
-};
-
-const createEducationEntry = async (data) => {
-  return await apiCall('/education', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-};
-
-const updateEducationEntry = async (id, data) => {
-  return await apiCall(`/education/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-};
-
-const deleteEducationEntry = async (id) => {
-  return await apiCall(`/ceducation/${id}`, {
-    method: 'DELETE',
-  });
-};
 
 const EducationPage = () => {
   const [educationData, setEducationData] = useState([]);
@@ -134,7 +94,15 @@ const EducationPage = () => {
       const response = await getEducationEntries();
       console.log('Fetched data:', response);
       
-      const data = Array.isArray(response) ? response : (response.data || []);
+      // unwrap nested data if present
+      let data = [];
+      if (response) {
+        if (Array.isArray(response)) data = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) data = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) data = response.data.data;
+        }
+      }
       setEducationData(data);
       
       if (data.length > 0) {
@@ -471,7 +439,7 @@ const EducationPage = () => {
       onChange: handleChange,
       className: `w-full px-3 py-2 border rounded-lg focus:ring-2 ${
         isEditable
-          ? 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+          ? 'border-gray-300 focus:ring-indigo-500 focus:border-transparent'
           : 'border-gray-200 bg-gray-100 cursor-not-allowed'
       }`,
       readOnly: !isEditable,
@@ -540,8 +508,8 @@ const EducationPage = () => {
       <div className="w-full">
         <div className="px-8 py-6 relative">
           {loading && (
-            <div className="mb-4 p-4 bg-blue-100 border border-blue-300 rounded">
-              <p className="text-blue-700">Loading...</p>
+            <div className="mb-4 p-4 bg-indigo-100 border border-indigo-300 rounded">
+              <p className="text-indigo-700">Loading...</p>
             </div>
           )}
 
@@ -608,7 +576,7 @@ const EducationPage = () => {
                   type="button"
                   onClick={handleSaveClick}
                   disabled={loading}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white rounded-lg shadow-md hover:shadow-xl transition duration-300 ease-in-out font-semibold disabled:opacity-50"
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 via-pink-500 to-red-500 text-white rounded-lg shadow-md hover:shadow-xl transition duration-300 ease-in-out font-semibold disabled:opacity-50"
                 >
                   {loading ? 'Saving...' : 'Save'}
                 </button>

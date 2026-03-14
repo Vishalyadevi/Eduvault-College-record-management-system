@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaEye, FaEdit, FaTrash, FaGithub, FaLink, FaUsers } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useProject } from "../../contexts/ProjectContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 const Projects = () => {
   const {
@@ -33,15 +35,17 @@ const Projects = () => {
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
   const [viewProject, setViewProject] = useState(null);
-  const userId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
+
 
   useEffect(() => {
     if (userId) {
       console.log("🔄 Fetching projects for userId:", userId);
       fetchUserProjects(userId);
-    } else {
-      console.error("❌ No userId found in localStorage");
     }
+
   }, [userId, fetchUserProjects]);
 
   const handleInputChange = (e) => {
@@ -56,7 +60,7 @@ const Projects = () => {
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+
     try {
       // Validate required fields
       if (!formData.title || !formData.domain || !formData.description) {
@@ -163,8 +167,8 @@ const Projects = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         My Projects
       </h2>
 
@@ -176,7 +180,7 @@ const Projects = () => {
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -200,7 +204,7 @@ const Projects = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Project Title"
                 required
               />
@@ -213,7 +217,7 @@ const Projects = () => {
                 name="domain"
                 value={formData.domain}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="e.g., Web Development, Machine Learning, IoT"
                 required
               />
@@ -226,7 +230,7 @@ const Projects = () => {
                 name="link"
                 value={formData.link}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="https://project-demo.com"
               />
             </div>
@@ -238,7 +242,7 @@ const Projects = () => {
                 name="github_link"
                 value={formData.github_link}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="https://github.com/username/repo"
               />
             </div>
@@ -249,7 +253,7 @@ const Projects = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Describe your project..."
                 rows="3"
                 required
@@ -263,7 +267,7 @@ const Projects = () => {
                 name="techstack"
                 value={formData.techstack}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="React, Node.js, MongoDB (comma-separated)"
               />
             </div>
@@ -275,7 +279,7 @@ const Projects = () => {
                 name="start_date"
                 value={formData.start_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -286,7 +290,7 @@ const Projects = () => {
                 name="end_date"
                 value={formData.end_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -297,7 +301,7 @@ const Projects = () => {
                 name="team_members"
                 value={formData.team_members}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 min="1"
                 placeholder="1"
               />
@@ -309,7 +313,7 @@ const Projects = () => {
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 {statuses.map((status) => (
@@ -349,7 +353,7 @@ const Projects = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update Project" : "Add Project"}
@@ -375,65 +379,65 @@ const Projects = () => {
                 key={project.id}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg shadow-md hover:shadow-xl transition p-4"
+                className="bg-gradient-to-br from-indigo-50 to-indigo-50 rounded-lg shadow-md hover:shadow-xl transition p-4"
               >
                 <h4 className="text-lg font-bold text-gray-800 mb-2">{project.title}</h4>
-                
+
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-2 ${getStatusColor(project)}`}>
                   {getStatusText(project)}
                 </span>
-                
+
                 <p className="text-sm text-gray-600 mb-2">
                   <strong>Domain:</strong> {project.domain}
                 </p>
-                
+
                 <p className="text-sm text-gray-600 mb-2">
                   <strong>Status:</strong> {project.status}
                 </p>
-                
+
                 {project.techstack && project.techstack.length > 0 && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600 font-semibold mb-1">Tech Stack:</p>
                     <div className="flex flex-wrap gap-1">
                       {project.techstack.map((tech, idx) => (
-                        <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        <span key={idx} className="text-xs bg-indigo-100 text-blue-800 px-2 py-1 rounded">
                           {tech}
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                  <FaUsers className="text-purple-600" />
+                  <FaUsers className="text-indigo-600" />
                   <span>{project.team_members} member{project.team_members !== 1 ? 's' : ''}</span>
                 </div>
-                
+
                 {project.rating && (
                   <p className="text-sm text-yellow-600 mb-2">
                     <strong>Rating:</strong> {'⭐'.repeat(project.rating)} ({project.rating}/5)
                   </p>
                 )}
-                
+
                 {project.comments && !project.pending && (
                   <p className="text-sm text-gray-600 mb-2">
                     <strong>Comments:</strong> {project.comments}
                   </p>
                 )}
-                
+
                 <div className="flex gap-2 mt-3">
                   {project.link && (
                     <a
                       href={project.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-indigo-600 hover:text-blue-800"
                       title="View Project"
                     >
                       <FaLink className="text-xl" />
                     </a>
                   )}
-                  
+
                   {project.github_link && (
                     <a
                       href={project.github_link}
@@ -445,25 +449,25 @@ const Projects = () => {
                       <FaGithub className="text-xl" />
                     </a>
                   )}
-                  
+
                   <button
                     onClick={() => setViewProject(project)}
-                    className="text-purple-600 hover:text-purple-800"
+                    className="text-indigo-600 hover:text-blue-800"
                     title="View Details"
                   >
                     <FaEye className="text-xl" />
                   </button>
-                  
+
                   {project.pending && (
                     <>
                       <button
                         onClick={() => handleEdit(project)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-indigo-600 hover:text-blue-800"
                         title="Edit"
                       >
                         <FaEdit className="text-xl" />
                       </button>
-                      
+
                       <button
                         onClick={() => handleDelete(project.id)}
                         className="text-red-600 hover:text-red-800"
@@ -497,43 +501,43 @@ const Projects = () => {
                 ×
               </button>
             </div>
-            
+
             <div className="space-y-3">
               <div>
                 <strong className="text-gray-700">Domain:</strong>
                 <p className="text-gray-600">{viewProject.domain}</p>
               </div>
-              
+
               <div>
                 <strong className="text-gray-700">Description:</strong>
                 <p className="text-gray-600">{viewProject.description}</p>
               </div>
-              
+
               <div>
                 <strong className="text-gray-700">Approval Status:</strong>
                 <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(viewProject)}`}>
                   {getStatusText(viewProject)}
                 </span>
               </div>
-              
+
               <div>
                 <strong className="text-gray-700">Project Status:</strong>
                 <p className="text-gray-600">{viewProject.status}</p>
               </div>
-              
+
               {viewProject.techstack && viewProject.techstack.length > 0 && (
                 <div>
                   <strong className="text-gray-700">Tech Stack:</strong>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {viewProject.techstack.map((tech, idx) => (
-                      <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      <span key={idx} className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-sm">
                         {tech}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-              
+
               {(viewProject.start_date || viewProject.end_date) && (
                 <div>
                   <strong className="text-gray-700">Duration:</strong>
@@ -544,26 +548,26 @@ const Projects = () => {
                   </p>
                 </div>
               )}
-              
+
               <div>
                 <strong className="text-gray-700">Team Members:</strong>
                 <p className="text-gray-600">{viewProject.team_members}</p>
               </div>
-              
+
               {viewProject.rating && (
                 <div>
                   <strong className="text-gray-700">Rating:</strong>
                   <p className="text-gray-600">{'⭐'.repeat(viewProject.rating)} ({viewProject.rating}/5)</p>
                 </div>
               )}
-              
+
               {viewProject.comments && (
                 <div>
                   <strong className="text-gray-700">Tutor Comments:</strong>
                   <p className="text-gray-600">{viewProject.comments}</p>
                 </div>
               )}
-              
+
               {(viewProject.link || viewProject.github_link) && (
                 <div className="flex gap-4 pt-4">
                   {viewProject.link && (
@@ -571,12 +575,12 @@ const Projects = () => {
                       href={viewProject.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
                     >
                       <FaLink /> View Project
                     </a>
                   )}
-                  
+
                   {viewProject.github_link && (
                     <a
                       href={viewProject.github_link}

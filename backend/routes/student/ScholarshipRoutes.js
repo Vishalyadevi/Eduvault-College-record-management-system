@@ -6,7 +6,7 @@ import {
   getPendingScholarships,
   getApprovedScholarships,
 } from "../../controllers/student/ScholarshipController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 

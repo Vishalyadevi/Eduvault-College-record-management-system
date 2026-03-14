@@ -1,42 +1,9 @@
-import axios from 'axios';
+import API from "../../api";
 
-// Create axios instance
-const api = axios.create({
-  baseURL: 'http://localhost:4000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Re-export the centralized API instance as the default export for this file
+export const api = API;
 
-// Add request interceptor to include token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
-// Auth services
+// Auth services (using centralized API)
 export const login = (username, password) => api.post('/auth/login', { username, password });
 export const getCurrentUser = () => api.get('/auth/me');
 
@@ -70,8 +37,7 @@ export const deletePersonalInfoEntry = (id) => api.delete(`/personal-info/${id}`
 export const getEducationEntries = async () => {
   try {
     const response = await api.get('/education');
-    console.log('Get Education Response:', response.data); // Debug log
-    return response.data; // Backend returns { data: [...] }
+    return response.data;
   } catch (error) {
     console.error('Error fetching education entries:', error);
     throw error;
@@ -81,8 +47,7 @@ export const getEducationEntries = async () => {
 export const getEducationEntry = async (id) => {
   try {
     const response = await api.get(`/education/${id}`);
-    console.log('Get Education Entry Response:', response.data); // Debug log
-    return { data: response.data }; // Wrap single entry in data object for consistency
+    return { data: response.data };
   } catch (error) {
     console.error('Error fetching education entry:', error);
     throw error;
@@ -91,9 +56,7 @@ export const getEducationEntry = async (id) => {
 
 export const createEducationEntry = async (data) => {
   try {
-    console.log('Creating education entry with data:', data); // Debug log
     const response = await api.post('/education', data);
-    console.log('Create Education Response:', response.data); // Debug log
     return response.data;
   } catch (error) {
     console.error('Error creating education entry:', error);
@@ -103,9 +66,7 @@ export const createEducationEntry = async (data) => {
 
 export const updateEducationEntry = async (id, data) => {
   try {
-    console.log('Updating education entry with ID:', id, 'Data:', data); // Debug log
     const response = await api.put(`/education/${id}`, data);
-    console.log('Update Education Response:', response.data); // Debug log
     return response.data;
   } catch (error) {
     console.error('Error updating education entry:', error);
@@ -115,15 +76,23 @@ export const updateEducationEntry = async (id, data) => {
 
 export const deleteEducationEntry = async (id) => {
   try {
-    console.log('Deleting education entry with ID:', id); // Debug log
     const response = await api.delete(`/education/${id}`);
-    console.log('Delete Education Response:', response.data); // Debug log
     return response.data;
   } catch (error) {
     console.error('Error deleting education entry:', error);
     throw error;
   }
 };
+
+// Student Education services
+export const addOrUpdateStudentEducation = (data) => api.post('/student-education/add-or-update', data);
+export const getStudentEducationRecord = (userId) => api.get(`/student-education/my-record?UserId=${userId}`);
+export const getStudentEducationAverages = (userId) => api.get(`/student-education/averages?UserId=${userId}`);
+export const getPendingStudentEducationApprovals = () => api.get('/student-education/pending-approvals');
+export const approveStudentEducationRecord = (id, data) => api.put(`/student-education/approve/${id}`, data);
+export const rejectStudentEducationRecord = (id, data) => api.put(`/student-education/reject/${id}`, data);
+export const bulkUploadStudentGPA = (data) => api.post('/student-education/bulk-upload-gpa', { data });
+export const getAllStudentEducationRecords = () => api.get('/student-education/all-records');
 
 // Scholars services
 export const getScholars = () => api.get('/scholars');
@@ -138,14 +107,14 @@ export const getProposal = (id) => api.get(`/proposals/${id}`);
 export const createProposal = (data) => {
   return api.post('/proposals', data, {
     headers: {
-      'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+      'Content-Type': 'multipart/form-data',
     },
   });
 };
 export const updateProposal = (id, data) => {
   return api.put(`/proposals/${id}`, data, {
     headers: {
-      'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+      'Content-Type': 'multipart/form-data',
     },
   });
 };
@@ -177,15 +146,14 @@ export const updateProjectProposal = (id, data) => {
 };
 export const deleteProjectProposal = (id) => api.delete(`/project-proposal/${id}`);
 
-// Project Payment Details services
-export const getProjectPaymentDetails = (proposalId) => api.get(`/project-payment-details/proposal/${proposalId}`);
-export const getProjectPaymentDetail = (id) => api.get(`/project-payment-details/${id}`);
-export const createProjectPaymentDetail = (data) => api.post('/project-payment-details', data);
-export const updateProjectPaymentDetail = (id, data) => api.put(`/project-payment-details/${id}`, data);
-export const deleteProjectPaymentDetail = (id) => api.delete(`/project-payment-details/${id}`);
+// Project Payment Details services (bundled under /project-proposal)
+export const getProjectPaymentDetails = (proposalId) => api.get(`/project-proposal/proposal/${proposalId}`);
+export const getProjectPaymentDetail = (id) => api.get(`/project-proposal/payment/${id}`);
+export const createProjectPaymentDetail = (data) => api.post('/project-proposal/payment', data);
+export const updateProjectPaymentDetail = (id, data) => api.put(`/project-proposal/payment/${id}`, data);
+export const deleteProjectPaymentDetail = (id) => api.delete(`/project-proposal/payment/${id}`);
 
 // Events services
-// Events services - Updated to handle file uploads
 export const getEvents = () => api.get('/events');
 export const getEvent = (id) => api.get(`/events/${id}`);
 
@@ -208,33 +176,57 @@ export const updateEvent = (id, data) => {
 export const deleteEvent = (id) => api.delete(`/events/${id}`);
 
 // Get event document (PDF)
-export const getEventDocument = (eventId, docType) => {
-  return api.get(`/events/${eventId}/document/${docType}`, {
-    responseType: 'blob', // Important for binary data
+export const getEventDocument = (eventId, documentType) => {
+  return api.get(`/events/${eventId}/document/${documentType}`, {
+    responseType: 'blob'
+  });
+};
+
+// Staff Events Attended services
+export const getStaffEventsAttended = () => api.get('/staff/events-attended');
+export const getStaffEventAttended = (id) => api.get(`/staff/events-attended/${id}`);
+
+export const createStaffEventAttended = (data) => {
+  return api.post('/staff/events-attended', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const updateStaffEventAttended = (id, data) => {
+  return api.put(`/staff/events-attended/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const deleteStaffEventAttended = (id) => api.delete(`/staff/events-attended/${id}`);
+
+export const getStaffEventDocument = (eventId, documentType) => {
+  return api.get(`/staff/events-attended/${eventId}/document/${documentType}`, {
+    responseType: 'blob'
   });
 };
 
 // Industry Know-how services
-/*export const getIndustryKnowhow = () => api.get('/industry');
-export const getIndustryKnowhowItem = (id) => api.get(`/industry/${id}`);
-export const createIndustryKnowhow = (data) => api.post('/industry', data);
-export const updateIndustryKnowhow = (id, data) => api.put(`/industry/${id}`, data);
-export const deleteIndustryKnowhow = (id) => api.delete(`/industry/${id}`);
-*/
-
-// Industry Know-how services - Updated with PDF support
 export const getIndustryKnowhow = () => api.get('/industry');
-
 export const getIndustryKnowhowItem = (id) => api.get(`/industry/${id}`);
-
 export const createIndustryKnowhow = (data) => {
-  return api.post('/industry', data);
+  return api.post('/industry', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
-
 export const updateIndustryKnowhow = (id, data) => {
-  return api.put(`/industry/${id}`, data);
+  return api.put(`/industry/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
-
 export const deleteIndustryKnowhow = (id) => api.delete(`/industry/${id}`);
 
 // Get industry certificate PDF
@@ -244,6 +236,7 @@ export const getIndustryCertificatePDF = async (id) => {
   });
   return response.data;
 };
+
 // Certifications services
 export const getCertifications = () => api.get('/certifications');
 export const getCertification = (id) => api.get(`/certifications/${id}`);
@@ -291,7 +284,6 @@ export const updateEventOrganized = (id, data) => {
 };
 export const deleteEventOrganized = (id) => api.delete(`/events-organized/${id}`);
 
-
 // H-Index services
 export const getHIndexes = () => api.get('/h-index');
 export const getHIndex = (id) => api.get(`/h-index/${id}`);
@@ -300,13 +292,8 @@ export const updateHIndex = (id, data) => api.put(`/h-index/${id}`, data);
 export const deleteHIndex = (id) => api.delete(`/h-index/${id}`);
 
 // Resource Person services
-// Add these updated functions to your existing api.js file (Resource Person services section)
-
-// Resource Person services - Updated with file upload support
 export const getResourcePersonEntries = () => api.get('/resource-person');
-
 export const getResourcePersonEntry = (id) => api.get(`/resource-person/${id}`);
-
 export const createResourcePersonEntry = (data) => {
   return api.post('/resource-person', data, {
     headers: {
@@ -314,7 +301,6 @@ export const createResourcePersonEntry = (data) => {
     },
   });
 };
-
 export const updateResourcePersonEntry = (id, data) => {
   return api.put(`/resource-person/${id}`, data, {
     headers: {
@@ -322,89 +308,31 @@ export const updateResourcePersonEntry = (id, data) => {
     },
   });
 };
-
 export const deleteResourcePersonEntry = (id) => api.delete(`/resource-person/${id}`);
 
-// Download resource person file
+export const viewResourcePersonFile = async (filename) => {
+  const encodedFilename = encodeURIComponent(filename);
+  const response = await api.get(`/resource-person/view/${encodedFilename}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 export const downloadResourcePersonFile = async (filename) => {
-  const response = await api.get(`/resource-person/download/${filename}`, {
+  const encodedFilename = encodeURIComponent(filename);
+  const response = await api.get(`/resource-person/download/${encodedFilename}`, {
     responseType: 'blob',
   });
   return response.data;
 };
 
 // Recognition services
-/*
-export const getRecognitionEntries = () => api.get('/recognition');
-export const getRecognitionEntry = (id) => api.get(`/recognition/${id}`);
-export const createRecognitionEntry = (data) => api.post('/recognition', data);
-export const updateRecognitionEntry = (id, data) => api.put(`/recognition/${id}`, data);
-export const deleteRecognitionEntry = (id) => api.delete(`/recognition/${id}`);
-*/
-// Add these updated functions to your existing api.js file
-// Add these functions to your api.js file
+export const getRecognitions = () => api.get('/recognition');
+export const getRecognition = (id) => api.get(`/recognition/${id}`);
+export const createRecognition = (data) => api.post('/recognition', data);
+export const updateRecognition = (id, data) => api.put(`/recognition/${id}`, data);
+export const deleteRecognition = (id) => api.delete(`/recognition/${id}`);
 
-// Dashboard Statistics
-export const getDashboardStats = (studentId) => 
-  api.get(`/dashboard/stats/${studentId}`);
-
-// Non-CGPA Data
-export const getNonCGPAData = (studentId) => 
-  api.get(`/dashboard/noncgpa/${studentId}`);
-
-// SkillRack Data
-export const getSkillRackData = (studentId) => 
-  api.get(`/dashboard/skillrack/${studentId}`);
-
-// Alternative: Get all dashboard data in one call
-export const getAllDashboardData = async (studentId) => {
-  try {
-    const [stats, noncgpa, skillrack] = await Promise.all([
-     // api.get(`/dashboard/stats/${studentId}`).catch(() => ({ data: null })),
-      api.get(`/dashboard/noncgpa/${studentId}`).catch(() => ({ data: { data: [] } })),
-      api.get(`/dashboard/skillrack/${studentId}`).catch(() => ({ data: { data: null } }))
-    ]);
-
-    return {
-      stats: stats.data,
-      noncgpa: noncgpa.data.data || [],
-      skillrack: skillrack.data.data
-    };
-  } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    throw error;
-  }
-};
-// Recognition services - Updated with PDF support
-export const getRecognitionEntries = () => api.get('/recognition');
-
-export const getRecognitionEntry = (id) => api.get(`/recognition/${id}`);
-
-export const createRecognitionEntry = (data) => {
-  return api.post('/recognition', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-};
-
-export const updateRecognitionEntry = (id, data) => {
-  return api.put(`/recognition/${id}`, data, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-};
-
-export const deleteRecognitionEntry = (id) => api.delete(`/recognition/${id}`);
-
-// Get recognition PDF
-export const getRecognitionPDF = async (id) => {
-  const response = await api.get(`/recognition/${id}/pdf`, {
-    responseType: 'blob',
-  });
-  return response.data;
-};
 // Patent/Product Development services
 export const getPatentEntries = () => api.get('/patent-product');
 export const getPatentEntry = (id) => api.get(`/patent-product/${id}`);
@@ -423,8 +351,20 @@ export const deletePatentEntry = (id) => api.delete(`/patent-product/${id}`);
 // Project Mentors services
 export const getProjectMentors = () => api.get('/project-mentors');
 export const getProjectMentor = (id) => api.get(`/project-mentors/${id}`);
-export const createProjectMentor = (data) => api.post('/project-mentors', data);
-export const updateProjectMentor = (id, data) => api.put(`/project-mentors/${id}`, data);
+export const createProjectMentor = (data) => {
+  return api.post('/project-mentors', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const updateProjectMentor = (id, data) => {
+  return api.put(`/project-mentors/${id}`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 export const deleteProjectMentor = (id) => api.delete(`/project-mentors/${id}`);
 
 // Seed Money services
@@ -446,12 +386,10 @@ export const updateSeedMoneyEntry = (id, data) => {
 };
 export const deleteSeedMoneyEntry = (id) => api.delete(`/seed-money/${id}`);
 
-// REAL-TIME DASHBOARD STATS SERVICE
-/*export const getDashboardStats = async () => {
+// Dashboard stats service
+export const getDashboardStats = async () => {
   try {
-    // Fetch all data concurrently for better performance
     const [
-
       seedMoneyResponse,
       scholarsResponse,
       proposalsResponse,
@@ -483,7 +421,6 @@ export const deleteSeedMoneyEntry = (id) => api.delete(`/seed-money/${id}`);
       api.get('/project-mentors').catch(() => ({ data: [] }))
     ]);
 
-    // Return aggregated stats
     return {
       data: {
         seedmoney: Array.isArray(seedMoneyResponse.data) ? seedMoneyResponse.data.length : 0,
@@ -506,98 +443,6 @@ export const deleteSeedMoneyEntry = (id) => api.delete(`/seed-money/${id}`);
     console.error('Error fetching dashboard stats:', error);
     throw error;
   }
-};
-*/
-// ALTERNATIVE: If your backend has a dedicated dashboard stats endpoint
-export const getDashboardStatsOptimized = () => api.get('/other/dashboard-stats');
-
-// Real-time WebSocket connection for live updates (if your backend supports it)
-export const createWebSocketConnection = (onStatsUpdate) => {
-  const wsUrl = 'ws://localhost:5000/ws/dashboard';
-  const socket = new WebSocket(wsUrl);
-
-  socket.onopen = () => {
-    console.log('WebSocket connected for real-time dashboard updates');
-  };
-
-  socket.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'STATS_UPDATE') {
-        onStatsUpdate(data.stats);
-      }
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-    }
-  };
-
-  socket.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
-
-  socket.onclose = () => {
-    console.log('WebSocket connection closed');
-    // Attempt to reconnect after 5 seconds
-    setTimeout(() => {
-      createWebSocketConnection(onStatsUpdate);
-    }, 5000);
-  };
-
-  return socket;
-};
-
-// Polling service for real-time updates (alternative to WebSocket)
-export const createPollingService = (onStatsUpdate, interval = 5000) => {
-  const pollStats = async () => {
-    try {
-      const response = await getDashboardStats();
-      onStatsUpdate(response.data);
-    } catch (error) {
-      console.error('Error polling dashboard stats:', error);
-    }
-  };
-
-  const intervalId = setInterval(pollStats, interval);
-
-  // Initial fetch
-  pollStats();
-
-  // Return cleanup function
-  return () => clearInterval(intervalId);
-};
-
-// Batch operations for better performance
-export const batchGetStats = async (endpoints) => {
-  const requests = endpoints.map(endpoint => api.get(endpoint).catch(() => ({ data: [] })));
-  const responses = await Promise.all(requests);
-  return responses.map(response => Array.isArray(response.data) ? response.data.length : 0);
-};
-
-// Cache service for dashboard data
-const CACHE_DURATION = 30000; // 30 seconds
-const statsCache = {
-  data: null,
-  timestamp: 0
-};
-
-export const getCachedDashboardStats = async () => {
-  const now = Date.now();
-
-  if (statsCache.data && (now - statsCache.timestamp) < CACHE_DURATION) {
-    return { data: statsCache.data };
-  }
-
-  const response = await getDashboardStats();
-  statsCache.data = response.data;
-  statsCache.timestamp = now;
-
-  return response;
-};
-
-// Clear cache when data is updated
-export const clearStatsCache = () => {
-  statsCache.data = null;
-  statsCache.timestamp = 0;
 };
 
 export default api;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import * as XLSX from "xlsx";
-import Navbar from "./AdminNavbar";
+import { useAuth } from "../../../records/pages/auth/AuthContext";
+import api from "../../../records/services/api";
 
 const AdminPlacementDrives = () => {
   const [driveData, setDriveData] = useState({
@@ -36,8 +36,7 @@ const AdminPlacementDrives = () => {
     upcoming_drives: 0,
   });
 
-  // Get token from localStorage
-  const token = localStorage.getItem("token");
+  const { token } = useAuth();
 
   // Fetch placement drives when component mounts
   useEffect(() => {
@@ -47,16 +46,14 @@ const AdminPlacementDrives = () => {
 
   const fetchPlacementDrives = async () => {
     try {
-      const response = await axios.get("http://localhost:4000/api/placement-drives", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get("/placement/drives");
       console.log("Fetched placement drives:", response.data);
       setPlacementDrives(response.data.data || []);
     } catch (error) {
-      console.error("Error fetching placement drives:", error.response ? error.response.data : error.message);
+      console.error("Error fetching placement drives:", error);
       if (error.response?.status === 401) {
         alert("Session expired. Please login again.");
-        navigate("/login");
+        navigate("/placement/login");
       }
       setPlacementDrives([]);
     }
@@ -64,9 +61,7 @@ const AdminPlacementDrives = () => {
 
   const fetchStatistics = async () => {
     try {
-      const response = await axios.get("http://localhost:4000/api/placement-drives/stats/overview", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get("/placement/drives/stats/overview");
       setStatistics(response.data.data || {});
     } catch (error) {
       console.error("Error fetching statistics:", error);
@@ -120,36 +115,24 @@ const AdminPlacementDrives = () => {
       tenth_percentage: driveData.tenth_percentage ? parseFloat(driveData.tenth_percentage) : null,
       twelfth_percentage: driveData.twelfth_percentage ? parseFloat(driveData.twelfth_percentage) : null,
       cgpa: driveData.cgpa ? parseFloat(driveData.cgpa) : null,
-      history_of_arrears: driveData.history_of_arrears.trim() || null,
-      standing_arrears: driveData.standing_arrears.trim() || null,
+      history_of_arrears: driveData.history_of_arrears ? parseInt(driveData.history_of_arrears, 10) : 0,
+      standing_arrears: driveData.standing_arrears ? parseInt(driveData.standing_arrears, 10) : 0,
       drive_date: driveData.drive_date,
       drive_time: driveData.drive_time,
       venue: driveData.venue.trim() || null,
-      salary: driveData.salary ? parseFloat(driveData.salary) : null,
+      salary: driveData.salary ? driveData.salary.toString() : null, // Backend model says STRING for flexibility
       roles: driveData.roles.trim() || null,
     };
 
     try {
       let response;
       if (isEditing) {
-        response = await axios.put(
-          `http://localhost:4000/api/placement-drives/${editingDriveId}`,
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        response = await api.put(`/placement/drives/${editingDriveId}`, submitData);
         alert("Placement drive updated successfully!");
         setIsEditing(false);
         setEditingDriveId(null);
       } else {
-        response = await axios.post(
-          "http://localhost:4000/api/placement-drives",
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        response = await api.post("/placement/drives", submitData);
         alert("Placement drive created successfully!");
       }
 
@@ -232,14 +215,12 @@ const AdminPlacementDrives = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(`http://localhost:4000/api/placement-drives/${driveId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/placement/drives/${driveId}`);
       setPlacementDrives((prev) => prev.filter((drive) => drive.id !== driveId));
       await fetchStatistics();
       alert("Placement drive deleted successfully.");
     } catch (error) {
-      console.error("Error deleting placement drive:", error.response?.data || error.message);
+      console.error("Error deleting placement drive:", error);
       alert("Error deleting placement drive. Please try again.");
     }
   };
@@ -308,20 +289,18 @@ const AdminPlacementDrives = () => {
         return 0;
       });
     }
-
     return filtered;
   }, [placementDrives, filterText, filterField, sortConfig]);
 
   return (
-    <div 
-      className="min-h-screen bg-white text-gray-800" 
-      style={{ marginLeft: "250px", padding: "20px" }}
+    <div
+      className="min-h-screen bg-gray-50"
     >
-      
+
       <div style={{ width: "100%" }}>
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-md">
+          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-lg shadow-md">
             <h4 className="text-sm font-medium opacity-90">Total Drives</h4>
             <p className="text-3xl font-bold mt-2">{statistics.total_drives}</p>
           </div>
@@ -329,7 +308,7 @@ const AdminPlacementDrives = () => {
             <h4 className="text-sm font-medium opacity-90">Unique Companies</h4>
             <p className="text-3xl font-bold mt-2">{statistics.unique_companies}</p>
           </div>
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow-md">
+          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-lg shadow-md">
             <h4 className="text-sm font-medium opacity-90">Upcoming Drives</h4>
             <p className="text-3xl font-bold mt-2">{statistics.upcoming_drives}</p>
           </div>
@@ -339,7 +318,7 @@ const AdminPlacementDrives = () => {
           <h3 className="text-2xl font-bold text-gray-800">Placement Drives</h3>
           <div className="space-x-4">
             <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-md"
               onClick={toggleForm}
             >
               {showForm ? "Hide Form" : "Add New Drive"}
@@ -363,7 +342,7 @@ const AdminPlacementDrives = () => {
                 placeholder="Search by company, venue, roles..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               />
             </div>
             <div className="w-full md:w-48">
@@ -371,7 +350,7 @@ const AdminPlacementDrives = () => {
               <select
                 value={filterField}
                 onChange={(e) => setFilterField(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               >
                 <option value="all">All Fields</option>
                 <option value="company_name">Company Name</option>
@@ -398,7 +377,7 @@ const AdminPlacementDrives = () => {
                     placeholder="Company Name"
                     value={driveData.company_name}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                     required
                   />
                 </div>
@@ -411,7 +390,7 @@ const AdminPlacementDrives = () => {
                     placeholder="e.g., 2024, 2025"
                     value={driveData.batch}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
@@ -423,7 +402,7 @@ const AdminPlacementDrives = () => {
                     placeholder="e.g., CSE, ECE, MECH"
                     value={driveData.departments}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
@@ -438,7 +417,7 @@ const AdminPlacementDrives = () => {
                     placeholder="Minimum 10th %"
                     value={driveData.tenth_percentage}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
@@ -453,7 +432,7 @@ const AdminPlacementDrives = () => {
                     placeholder="Minimum 12th %"
                     value={driveData.twelfth_percentage}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
@@ -468,31 +447,33 @@ const AdminPlacementDrives = () => {
                     placeholder="Minimum CGPA"
                     value={driveData.cgpa}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">History of Arrears</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max History of Arrears</label>
                   <input
-                    type="text"
+                    type="number"
+                    min="0"
                     name="history_of_arrears"
-                    placeholder="e.g., No arrears, Max 2 arrears"
+                    placeholder="e.g., 0, 2"
                     value={driveData.history_of_arrears}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Standing Arrears</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Standing Arrears</label>
                   <input
-                    type="text"
+                    type="number"
+                    min="0"
                     name="standing_arrears"
-                    placeholder="e.g., 0, Not allowed"
+                    placeholder="e.g., 0"
                     value={driveData.standing_arrears}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
@@ -503,7 +484,7 @@ const AdminPlacementDrives = () => {
                     name="drive_date"
                     value={driveData.drive_date}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                     required
                   />
                 </div>
@@ -515,7 +496,7 @@ const AdminPlacementDrives = () => {
                     name="drive_time"
                     value={driveData.drive_time}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                     required
                   />
                 </div>
@@ -528,21 +509,19 @@ const AdminPlacementDrives = () => {
                     placeholder="Drive Location"
                     value={driveData.venue}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary (LPA)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary Package</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     name="salary"
-                    placeholder="Package in LPA"
+                    placeholder="e.g., 5 LPA, 10-12 LPA"
                     value={driveData.salary}
                     onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                 </div>
               </div>
@@ -555,14 +534,14 @@ const AdminPlacementDrives = () => {
                   value={driveData.roles}
                   onChange={handleChange}
                   rows="2"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                 />
               </div>
 
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow-md disabled:opacity-50"
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition shadow-md disabled:opacity-50"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Processing..." : isEditing ? "Update Drive" : "Create Drive"}
@@ -588,7 +567,7 @@ const AdminPlacementDrives = () => {
 
         <div className="bg-white overflow-x-auto">
           <table className="min-w-full table-auto">
-            <thead className="bg-gradient-to-r from-blue-900 to-blue-600 text-white">
+            <thead className="bg-gradient-to-r from-blue-900 to-indigo-600 text-white">
               <tr>
                 <th className="px-4 py-3 text-left cursor-pointer" onClick={() => requestSort("company_name")}>
                   Company {sortConfig.key === "company_name" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
@@ -608,7 +587,6 @@ const AdminPlacementDrives = () => {
                   Package {sortConfig.key === "salary" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
                 </th>
                 <th className="px-4 py-3 text-left">Roles</th>
-                <th className="px-4 py-3 text-left">Created By</th>
                 <th className="px-4 py-3 text-left">Actions</th>
               </tr>
             </thead>
@@ -632,7 +610,6 @@ const AdminPlacementDrives = () => {
                     <td className="px-4 py-3">{drive.venue || "-"}</td>
                     <td className="px-4 py-3">{drive.salary ? `${drive.salary} LPA` : "-"}</td>
                     <td className="px-4 py-3">{drive.roles || "-"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{drive.username || "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button

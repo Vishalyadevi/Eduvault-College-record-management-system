@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const ProjectContext = createContext();
 
@@ -11,23 +12,12 @@ export const useProject = () => {
   return context;
 };
 
-const API_URL = "http://localhost:4000/api";
-
 export const ProjectProvider = ({ children }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Helper function to get auth headers
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    };
-  };
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Clear error
   const clearError = useCallback(() => {
@@ -35,22 +25,17 @@ export const ProjectProvider = ({ children }) => {
   }, []);
 
   // Fetch user projects
-  const fetchUserProjects = useCallback(async (userId) => {
-    if (!userId) {
-      console.error("No userId provided to fetchUserProjects");
-      return;
-    }
+  const fetchUserProjects = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log("📥 Fetching projects for user:", userId);
-      
-      const response = await axios.get(
-        `${API_URL}/projects/my-projects?UserId=${userId}`,
-        getAuthHeaders()
-      );
+      console.log("📥 Fetching projects for user:", id);
+
+      const response = await API.get(`/projects/my-projects?UserId=${id}`);
 
       console.log("✅ Projects fetched:", response.data);
       setProjects(response.data.projects || []);
@@ -62,7 +47,7 @@ export const ProjectProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [UserId]);
 
   // Add project
   const addProject = useCallback(async (projectData) => {
@@ -72,39 +57,22 @@ export const ProjectProvider = ({ children }) => {
     try {
       console.log("📤 Adding project:", projectData);
 
-      const response = await axios.post(
-        `${API_URL}/projects/add`,
-        projectData,
-        getAuthHeaders()
-      );
+      const response = await API.post("/projects/add", {
+        ...projectData,
+        UserId: UserId
+      });
 
       console.log("✅ Project added:", response.data);
       return response.data;
     } catch (err) {
       console.error("❌ Error adding project:", err);
-      
-      let errorMessage = "Failed to add project";
-      
-      if (err.response) {
-        console.error("Server response:", err.response.data);
-        errorMessage = err.response.data?.message || err.response.data?.error || errorMessage;
-        
-        // Show detailed error in console
-        console.error("Status:", err.response.status);
-        console.error("Error details:", err.response.data);
-      } else if (err.request) {
-        errorMessage = "No response from server. Check your connection.";
-        console.error("No response:", err.request);
-      } else {
-        errorMessage = err.message;
-      }
-      
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || "Failed to add project";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [UserId]);
 
   // Update project
   const updateProject = useCallback(async (projectId, projectData) => {
@@ -114,28 +82,13 @@ export const ProjectProvider = ({ children }) => {
     try {
       console.log("📤 Updating project:", projectId, projectData);
 
-      const response = await axios.put(
-        `${API_URL}/projects/update/${projectId}`,
-        projectData,
-        getAuthHeaders()
-      );
+      const response = await API.put(`/projects/update/${projectId}`, projectData);
 
       console.log("✅ Project updated:", response.data);
       return response.data;
     } catch (err) {
       console.error("❌ Error updating project:", err);
-      
-      let errorMessage = "Failed to update project";
-      
-      if (err.response) {
-        console.error("Server response:", err.response.data);
-        errorMessage = err.response.data?.message || err.response.data?.error || errorMessage;
-      } else if (err.request) {
-        errorMessage = "No response from server. Check your connection.";
-      } else {
-        errorMessage = err.message;
-      }
-      
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || "Failed to update project";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -144,38 +97,32 @@ export const ProjectProvider = ({ children }) => {
   }, []);
 
   // Delete project
-  const deleteProject = useCallback(async (projectId, userId) => {
+  const deleteProject = useCallback(async (projectId, targetUserId) => {
+    const id = targetUserId || UserId;
     setLoading(true);
     setError(null);
 
     try {
       console.log("🗑️ Deleting project:", projectId);
 
-      await axios.delete(
-        `${API_URL}/projects/delete/${projectId}?UserId=${userId}`,
-        getAuthHeaders()
-      );
+      await API.delete(`/projects/delete/${projectId}?UserId=${id}`);
 
       console.log("✅ Project deleted");
     } catch (err) {
       console.error("❌ Error deleting project:", err);
-      
-      let errorMessage = "Failed to delete project";
-      
-      if (err.response) {
-        errorMessage = err.response.data?.message || errorMessage;
-      } else if (err.request) {
-        errorMessage = "No response from server";
-      } else {
-        errorMessage = err.message;
-      }
-      
+      const errorMessage = err.response?.data?.message || "Failed to delete project";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [UserId]);
+
+  useEffect(() => {
+    if (UserId) {
+      fetchUserProjects();
+    }
+  }, [UserId, fetchUserProjects]);
 
   const value = {
     projects,

@@ -33,7 +33,7 @@ export const getCourseNamesForDropdown = async (req, res) => {
     const courses = await NonCGPACategory.findAll({
       where: { is_active: true },
       attributes: ['id', 'course_name', 'course_code', 'category_no'],
-      group: ['course_name'],
+      group: ['id', 'course_name', 'course_code', 'category_no'],
       order: [['course_name', 'ASC']],
       raw: true,
     });
@@ -111,10 +111,15 @@ export const addStudentNonCGPA = async (req, res) => {
       certificate_proof_size,
     } = req.body;
 
+    const targetUserId = Userid || req.user?.userId || req.user?.Userid || req.body.userId || req.query.UserId;
+
+    console.log(`[NonCGPA] Adding record. Userid from body: ${Userid}, req.user?.userId: ${req.user?.userId}, req.user?.Userid: ${req.user?.Userid}`);
+    console.log(`[NonCGPA] Resolved targetUserId: ${targetUserId}`);
+
     // Validate required fields
-    if (!Userid || !category_id || !from_date || !to_date) {
+    if (!targetUserId || !category_id || !from_date || !to_date) {
       return res.status(400).json({
-        message: "Userid, category_id, from_date, and to_date are required",
+        message: "User ID, category_id, from_date, and to_date are required",
       });
     }
 
@@ -140,17 +145,32 @@ export const addStudentNonCGPA = async (req, res) => {
     const calculatedDays = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
 
     // Fetch user
-    const user = await User.findByPk(Userid);
+    const user = await User.findByPk(targetUserId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Fetch student details
-    const student = await StudentDetails.findOne({ where: { Userid } });
+    // Fetch student details with staff advisor include
+    const student = await StudentDetails.findOne({
+      where: { Userid: targetUserId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
+
+    if (!student) {
+      console.log(`[NonCGPA] ❌ StudentDetails not found for Userid: ${targetUserId}`);
+    } else {
+      console.log(`[NonCGPA] ✅ Found student details for: ${student.registerNumber}`);
+    }
 
     // Create non-CGPA record
     const nonCGPARecord = await StudentNonCGPA.create({
-      Userid,
+      Userid: targetUserId,
       category_id,
       category_no: category.category_no,
       course_code: category.course_code,
@@ -163,20 +183,27 @@ export const addStudentNonCGPA = async (req, res) => {
       certificate_proof_size,
       pending: true,
       tutor_verification_status: false,
-      Created_by: Userid,
-      Updated_by: Userid,
+      Created_by: targetUserId,
+      Updated_by: targetUserId,
     });
 
-    // Send email to tutor
-    if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has submitted a new non-CGPA course for verification.\n\nStudent Details:\nRegno: ${student.regno}\nName: ${user.username || "N/A"}\n\nCourse Details:\nCategory No: ${category.category_no}\nCourse Code: ${category.course_code}\nCourse Name: ${category.course_name}\nFrom Date: ${from_date}\nTo Date: ${to_date}\nNumber of Days: ${no_of_days || calculatedDays}\nCertificate Attached: ${certificate_proof_pdf ? "Yes" : "No"}\n\nThe record is pending your verification.\n\nBest Regards,\nNon-CGPA Management System`;
+    // Determine tutor email - check both tutorEmail field and staffAdvisor's email
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
 
-      await sendEmail({
-        from: user.email,
-        to: student.tutorEmail,
-        subject: "New Non-CGPA Course Submitted - Pending Verification",
-        text: emailText,
-      });
+    // Send email to tutor
+    if (tutorEmail) {
+      try {
+        const emailText = `Dear Tutor,\n\nA student has submitted a new non-CGPA course for verification.\n\nStudent Details:\nRegno: ${student?.registerNumber || "N/A"}\nName: ${user.userName || "N/A"}\n\nCourse Details:\nCategory No: ${category.category_no}\nCourse Code: ${category.course_code}\nCourse Name: ${category.course_name}\nFrom Date: ${from_date}\nTo Date: ${to_date}\nNumber of Days: ${no_of_days || calculatedDays}\nCertificate Attached: ${certificate_proof_pdf ? "Yes" : "No"}\n\nThe record is pending your verification.\n\nBest Regards,\nNon-CGPA Management System`;
+
+        await sendEmail({
+          from: user.userMail,
+          to: tutorEmail,
+          subject: "New Non-CGPA Course Submitted - Pending Verification",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Error sending notification email:", emailError.message);
+      }
     }
 
     res.status(201).json({
@@ -212,8 +239,10 @@ export const updateStudentNonCGPA = async (req, res) => {
       return res.status(404).json({ message: "Non-CGPA record not found" });
     }
 
+    const targetUserId = Userid || req.user?.userId || req.user?.Userid;
+
     // Check authorization
-    if (nonCGPARecord.Userid !== parseInt(Userid)) {
+    if (nonCGPARecord.Userid !== parseInt(targetUserId)) {
       return res.status(403).json({ message: "Unauthorized to update this record" });
     }
 
@@ -258,7 +287,7 @@ export const updateStudentNonCGPA = async (req, res) => {
       nonCGPARecord.certificate_proof_size = certificate_proof_size || null;
     }
 
-    nonCGPARecord.Updated_by = Userid;
+    nonCGPARecord.Updated_by = targetUserId;
     nonCGPARecord.pending = true;
     nonCGPARecord.tutor_verification_status = false;
     nonCGPARecord.Verified_by = null;
@@ -267,18 +296,33 @@ export const updateStudentNonCGPA = async (req, res) => {
     await nonCGPARecord.save();
 
     // Send update email to tutor
-    const user = await User.findByPk(Userid);
-    const student = await StudentDetails.findOne({ where: { Userid } });
+    const user = await User.findByPk(targetUserId);
+    const student = await StudentDetails.findOne({
+      where: { Userid: targetUserId },
+      include: [
+        {
+          model: User,
+          as: "staffAdvisor",
+          attributes: ["userMail", "userName"]
+        }
+      ]
+    });
 
-    if (student && student.tutorEmail) {
-      const emailText = `Dear Tutor,\n\nA student has updated their non-CGPA course details.\n\nStudent: ${user?.username || "N/A"}\nRegno: ${student.regno}\n\nCourse: ${nonCGPARecord.course_name} (${nonCGPARecord.course_code})\n\nThe record is now pending re-verification.\n\nBest Regards,\nNon-CGPA Management System`;
+    const tutorEmail = student?.tutorEmail || student?.staffAdvisor?.userMail;
 
-      await sendEmail({
-        from: user?.email,
-        to: student.tutorEmail,
-        subject: "Non-CGPA Course Updated - Requires Re-verification",
-        text: emailText,
-      });
+    if (tutorEmail) {
+      try {
+        const emailText = `Dear Tutor,\n\nA student has updated their non-CGPA course details.\n\nStudent: ${user?.userName || "N/A"}\nRegno: ${student?.registerNumber || "N/A"}\n\nCourse: ${nonCGPARecord.course_name} (${nonCGPARecord.course_code})\n\nThe record is now pending re-verification.\n\nBest Regards,\nNon-CGPA Management System`;
+
+        await sendEmail({
+          from: user?.userMail,
+          to: tutorEmail,
+          subject: "Non-CGPA Course Updated - Requires Re-verification",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Error sending update notification email:", emailError.message);
+      }
     }
 
     res.status(200).json({
@@ -297,7 +341,7 @@ export const updateStudentNonCGPA = async (req, res) => {
 // Get student's non-CGPA records
 export const getStudentNonCGPARecords = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
@@ -334,12 +378,12 @@ export const getPendingNonCGPARecords = async (req, res) => {
         {
           model: User,
           as: "student",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -356,9 +400,10 @@ export const getPendingNonCGPARecords = async (req, res) => {
       const { student, ...rest } = rec.get({ plain: true });
       return {
         ...rest,
-        username: student?.username || "N/A",
-        email: student?.email || "N/A",
-        regno: student?.studentDetails?.regno || "N/A",
+        username: student?.userName || "N/A",
+        email: student?.userMail || "N/A",
+        registerNumber: student?.studentDetails?.registerNumber || "N/A",
+        staffId: student?.studentDetails?.staffId || "N/A",
       };
     });
 
@@ -376,7 +421,7 @@ export const getPendingNonCGPARecords = async (req, res) => {
 // Get verified non-CGPA records
 export const getVerifiedNonCGPARecords = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
@@ -425,14 +470,18 @@ export const verifyNonCGPARecord = async (req, res) => {
 
     // Send verification email
     const user = await User.findByPk(record.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour non-CGPA course has been verified.\n\nCourse: ${record.course_name}\nCourse Code: ${record.course_code}\nDuration: ${record.no_of_days} days\n\nComments: ${verification_comments || "None"}\n\nBest Regards,\nNon-CGPA Management System`;
+    if (user && user.userMail) {
+      try {
+        const emailText = `Dear ${user.userName},\n\nYour non-CGPA course has been verified.\n\nCourse: ${record.course_name}\nCourse Code: ${record.course_code}\nDuration: ${record.no_of_days} days\n\nComments: ${verification_comments || "None"}\n\nBest Regards,\nNon-CGPA Management System`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Non-CGPA Course Verified",
-        text: emailText,
-      });
+        await sendEmail({
+          to: user.userMail,
+          subject: "Non-CGPA Course Verified",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Error sending verification email:", emailError.message);
+      }
     }
 
     res.status(200).json({
@@ -469,14 +518,18 @@ export const rejectNonCGPARecord = async (req, res) => {
 
     // Send rejection email
     const user = await User.findByPk(record.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour non-CGPA course submission has been rejected.\n\nCourse: ${record.course_name}\nReason: ${verification_comments || "No specific reason provided"}\n\nPlease update and resubmit.\n\nBest Regards,\nNon-CGPA Management System`;
+    if (user && user.userMail) {
+      try {
+        const emailText = `Dear ${user.userName},\n\nYour non-CGPA course submission has been rejected.\n\nCourse: ${record.course_name}\nReason: ${verification_comments || "No specific reason provided"}\n\nPlease update and resubmit.\n\nBest Regards,\nNon-CGPA Management System`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Non-CGPA Course Rejected",
-        text: emailText,
-      });
+        await sendEmail({
+          to: user.userMail,
+          subject: "Non-CGPA Course Rejected",
+          text: emailText,
+        });
+      } catch (emailError) {
+        console.error("⚠️ Error sending rejection email:", emailError.message);
+      }
     }
 
     res.status(200).json({
@@ -503,8 +556,10 @@ export const deleteNonCGPARecord = async (req, res) => {
       return res.status(404).json({ message: "Record not found" });
     }
 
+    const targetUserId = Userid || req.user?.userId || req.user?.Userid;
+
     // Check authorization
-    if (record.Userid !== parseInt(Userid)) {
+    if (record.Userid !== parseInt(targetUserId)) {
       return res.status(403).json({ message: "Unauthorized to delete this record" });
     }
 
@@ -523,7 +578,7 @@ export const deleteNonCGPARecord = async (req, res) => {
 // Get non-CGPA statistics
 export const getNonCGPAStatistics = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }

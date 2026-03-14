@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const CompetencyCodingContext = createContext();
 
@@ -20,11 +21,8 @@ export const CompetencyCodingProvider = ({ children }) => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/competency-coding";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // ========================
   // MAIN COMPETENCY METHODS
@@ -33,10 +31,9 @@ export const CompetencyCodingProvider = ({ children }) => {
   const addOrUpdateCompetency = async (competencyData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/add-or-update`,
-        competencyData,
-        getAuthHeader()
+      const response = await API.post(
+        "/competency-coding/add-or-update",
+        { ...competencyData, Userid: UserId }
       );
       setError(null);
       return response.data;
@@ -50,12 +47,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     }
   };
 
-  const fetchCompetencyRecord = useCallback(async (userId) => {
+  const fetchCompetencyRecord = useCallback(async () => {
+    if (!UserId) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/my-record?UserId=${userId}`,
-        getAuthHeader()
+      const response = await API.get(
+        `/competency-coding/my-record?UserId=${UserId}`
       );
       setCompetencyRecord(response.data.competency || null);
       setError(null);
@@ -69,14 +66,14 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
-  const fetchAnalytics = useCallback(async (userId) => {
+  const fetchAnalytics = useCallback(async () => {
+    if (!UserId) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/analytics?UserId=${userId}`,
-        getAuthHeader()
+      const response = await API.get(
+        `/competency-coding/analytics?UserId=${UserId}`
       );
       setAnalytics(response.data.analytics || null);
       setError(null);
@@ -86,7 +83,7 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // ========================
   // SKILLRACK METHODS
@@ -95,10 +92,9 @@ export const CompetencyCodingProvider = ({ children }) => {
   const updateSkillRackMetrics = async (metricsData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/skillrack/update`,
-        metricsData,
-        getAuthHeader()
+      const response = await API.put(
+        "/competency-coding/skillrack/update",
+        { ...metricsData, Userid: UserId }
       );
       setError(null);
       return response.data;
@@ -112,12 +108,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     }
   };
 
-  const fetchSkillRackSummary = useCallback(async (userId) => {
+  const fetchSkillRackSummary = useCallback(async () => {
+    if (!UserId) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/skillrack/summary?UserId=${userId}`,
-        getAuthHeader()
+      const response = await API.get(
+        `/competency-coding/skillrack/summary?UserId=${UserId}`
       );
       setSkillRackSummary(response.data.skillRackSummary || null);
       setError(null);
@@ -127,7 +123,7 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // ========================
   // PLATFORM METHODS
@@ -136,10 +132,9 @@ export const CompetencyCodingProvider = ({ children }) => {
   const addPlatform = async (platformData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/platform/add`,
-        platformData,
-        getAuthHeader()
+      const response = await API.post(
+        "/competency-coding/platform/add",
+        { ...platformData, Userid: UserId }
       );
       setError(null);
       return response.data;
@@ -153,12 +148,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     }
   };
 
-  const fetchPlatforms = useCallback(async (userId) => {
+  const fetchPlatforms = useCallback(async () => {
+    if (!UserId) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/platform/all?UserId=${userId}`,
-        getAuthHeader()
+      const response = await API.get(
+        `/competency-coding/platform/all?UserId=${UserId}`
       );
       setPlatforms(response.data.platforms || []);
       setError(null);
@@ -168,15 +163,14 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   const updatePlatform = async (platformId, platformData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/platform/update/${platformId}`,
-        platformData,
-        getAuthHeader()
+      const response = await API.put(
+        `/competency-coding/platform/update/${platformId}`,
+        { ...platformData, Userid: UserId }
       );
       setError(null);
       return response.data;
@@ -190,14 +184,13 @@ export const CompetencyCodingProvider = ({ children }) => {
     }
   };
 
-  const deletePlatform = async (platformId, userId) => {
+  const deletePlatform = async (platformId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/platform/delete/${platformId}`,
+      const response = await API.delete(
+        `/competency-coding/platform/delete/${platformId}`,
         {
-          ...getAuthHeader(),
-          data: { Userid: userId }
+          data: { Userid: UserId }
         }
       );
       setError(null);
@@ -219,10 +212,7 @@ export const CompetencyCodingProvider = ({ children }) => {
   const fetchAllRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/all-records`,
-        getAuthHeader()
-      );
+      const response = await API.get("/competency-coding/all-records");
       setAllRecords(response.data.records || []);
       setError(null);
     } catch (err) {
@@ -231,15 +221,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   const fetchStatistics = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/statistics`,
-        getAuthHeader()
-      );
+      const response = await API.get("/competency-coding/statistics");
       setStatistics(response.data.statistics || null);
       setError(null);
     } catch (err) {
@@ -248,15 +235,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   const searchByLevel = async (level) => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/search-by-level?level=${level}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/competency-coding/search-by-level?level=${level}`);
       setError(null);
       return response.data.records || [];
     } catch (err) {
@@ -272,10 +256,7 @@ export const CompetencyCodingProvider = ({ children }) => {
   const fetchTopPerformers = async (limit = 10, sortBy = 'aptitude') => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/top-performers?limit=${limit}&sortBy=${sortBy}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/competency-coding/top-performers?limit=${limit}&sortBy=${sortBy}`);
       setError(null);
       return response.data.records || [];
     } catch (err) {
@@ -291,10 +272,7 @@ export const CompetencyCodingProvider = ({ children }) => {
   const fetchPlatformStatistics = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/platform-statistics`,
-        getAuthHeader()
-      );
+      const response = await API.get("/competency-coding/platform-statistics");
       setError(null);
       return response.data.platformStatistics || {};
     } catch (err) {
@@ -307,13 +285,12 @@ export const CompetencyCodingProvider = ({ children }) => {
     }
   };
 
-  const verifyRecord = async (recordId, userId, comments = "") => {
+  const verifyRecord = async (recordId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/verify/${recordId}`,
-        { Userid: userId, comments },
-        getAuthHeader()
+      const response = await API.put(
+        `/competency-coding/verify/${recordId}`,
+        { Userid: UserId, comments }
       );
       setError(null);
       return response.data;
@@ -328,6 +305,15 @@ export const CompetencyCodingProvider = ({ children }) => {
   };
 
   const clearError = () => setError(null);
+
+  useEffect(() => {
+    if (UserId) {
+      fetchCompetencyRecord();
+      fetchSkillRackSummary();
+      fetchPlatforms();
+      fetchAnalytics();
+    }
+  }, [UserId, fetchCompetencyRecord, fetchSkillRackSummary, fetchPlatforms, fetchAnalytics]);
 
   return (
     <CompetencyCodingContext.Provider

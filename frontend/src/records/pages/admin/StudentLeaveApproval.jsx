@@ -128,7 +128,7 @@ const DeptAdminLeave = () => {
   const stats = getStatusStats(allLeaves);
 
   return (
-    <div className="p-6 bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 min-h-screen">
+    <div className="p-6 bg-gradient-to-br from-indigo-50 via-indigo-50 to-indigo-50 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -136,7 +136,7 @@ const DeptAdminLeave = () => {
       >
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent mb-2">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent mb-2">
             Department Admin Dashboard
           </h2>
           <p className="text-gray-600">Manage leave requests from your department students</p>
@@ -193,11 +193,10 @@ const DeptAdminLeave = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setActiveTab("pending")}
-                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                  activeTab === "pending"
-                    ? "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-lg"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-6 py-2 rounded-lg font-semibold transition-all ${activeTab === "pending"
+                  ? "bg-gradient-to-r from-indigo-500 to-indigo-500 text-white shadow-lg"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 Pending ({pendingLeaves.length})
               </motion.button>
@@ -205,11 +204,10 @@ const DeptAdminLeave = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setActiveTab("all")}
-                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                  activeTab === "all"
-                    ? "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-lg"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-6 py-2 rounded-lg font-semibold transition-all ${activeTab === "all"
+                  ? "bg-gradient-to-r from-indigo-500 to-indigo-500 text-white shadow-lg"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 All Leaves ({allLeaves.length})
               </motion.button>
@@ -235,7 +233,7 @@ const DeptAdminLeave = () => {
         {/* Leave List */}
         {loading && !showModal ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
           </div>
         ) : error ? (
           <div className="bg-white rounded-xl shadow-lg p-8 text-center text-red-500">
@@ -300,7 +298,7 @@ const DeptAdminLeave = () => {
                 <div className="flex items-center space-x-2">
                   <FaUser className="text-gray-500" />
                   <p className="text-sm">
-                    <strong>Student:</strong> {selectedLeave.username} ({selectedLeave.regno})
+                    <strong>Student:</strong> {selectedLeave.username} ({selectedLeave.registerNumber || selectedLeave.registerNumber})
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -343,11 +341,10 @@ const DeptAdminLeave = () => {
                   whileTap={{ scale: 0.98 }}
                   onClick={submitAction}
                   disabled={loading}
-                  className={`flex-1 px-4 py-3 rounded-lg text-white font-semibold transition-all shadow-lg ${
-                    actionType === "approve"
-                      ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                      : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
-                  } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  className={`flex-1 px-4 py-3 rounded-lg text-white font-semibold transition-all shadow-lg ${actionType === "approve"
+                    ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                    : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                    } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {loading
                     ? "Processing..."
@@ -412,7 +409,7 @@ const LeaveCard = ({ leave, index, onApprove, onReject, isPending }) => {
             <div className="text-2xl">{getStatusIcon(leave.leave_status)}</div>
             <div>
               <h3 className="text-lg font-bold text-gray-800">
-                {leave.username} ({leave.regno})
+                {leave.username} ({leave.registerNumber || leave.registerNumber})
               </h3>
               <p className="text-sm text-gray-500">{leave.department}</p>
             </div>
@@ -421,7 +418,7 @@ const LeaveCard = ({ leave, index, onApprove, onReject, isPending }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div>
               <span className="font-medium text-gray-600">Leave Type:</span>
-              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+              <span className="ml-2 px-2 py-1 bg-indigo-100 text-blue-800 rounded-full text-xs">
                 {leave.leave_type}
               </span>
             </div>
@@ -448,7 +445,7 @@ const LeaveCard = ({ leave, index, onApprove, onReject, isPending }) => {
                 href={`${backendUrl}/uploads/leaves/${leave.document}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors"
+                className="flex items-center space-x-1 text-indigo-600 hover:text-blue-800 transition-colors"
               >
                 <FaEye />
                 <span className="text-sm underline">View</span>

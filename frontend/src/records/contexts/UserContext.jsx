@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import axios from 'axios';
 
 // Create User Context
 const UserContext = createContext();
@@ -8,64 +8,51 @@ const UserContext = createContext();
 export const useUser = () => {
   const context = useContext(UserContext);
   if (!context) {
-    throw new Error("useUser must be used within a UserProvider");
+    throw new Error('useUser must be used within a UserProvider');
   }
   return context;
 };
 
-// Axios instance with interceptors
-const api = axios.create({
-  baseURL: "http://localhost:4000/api",
-});
+import API from '../../api';
 
-// Request interceptor to add token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor to handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Token expired or invalid
-      localStorage.clear();
-      window.location.href = "/records/login";
-    }
-    return Promise.reject(error);
-  }
-);
+// No need for a local api instance with its own interceptors,
+// using the shared API from src/api which handles credentials and cookies.
+const api = API;
 
 // User Provider Component
 export const UserProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
-  const [token, setTokenState] = useState(null); // Add token to state
+  const [token, setTokenState] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [bulkHistory, setBulkHistory] = useState([]);
-  const [uploadHistory, setUploadHistory] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   // Load user from localStorage on mount
   useEffect(() => {
     const initializeUser = () => {
       try {
-        const storedUser = localStorage.getItem("user");
-        const storedToken = localStorage.getItem("token");
-        
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('token');
+
+        console.log('🔍 Initializing user from localStorage');
+        console.log('Has stored user:', !!storedUser);
+        console.log('Has stored token:', !!storedToken);
+
         if (storedUser && storedToken) {
-          const parsedUser = JSON.parse(storedUser);
-          setUserState(parsedUser);
-          setTokenState(storedToken); // Set token in state
-          console.log("User loaded from localStorage:", parsedUser);
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUserState(parsedUser);
+            setTokenState(storedToken);
+            console.log('✅ User loaded from localStorage:', parsedUser.userName || parsedUser.userMail);
+          } catch (parseError) {
+            console.error('❌ Error parsing stored user:', parseError);
+            localStorage.clear();
+          }
+        } else {
+          console.log('ℹ️ No stored user/token found');
         }
       } catch (error) {
-        console.error("Error loading user from localStorage:", error);
+        console.error('❌ Error loading user from localStorage:', error);
         localStorage.clear();
       } finally {
         setLoading(false);
@@ -79,85 +66,170 @@ export const UserProvider = ({ children }) => {
   const setUser = useCallback((newUser) => {
     setUserState(newUser);
     if (newUser) {
-      localStorage.setItem("user", JSON.stringify(newUser));
-      console.log("User state updated:", newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      console.log('✅ User state updated:', newUser.userName || newUser.userMail);
     } else {
-      localStorage.removeItem("user");
-      console.log("User state cleared");
+      localStorage.removeItem('user');
+      console.log('ℹ️ User state cleared');
     }
   }, []);
 
   // Login function
   const login = useCallback(async (email, password) => {
-    try {
-      const response = await api.post("/auth/login", { email, password });
-      const { token, user: userData } = response.data;
+    console.log('\n========================================');
+    console.log('🔐 LOGIN ATTEMPT FROM CONTEXT');
+    console.log('========================================');
+    console.log('Email:', email);
 
-      if (!token || !userData) {
-        throw new Error("Invalid response from server");
+    try {
+      // Make login request
+      const response = await api.post('/auth/login', {
+        email: email.trim(),
+        password
+      });
+
+      console.log('📥 Login response received:', response.data);
+
+      // Validate response structure
+      if (!response.data) {
+        throw new Error('Empty response from server');
       }
+
+      const { success, token, user: userData, message } = response.data;
+
+      // Check if login was successful
+      if (!success) {
+        throw new Error(message || 'Login failed');
+      }
+
+      // Validate required data
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      if (!userData) {
+        throw new Error('No user data received from server');
+      }
+
+      if (!userData.role || !userData.role.roleName) {
+        throw new Error('Invalid user data: missing role information');
+      }
+
+      console.log('✅ Login successful');
+      console.log('👤 User:', userData.userName || userData.userMail);
+      console.log('🎭 Role:', userData.role.roleName);
 
       // Store in localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("userRole", userData.role);
-      localStorage.setItem("userId", userData.Userid);
-      localStorage.setItem("userImage", userData.profileImage);
-      localStorage.setItem("deptid", userData.Deptid);
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('userId', userData.userId.toString());
+      localStorage.setItem('userRole', userData.role.roleName);
+      localStorage.setItem('roleId', userData.role.roleId.toString());
+      localStorage.setItem('userImage', userData.profileImage || '/uploads/default.jpg');
 
-      if (userData.role === "Staff" && userData.staffId) {
-        localStorage.setItem("staffId", userData.staffId);
+      if (userData.department) {
+        localStorage.setItem('departmentId', userData.department.departmentId.toString());
+        localStorage.setItem('departmentName', userData.department.departmentName);
       }
 
-      // Update state - IMPORTANT: Set both user and token
+      console.log('💾 Data stored in localStorage');
+
+      // Update state
       setUserState(userData);
       setTokenState(token);
 
+      console.log('✅ Context state updated');
+      console.log('========================================\n');
+
       return response.data;
+
     } catch (error) {
-      console.error("Login error:", error);
+      console.error('\n========================================');
+      console.error('❌ LOGIN ERROR IN CONTEXT');
+      console.error('========================================');
+
+      if (error.response) {
+        // Server responded with error
+        console.error('Status:', error.response.status);
+        console.error('Message:', error.response.data?.message);
+        console.error('Data:', error.response.data);
+      } else if (error.request) {
+        // Request made but no response
+        console.error('No response received from server');
+        console.error('Request:', error.request);
+      } else {
+        // Error in setting up request
+        console.error('Error:', error.message);
+      }
+
+      console.error('========================================\n');
       throw error;
     }
   }, []);
 
   // Logout function
   const logout = useCallback(async () => {
+    console.log('👋 Logging out...');
+
     try {
-      await api.post("/auth/logout");
+      // Call logout endpoint (don't wait for it)
+      api.post('/auth/logout').catch(err => {
+        console.warn('Logout endpoint error (ignored):', err.message);
+      });
     } catch (error) {
-      console.error("Logout error:", error);
+      console.warn('Logout error (ignored):', error.message);
     } finally {
-      // Clear all storage and state
+      // Always clear local state
+      console.log('🧹 Clearing local storage and state');
       localStorage.clear();
       setUserState(null);
       setTokenState(null);
-      window.location.href = "/records/login";
+
+      console.log('✅ Logout complete - redirecting to login');
+      window.location.href = '/records/login';
     }
   }, []);
 
   // Get current user from server
   const fetchCurrentUser = useCallback(async () => {
+    console.log('🔄 Fetching current user from server...');
+
     try {
-      const response = await api.get("/auth/me");
+      const response = await api.get('/auth/me');
+
+      if (!response.data.success || !response.data.user) {
+        throw new Error('Invalid response from server');
+      }
+
       const userData = response.data.user;
-      
+      console.log('✅ Current user fetched:', userData.userName || userData.userMail);
+
       setUserState(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-      
+      localStorage.setItem('user', JSON.stringify(userData));
+
       return userData;
     } catch (error) {
-      console.error("Error fetching current user:", error);
-      logout();
+      console.error('❌ Error fetching current user:', error.message);
+
+      // If authentication failed, logout
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        logout();
+      }
+
       throw error;
     }
   }, [logout]);
 
   // Update user profile
   const updateProfile = useCallback(async (userId, formData) => {
+    console.log('🔄 Updating profile for user:', userId);
+
     try {
       const response = await api.put(`/auth/update-profile/${userId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      console.log('✅ Profile updated successfully');
 
       // Update user state with new profile image
       if (response.data.profileImage) {
@@ -165,139 +237,131 @@ export const UserProvider = ({ children }) => {
           ...prev,
           profileImage: response.data.profileImage,
         }));
-        localStorage.setItem("userImage", response.data.profileImage);
+        localStorage.setItem('userImage', response.data.profileImage);
+        console.log('🖼️ Profile image updated');
       }
 
       return response.data;
     } catch (error) {
-      console.error("Error updating profile:", error);
+      console.error('❌ Error updating profile:', error);
       throw error;
     }
   }, []);
 
-  // Function to handle data export
-  const handleExport = useCallback(async (role, columns, filters = {}, fileType = "csv") => {
+  // Fetch available roles
+  const fetchRoles = useCallback(async () => {
+    console.log('🔄 Fetching roles...');
+
     try {
-      const response = await api.post(
-        "/export",
-        { role, columns, filters, type: fileType },
-        { responseType: "blob" }
-      );
+      const response = await api.get('/admin/roles');
+      const fetchedRoles = response.data.roles || [];
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${role.toLowerCase()}_data.${fileType}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      setRoles(fetchedRoles);
+      console.log('✅ Roles fetched:', fetchedRoles.length);
 
-      console.log(`Export Successful! Type: ${fileType}`);
-      return { success: true };
+      return fetchedRoles;
     } catch (error) {
-      console.error("Error exporting data:", error);
-      throw error;
+      console.error('❌ Error fetching roles:', error.message);
+      return [];
     }
   }, []);
 
-  // Fetch bulk upload history
-  const fetchBulkHistory = useCallback(async () => {
+  // Fetch available departments
+  const fetchDepartments = useCallback(async () => {
+    console.log('🔄 Fetching departments...');
+
     try {
-      const response = await api.get("/bulk-history");
-      const mappedBulkHistory = response.data.map((item) => ({
-        filename: item.filename || "N/A",
-        download_type: item.download_type || "N/A",
-        file_size: item.file_size || 0,
-        total_records: item.total_records || 0,
-        created_at: item.created_at,
-      }));
+      const response = await api.get('/admin/departments');
+      const fetchedDepartments = response.data.departments || [];
 
-      setBulkHistory(mappedBulkHistory);
-      return mappedBulkHistory;
+      setDepartments(fetchedDepartments);
+      console.log('✅ Departments fetched:', fetchedDepartments.length);
+
+      return fetchedDepartments;
     } catch (error) {
-      console.error("Error fetching bulk history:", error);
-      throw error;
+      console.error('❌ Error fetching departments:', error.message);
+      return [];
     }
   }, []);
-
-  // Fetch file upload history
-  const fetchUploadHistory = useCallback(async () => {
-    try {
-      const response = await api.get("/upload-history");
-      const mappedUploadHistory = response.data.map((item) => ({
-        filename: item.filename || "N/A",
-        download_type: item.download_type || "N/A",
-        file_size: item.file_size || 0,
-        total_records: item.total_records || 0,
-        created_at: item.created_at,
-      }));
-      
-      setUploadHistory(mappedUploadHistory);
-      return mappedUploadHistory;
-    } catch (error) {
-      console.error("Error fetching upload history:", error);
-      throw error;
-    }
-  }, []);
-
-  // Load histories on mount if user is authenticated
-  useEffect(() => {
-    if (user && token) {
-      fetchBulkHistory();
-      fetchUploadHistory();
-    }
-  }, [user, token, fetchBulkHistory, fetchUploadHistory]);
 
   // Check if user is authenticated
   const isAuthenticated = useMemo(() => {
-    return !!user && !!token;
+    const authenticated = !!user && !!token;
+    console.log('🔐 Authentication status:', authenticated);
+    return authenticated;
   }, [user, token]);
 
   // Check if user has specific role
-  const hasRole = useCallback((roles) => {
-    if (!user) return false;
-    const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(user.role);
+  const hasRole = useCallback(
+    (rolesToCheck) => {
+      if (!user || !user.role) {
+        console.log('❌ hasRole: No user or role');
+        return false;
+      }
+
+      const roleArray = Array.isArray(rolesToCheck) ? rolesToCheck : [rolesToCheck];
+      const hasRequiredRole = roleArray.includes(user.role.roleName);
+
+      console.log('🎭 hasRole check:', user.role.roleName, 'in', roleArray, '=', hasRequiredRole);
+
+      return hasRequiredRole;
+    },
+    [user]
+  );
+
+  // Check if user is admin (any role with "Admin" in name)
+  const isAdmin = useCallback(() => {
+    if (!user || !user.role) {
+      console.log('❌ isAdmin: No user or role');
+      return false;
+    }
+
+    const adminStatus = user.role.roleName.includes('Admin');
+    console.log('👑 isAdmin check:', user.role.roleName, '=', adminStatus);
+
+    return adminStatus;
   }, [user]);
 
   // Memoized context value
   const contextValue = useMemo(
     () => ({
       user,
-      token, // Add token to context value
+      token,
       setUser,
       login,
       logout,
       loading,
       isAuthenticated,
       hasRole,
+      isAdmin,
       fetchCurrentUser,
       updateProfile,
-      handleExport,
-      bulkHistory,
-      uploadHistory,
-      fetchBulkHistory,
-      fetchUploadHistory,
+      roles,
+      departments,
+      fetchRoles,
+      fetchDepartments,
+      api, // Export api instance for use in other components
     }),
     [
       user,
-      token, // Include token in dependencies
+      token,
       setUser,
       login,
       logout,
       loading,
       isAuthenticated,
       hasRole,
+      isAdmin,
       fetchCurrentUser,
       updateProfile,
-      handleExport,
-      bulkHistory,
-      uploadHistory,
-      fetchBulkHistory,
-      fetchUploadHistory,
+      roles,
+      departments,
+      fetchRoles,
+      fetchDepartments,
     ]
   );
 
   return <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>;
 };
+
+export default UserProvider;

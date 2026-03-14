@@ -18,7 +18,7 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Events Organized': {
     table: 'events_organized',
     alias: 'eo',
@@ -30,7 +30,7 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Online Courses': {
     table: 'online_courses',
     alias: 'oc',
@@ -42,7 +42,7 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Achievements': {
     table: 'achievements',
     alias: 'a',
@@ -54,7 +54,7 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Internships': {
     table: 'internships',
     alias: 'i',
@@ -66,7 +66,7 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Scholarships': {
     table: 'scholarships',
     alias: 's',
@@ -78,11 +78,11 @@ const studentActivityMappings = {
       JOIN department d ON u.Deptid = d.Deptid
     `
   },
-  
+
   'Student Details': {
     table: 'student_details',
     alias: 'sd',
-    columns: ['id', 'userid', 'regno', 'batch', 'gender', 'dob', 'father_name', 'mother_name', 'address', 'city', 'district', 'state', 'pincode', 'phone', 'alternate_phone', 'blood_group', 'aadhar_number', 'pan_number', 'bank_account_number', 'bank_name', 'bank_branch', 'ifsc_code', 'created_by', 'updated_by', 'created_at', 'updated_at'],
+    columns: ['id', 'userid', 'registerNumber', 'batch', 'gender', 'dob', 'father_name', 'mother_name', 'address', 'city', 'district', 'state', 'pincode', 'phone', 'alternate_phone', 'blood_group', 'aadhar_number', 'pan_number', 'bank_account_number', 'bank_name', 'bank_branch', 'ifsc_code', 'created_by', 'updated_by', 'created_at', 'updated_at'],
     joinQuery: `
       SELECT sd.*, u.username as student_name, d.Deptacronym as department 
       FROM student_details sd 
@@ -91,125 +91,125 @@ const studentActivityMappings = {
     `
   },
   // HackathonEvent mapping
- 'Hackathon Event Details' : {
-  table: 'hackathon_events',
-  alias: 'he',
-  columns: [
-    'id', 'Userid', 'event_name', 'organized_by', 'from_date', 'to_date',
-    'level_cleared', 'rounds', 'status', 'Created_by', 'Updated_by',
-    'pending', 'tutor_approval_status', 'Approved_by', 'approved_at', 'comments',
-    'created_at', 'updated_at'
-  ],
-  joinQuery: `
+  'Hackathon Event Details': {
+    table: 'hackathon_events',
+    alias: 'he',
+    columns: [
+      'id', 'Userid', 'event_name', 'organized_by', 'from_date', 'to_date',
+      'level_cleared', 'rounds', 'status', 'Created_by', 'Updated_by',
+      'pending', 'tutor_approval_status', 'Approved_by', 'approved_at', 'comments',
+      'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT he.*, u.username as student_name, d.Deptacronym as department
     FROM hackathon_events he
     JOIN users u ON he.Userid = u.Userid
     JOIN department d ON u.Deptid = d.Deptid
   `
-},
+  },
 
-// Extracurricular mapping
- 'Extracurricular Details' : {
-  table: 'extracurricular_activities',
-  alias: 'ea',
-  columns: [
-    'id', 'Userid', 'type', 'level', 'from_date', 'to_date', 'status', 'prize',
-    'amount', 'description', 'certificate_url', 'Created_by', 'Updated_by',
-    'pending', 'tutor_approval_status', 'Approved_by', 'approved_at', 'comments',
-    'created_at', 'updated_at'
-  ],
-  joinQuery: `
+  // Extracurricular mapping
+  'Extracurricular Details': {
+    table: 'extracurricular_activities',
+    alias: 'ea',
+    columns: [
+      'id', 'Userid', 'type', 'level', 'from_date', 'to_date', 'status', 'prize',
+      'amount', 'description', 'certificate_url', 'Created_by', 'Updated_by',
+      'pending', 'tutor_approval_status', 'Approved_by', 'approved_at', 'comments',
+      'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT ea.*, u.username as student_name, d.Deptacronym as department
     FROM extracurricular_activities ea
     JOIN users u ON ea.Userid = u.Userid
     JOIN department d ON u.Deptid = d.Deptid
   `
-},
+  },
 
-'Project Details': {
-  table: 'student_projects',
-  alias: 'sp',
-  columns: [
-    'id', 'Userid', 'title', 'domain', 'link', 'description', 'techstack',
-    'start_date', 'end_date', 'image_url', 'github_link', 'team_members',
-    'status', 'Created_by', 'Updated_by', 'pending', 'tutor_approval_status',
-    'Approved_by', 'approved_at', 'comments', 'rating', 'created_at', 'updated_at'
-  ],
-  joinQuery: `
+  'Project Details': {
+    table: 'student_projects',
+    alias: 'sp',
+    columns: [
+      'id', 'Userid', 'title', 'domain', 'link', 'description', 'techstack',
+      'start_date', 'end_date', 'image_url', 'github_link', 'team_members',
+      'status', 'Created_by', 'Updated_by', 'pending', 'tutor_approval_status',
+      'Approved_by', 'approved_at', 'comments', 'rating', 'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT sp.*, u.username AS student_name, d.Deptacronym as department
     FROM student_projects sp
     JOIN users u ON sp.Userid = u.Userid
     JOIN department d ON u.Deptid = d.Deptid
   `
-},
+  },
 
   'Competency Coding Details': {
-  table: 'competency_coding',
-  alias: 'cc',
-  columns: [
-    'id', 'Userid', 'present_competency', 'competency_level', 'gaps',
-    'gaps_description', 'steps', 'skillrack_total_programs', 'skillrack_dc',
-    'skillrack_dt', 'skillrack_level_1', 'skillrack_level_2', 'skillrack_level_3',
-    'skillrack_level_4', 'skillrack_level_5', 'skillrack_level_6',
-    'skillrack_code_tracks', 'skillrack_code_tests', 'skillrack_code_tutor',
-    'skillrack_aptitude_score', 'skillrack_points', 'skillrack_bronze_medal_count',
-    'skillrack_silver_medal_count', 'skillrack_gold_medal_count', 'skillrack_rank',
-    'skillrack_last_updated', 'other_platforms', 'Created_by', 'Updated_by',
-    'pending', 'tutor_verification_status', 'Verified_by', 'verified_at',
-    'comments', 'created_at', 'updated_at'
-  ],
-  joinQuery: `
+    table: 'competency_coding',
+    alias: 'cc',
+    columns: [
+      'id', 'Userid', 'present_competency', 'competency_level', 'gaps',
+      'gaps_description', 'steps', 'skillrack_total_programs', 'skillrack_dc',
+      'skillrack_dt', 'skillrack_level_1', 'skillrack_level_2', 'skillrack_level_3',
+      'skillrack_level_4', 'skillrack_level_5', 'skillrack_level_6',
+      'skillrack_code_tracks', 'skillrack_code_tests', 'skillrack_code_tutor',
+      'skillrack_aptitude_score', 'skillrack_points', 'skillrack_bronze_medal_count',
+      'skillrack_silver_medal_count', 'skillrack_gold_medal_count', 'skillrack_rank',
+      'skillrack_last_updated', 'other_platforms', 'Created_by', 'Updated_by',
+      'pending', 'tutor_verification_status', 'Verified_by', 'verified_at',
+      'comments', 'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT cc.*, u.username AS student_name, d.Deptacronym as department
     FROM competency_coding cc
     JOIN users u ON cc.Userid = u.Userid
     JOIN department d ON u.Deptid = d.Deptid
   `
-},
+  },
 
   'Student Publication Details': {
-  table: 'student_publications',
-  alias: 'spb',
-  columns: [
-    'id', 'Userid', 'publication_type', 'publication_name', 'title', 'authors',
-    'index_type', 'doi', 'publisher', 'page_no', 'publication_date',
-    'impact_factor', 'publication_link', 'pdf_link', 'preprint_link',
-    'publication_status', 'status_date', 'abstract', 'keywords', 'volume', 'issue',
-    'journal_abbreviation', 'issn', 'isbn', 'citations_count', 'h_index_contribution',
-    'contribution_description', 'corresponding_author', 'first_author', 'Created_by',
-    'Updated_by', 'pending', 'tutor_verification_status', 'Verified_by', 'verified_at',
-    'verification_comments', 'created_at', 'updated_at'
-  ],
-  joinQuery: `
+    table: 'student_publications',
+    alias: 'spb',
+    columns: [
+      'id', 'Userid', 'publication_type', 'publication_name', 'title', 'authors',
+      'index_type', 'doi', 'publisher', 'page_no', 'publication_date',
+      'impact_factor', 'publication_link', 'pdf_link', 'preprint_link',
+      'publication_status', 'status_date', 'abstract', 'keywords', 'volume', 'issue',
+      'journal_abbreviation', 'issn', 'isbn', 'citations_count', 'h_index_contribution',
+      'contribution_description', 'corresponding_author', 'first_author', 'Created_by',
+      'Updated_by', 'pending', 'tutor_verification_status', 'Verified_by', 'verified_at',
+      'verification_comments', 'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT spb.*, u.username AS student_name, d.Deptacronym as department
     FROM student_publications spb
     JOIN users u ON spb.Userid = u.Userid
     JOIN department d ON u.Deptid = d.Deptid
   `
-},
+  },
 
   'Student Non-CGPA Details': {
-  table: 'student_noncgpa',
-  alias: 'snc',
-  columns: [
-    'id', 'Userid', 'category_id', 'category_no', 'course_code', 'course_name',
-    'from_date', 'to_date', 'no_of_days', 'certificate_proof_pdf',
-    'certificate_proof_filename', 'certificate_proof_size', 'pending',
-    'tutor_verification_status', 'Verified_by', 'verified_at',
-    'verification_comments', 'Created_by', 'Updated_by', 'created_at', 'updated_at'
-  ],
-  joinQuery: `
+    table: 'student_noncgpa',
+    alias: 'snc',
+    columns: [
+      'id', 'Userid', 'category_id', 'category_no', 'course_code', 'course_name',
+      'from_date', 'to_date', 'no_of_days', 'certificate_proof_pdf',
+      'certificate_proof_filename', 'certificate_proof_size', 'pending',
+      'tutor_verification_status', 'Verified_by', 'verified_at',
+      'verification_comments', 'Created_by', 'Updated_by', 'created_at', 'updated_at'
+    ],
+    joinQuery: `
     SELECT snc.*, u.username AS student_name, nc.category_name, d.Deptacronym as department
     FROM student_noncgpa snc
     JOIN users u ON snc.Userid = u.Userid
     JOIN noncgpa_category nc ON snc.category_id = nc.id
     JOIN department d ON u.Deptid = d.Deptid
   `
-}
+  }
 };
 router.get('/student/generate-pdf/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     const [studentData] = await sequelize.query(`
       SELECT sd.*, u.username, u.email, d.Deptacronym as department
       FROM student_details sd
@@ -217,7 +217,7 @@ router.get('/student/generate-pdf/:userId', async (req, res) => {
       LEFT JOIN department d ON u.Deptid = d.Deptid
       WHERE sd.userid = ?
     `, { replacements: [userId] });
-    
+
     res.json({
       success: true,
       data: {
@@ -225,7 +225,7 @@ router.get('/student/generate-pdf/:userId', async (req, res) => {
         // ... other data
       }
     });
-    
+
   } catch (error) {
     console.error('Error generating PDF:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
@@ -264,10 +264,10 @@ router.get('/student-admin-panel/roll-numbers/:batch', async (req, res) => {
   try {
     const { batch } = req.params;
     const [rollNumbers] = await sequelize.query(`
-      SELECT regno 
+      SELECT registerNumber 
       FROM student_details 
-      WHERE batch = ? AND regno IS NOT NULL
-      ORDER BY regno
+      WHERE batch = ? AND registerNumber IS NOT NULL
+      ORDER BY registerNumber
     `, {
       replacements: [batch]
     });
@@ -300,7 +300,7 @@ router.get('/student-admin-panel/students-with-activities', async (req, res) => 
     const studentsWithActivities = await Promise.all(
       studentsArray.map(async (student) => {
         const activities = [];
-        
+
         // Check each activity table for this user
         for (const [activityName, mapping] of Object.entries(studentActivityMappings)) {
           try {
@@ -316,7 +316,7 @@ router.get('/student-admin-panel/students-with-activities', async (req, res) => 
                 replacements: [student.Userid]
               }
             );
-            
+
             if (activityRows && activityRows[0] && activityRows[0].count > 0) {
               activities.push(activityName);
             }
@@ -324,7 +324,7 @@ router.get('/student-admin-panel/students-with-activities', async (req, res) => 
             console.error(`Error checking ${activityName} for user ${student.Userid}:`, activityError);
           }
         }
-        
+
         return {
           ...student,
           activities
@@ -350,7 +350,7 @@ router.get('/student-admin-panel/activity-data/:tableName', async (req, res) => 
 
     // Find the activity mapping
     const activityMapping = Object.values(studentActivityMappings).find(mapping => mapping.table === tableName);
-    
+
     if (!activityMapping) {
       console.error('Invalid activity table:', tableName);
       return res.status(400).json({ error: 'Invalid activity table' });
@@ -361,7 +361,7 @@ router.get('/student-admin-panel/activity-data/:tableName', async (req, res) => 
     // Validate that required properties exist
     if (!activityMapping.joinQuery || !activityMapping.columns || !activityMapping.alias) {
       console.error('Invalid activity mapping structure:', activityMapping);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Invalid activity mapping configuration',
         details: 'Missing required properties in activity mapping'
       });
@@ -369,20 +369,20 @@ router.get('/student-admin-panel/activity-data/:tableName', async (req, res) => 
 
     let query = activityMapping.joinQuery.trim();
     const queryParams = [];
-    
+
     // Add filters
     const conditions = [];
-    
+
     if (departmentId && departmentId !== 'null' && departmentId !== '') {
       conditions.push('u.Deptid = ?');
       queryParams.push(departmentId);
     }
-    
+
     if (studentName && studentName.trim() !== '') {
       conditions.push('u.username LIKE ?');
       queryParams.push(`%${studentName.trim()}%`);
     }
-    
+
     if (conditions.length > 0) {
       // Check if WHERE clause already exists in the query
       if (query.toLowerCase().includes('where')) {
@@ -391,24 +391,24 @@ router.get('/student-admin-panel/activity-data/:tableName', async (req, res) => 
         query += ` WHERE ${conditions.join(' AND ')}`;
       }
     }
-    
+
     // Add ordering - use the alias for ordering
     query += ` ORDER BY ${activityMapping.alias}.created_at DESC`;
-    
+
     console.log('Final query:', query);
     console.log('Query params:', queryParams);
-    
+
     const [rows] = await sequelize.query(query, {
       replacements: queryParams
     });
-    
+
     // Ensure columns is an array
     const baseColumns = Array.isArray(activityMapping.columns) ? activityMapping.columns : [];
     const columns = [...baseColumns, 'student_name', 'department'];
-    
+
     console.log(`Found ${rows ? rows.length : 0} rows for ${tableName}`);
     console.log('Columns:', columns);
-    
+
     res.json({
       data: rows || [],
       columns: columns
@@ -420,9 +420,9 @@ router.get('/student-admin-panel/activity-data/:tableName', async (req, res) => 
       stack: error.stack,
       sql: error.sql
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch student activity data',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -489,16 +489,16 @@ router.get('/student-admin-panel/activity-fields/:activityName', async (req, res
 router.post('/student-admin-panel/export-excel', async (req, res) => {
   try {
     const { viewMode, filters, data, columns } = req.body;
-    
+
     // Validate required data
     if (!data || !Array.isArray(data)) {
       return res.status(400).json({ error: 'Invalid data provided for export' });
     }
-    
+
     // Create a new workbook
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Student Data Export');
-    
+
     if (viewMode === 'student') {
       // Student view export
       const studentColumns = [
@@ -508,9 +508,9 @@ router.post('/student-admin-panel/export-excel', async (req, res) => {
         { header: 'Department', key: 'department', width: 20 },
         { header: 'Activities', key: 'activities', width: 50 }
       ];
-      
+
       worksheet.columns = studentColumns;
-      
+
       // Add header styling
       worksheet.getRow(1).font = { bold: true };
       worksheet.getRow(1).fill = {
@@ -518,33 +518,33 @@ router.post('/student-admin-panel/export-excel', async (req, res) => {
         pattern: 'solid',
         fgColor: { argb: 'FF4472C4' }
       };
-      
+
       // Add data rows
       data.forEach(student => {
         worksheet.addRow({
           studentId: student.studentId || 'N/A',
           username: student.username || 'Unknown',
-          email: student.email || 'Unknown',
+          email: student.userMail || 'Unknown',
           department: student.department || 'N/A',
           activities: student.activities ? student.activities.join(', ') : 'None'
         });
       });
-      
+
     } else {
       // Activity view export
       if (!columns || !Array.isArray(columns) || columns.length === 0) {
         return res.status(400).json({ error: 'No columns provided for activity export' });
       }
-      
+
       // Create columns for worksheet
       const excelColumns = columns.map(col => ({
         header: col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         key: col,
         width: 20
       }));
-      
+
       worksheet.columns = excelColumns;
-      
+
       // Add header styling
       worksheet.getRow(1).font = { bold: true };
       worksheet.getRow(1).fill = {
@@ -552,7 +552,7 @@ router.post('/student-admin-panel/export-excel', async (req, res) => {
         pattern: 'solid',
         fgColor: { argb: 'FF4472C4' }
       };
-      
+
       // Add data rows
       data.forEach(item => {
         const row = {};
@@ -575,25 +575,25 @@ router.post('/student-admin-panel/export-excel', async (req, res) => {
         worksheet.addRow(row);
       });
     }
-    
+
     // Auto-fit columns
     worksheet.columns.forEach(column => {
       if (column.width < 10) column.width = 10;
       if (column.width > 50) column.width = 50;
     });
-    
+
     // Set response headers
     const filename = `student_activities_export_${new Date().toISOString().split('T')[0]}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-    
+
     // Write to response
     await workbook.xlsx.write(res);
     res.end();
-    
+
   } catch (error) {
     console.error('Error exporting student data to Excel:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to export student data',
       details: error.message
     });
@@ -604,7 +604,7 @@ router.post('/student-admin-panel/export-excel', async (req, res) => {
 router.get('/student-admin-panel/statistics', async (req, res) => {
   try {
     const stats = {};
-    
+
     // Get total counts for each activity
     for (const [activityName, mapping] of Object.entries(studentActivityMappings)) {
       try {
@@ -613,7 +613,7 @@ router.get('/student-admin-panel/statistics', async (req, res) => {
           stats[activityName] = 0;
           continue;
         }
-        
+
         const [result] = await sequelize.query(
           `SELECT COUNT(*) as count FROM ${mapping.table}`,
           { type: sequelize.QueryTypes.SELECT }
@@ -624,15 +624,15 @@ router.get('/student-admin-panel/statistics', async (req, res) => {
         stats[activityName] = 0;
       }
     }
-    
+
     // Get total students
     const [studentCount] = await sequelize.query(
       `SELECT COUNT(*) as count FROM users WHERE role = 'Student'`,
       { type: sequelize.QueryTypes.SELECT }
     );
-    
+
     stats.totalStudents = studentCount && studentCount[0] ? studentCount[0].count : 0;
-    
+
     res.json(stats);
   } catch (error) {
     console.error('Error fetching student statistics:', error);

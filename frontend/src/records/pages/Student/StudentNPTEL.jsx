@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrash, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useNPTEL } from "../../contexts/NPTELContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 const StudentNPTEL = () => {
   const {
@@ -28,7 +30,10 @@ const StudentNPTEL = () => {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState(null);
 
-  const userId = parseInt(localStorage.getItem("userId"));
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
+
 
   useEffect(() => {
     fetchAllCourses();
@@ -134,7 +139,7 @@ const StudentNPTEL = () => {
       case "Completed":
         return "bg-green-100 text-green-800";
       case "In Progress":
-        return "bg-blue-100 text-blue-800";
+        return "bg-indigo-100 text-blue-800";
       case "Not Completed":
         return "bg-red-100 text-red-800";
       default:
@@ -144,7 +149,7 @@ const StudentNPTEL = () => {
 
   const getGradeColor = (grade) => {
     if (grade === "O" || grade === "A+" || grade === "A") return "text-green-600";
-    if (grade === "B+" || grade === "B") return "text-blue-600";
+    if (grade === "B+" || grade === "B") return "text-indigo-600";
     if (grade === "C") return "text-yellow-600";
     return "text-red-600";
   };
@@ -160,8 +165,8 @@ const StudentNPTEL = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         NPTEL Courses
       </h2>
 
@@ -172,7 +177,7 @@ const StudentNPTEL = () => {
       )}
 
       {loading && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -188,7 +193,7 @@ const StudentNPTEL = () => {
             <h3 className="text-xl font-bold text-gray-800 mb-4">
               Credit Transfer - {selectedEnrollment.course?.course_name}
             </h3>
-            
+
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div><strong>Assessment Marks:</strong></div>
@@ -245,7 +250,7 @@ const StudentNPTEL = () => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowEnrollForm(!showEnrollForm)}
-          className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+          className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
         >
           {showEnrollForm ? "Cancel" : "Add New Course"}
         </motion.button>
@@ -273,7 +278,7 @@ const StudentNPTEL = () => {
                   name="course_id"
                   value={formData.course_id}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                   disabled={editingId}
                 >
@@ -295,7 +300,7 @@ const StudentNPTEL = () => {
                   name="assessment_marks"
                   value={formData.assessment_marks}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -313,7 +318,7 @@ const StudentNPTEL = () => {
                   name="exam_marks"
                   value={formData.exam_marks}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -330,7 +335,7 @@ const StudentNPTEL = () => {
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 >
                   <option value="In Progress">In Progress</option>
@@ -352,7 +357,7 @@ const StudentNPTEL = () => {
               </div>
             </div>
 
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <strong>Note:</strong> After adding the course, you can click on the row in the table to enable/disable credit transfer.
               </p>
@@ -372,7 +377,7 @@ const StudentNPTEL = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 type="submit"
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+                className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
                 disabled={loading}
               >
                 {loading ? "Processing..." : editingId ? "Update" : "Add Course"}
@@ -392,7 +397,7 @@ const StudentNPTEL = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
           My Enrolled Courses
         </h3>
-        
+
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
             💡 <strong>Tip:</strong> Click on any row to manage credit transfer for that course
@@ -404,7 +409,7 @@ const StudentNPTEL = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse border border-gray-300 table-auto">
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left w-auto">Course</th>
                   <th className="border border-gray-300 p-3 text-left w-32">Provider</th>
@@ -419,10 +424,10 @@ const StudentNPTEL = () => {
               </thead>
               <tbody>
                 {enrollments.map((enrollment) => (
-                  <tr 
-                    key={enrollment.id} 
+                  <tr
+                    key={enrollment.id}
                     onClick={() => handleRowClick(enrollment)}
-                    className={`bg-white hover:bg-blue-50 transition ${enrollment.pending ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+                    className={`bg-white hover:bg-indigo-50 transition ${enrollment.pending ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
                   >
                     <td className="border border-gray-300 p-3 font-medium">
                       {enrollment.course?.course_name}
@@ -468,26 +473,25 @@ const StudentNPTEL = () => {
                       </div>
                     </td>
                     <td className="border border-gray-300 p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        enrollment.tutor_verification_status
-                          ? "bg-green-100 text-green-800"
-                          : enrollment.pending
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${enrollment.tutor_verification_status
+                        ? "bg-green-100 text-green-800"
+                        : enrollment.pending
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
-                      }`}>
+                        }`}>
                         {enrollment.tutor_verification_status
                           ? "Verified"
                           : enrollment.pending
-                          ? "Pending"
-                          : "Not Verified"}
+                            ? "Pending"
+                            : "Not Verified"}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleEdit(enrollment)}
-                          className={`p-1 ${enrollment.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${enrollment.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={enrollment.pending ? "Edit" : "Cannot edit verified enrollments"}
                           disabled={!enrollment.pending}
@@ -496,8 +500,8 @@ const StudentNPTEL = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(enrollment.id)}
-                          className={`p-1 ${enrollment.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${enrollment.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={enrollment.pending ? "Delete" : "Cannot delete verified enrollments"}
                           disabled={!enrollment.pending}

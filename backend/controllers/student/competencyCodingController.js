@@ -108,6 +108,8 @@ export const addOrUpdateCompetencyCoding = async (req, res) => {
       competency.skillrack_gold_medal_count = skillrack_gold_medal_count ?? competency.skillrack_gold_medal_count;
       competency.skillrack_rank = skillrack_rank ?? competency.skillrack_rank;
       competency.skillrack_last_updated = new Date();
+      competency.pending = true;
+      competency.tutor_verification_status = false;
       competency.Updated_by = Userid;
 
       await competency.save();
@@ -144,6 +146,8 @@ export const addOrUpdateCompetencyCoding = async (req, res) => {
         skillrack_gold_medal_count: skillrack_gold_medal_count || 0,
         skillrack_rank: skillrack_rank || null,
         skillrack_last_updated: new Date(),
+        pending: true,
+        tutor_verification_status: false,
         Created_by: Userid,
         Updated_by: Userid,
       });
@@ -162,15 +166,15 @@ export const addOrUpdateCompetencyCoding = async (req, res) => {
 // Get student's competency record
 export const getCompetencyRecord = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
-    if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
-    }
+    // if (!competency) {
+    //   return res.status(404).json({ message: "Competency record not found" });
+    // }
 
     res.status(200).json({ success: true, competency });
   } catch (error) {
@@ -186,7 +190,7 @@ export const getCompetencyRecord = async (req, res) => {
 // Update SkillRack metrics
 export const updateSkillRackMetrics = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.body.Userid;
+    const userId = req.user?.userId || req.body.Userid;
     const {
       skillrack_total_programs,
       skillrack_dc,
@@ -256,14 +260,14 @@ export const updateSkillRackMetrics = async (req, res) => {
 // Get SkillRack summary
 export const getSkillRackSummary = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
     if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
+      return res.status(200).json({ success: true, skillRackSummary: null });
     }
 
     const skillRackSummary = {
@@ -306,7 +310,7 @@ export const getSkillRackSummary = async (req, res) => {
 // Add platform profile
 export const addPlatformProfile = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.body.Userid;
+    const userId = req.user?.userId || req.body.Userid;
     const { platform_name, level, no_of_problems_solved, rank, easy_count, medium_count, hard_count, description } = req.body;
 
     if (!userId || !platform_name || !level) {
@@ -316,7 +320,13 @@ export const addPlatformProfile = async (req, res) => {
     let competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
 
     if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
+      // Create a basic competency record if it doesn't exist
+      competency = await CompetencyCoding.create({
+        Userid: userId,
+        other_platforms: [],
+        Created_by: userId,
+        Updated_by: userId
+      });
     }
 
     const newPlatform = {
@@ -332,13 +342,35 @@ export const addPlatformProfile = async (req, res) => {
       added_at: new Date(),
     };
 
-    const platforms = competency.other_platforms || [];
+    // Ensure other_platforms is an array
+    let platforms = [];
+    if (Array.isArray(competency.other_platforms)) {
+      platforms = [...competency.other_platforms];
+    } else if (typeof competency.other_platforms === 'string') {
+      try {
+        platforms = JSON.parse(competency.other_platforms);
+      } catch (e) {
+        platforms = [];
+      }
+    }
+
     platforms.push(newPlatform);
 
     competency.other_platforms = platforms;
     competency.Updated_by = userId;
+    competency.pending = true;
+    competency.tutor_verification_status = false;
 
-    await competency.save();
+    // Direct update to ensure it's saved correctly
+    await CompetencyCoding.update(
+      {
+        other_platforms: platforms,
+        Updated_by: userId,
+        pending: true,
+        tutor_verification_status: false
+      },
+      { where: { Userid: userId } }
+    );
 
     res.status(201).json({
       message: "Platform profile added successfully",
@@ -351,16 +383,23 @@ export const addPlatformProfile = async (req, res) => {
 };
 
 // Get all platform profiles
+// Get all platform profiles
 export const getPlatformProfiles = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
+
+    // If no competency record exists, return empty platforms array
     if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        platforms: [],
+      });
     }
 
     const platforms = competency.other_platforms || [];
@@ -379,7 +418,7 @@ export const getPlatformProfiles = async (req, res) => {
 // Update platform profile
 export const updatePlatformProfile = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.body.Userid;
+    const userId = req.user?.userId || req.body.Userid;
     const { platformId } = req.params;
     const { level, no_of_problems_solved, rank, easy_count, medium_count, hard_count, description } = req.body;
 
@@ -388,11 +427,14 @@ export const updatePlatformProfile = async (req, res) => {
     }
 
     let competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
-    if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
-    }
+    // if (!competency) {
+    //   return res.status(404).json({ message: "Competency record not found" });
+    // }
 
-    const platforms = competency.other_platforms || [];
+    const platforms = Array.isArray(competency.other_platforms)
+      ? [...competency.other_platforms]
+      : (typeof competency.other_platforms === 'string' ? JSON.parse(competency.other_platforms) : []);
+
     const platformIndex = platforms.findIndex(p => p.id == platformId);
 
     if (platformIndex === -1) {
@@ -409,10 +451,15 @@ export const updatePlatformProfile = async (req, res) => {
     platforms[platformIndex].description = description ?? platforms[platformIndex].description;
     platforms[platformIndex].updated_at = new Date();
 
-    competency.other_platforms = platforms;
-    competency.Updated_by = userId;
-
-    await competency.save();
+    await CompetencyCoding.update(
+      {
+        other_platforms: platforms,
+        Updated_by: userId,
+        pending: true,
+        tutor_verification_status: false
+      },
+      { where: { Userid: userId } }
+    );
 
     res.status(200).json({
       message: "Platform profile updated successfully",
@@ -427,7 +474,7 @@ export const updatePlatformProfile = async (req, res) => {
 // Delete platform profile
 export const deletePlatformProfile = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.body.Userid;
+    const userId = req.user?.userId || req.body.Userid;
     const { platformId } = req.params;
 
     if (!userId || !platformId) {
@@ -435,21 +482,24 @@ export const deletePlatformProfile = async (req, res) => {
     }
 
     let competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
-    if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
-    }
+    // if (!competency) {
+    //   return res.status(404).json({ message: "Competency record not found" });
+    // }
 
-    const platforms = competency.other_platforms || [];
+    const platforms = Array.isArray(competency.other_platforms)
+      ? [...competency.other_platforms]
+      : (typeof competency.other_platforms === 'string' ? JSON.parse(competency.other_platforms) : []);
+
     const filteredPlatforms = platforms.filter(p => p.id != platformId);
 
     if (filteredPlatforms.length === platforms.length) {
       return res.status(404).json({ message: "Platform profile not found" });
     }
 
-    competency.other_platforms = filteredPlatforms;
-    competency.Updated_by = userId;
-
-    await competency.save();
+    await CompetencyCoding.update(
+      { other_platforms: filteredPlatforms, Updated_by: userId },
+      { where: { Userid: userId } }
+    );
 
     res.status(200).json({ message: "Platform profile deleted successfully" });
   } catch (error) {
@@ -465,14 +515,14 @@ export const deletePlatformProfile = async (req, res) => {
 // Get competency analytics
 export const getCompetencyAnalytics = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
     const competency = await CompetencyCoding.findOne({ where: { Userid: userId } });
     if (!competency) {
-      return res.status(404).json({ message: "Competency record not found" });
+      return res.status(200).json({ success: true, analytics: null });
     }
 
     const levelProgress = {
@@ -534,12 +584,12 @@ export const getAllCompetencyRecords = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -552,8 +602,8 @@ export const getAllCompetencyRecords = async (req, res) => {
       return {
         ...rest,
         username: organizer?.username || "N/A",
-        email: organizer?.email || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
+        email: organizer?.userMail || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
       };
     });
 
@@ -561,6 +611,46 @@ export const getAllCompetencyRecords = async (req, res) => {
   } catch (error) {
     console.error("Error fetching all competency records:", error);
     res.status(500).json({ message: "Error fetching records" });
+  }
+};
+
+// Get pending competency records (Admin/Tutor Dashboard)
+export const getPendingCompetencyRecords = async (req, res) => {
+  try {
+    const records = await CompetencyCoding.findAll({
+      where: { pending: true },
+      include: [
+        {
+          model: User,
+          as: "organizer",
+          attributes: ["userId", "userName", "userMail"],
+          include: [
+            {
+              model: StudentDetails,
+              as: "studentDetails",
+              attributes: ["registerNumber", "staffId"],
+            },
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    const formattedRecords = records.map((record) => {
+      const { organizer, ...rest } = record.get({ plain: true });
+      return {
+        ...rest,
+        username: organizer?.userName || "N/A",
+        email: organizer?.userMail || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
+        staffId: organizer?.studentDetails?.staffId || "N/A",
+      };
+    });
+
+    res.status(200).json({ success: true, count: formattedRecords.length, competencyRecords: formattedRecords });
+  } catch (error) {
+    console.error("Error fetching pending competency records:", error);
+    res.status(500).json({ message: "Error fetching pending records" });
   }
 };
 
@@ -630,12 +720,12 @@ export const searchByCompetencyLevel = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno"],
+              attributes: ["registerNumber"],
             },
           ],
         },
@@ -670,12 +760,12 @@ export const getTopPerformers = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno"],
+              attributes: ["registerNumber"],
             },
           ],
         },
@@ -748,11 +838,11 @@ export const verifyCompetencyRecord = async (req, res) => {
 
     // Send verification email to student
     const user = await User.findByPk(competency.Userid);
-    if (user && user.email) {
-      const emailText = `Dear ${user.username},\n\nYour coding competency record has been verified.\n\nCurrent Level: ${competency.competency_level}\nSkillRack Aptitude Score: ${competency.skillrack_aptitude_score}\nSkillRack Rank: ${competency.skillrack_rank || "N/A"}\n\nComments: ${comments || "None"}\n\nBest Regards,\nCompetency Management System`;
+    if (user && user.userMail) {
+      const emailText = `Dear ${user.userName},\n\nYour coding competency record has been verified.\n\nCurrent Level: ${competency.competency_level}\nSkillRack Aptitude Score: ${competency.skillrack_aptitude_score}\nSkillRack Rank: ${competency.skillrack_rank || "N/A"}\n\nComments: ${comments || "None"}\n\nBest Regards,\nCompetency Management System`;
 
       await sendEmail({
-        to: user.email,
+        to: user.userMail,
         subject: "Competency Record Verified",
         text: emailText,
       });
@@ -764,3 +854,4 @@ export const verifyCompetencyRecord = async (req, res) => {
     res.status(500).json({ message: "Error verifying record", error: error.message });
   }
 };
+

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaBriefcase } from 'react-icons/fa';
 import './Marquee.css';
 
 
@@ -54,17 +55,16 @@ const companies = [
   },
   {
     name:'IBM',
-    logo:'  https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.researchgate.net%2Fpublication%2F348410758%2Ffigure%2Ffig3%2FAS%3A979140828217344%401610456773194%2FLogo-of-International-Business-Machines-Corporationhttps-wwwibmcom-cn-zhlnkm.jpg&f=1&nofb=1&ipt=fb4f7c11cef3d4ca8d1fa13ebd9981f0feac1d711403ab81d45ffc48340321ec'
+    logo:'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.researchgate.net%2Fpublication%2F348410758%2Ffigure%2Ffig3%2FAS%3A979140828217344%401610456773194%2FLogo-of-International-Business-Machines-Corporationhttps-wwwibmcom-cn-zhlnkm.jpg&f=1&nofb=1&ipt=fb4f7c11cef3d4ca8d1fa13ebd9981f0feac1d711403ab81d45ffc48340321ec'
   },
   {
     name:'JSW',
-    logo:'  https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%3Fid%3DOIP.2rrFHwB5U00OHBL9o4y79wHaDx%26pid%3DApi&f=1&ipt=58c05b302257a9ad31a87dd2033024469b7aca8248a589fb370fb0a80fc2958c'
+    logo:'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%3Fid%3DOIP.2rrFHwB5U00OHBL9o4y79wHaDx%26pid%3DApi&f=1&ipt=58c05b302257a9ad31a87dd2033024469b7aca8248a589fb370fb0a80fc2958c'
   },
   {
     name:'Data Pattern',
     logo:'https://i0.wp.com/mrmoneyist.com/wp-content/uploads/2021/12/2201027174755294.jpg?w=1024&ssl=1'
   },
-
   {
     name:'Comcast',
     logo:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPIQEk3t1cSbvppmNf4S4woDTbd0eibFiE_g&s'
@@ -73,37 +73,77 @@ const companies = [
     name:'Cognizant',
     logo:'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fnews.cognizant.com%2Fimage%2Fcognizant-new-logo-400px.jpg&f=1&nofb=1&ipt=768301624dfc139e1db157ffe684809fc704215b512bfb45c9da3d73341d7ff7'
   },
-
-
 ];
 
 const Marquee = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="marquee-container py-8 bg-white">
+    <div className="marquee-container">
 
-      <h2 className="text-7xl lg:text-4xl font-bold text-blue-900 font-serif mb-4 text-center">
-      FEW OF OUR PRESTIGIOUS RECRUITERS
-      </h2>
+      {/* Background Gears — exact campus life pattern */}
+      <div className="marquee-bg-gear marquee-bg-gear-1"></div>
+      <div className="marquee-bg-gear marquee-bg-gear-2"></div>
+      <div className="marquee-bg-gear marquee-bg-gear-3"></div>
+      <div className="marquee-bg-gear marquee-bg-gear-4"></div>
+      <div className="marquee-bg-gear marquee-bg-gear-5"></div>
 
+      {/* Section Header — campus life style */}
+      <div className="marquee-section-header">
 
-      <div className="marquee-content">
-        {[...companies, ...companies].map((company, index) => (
-          <div 
-            key={index} 
-            className="marquee-item cursor-pointer"
-            onClick={() => navigate('/companies-visited')}
-          >
-            <img 
-              src={company.logo} 
-              alt={company.name}
-              className="marquee-logo hover:scale-105 transition-transform duration-300"
-            />
-          </div>
+        <div className="marquee-header-badge">
+          <span className="marquee-badge-icon"><FaBriefcase /></span>
+          <span className="marquee-badge-text">Placements</span>
+        </div>
 
-        ))}
+        <h2 className="marquee-main-title">
+          <span className="marquee-title-word marquee-title-word-1">PRESTIGIOUS</span>
+          <span className="marquee-title-word marquee-title-word-2">RECRUITERS</span>
+        </h2>
+
+        <div className="marquee-title-underline">
+          <div className="marquee-underline-animated"></div>
+        </div>
+
+        <p className="marquee-main-subtitle">
+          Few of our esteemed companies that recruit NEC talent
+        </p>
       </div>
+
+      {/* Scrolling Track */}
+      <div className="marquee-track-wrapper">
+        <div className="marquee-content">
+          {[...companies, ...companies].map((company, index) => (
+            <div
+              key={index}
+              className="marquee-item cursor-pointer"
+              onClick={() => navigate('/companies-visited')}
+            >
+              <img
+                src={company.logo}
+                alt={company.name}
+                className="marquee-logo"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Info Bar — campus life style */}
+      <div className="marquee-info-bar">
+        <div className="marquee-info-item">
+          <span className="marquee-info-text">17+ Companies</span>
+        </div>
+        <div className="marquee-info-separator"></div>
+        <div className="marquee-info-item">
+          <span className="marquee-info-text">Top MNCs</span>
+        </div>
+        <div className="marquee-info-separator"></div>
+        <div className="marquee-info-item">
+          <span className="marquee-info-text">Excellence in Placements</span>
+        </div>
+      </div>
+
     </div>
   );
 };

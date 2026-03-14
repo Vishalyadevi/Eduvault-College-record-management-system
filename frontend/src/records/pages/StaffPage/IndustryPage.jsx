@@ -312,7 +312,7 @@ const IndustryPage = () => {
         href={value} 
         target="_blank" 
         rel="noopener noreferrer" 
-        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+        className="text-indigo-600 hover:text-blue-800 flex items-center gap-1"
       >
         <ExternalLink size={14} />
         View
@@ -375,7 +375,7 @@ const IndustryPage = () => {
         item.has_pdf ? (
           <button
             onClick={() => handleViewPDF(item.id)}
-            className="text-green-600 hover:text-green-800 flex items-center gap-1"
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
           >
             <FileText size={14} />
             View PDF
@@ -394,7 +394,7 @@ const IndustryPage = () => {
         
         <button
           onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-600 hover:to-purple-500 px-4 py-2 rounded-md shadow-md transition-all duration-200"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-indigo-600 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md transition-all duration-200"
         >
           <Plus size={16} />
           Add New Industry Knowhow
@@ -519,105 +519,103 @@ const IndustryPage = () => {
             />
           )}
           <FormField
-            label="Certificate Link"
-            name="certificate_link"
-            value={formData.certificate_link}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="URL to certificate"
-          />
-          
-          {!isViewMode && (
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Certificate PDF (Max 10MB)
-              </label>
-              
-              <div className="space-y-2">
-                <div>
-                  <label 
-                    htmlFor="file-upload-industry" 
-                    className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded hover:bg-blue-100 cursor-pointer transition-colors"
-                  >
-                    Choose File
-                    <input 
-                      id="file-upload-industry" 
-                      type="file" 
-                      className="hidden" 
-                      onChange={handleFileChange} 
-                      accept=".pdf,application/pdf" 
-                    />
-                  </label>
-                  <span className="ml-3 text-sm text-gray-600">
-                    {pdfFile ? pdfFile.name : 'No file chosen'}
-                  </span>
-                </div>
-              </div>
-              
-              {currentItem && currentItem.has_pdf && !removePdf && !pdfFile && (
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleViewPDF(currentItem.id)}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    <FileText size={14} />
-                    View Current PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemovePdf}
-                    className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
-                  >
-                    <X size={14} />
-                    Remove PDF
-                  </button>
-                </div>
-              )}
-              
-              {pdfFile && (
-                <div className="mt-2 text-sm text-green-600">
-                  Selected: {pdfFile.name}
-                </div>
-              )}
-              
-              {removePdf && (
-                <div className="mt-2 text-sm text-orange-600">
-                  PDF will be removed on save
-                </div>
-              )}
-            </div>
-          )}
+  label="Certificate Link"
+  name="certificate_link"
+  value={formData.certificate_link}
+  onChange={handleInputChange}
+  disabled={isViewMode}
+  placeholder="URL to certificate"
+/>
 
-          {isViewMode && (
-            <>
-              {formData.certificate_link && (
-                <div className="col-span-2">
-                  <a 
-                    href={formData.certificate_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
-                  >
-                    <ExternalLink size={14} />
-                    View Certificate Link
-                  </a>
-                </div>
-              )}
-              {currentItem && currentItem.has_pdf && (
-                <div className="col-span-2">
-                  <button
-                    type="button"
-                    onClick={() => handleViewPDF(currentItem.id)}
-                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    <FileText size={16} />
-                    View Certificate PDF
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+{!isViewMode && (
+  <div className="col-span-2">
+    <label className="block text-sm font-medium text-black mb-2">
+      Certificate PDF
+    </label>
+
+    <input
+      type="file"
+      accept="application/pdf"
+      onChange={handleFileChange}
+      disabled={isViewMode}
+      className="block w-full text-sm text-gray-500
+        file:mr-4 file:py-2 file:px-4
+        file:rounded-md file:border-0
+        file:text-sm file:font-semibold
+        file:bg-indigo-50 file:text-indigo-700
+        hover:file:bg-indigo-100"
+    />
+
+    <p className="text-xs text-gray-500 mt-1">
+      Max size: 10MB (PDF only)
+    </p>
+
+    {currentItem && currentItem.has_pdf && !removePdf && !pdfFile && (
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => handleViewPDF(currentItem.id)}
+          className="text-sm text-indigo-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          <FileText size={14} />
+          View Current PDF
+        </button>
+        <button
+          type="button"
+          onClick={handleRemovePdf}
+          className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
+        >
+          <X size={14} />
+          Remove PDF
+        </button>
+      </div>
+    )}
+
+    {pdfFile && (
+      <p className="mt-2 text-xs text-green-600">
+        Selected: {pdfFile.name}
+      </p>
+    )}
+
+    {removePdf && (
+      <p className="mt-2 text-xs text-orange-600">
+        PDF will be removed on save
+      </p>
+    )}
+  </div>
+)}
+
+{isViewMode && (
+  <>
+    {formData.certificate_link && (
+      <div className="col-span-2">
+        <a
+          href={formData.certificate_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-600 hover:text-blue-800 underline flex items-center gap-1"
+        >
+          <ExternalLink size={14} />
+          View Certificate Link
+        </a>
+      </div>
+    )}
+
+    {currentItem && currentItem.has_pdf && (
+      <div className="col-span-2">
+        <button
+          type="button"
+          onClick={() => handleViewPDF(currentItem.id)}
+          className="text-indigo-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          <FileText size={16} />
+          View Certificate PDF
+        </button>
+      </div>
+    )}
+  </>
+)}
+
         </div>
       </Modal>
     </div>

@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from "react";
 import './Navbar.css';
 
-const Navbar = () => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeSubmenu, setActiveSubmenu] = useState(null);
-  const [activeNestedSubmenu, setActiveNestedSubmenu] = useState(null);
+interface NavItem {
+  title: string;
+  link?: string;
+  submenu?: NavItem[];
+}
+
+const Navbar: React.FC = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<number | null>(null);
+  const [activeNestedSubmenu, setActiveNestedSubmenu] = useState<number | null>(null);
   
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       title: "Home",
       submenu: [
@@ -178,7 +184,7 @@ const Navbar = () => {
     },
     {
       title: "Placement",
-      link: "/placement" // Updated link to integrated placement system
+      link: "/placement"
     },
     {
       title: "IQAC",
@@ -238,7 +244,7 @@ const Navbar = () => {
         { title: "Fee Payment", link: "/fees-payment" },
         { title: "OPAC", link: "https://erp.nec.edu.in/opac/" },
         { title: "Results", link: "/result" },
-        { title: "Student Login", link: "/records/login" }, // Updated link to integrated records system
+        { title: "Student Login", link: "/records/login" },
       ],
     },
     {
@@ -250,7 +256,7 @@ const Navbar = () => {
     { title: "NIRF", link: "#" },
   ];
 
-  const toggleMobileMenu = () => {
+  const toggleMobileMenu = (): void => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
     if (!isMobileMenuOpen) {
       setActiveSubmenu(null);
@@ -258,7 +264,7 @@ const Navbar = () => {
     }
   };
 
-  const toggleSubmenu = (index) => {
+  const toggleSubmenu = (index: number): void => {
     if (activeSubmenu === index) {
       setActiveSubmenu(null);
       setActiveNestedSubmenu(null);
@@ -268,7 +274,7 @@ const Navbar = () => {
     }
   };
 
-  const toggleNestedSubmenu = (index) => {
+  const toggleNestedSubmenu = (index: number): void => {
     if (activeNestedSubmenu === index) {
       setActiveNestedSubmenu(null);
     } else {
@@ -278,13 +284,13 @@ const Navbar = () => {
 
   // Close mobile menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (event: MouseEvent): void => {
       const nav = document.querySelector('nav');
       const mobileMenuButton = document.querySelector('.mobile-menu-button');
       
       if (isMobileMenuOpen && 
-          nav && !nav.contains(event.target) && 
-          mobileMenuButton && !mobileMenuButton.contains(event.target)) {
+          nav && !nav.contains(event.target as Node) && 
+          mobileMenuButton && !mobileMenuButton.contains(event.target as Node)) {
         setIsMobileMenuOpen(false);
         setActiveSubmenu(null);
         setActiveNestedSubmenu(null);
@@ -300,7 +306,7 @@ const Navbar = () => {
   return (
     <header className="relative w-full z-50 p-0 m-0">
       {/* Top help desk section */}
-      <div className="absolute top-0 left-0 w-full flex justify-end px-4 ">
+      <div className="absolute top-0 left-0 w-full flex justify-end px-4">
         <a
           href="#"
           className="flex items-center space-x-2 text-green-600 font-semibold text-lg"
@@ -315,20 +321,47 @@ const Navbar = () => {
       </div>
 
       {/* Logo and social media section */}
-      <div className="max-w-[1300px] mx-auto py-2 px-6 flex flex-col items-center justify-center gap-2">
-        <div className="flex items-center justify-center gap-6 flex-wrap md:flex-nowrap">
-          <img
-            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqOR0sIBcRIh0vArID_erhTyKRvZUEby4t5w&s"
-            alt="NEC Logo"
-            className="h-20 object-contain"
-          />
-          <div className="flex items-center gap-4 md:gap-24 flex-wrap justify-center md:flex-nowrap">
+      <div className="top-bar">
+        <div className="max-w-[1300px] mx-auto py-2 px-6">
+          {/* Left: Logo Only */}
+          <div className="logo-section">
             <img
-              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQioPvRepnH1BXRy7tLOfWkPrOO1K2uIMbxjA&s"
-              alt="Founder"
-              className="h-28 object-contain"
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqOR0sIBcRIh0vArID_erhTyKRvZUEby4t5w&s"
+              alt="NEC Logo"
+              className="h-20 object-contain"
             />
-            <div className="flex gap-4">
+          </div>
+
+          {/* Center: Animated College Motto */}
+          <div className="center-actions">
+            <div className="motto-container">
+              <h2 className="college-motto">
+                <span className="motto-letter">அ</span>
+                <span className="motto-letter">றி</span>
+                <span className="motto-letter">வே</span>
+                <span className="motto-space"> </span>
+                <span className="motto-letter">ஆ</span>
+                <span className="motto-letter">க்</span>
+                <span className="motto-letter">க</span>
+                <span className="motto-letter">ம்</span>
+              </h2>
+              {/* <h3 className="motto-translation" style={{ textAlign: "center" }}>Knowledge is Wealth</h3> */}
+            </div>
+          </div>
+
+          {/* Right: TNEA Badge and Social Icons */}
+          <div className="right-actions">
+            {/* TNEA Counselling Code Badge */}
+            <div className="tnea-badge">
+              <div className="tnea-badge-header">
+                <span>TNEA</span>
+                <span className="tnea-badge-subtitle">COUNSELLING CODE</span>
+              </div>
+              <div className="tnea-badge-code">4962</div>
+            </div>
+
+            {/* Social Icons */}
+            <div className="social-icons-row">
               {[
                 {
                   href: "https://www.linkedin.com/school/national-engineering-college",
@@ -457,35 +490,43 @@ const Navbar = () => {
         >
           <div className="px-4">
             {navItems.map((item, idx) => (
-              <div key={idx} className="mb-2">
+              <div key={idx} className="mb-2 border-b border-white/10 pb-2">
                 <div className="flex justify-between items-center">
-                  <a
-                    href={item.link || "#"}
-                    className="text-sm font-semibold py-2 block"
-                  >
-                    {item.title}
-                  </a>
+                  {item.submenu ? (
+                    <button
+                      onClick={() => toggleSubmenu(idx)}
+                      className="text-sm font-semibold py-2 block flex-1 text-left text-white"
+                    >
+                      {item.title}
+                    </button>
+                  ) : (
+                    <a
+                      href={item.link || "#"}
+                      className="text-sm font-semibold py-2 block flex-1 text-white"
+                    >
+                      {item.title}
+                    </a>
+                  )}
+                  
                   {item.submenu && (
                     <button
                       onClick={() => toggleSubmenu(idx)}
                       className="text-white p-2 focus:outline-none"
                     >
                       <svg
-                        className="w-4 h-4"
+                        className="w-4 h-4 transition-transform duration-200"
+                        style={{
+                          transform: activeSubmenu === idx ? 'rotate(180deg)' : 'rotate(0deg)'
+                        }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
                       >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d={
-                            activeSubmenu === idx
-                              ? "M19 9l-7 7-7-7"
-                              : "M9 5l7 7-7 7"
-                          }
+                          d="M19 9l-7 7-7-7"
                         />
                       </svg>
                     </button>
@@ -493,37 +534,45 @@ const Navbar = () => {
                 </div>
 
                 {item.submenu && activeSubmenu === idx && (
-                  <div className="ml-4 mt-1">
+                  <div className="ml-4 mt-1 animate-slideDown">
                     {item.submenu.map((subItem, subIdx) => (
                       <div key={subIdx} className="mb-2">
                         <div className="flex justify-between items-center">
-                          <a
-                            href={subItem.link || "#"}
-                            className="text-sm font-medium py-1 block"
-                          >
-                            {subItem.title}
-                          </a>
+                          {subItem.submenu ? (
+                            <button
+                              onClick={() => toggleNestedSubmenu(subIdx)}
+                              className="text-sm font-medium py-1 block flex-1 text-left text-white/90"
+                            >
+                              {subItem.title.replace(' ›', '')}
+                            </button>
+                          ) : (
+                            <a
+                              href={subItem.link || "#"}
+                              className="text-sm font-medium py-1 block flex-1 text-white/90"
+                            >
+                              {subItem.title}
+                            </a>
+                          )}
+                          
                           {subItem.submenu && (
                             <button
                               onClick={() => toggleNestedSubmenu(subIdx)}
                               className="text-white p-2 focus:outline-none"
                             >
                               <svg
-                                className="w-4 h-4"
+                                className="w-4 h-4 transition-transform duration-200"
+                                style={{
+                                  transform: activeNestedSubmenu === subIdx ? 'rotate(180deg)' : 'rotate(0deg)'
+                                }}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
                               >
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d={
-                                    activeNestedSubmenu === subIdx
-                                      ? "M19 9l-7 7-7-7"
-                                      : "M9 5l7 7-7 7"
-                                  }
+                                  d="M19 9l-7 7-7-7"
                                 />
                               </svg>
                             </button>
@@ -531,12 +580,12 @@ const Navbar = () => {
                         </div>
 
                         {subItem.submenu && activeNestedSubmenu === subIdx && (
-                          <div className="ml-4 mt-1">
+                          <div className="ml-4 mt-1 animate-slideDown">
                             {subItem.submenu.map((nestedItem, nestedIdx) => (
                               <a
                                 key={nestedIdx}
                                 href={nestedItem.link || "#"}
-                                className="text-sm font-medium py-1 block"
+                                className="text-sm font-medium py-1 block text-white/80"
                               >
                                 {nestedItem.title}
                               </a>

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const ExtracurricularContext = createContext();
 
@@ -18,20 +19,16 @@ export const ExtracurricularProvider = ({ children }) => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/extracurricular";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch student's extracurricular activities
-  const fetchStudentActivities = useCallback(async (userId) => {
+  const fetchStudentActivities = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/my-activities?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/extracurricular/my-activities?UserId=${id}`);
       setActivities(response.data.activities || []);
       setError(null);
     } catch (err) {
@@ -40,16 +37,13 @@ export const ExtracurricularProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Fetch pending activities (for tutors/admins)
   const fetchPendingActivities = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/pending`,
-        getAuthHeader()
-      );
+      const response = await API.get("/extracurricular/pending");
       setPendingActivities(response.data.activities || []);
       setError(null);
     } catch (err) {
@@ -58,16 +52,15 @@ export const ExtracurricularProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   // Fetch approved activities
-  const fetchApprovedActivities = useCallback(async (userId) => {
+  const fetchApprovedActivities = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/approved?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/extracurricular/approved?UserId=${id}`);
       setApprovedActivities(response.data.activities || []);
       setError(null);
     } catch (err) {
@@ -76,16 +69,15 @@ export const ExtracurricularProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Fetch statistics
-  const fetchStatistics = useCallback(async (userId) => {
+  const fetchStatistics = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/statistics?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/extracurricular/statistics?UserId=${id}`);
       setStatistics(response.data.statistics || null);
       setError(null);
     } catch (err) {
@@ -94,17 +86,16 @@ export const ExtracurricularProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Add new extracurricular activity
   const addActivity = async (activityData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/add`,
-        activityData,
-        getAuthHeader()
-      );
+      const response = await API.post("/extracurricular/add", {
+        ...activityData,
+        Userid: UserId
+      });
       setError(null);
       return response.data;
     } catch (err) {
@@ -121,11 +112,10 @@ export const ExtracurricularProvider = ({ children }) => {
   const updateActivity = async (activityId, activityData) => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/update/${activityId}`,
-        activityData,
-        getAuthHeader()
-      );
+      const response = await API.put(`/extracurricular/update/${activityId}`, {
+        ...activityData,
+        Userid: UserId
+      });
       setError(null);
       return response.data;
     } catch (err) {
@@ -142,10 +132,7 @@ export const ExtracurricularProvider = ({ children }) => {
   const deleteActivity = async (activityId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/delete/${activityId}`,
-        getAuthHeader()
-      );
+      const response = await API.delete(`/extracurricular/delete/${activityId}`);
       setError(null);
       return response.data;
     } catch (err) {
@@ -159,14 +146,13 @@ export const ExtracurricularProvider = ({ children }) => {
   };
 
   // Approve activity (tutor/admin)
-  const approveActivity = async (activityId, userId, comments = "") => {
+  const approveActivity = async (activityId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/approve/${activityId}`,
-        { Userid: userId, comments },
-        getAuthHeader()
-      );
+      const response = await API.put(`/extracurricular/approve/${activityId}`, {
+        Userid: targetUserId,
+        comments
+      });
       setError(null);
       return response.data;
     } catch (err) {
@@ -180,14 +166,13 @@ export const ExtracurricularProvider = ({ children }) => {
   };
 
   // Reject activity (tutor/admin)
-  const rejectActivity = async (activityId, userId, comments = "") => {
+  const rejectActivity = async (activityId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/reject/${activityId}`,
-        { Userid: userId, comments },
-        getAuthHeader()
-      );
+      const response = await API.put(`/extracurricular/reject/${activityId}`, {
+        Userid: targetUserId,
+        comments
+      });
       setError(null);
       return response.data;
     } catch (err) {
@@ -201,6 +186,12 @@ export const ExtracurricularProvider = ({ children }) => {
   };
 
   const clearError = () => setError(null);
+
+  useEffect(() => {
+    if (UserId) {
+      fetchStudentActivities();
+    }
+  }, [UserId, fetchStudentActivities]);
 
   return (
     <ExtracurricularContext.Provider

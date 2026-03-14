@@ -4,62 +4,62 @@ import { sequelize } from '../config/mysql.js';
 const User = sequelize.define(
   'User',
   {
-    Userid: {
+    userId: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
     },
-    username: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
     },
-    email: {
+    departmentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'departments',
+        key: 'departmentId',
+      },
+      onDelete: 'SET NULL',
+    },
+    userNumber: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+
+    },
+    userName: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    userMail: {
       type: DataTypes.STRING(255),
       allowNull: false,
       unique: true,
       validate: {
         isEmail: {
-          msg: 'Must be a valid email address'
-        }
-      }
+          msg: 'Must be a valid email address',
+        },
+      },
+    },
+    roleId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'roles',
+        key: 'roleId',
+      },
+      onDelete: 'RESTRICT',
     },
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    role: {
-      type: DataTypes.ENUM(
-        'Student', 
-        'Staff', 
-        'DeptAdmin', 
-        'SuperAdmin', 
-        'IrAdmin', 
-        'PgAdmin', 
-        'AcademicAdmin', 
-        'NewgenAdmin',
-        'PlacementAdmin'
-      ),
-      allowNull: false,
-      defaultValue: 'Student'
-    },
     status: {
-      type: DataTypes.ENUM('active', 'inactive'),
-      defaultValue: 'active',
+      type: DataTypes.ENUM('Active', 'Inactive'),
+      defaultValue: 'Active',
     },
-    staffId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      unique: true,
-    },
-    Deptid: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: { 
-        model: 'department', 
-        key: 'Deptid' 
-      }
-    },
-    image: {
+    profileImage: {
       type: DataTypes.STRING(500),
       defaultValue: '/uploads/default.jpg',
     },
@@ -71,36 +71,22 @@ const User = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
-    skillrackProfile: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    Created_by: {
+    createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: {
-        model: 'users',
-        key: 'Userid',
-      },
-      onDelete: 'SET NULL',
+      // Remove references - just store the ID
     },
-    Updated_by: {
+    updatedBy: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: {
-        model: 'users',
-        key: 'Userid',
-      },
-      onDelete: 'SET NULL',
+      // Remove references - just store the ID
     },
     createdAt: {
       type: DataTypes.DATE,
-      field: 'created_at',
       defaultValue: DataTypes.NOW,
     },
     updatedAt: {
       type: DataTypes.DATE,
-      field: 'updated_at',
       defaultValue: DataTypes.NOW,
     },
   },
@@ -111,19 +97,50 @@ const User = sequelize.define(
     indexes: [
       {
         unique: true,
-        fields: ['email']
+        fields: ['userMail'],
       },
       {
-        fields: ['role']
+        unique: true,
+        fields: ['userNumber'],
       },
       {
-        fields: ['status']
+        fields: ['roleId'],
       },
       {
-        fields: ['Deptid']
-      }
-    ]
+        fields: ['status'],
+      },
+      {
+        fields: ['departmentId'],
+      },
+      {
+        fields: ['companyId'],
+      },
+    ],
   }
 );
+
+User.associate = (models) => {
+  User.belongsTo(models.Role, {
+    foreignKey: 'roleId',
+    as: 'role',
+  });
+
+  User.belongsTo(models.Department, {
+    foreignKey: 'departmentId',
+    as: 'department',
+  });
+
+  User.belongsTo(models.User, {
+    foreignKey: 'createdBy',
+    as: 'creator',
+    constraints: false, // No DB-level constraint
+  });
+
+  User.belongsTo(models.User, {
+    foreignKey: 'updatedBy',
+    as: 'updater',
+    constraints: false, // No DB-level constraint
+  });
+};
 
 export default User;

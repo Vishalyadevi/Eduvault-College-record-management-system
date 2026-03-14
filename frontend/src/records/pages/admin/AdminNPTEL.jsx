@@ -110,8 +110,8 @@ const AdminNPTEL = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         NPTEL Course Management (Admin)
       </h2>
 
@@ -122,7 +122,7 @@ const AdminNPTEL = () => {
       )}
 
       {loading && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -148,7 +148,7 @@ const AdminNPTEL = () => {
                 name="course_name"
                 value={formData.course_name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="e.g., Data Structures and Algorithms"
                 required
               />
@@ -163,7 +163,7 @@ const AdminNPTEL = () => {
                 name="provider_name"
                 value={formData.provider_name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="NPTEL"
               />
             </div>
@@ -177,7 +177,7 @@ const AdminNPTEL = () => {
                 name="instructor_name"
                 value={formData.instructor_name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Dr. John Doe"
                 required
               />
@@ -192,7 +192,7 @@ const AdminNPTEL = () => {
                 name="department"
                 value={formData.department}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Computer Science"
               />
             </div>
@@ -206,7 +206,7 @@ const AdminNPTEL = () => {
                 name="weeks"
                 value={formData.weeks}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 min="1"
                 max="52"
               />
@@ -225,7 +225,7 @@ const AdminNPTEL = () => {
                   name="grade_O_min"
                   value={formData.grade_O_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -239,7 +239,7 @@ const AdminNPTEL = () => {
                   name="grade_A_plus_min"
                   value={formData.grade_A_plus_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -253,7 +253,7 @@ const AdminNPTEL = () => {
                   name="grade_A_min"
                   value={formData.grade_A_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -267,7 +267,7 @@ const AdminNPTEL = () => {
                   name="grade_B_plus_min"
                   value={formData.grade_B_plus_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -281,7 +281,7 @@ const AdminNPTEL = () => {
                   name="grade_B_min"
                   value={formData.grade_B_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -295,7 +295,7 @@ const AdminNPTEL = () => {
                   name="grade_C_min"
                   value={formData.grade_C_min}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min="0"
                   max="100"
                   step="0.01"
@@ -320,7 +320,7 @@ const AdminNPTEL = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading}
             >
               {loading ? "Processing..." : editingId ? "Update Course" : "Add Course"}
@@ -343,7 +343,7 @@ const AdminNPTEL = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse border border-gray-300 table-auto">
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left w-auto">Course Name</th>
                   <th className="border border-gray-300 p-3 text-left w-32">Provider</th>
@@ -386,7 +386,7 @@ const AdminNPTEL = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(course)}
-                          className="p-1 text-blue-600 hover:text-blue-800 transition"
+                          className="p-1 text-indigo-600 hover:text-blue-800 transition"
                           title="Edit"
                         >
                           <FaEdit />

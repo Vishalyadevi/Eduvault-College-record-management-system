@@ -133,7 +133,7 @@ const activityMappings = {
     `,
   },
   'Certification Courses': {
-    table: 'certification_courses',
+    table: 'staff_certification_courses',
     alias: 'cc',
     columns: [
       'id',
@@ -147,7 +147,7 @@ const activityMappings = {
     ],
     joinQuery: `
       SELECT cc.*, u.username as staff_name, d.Deptacronym as department 
-      FROM certification_courses cc 
+      FROM staff_certification_courses cc 
       JOIN users u ON cc.Userid = u.Userid 
       JOIN department d ON u.Deptid = d.Deptid
     `,
@@ -357,11 +357,11 @@ const activityMappings = {
     `,
   },
   // MOU mapping for Staff Activities
-  'MOU': { 
-  table: 'mou', 
-  alias: 'm', 
-  columns: ['id','Userid','company_name','signed_on','mou_copy_link','created_at','updated_at'], 
-  joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN department d ON u.Deptid = d.Deptid` 
+  'MOU': {
+    table: 'mou',
+    alias: 'm',
+    columns: ['id', 'Userid', 'company_name', 'signed_on', 'mou_copy_link', 'created_at', 'updated_at'],
+    joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN department d ON u.Deptid = d.Deptid`
   }
 };
 
@@ -380,10 +380,10 @@ router.get('/admin-panel/staff-with-activities', async (req, res) => {
   try {
     // Get all staff members
     const [staffMembers] = await sequelize.query(`
-      SELECT u.Userid, u.username, u.email, u.staffId, u.Deptid, u.image, d.Deptacronym as department
+      SELECT u.Userid, u.username, u.userMail as email, u.userNumber as staffId, u.Deptid, u.image, d.Deptacronym as department
       FROM users u 
       JOIN department d ON u.Deptid = d.Deptid
-      WHERE u.role = 'Staff' 
+      WHERE u.roleId IS NOT NULL
       ORDER BY u.username
     `);
 

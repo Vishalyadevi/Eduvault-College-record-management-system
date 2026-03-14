@@ -33,7 +33,7 @@ export const addProject = async (req, res) => {
     // Validate required fields
     if (!Userid || !title || !domain || !description) {
       console.error("❌ Missing required fields");
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Title, domain, description, and Userid are required",
         missing: {
           Userid: !Userid,
@@ -87,7 +87,7 @@ export const addProject = async (req, res) => {
 
     // Fetch user details
     const user = await User.findByPk(Userid);
-    if (!user || !user.email) {
+    if (!user || !user.userMail) {
       console.error("❌ User not found");
       return res.status(404).json({ message: "Student email not found" });
     }
@@ -132,8 +132,8 @@ export const addProject = async (req, res) => {
 A student has submitted a new project for your approval.
 
 Student Details:
-Regno: ${student.regno}
-Name: ${user.username || "N/A"}
+registerNumber: ${student.registerNumber}
+Name: ${user.userName || "N/A"}
 
 Project Details:
 Title: ${title}
@@ -153,7 +153,7 @@ Best Regards,
 Project Management System`;
 
       await sendEmail({
-        from: user.email,
+        from: user.userMail,
         to: student.tutorEmail,
         subject: "New Project Submitted - Pending Approval",
         text: emailText,
@@ -172,29 +172,29 @@ Project Management System`;
     console.error("Error Type:", error.name);
     console.error("Error Message:", error.message);
     console.error("Error Stack:", error.stack);
-    
+
     // Sequelize specific errors
     if (error.name === 'SequelizeDatabaseError') {
       console.error("💥 Database Error:", error.original?.sqlMessage || error.original);
       console.error("SQL:", error.sql);
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         message: "Database error while adding project",
         error: error.original?.sqlMessage || error.message,
         hint: "Check if the database schema matches the model. Domain should be VARCHAR(100)."
       });
     }
-    
+
     if (error.name === 'SequelizeValidationError') {
       console.error("💥 Validation Error:", error.errors);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Validation error",
         errors: error.errors.map(e => ({ field: e.path, message: e.message }))
       });
     }
 
-    res.status(500).json({ 
-      message: "Error adding project", 
+    res.status(500).json({
+      message: "Error adding project",
       error: error.message,
       type: error.name
     });
@@ -305,7 +305,7 @@ export const updateProject = async (req, res) => {
 A student has updated their project details.
 
 Student Details:
-Regno: ${student.regno}
+registerNumber: ${student.registerNumber}
 Name: ${user.username || "N/A"}
 
 Updated Project Details:
@@ -321,7 +321,7 @@ Best Regards,
 Project Management System`;
 
         await sendEmail({
-          from: user.email,
+          from: user.userMail,
           to: student.tutorEmail,
           subject: "Project Updated - Requires Review",
           text: emailText,
@@ -350,12 +350,12 @@ export const getPendingProjects = async (req, res) => {
         {
           model: User,
           as: "organizer",
-          attributes: ["Userid", "username", "email"],
+          attributes: ["userId", "userName", "userMail"],
           include: [
             {
               model: StudentDetails,
               as: "studentDetails",
-              attributes: ["regno", "staffId"],
+              attributes: ["registerNumber", "staffId"],
             },
           ],
         },
@@ -367,8 +367,8 @@ export const getPendingProjects = async (req, res) => {
       const { organizer, ...rest } = project.get({ plain: true });
       return {
         ...rest,
-        username: organizer?.username || "N/A",
-        regno: organizer?.studentDetails?.regno || "N/A",
+        username: organizer?.userName || "N/A",
+        registerNumber: organizer?.studentDetails?.registerNumber || "N/A",
         staffId: organizer?.studentDetails?.staffId || "N/A",
       };
     });
@@ -566,7 +566,7 @@ Project Management System`;
 The following project has been deleted:
 
 Student: ${user?.username || "N/A"}
-Regno: ${student.regno}
+registerNumber: ${student.registerNumber}
 Project: ${project.title}
 Domain: ${project.domain}
 
@@ -593,9 +593,9 @@ Project Management System`;
 // Get all projects for a student
 export const getStudentProjects = async (req, res) => {
   const userId = req.user?.Userid || req.query.UserId;
-  
+
   console.log("📥 Get student projects - User ID:", userId);
-  
+
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }

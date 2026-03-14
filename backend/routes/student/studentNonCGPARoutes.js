@@ -15,7 +15,7 @@ import {
   deleteNonCGPARecord,
   getNonCGPAStatistics,
 } from "../../controllers/student/studentNonCGPAController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 
@@ -52,8 +52,8 @@ router.get("/statistics", authenticate, getNonCGPAStatistics);
 // 👨‍🏫 TUTOR/ADMIN ROUTES
 // ========================
 
-router.get("/pending", authenticate,  getPendingNonCGPARecords);
-router.put("/verify/:id", authenticate,  verifyNonCGPARecord);
-router.put("/reject/:id", authenticate,  rejectNonCGPARecord);
+router.get("/pending", authenticate, getPendingNonCGPARecords);
+router.put("/verify/:id", authenticate, verifyNonCGPARecord);
+router.put("/reject/:id", authenticate, rejectNonCGPARecord);
 
 export default router;

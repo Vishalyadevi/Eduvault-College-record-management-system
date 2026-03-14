@@ -1,13 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './UpcomingDrives.css';
-import CustomAlert from "../CustomAlert"; // ✅ Import CustomAlert
+import CustomAlert from "../CustomAlert";
+import { useAuth } from "../auth/AuthContext";
+import API from "../../../api";
+import config from "../../../config";
+
 
 const StudentUpcomingDrives = () => {
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
   const [drives, setDrives] = useState([]);
-  const [registeredDrives, setRegisteredDrives] = useState([]); // Stores registered company names
-  const [alertMessage, setAlertMessage] = useState(""); // ✅ State for custom alert message
-  const studentRegNo = localStorage.getItem('username'); // Get regno from localStorage
+  const [registeredDrives, setRegisteredDrives] = useState([]);
+  const [alertMessage, setAlertMessage] = useState("");
+  const studentRegNo = user?.registerNumber || user?.registerNumber || localStorage.getItem('username');
+
 
   useEffect(() => {
     fetchUpcomingDrives();
@@ -17,25 +24,27 @@ const StudentUpcomingDrives = () => {
   // Fetch all upcoming drives
   const fetchUpcomingDrives = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/student-upcoming-drives');
+      const response = await API.get('/student-upcoming-drives');
       setDrives(response.data);
     } catch (error) {
       console.error('Error fetching upcoming drives:', error);
     }
   };
 
+
   // Fetch the drives the student has already registered for
   const fetchRegisteredDrives = async () => {
     if (!studentRegNo) return;
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/registered-drives/${studentRegNo}`);
+      const response = await API.get(`/registered-drives/${studentRegNo}`);
       const registeredCompanies = response.data.map(item => item.company_name);
       setRegisteredDrives(registeredCompanies);
     } catch (error) {
       console.error('Error fetching registered drives:', error);
     }
   };
+
 
   // Handle student registration
   const handleRegister = async (driveId, companyName) => {
@@ -51,12 +60,13 @@ const StudentUpcomingDrives = () => {
     }
 
     try {
-      await axios.post("http://localhost:5000/api/register-drive", {
+      await API.post("/register-drive", {
         drive_id: driveId,
-        regno: studentRegNo,
+        registerNumber: studentRegNo,
         company_name: companyName,
         register: "Yes",
       });
+
 
       setAlertMessage(`Successfully registered for ${companyName}`); // ✅ Set alert message
       fetchRegisteredDrives(); // Refresh the registered list
@@ -69,7 +79,7 @@ const StudentUpcomingDrives = () => {
   return (
     <>
       {alertMessage && <CustomAlert message={alertMessage} onClose={() => setAlertMessage("")} />} {/* ✅ Show alert */}
-      
+
       <div className="student-upcomingdrive">
         <h1 className="title">Upcoming Drives</h1>
         <div className="drives-container">
@@ -77,11 +87,12 @@ const StudentUpcomingDrives = () => {
             <div key={drive.id} className="drive-card">
               {drive.post && (
                 <img
-                  src={`http://localhost:5000/uploads/${drive.post}`}
+                  src={`${config.backendUrl}/uploads/${drive.post}`}
                   alt="Company Post"
                   className="company-logo"
                 />
               )}
+
               <p><strong>Company:</strong> {drive.company_name}</p>
               <p><strong>Eligibility:</strong> {drive.eligibility}</p>
               <p><strong>Date:</strong> {new Date(drive.date).toLocaleDateString()}</p>
@@ -116,7 +127,7 @@ export default StudentUpcomingDrives;
 // const StudentUpcomingDrives = () => {
 //   const [drives, setDrives] = useState([]);
 //   const [registeredDrives, setRegisteredDrives] = useState([]); // Stores registered company names
-//   const studentRegNo = localStorage.getItem('username'); // Get regno from localStorage
+//   const studentRegNo = localStorage.getItem('username'); // Get registerNumber from localStorage
 
 //   useEffect(() => {
 //     fetchUpcomingDrives();
@@ -138,7 +149,7 @@ export default StudentUpcomingDrives;
 //     if (!studentRegNo) return;
 
 //     try {
-//       const response = await axios.get(`http://localhost:5000/api/registered-drives/${studentRegNo}`);
+//       const response = await axios.get(`http://localhost:4000/api/registered-drives/${studentRegNo}`);
 //       const registeredCompanies = response.data.map(item => item.company_name);
 //       setRegisteredDrives(registeredCompanies);
 //     } catch (error) {
@@ -162,7 +173,7 @@ export default StudentUpcomingDrives;
 //     try {
 //       await axios.post("http://localhost:5000/api/register-drive", {
 //         drive_id: driveId,
-//         regno: studentRegNo,
+//         registerNumber: studentRegNo,
 //         company_name: companyName,
 //         register: "Yes",
 //       });

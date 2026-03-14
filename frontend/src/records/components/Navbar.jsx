@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/logo.png";
+import config from "../../config";
 import { toast } from "react-toastify";
 
 const Navbar = () => {
@@ -14,7 +15,7 @@ const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = config.backendUrl || "http://localhost:4000";
 
   useEffect(() => {
     const fetchCurrentUserDetails = async () => {
@@ -69,17 +70,26 @@ const Navbar = () => {
       </div>
 
       <div className="relative">
-        <img
-          src={currentUser.profileImage}
-          alt="profile"
-          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-          onClick={() => setShowDropdown(!showDropdown)}
-        />
+        {(() => {
+            const src = currentUser.profileImage
+              ? currentUser.profileImage.startsWith("/")
+                ? `${backendUrl}${currentUser.profileImage}`
+                : currentUser.profileImage
+              : "/uploads/default.jpg";
+            return (
+              <img
+                src={src}
+                alt="profile"
+                className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
+                onClick={() => setShowDropdown(!showDropdown)}
+              />
+            );
+          })()}
         {showDropdown && (
           <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
             <button
               className="block w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/records/profile")}
             >
               My Profile
             </button>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import * as XLSX from "xlsx";
-import Navbar from "../AdminNavbar";
+import { useAuth } from "../../../../records/pages/auth/AuthContext";
+import api from "../../../../records/services/api";
 
 const AdminRecruiters = () => {
   const [companyData, setCompanyData] = useState({
@@ -10,7 +10,6 @@ const AdminRecruiters = () => {
     description: "",
     ceo: "",
     location: "",
-    logo: null,
     skillSets: [],
     localBranches: [],
     roles: [],
@@ -28,36 +27,32 @@ const AdminRecruiters = () => {
   const [filterText, setFilterText] = useState("");
   const [filterField, setFilterField] = useState("all");
 
-  // Get user ID from localStorage
-  const userId = localStorage.getItem("userId") || "1";
+  const { token, user } = useAuth();
 
-  // Fetch company data when the component mounts
   useEffect(() => {
-    const fetchCompanyLogos = async () => {
-      try {
-        const response = await axios.get("http://localhost:4000/api/placement/companies");
-        console.log("Fetched companies:", response.data);
-        setCompanyLogos(response.data.companies || []);
-      } catch (error) {
-        console.error("Error fetching companies:", error.response ? error.response.data : error.message);
-        setCompanyLogos([]);
-      }
-    };
     fetchCompanyLogos();
   }, []);
 
-  // Handle text input changes
+  const fetchCompanyLogos = async () => {
+    try {
+      const response = await api.get("/placement/companies");
+      console.log("Fetched companies:", response.data);
+      setCompanyLogos(response.data.companies || response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate("/records/login");
+      }
+      setCompanyLogos([]);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCompanyData({ ...companyData, [name]: value });
   };
 
-  // Handle file input change for the logo
-  const handleFileChange = (e) => {
-    setCompanyData({ ...companyData, logo: e.target.files[0] });
-  };
-
-  // Handle adding items to arrays (Skill Sets, Local Branches, Roles)
   const handleArrayChange = (field, e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -72,7 +67,6 @@ const AdminRecruiters = () => {
     }
   };
 
-  // Remove item from array
   const removeFromArray = (field, index) => {
     setCompanyData((prevState) => ({
       ...prevState,
@@ -80,7 +74,6 @@ const AdminRecruiters = () => {
     }));
   };
 
-  // Validate form data
   const validateForm = () => {
     const errors = [];
     if (!companyData.companyName.trim()) errors.push("Company Name");
@@ -92,11 +85,9 @@ const AdminRecruiters = () => {
     if (companyData.skillSets.length === 0) errors.push("At least one Skill Set");
     if (companyData.localBranches.length === 0) errors.push("At least one Local Branch");
     if (companyData.roles.length === 0) errors.push("At least one Role");
-    if (!isEditing && !companyData.logo) errors.push("Logo");
     return errors;
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -115,72 +106,72 @@ const AdminRecruiters = () => {
 
     setIsSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("companyName", companyData.companyName.trim());
-    formData.append("description", companyData.description.trim());
-    formData.append("ceo", companyData.ceo.trim());
-    formData.append("location", companyData.location.trim());
-    formData.append("package", packageValue.toString());
-    formData.append("objective", companyData.objective.trim());
-    formData.append("created_by", userId);
+    const payload = {
+      companyName: companyData.companyName.trim(),
+      description: companyData.description.trim(),
+      ceo: companyData.ceo.trim(),
+      location: companyData.location.trim(),
+      package: packageValue.toString(),
+      objective: companyData.objective.trim(),
+      skillSets: JSON.stringify(companyData.skillSets),
+      localBranches: JSON.stringify(companyData.localBranches),
+      roles: JSON.stringify(companyData.roles),
+    };
 
-    if (companyData.logo) {
-      formData.append("logo", companyData.logo);
+    if (isEditing) {
+      payload.updated_by = user?.id || "1";
+    } else {
+      payload.created_by = user?.id || "1";
     }
 
-    formData.append("skillSets", JSON.stringify(companyData.skillSets));
-    formData.append("localBranches", JSON.stringify(companyData.localBranches));
-    formData.append("roles", JSON.stringify(companyData.roles));
+    console.log("Sending payload:", payload);
 
     try {
       let response;
       if (isEditing) {
-        formData.append("updated_by", userId);
-        response = await axios.put(
-          `http://localhost:4000/api/placement/company/${companyData.companyName}`,
-          formData,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-            timeout: 30000,
-          }
-        );
+        response = await api.put(`/placement/companies/${encodeURIComponent(companyData.companyName)}`, payload);
         alert("Company updated successfully!");
         setIsEditing(false);
         setEditingCompanyId(null);
       } else {
-        response = await axios.post("http://localhost:4000/api/placement/add-company", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-          timeout: 30000,
-        });
+        response = await api.post("/placement/companies", payload);
         alert("Company added successfully!");
       }
 
-      const companiesResponse = await axios.get("http://localhost:4000/api/placement/companies");
-      setCompanyLogos(companiesResponse.data.companies || []);
+      console.log("Response:", response.data);
+      await fetchCompanyLogos();
       resetForm();
       setShowForm(false);
     } catch (error) {
       console.error("Error with company operation:", error);
+      console.error("Error response:", error.response?.data);
+
       let errorMessage = `Error ${isEditing ? "updating" : "adding"} company: `;
+
       if (error.response) {
-        errorMessage += error.response.data?.message || error.response.data || "Server error";
+        const data = error.response.data;
+        errorMessage += data?.message || data?.error || JSON.stringify(data) || "Server error";
+
         if (error.response.status === 409) {
           errorMessage = "Company already exists. Please use a different company name.";
         } else if (error.response.status === 400) {
-          errorMessage += "\nPlease check all required fields are filled correctly.";
+          errorMessage = data?.message || "Please check all required fields are filled correctly.";
+        } else if (error.response.status === 401 || error.response.status === 403) {
+          errorMessage = "Session expired or unauthorized. Please login again.";
+          setTimeout(() => navigate("/records/login"), 2000);
         }
       } else if (error.request) {
-        errorMessage += "No response from server. Please check your connection.";
+        errorMessage += "No response from server. Please check your connection and ensure the backend is running.";
       } else {
         errorMessage += error.message;
       }
+
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Reset form data
   const resetForm = () => {
     setCompanyData({
       companyName: "",
@@ -189,16 +180,12 @@ const AdminRecruiters = () => {
       location: "",
       package: "",
       objective: "",
-      logo: null,
       skillSets: [],
       localBranches: [],
       roles: [],
     });
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) fileInput.value = "";
   };
 
-  // Toggle form visibility
   const toggleForm = () => {
     if (showForm) {
       resetForm();
@@ -208,10 +195,11 @@ const AdminRecruiters = () => {
     setShowForm(!showForm);
   };
 
-  // Edit company
   const handleEdit = (company, e) => {
     e.preventDefault();
     try {
+      console.log("Editing company:", company);
+
       setCompanyData({
         companyName: company.companyName || "",
         description: company.description || "",
@@ -219,23 +207,23 @@ const AdminRecruiters = () => {
         location: company.location || "",
         package: company.package || "",
         objective: company.objective || "",
-        logo: null,
         skillSets: Array.isArray(company.skillSets)
           ? company.skillSets
           : typeof company.skillSets === "string" && company.skillSets
-          ? JSON.parse(company.skillSets)
-          : [],
+            ? JSON.parse(company.skillSets)
+            : [],
         localBranches: Array.isArray(company.localBranches)
           ? company.localBranches
           : typeof company.localBranches === "string" && company.localBranches
-          ? JSON.parse(company.localBranches)
-          : [],
+            ? JSON.parse(company.localBranches)
+            : [],
         roles: Array.isArray(company.roles)
           ? company.roles
           : typeof company.roles === "string" && company.roles
-          ? JSON.parse(company.roles)
-          : [],
+            ? JSON.parse(company.roles)
+            : [],
       });
+
       setIsEditing(true);
       setEditingCompanyId(company.id);
       setShowForm(true);
@@ -245,23 +233,21 @@ const AdminRecruiters = () => {
     }
   };
 
-  // Delete company
   const handleDelete = async (companyId, e) => {
     e.preventDefault();
     const confirmDelete = window.confirm("Are you sure you want to delete this company? This action cannot be undone.");
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(`http://localhost:4000/api/placement/company/${companyId}`);
+      await api.delete(`/placement/companies/${companyId}`);
       setCompanyLogos((prev) => prev.filter((company) => company.id !== companyId));
       alert("Company deleted successfully.");
     } catch (error) {
-      console.error("Error deleting company:", error.response?.data || error.message);
-      alert("Error deleting company. Please try again.");
+      console.error("Error deleting company:", error);
+      alert(error.response?.data?.message || "Error deleting company. Please try again.");
     }
   };
 
-  // Download as Excel
   const handleDownloadExcel = () => {
     const data = companyLogos.map((company) => ({
       "Company Name": company.companyName || "",
@@ -273,18 +259,18 @@ const AdminRecruiters = () => {
       "Skill Sets": Array.isArray(company.skillSets)
         ? company.skillSets.join(", ")
         : typeof company.skillSets === "string" && company.skillSets
-        ? JSON.parse(company.skillSets).join(", ")
-        : "",
+          ? JSON.parse(company.skillSets).join(", ")
+          : "",
       "Local Branches": Array.isArray(company.localBranches)
         ? company.localBranches.join(", ")
         : typeof company.localBranches === "string" && company.localBranches
-        ? JSON.parse(company.localBranches).join(", ")
-        : "",
+          ? JSON.parse(company.localBranches).join(", ")
+          : "",
       Roles: Array.isArray(company.roles)
         ? company.roles.join(", ")
         : typeof company.roles === "string" && company.roles
-        ? JSON.parse(company.roles).join(", ")
-        : "",
+          ? JSON.parse(company.roles).join(", ")
+          : "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -293,7 +279,6 @@ const AdminRecruiters = () => {
     XLSX.writeFile(workbook, "Recruiters.xlsx");
   };
 
-  // Handle sorting
   const requestSort = (key) => {
     let direction = "ascending";
     if (sortConfig.key === key && sortConfig.direction === "ascending") {
@@ -302,7 +287,6 @@ const AdminRecruiters = () => {
     setSortConfig({ key, direction });
   };
 
-  // Filtered and sorted companies
   const filteredAndSortedCompanies = useMemo(() => {
     let filtered = [...companyLogos];
 
@@ -329,12 +313,12 @@ const AdminRecruiters = () => {
         if (typeof aValue === "string" && aValue.startsWith("[")) {
           try {
             aValue = JSON.parse(aValue).join(", ");
-          } catch {}
+          } catch { }
         }
         if (typeof bValue === "string" && bValue.startsWith("[")) {
           try {
             bValue = JSON.parse(bValue).join(", ");
-          } catch {}
+          } catch { }
         }
 
         if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
@@ -347,15 +331,15 @@ const AdminRecruiters = () => {
   }, [companyLogos, filterText, filterField, sortConfig]);
 
   return (
-    <div 
-className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px", padding: "20px" }}
+    <div
+      className="min-h-screen bg-gray-50"
     >
-      
-<div style={{ width: "100%" }}>        <div className="flex justify-between items-center mb-6">
+      <div style={{ width: "100%" }}>
+        <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800">Recruiters</h3>
           <div className="space-x-4">
             <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-md"
               onClick={toggleForm}
             >
               {showForm ? "Hide Form" : "Add New Recruiter"}
@@ -369,9 +353,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
           </div>
         </div>
 
-        {/* Filter and Sort Section */}
-<div className="bg-white p-4 mb-6">
-
+        <div className="bg-white p-4 mb-6 rounded-lg shadow">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -380,7 +362,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                 placeholder="Search by name, CEO, location..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               />
             </div>
             <div className="w-full md:w-48">
@@ -388,7 +370,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
               <select
                 value={filterField}
                 onChange={(e) => setFilterField(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               >
                 <option value="all">All Fields</option>
                 <option value="companyName">Company Name</option>
@@ -401,11 +383,11 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
         </div>
 
         {showForm && (
-<div className="bg-white p-6 mb-6">            <h2 className="text-xl font-semibold text-gray-700 mb-4">
+          <div className="bg-white p-6 mb-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">
               {isEditing ? "Edit Company" : "Add New Recruiter"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Form fields remain the same as previous, but with improved styling */}
               <div>
                 <input
                   type="text"
@@ -414,7 +396,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   value={companyData.companyName}
                   onChange={handleChange}
                   disabled={isEditing}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm disabled:bg-gray-100"
                   required
                 />
               </div>
@@ -426,7 +408,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   value={companyData.description}
                   onChange={handleChange}
                   rows="3"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   required
                 />
               </div>
@@ -438,7 +420,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   placeholder="CEO Name *"
                   value={companyData.ceo}
                   onChange={handleChange}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   required
                 />
               </div>
@@ -450,7 +432,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   placeholder="Headquarters Location *"
                   value={companyData.location}
                   onChange={handleChange}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   required
                 />
               </div>
@@ -464,7 +446,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   placeholder="Package (LPA) *"
                   value={companyData.package}
                   onChange={handleChange}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   required
                 />
               </div>
@@ -476,34 +458,22 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                   value={companyData.objective}
                   onChange={handleChange}
                   rows="3"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   required
                 />
-              </div>
-
-              <div>
-                <input
-                  type="file"
-                  name="logo"
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  {...(!isEditing && { required: true })}
-                />
-                {!isEditing && <small className="text-gray-500 text-sm">* Logo is required for new companies</small>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Skill Sets Required *</label>
                 <input
                   type="text"
-                  placeholder="Enter skill and press Enter to add"
+                  placeholder="Enter skill and press Enter"
                   onKeyDown={(e) => handleArrayChange("skillSets", e)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                 />
                 <div className="flex flex-wrap gap-2 mt-2">
                   {companyData.skillSets.map((skill, index) => (
-                    <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center shadow-sm">
+                    <span key={index} className="bg-indigo-100 text-blue-800 px-2 py-1 rounded flex items-center shadow-sm">
                       {skill}
                       <button
                         type="button"
@@ -515,22 +485,19 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                     </span>
                   ))}
                 </div>
-                {companyData.skillSets.length === 0 && (
-                  <small className="text-red-500 text-sm">At least one skill is required</small>
-                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Local Branches *</label>
                 <input
                   type="text"
-                  placeholder="Enter branch location and press Enter to add"
+                  placeholder="Enter branch location and press Enter"
                   onKeyDown={(e) => handleArrayChange("localBranches", e)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                 />
                 <div className="flex flex-wrap gap-2 mt-2">
                   {companyData.localBranches.map((branch, index) => (
-                    <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded flex items-center shadow-sm">
+                    <span key={index} className="bg-indigo-100 text-blue-800 px-2 py-1 rounded flex items-center shadow-sm">
                       {branch}
                       <button
                         type="button"
@@ -542,18 +509,15 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                     </span>
                   ))}
                 </div>
-                {companyData.localBranches.length === 0 && (
-                  <small className="text-red-500 text-sm">At least one branch is required</small>
-                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Available Roles *</label>
                 <input
                   type="text"
-                  placeholder="Enter role and press Enter to add"
+                  placeholder="Enter role and press Enter"
                   onKeyDown={(e) => handleArrayChange("roles", e)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                 />
                 <div className="flex flex-wrap gap-2 mt-2">
                   {companyData.roles.map((role, index) => (
@@ -569,15 +533,12 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                     </span>
                   ))}
                 </div>
-                {companyData.roles.length === 0 && (
-                  <small className="text-red-500 text-sm">At least one role is required</small>
-                )}
               </div>
 
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md disabled:opacity-50"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Processing..." : isEditing ? "Update Company" : "Add Company"}
@@ -601,12 +562,10 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
           </div>
         )}
 
-<div className="bg-white overflow-x-auto">          <table className="min-w-full table-auto">
-            <thead className="bg-gradient-to-r from-blue-800 to-blue-600 text-white">
+        <div className="bg-white overflow-x-auto rounded-lg shadow">
+          <table className="min-w-full table-auto">
+            <thead className="bg-gradient-to-r from-blue-800 to-indigo-600 text-white">
               <tr>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("logo")}>
-                  Logo {sortConfig.key === "logo" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
                 <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("companyName")}>
                   Company Name {sortConfig.key === "companyName" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
                 </th>
@@ -619,21 +578,11 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                 <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("package")}>
                   Package (LPA) {sortConfig.key === "package" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
                 </th>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("description")}>
-                  Description {sortConfig.key === "description" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("objective")}>
-                  Objective {sortConfig.key === "objective" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("skillSets")}>
-                  Skill Sets {sortConfig.key === "skillSets" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("localBranches")}>
-                  Branches {sortConfig.key === "localBranches" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
-                <th className="px-4 py-2 text-left cursor-pointer" onClick={() => requestSort("roles")}>
-                  Roles {sortConfig.key === "roles" ? (sortConfig.direction === "ascending" ? "↑" : "↓") : ""}
-                </th>
+                <th className="px-4 py-2 text-left">Description</th>
+                <th className="px-4 py-2 text-left">Objective</th>
+                <th className="px-4 py-2 text-left">Skill Sets</th>
+                <th className="px-4 py-2 text-left">Local Branches</th>
+                <th className="px-4 py-2 text-left">Roles</th>
                 <th className="px-4 py-2 text-left">Actions</th>
               </tr>
             </thead>
@@ -642,51 +591,47 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                 filteredAndSortedCompanies.map((company, index) =>
                   company && company.companyName ? (
                     <tr key={company.id || index} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2">
-                        {company.logo ? (
-                          <img
-                            src={`http://localhost:4000/Uploads/${company.logo}`}
-                            alt={company.companyName}
-                            className="w-12 h-12 object-contain rounded shadow-sm"
-                            onError={(e) => {
-                              e.target.src = "/placeholder-logo.png";
-                            }}
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-200 flex items-center justify-center text-xl font-bold rounded shadow-sm">
-                            {company.companyName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">{company.companyName}</td>
+                      <td className="px-4 py-2 font-medium">{company.companyName}</td>
                       <td className="px-4 py-2">{company.ceo}</td>
                       <td className="px-4 py-2">{company.location}</td>
                       <td className="px-4 py-2">{company.package}</td>
-                      <td className="px-4 py-2">{company.description}</td>
-                      <td className="px-4 py-2">{company.objective}</td>
+                      <td className="px-4 py-2 max-w-xs truncate">{company.description}</td>
+                      <td className="px-4 py-2 max-w-xs truncate">{company.objective}</td>
                       <td className="px-4 py-2">
-                        {(Array.isArray(company.skillSets)
-                          ? company.skillSets
-                          : typeof company.skillSets === "string" && company.skillSets
-                          ? JSON.parse(company.skillSets)
-                          : []
-                        ).join(", ")}
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(company.skillSets) ? company.skillSets : typeof company.skillSets === 'string' ? JSON.parse(company.skillSets) : []).slice(0, 3).map((skill, idx) => (
+                            <span key={idx} className="bg-indigo-100 text-blue-800 text-xs px-2 py-1 rounded">
+                              {skill}
+                            </span>
+                          ))}
+                          {(Array.isArray(company.skillSets) ? company.skillSets : typeof company.skillSets === 'string' ? JSON.parse(company.skillSets) : [])?.length > 3 && (
+                            <span className="text-xs text-gray-500">+{(Array.isArray(company.skillSets) ? company.skillSets : typeof company.skillSets === 'string' ? JSON.parse(company.skillSets) : []).length - 3}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
-                        {(Array.isArray(company.localBranches)
-                          ? company.localBranches
-                          : typeof company.localBranches === "string" && company.localBranches
-                          ? JSON.parse(company.localBranches)
-                          : []
-                        ).join(", ")}
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(company.localBranches) ? company.localBranches : typeof company.localBranches === 'string' ? JSON.parse(company.localBranches) : []).slice(0, 3).map((branch, idx) => (
+                            <span key={idx} className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                              {branch}
+                            </span>
+                          ))}
+                          {(Array.isArray(company.localBranches) ? company.localBranches : typeof company.localBranches === 'string' ? JSON.parse(company.localBranches) : [])?.length > 3 && (
+                            <span className="text-xs text-gray-500">+{(Array.isArray(company.localBranches) ? company.localBranches : typeof company.localBranches === 'string' ? JSON.parse(company.localBranches) : []).length - 3}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
-                        {(Array.isArray(company.roles)
-                          ? company.roles
-                          : typeof company.roles === "string" && company.roles
-                          ? JSON.parse(company.roles)
-                          : []
-                        ).join(", ")}
+                        <div className="flex flex-wrap gap-1">
+                          {(Array.isArray(company.roles) ? company.roles : typeof company.roles === 'string' ? JSON.parse(company.roles) : []).slice(0, 3).map((role, idx) => (
+                            <span key={idx} className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                              {role}
+                            </span>
+                          ))}
+                          {(Array.isArray(company.roles) ? company.roles : typeof company.roles === 'string' ? JSON.parse(company.roles) : [])?.length > 3 && (
+                            <span className="text-xs text-gray-500">+{(Array.isArray(company.roles) ? company.roles : typeof company.roles === 'string' ? JSON.parse(company.roles) : []).length - 3}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2 flex gap-2">
                         <button
@@ -707,7 +652,7 @@ className="min-h-screen bg-white text-gray-800"      style={{ marginLeft: "250px
                 )
               ) : (
                 <tr>
-                  <td colSpan="11" className="px-4 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-4 py-4 text-center text-gray-500">
                     No company recruiters available
                   </td>
                 </tr>

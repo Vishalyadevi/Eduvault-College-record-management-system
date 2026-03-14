@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrash, FaTrophy, FaChartBar } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useExtracurricular } from "../../contexts/ExtracurricularContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 const ExtracurricularActivities = () => {
   const {
@@ -18,8 +20,8 @@ const ExtracurricularActivities = () => {
   } = useExtracurricular();
 
   const activityTypes = [
-    'Fine Arts', 'Sports', 'Music', 'Dance', 'Debate', 
-    'Cultural', 'Academic Competition', 'Robotics', 
+    'Fine Arts', 'Sports', 'Music', 'Dance', 'Debate',
+    'Cultural', 'Academic Competition', 'Robotics',
     'Coding', 'Volunteer Work', 'Student Leadership', 'Other'
   ];
 
@@ -42,7 +44,9 @@ const ExtracurricularActivities = () => {
   const [editingId, setEditingId] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
-  const userId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
 
   useEffect(() => {
     if (userId) {
@@ -65,7 +69,7 @@ const ExtracurricularActivities = () => {
     if (!formData.from_date) throw new Error("From date is required");
     if (!formData.to_date) throw new Error("To date is required");
     if (!formData.status) throw new Error("Status is required");
-    
+
     if (new Date(formData.from_date) > new Date(formData.to_date)) {
       throw new Error("End date must be after start date");
     }
@@ -79,7 +83,7 @@ const ExtracurricularActivities = () => {
     e.preventDefault();
     clearError();
     setLocalLoading(true);
-    
+
     try {
       validateForm();
 
@@ -163,7 +167,7 @@ const ExtracurricularActivities = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case "approved": return "bg-green-100 text-green-800";
       case "pending": return "bg-yellow-100 text-yellow-800";
       case "rejected": return "bg-red-100 text-red-800";
@@ -172,9 +176,9 @@ const ExtracurricularActivities = () => {
   };
 
   const getLevelBadgeColor = (level) => {
-    switch(level) {
-      case "World": return "bg-purple-100 text-purple-800";
-      case "National": return "bg-blue-100 text-blue-800";
+    switch (level) {
+      case "World": return "bg-indigo-100 text-blue-800";
+      case "National": return "bg-indigo-100 text-blue-800";
       case "District": return "bg-green-100 text-green-800";
       case "Zonal": return "bg-gray-100 text-gray-800";
       default: return "bg-gray-100 text-gray-800";
@@ -182,16 +186,16 @@ const ExtracurricularActivities = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-md w-full min-h-screen">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        <h2 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
           Extracurricular Activities
         </h2>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowStatistics(!showStatistics)}
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg shadow-md hover:shadow-lg transition flex items-center gap-2"
+          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-pink-600 text-white rounded-lg shadow-md hover:shadow-lg transition flex items-center gap-2"
         >
           <FaChartBar /> {showStatistics ? "Hide" : "Show"} Statistics
         </motion.button>
@@ -204,7 +208,7 @@ const ExtracurricularActivities = () => {
       )}
 
       {(loading || localLoading) && (
-        <div className="mb-4 p-4 bg-blue-100 text-blue-700 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-indigo-100 text-indigo-700 rounded-lg text-center">
           Loading...
         </div>
       )}
@@ -221,9 +225,9 @@ const ExtracurricularActivities = () => {
             <FaTrophy className="text-yellow-500" /> Activity Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-indigo-50 rounded-lg">
               <p className="text-sm text-gray-600">Total Activities</p>
-              <p className="text-2xl font-bold text-blue-600">{statistics.totalActivities}</p>
+              <p className="text-2xl font-bold text-indigo-600">{statistics.totalActivities}</p>
             </div>
             <div className="p-4 bg-green-50 rounded-lg">
               <p className="text-sm text-gray-600">Winning</p>
@@ -233,9 +237,9 @@ const ExtracurricularActivities = () => {
               <p className="text-sm text-gray-600">Participating</p>
               <p className="text-2xl font-bold text-yellow-600">{statistics.participatingActivities}</p>
             </div>
-            <div className="p-4 bg-purple-50 rounded-lg">
+            <div className="p-4 bg-indigo-50 rounded-lg">
               <p className="text-sm text-gray-600">Prize Amount</p>
-              <p className="text-2xl font-bold text-purple-600">₹{statistics.totalPrizeAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-indigo-600">₹{statistics.totalPrizeAmount.toFixed(2)}</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -278,7 +282,7 @@ const ExtracurricularActivities = () => {
                 name="type"
                 value={formData.type}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="">Select Type</option>
@@ -294,7 +298,7 @@ const ExtracurricularActivities = () => {
                 name="level"
                 value={formData.level}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="">Select Level</option>
@@ -311,7 +315,7 @@ const ExtracurricularActivities = () => {
                 name="from_date"
                 value={formData.from_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -323,7 +327,7 @@ const ExtracurricularActivities = () => {
                 name="to_date"
                 value={formData.to_date}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -334,7 +338,7 @@ const ExtracurricularActivities = () => {
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 {statuses.map(status => (
@@ -350,7 +354,7 @@ const ExtracurricularActivities = () => {
                   name="prize"
                   value={formData.prize}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required={formData.status === 'Winning'}
                 >
                   <option value="">Select Position</option>
@@ -368,7 +372,7 @@ const ExtracurricularActivities = () => {
                 name="amount"
                 value={formData.amount}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="0.00"
                 step="0.01"
                 min="0"
@@ -382,7 +386,7 @@ const ExtracurricularActivities = () => {
                 name="certificate_url"
                 value={formData.certificate_url}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="https://example.com/certificate.pdf"
               />
             </div>
@@ -393,7 +397,7 @@ const ExtracurricularActivities = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Describe your activity..."
                 rows="3"
               />
@@ -416,7 +420,7 @@ const ExtracurricularActivities = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg transition"
               disabled={loading || localLoading}
             >
               {localLoading ? "Processing..." : editingId ? "Update" : "Add"}
@@ -437,8 +441,8 @@ const ExtracurricularActivities = () => {
           <p className="text-gray-500">No activities available.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300"style={{ minWidth: '2000px', width: '100%' }}>
-              <thead className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <table className="w-full border-collapse border border-gray-300" style={{ minWidth: '2000px', width: '100%' }}>
+              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white">
                 <tr>
                   <th className="border border-gray-300 p-3 text-left">Type</th>
                   <th className="border border-gray-300 p-3 text-left">Level</th>
@@ -466,9 +470,8 @@ const ExtracurricularActivities = () => {
                       {new Date(activity.to_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
                     <td className="border border-gray-300 p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        activity.status === 'Winning' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${activity.status === 'Winning' ? 'bg-yellow-100 text-yellow-800' : 'bg-indigo-100 text-blue-800'
+                        }`}>
                         {activity.status}
                       </span>
                     </td>
@@ -489,7 +492,7 @@ const ExtracurricularActivities = () => {
                           href={activity.certificate_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 underline text-sm"
+                          className="text-indigo-600 hover:text-indigo-700 underline text-sm"
                         >
                           View
                         </a>
@@ -497,11 +500,11 @@ const ExtracurricularActivities = () => {
                     </td>
                     <td className="border border-gray-300 p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        activity.pending ? "pending" : 
-                        activity.tutor_approval_status ? "approved" : "rejected"
+                        activity.pending ? "pending" :
+                          activity.tutor_approval_status ? "approved" : "rejected"
                       )}`}>
-                        {activity.pending ? "Pending" : 
-                         activity.tutor_approval_status ? "Approved" : "Rejected"}
+                        {activity.pending ? "Pending" :
+                          activity.tutor_approval_status ? "Approved" : "Rejected"}
                       </span>
                       {activity.comments && (
                         <div className="text-xs text-gray-600 mt-1">
@@ -511,20 +514,20 @@ const ExtracurricularActivities = () => {
                     </td>
                     <td className="border border-gray-300 p-3">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(activity)}
-                          className={`p-1 ${activity.pending ? 
-                            "text-blue-600 hover:text-blue-800" : 
+                          className={`p-1 ${activity.pending ?
+                            "text-indigo-600 hover:text-blue-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={activity.pending ? "Edit" : "Cannot edit approved/rejected activities"}
                           disabled={!activity.pending}
                         >
                           <FaEdit />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(activity.id)}
-                          className={`p-1 ${activity.pending ? 
-                            "text-red-600 hover:text-red-800" : 
+                          className={`p-1 ${activity.pending ?
+                            "text-red-600 hover:text-red-800" :
                             "text-gray-400 cursor-not-allowed"} transition`}
                           title={activity.pending ? "Delete" : "Cannot delete approved/rejected activities"}
                           disabled={!activity.pending}

@@ -397,7 +397,7 @@ function AdminPanel() {
 
   const renderStaffTable = () => (
     <table className="min-w-full">
-      <thead className="bg-gradient-to-r from-purple-500 to-blue-500">
+      <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500">
         <tr>
           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Image</th>
           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Staff ID</th>
@@ -417,16 +417,16 @@ function AdminPanel() {
                   <img
                     src={`${backendUrl}${staff.image}`}
                     alt={`${staff.username || "Unknown"}'s avatar`}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-purple-200"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center border-2 border-purple-200">
-                    <FaUserTie className="w-6 h-6 text-purple-500" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-100 rounded-full flex items-center justify-center border-2 border-indigo-200">
+                    <FaUserTie className="w-6 h-6 text-indigo-600" />
                   </div>
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
                   {staff.staffId || "N/A"}
                 </span>
               </td>
@@ -438,7 +438,7 @@ function AdminPanel() {
                 {staff.email || "Unknown"}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   {department}
                 </span>
               </td>
@@ -505,7 +505,7 @@ function AdminPanel() {
 
     return (
       <table className="min-w-full">
-        <thead className="bg-gradient-to-r from-purple-500 to-blue-500">
+        <thead className="bg-gradient-to-r from-indigo-500 to-indigo-500">
           <tr>
             {uniqueDisplayColumns.map((column, index) => (
               <th
@@ -542,10 +542,10 @@ function AdminPanel() {
           type="button"
           onClick={() => setIsActivityFieldsDropdownOpen(!isActivityFieldsDropdownOpen)}
           disabled={!searchActivity || availableActivityFields.length === 0}
-          className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-left bg-white flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-left bg-white flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <span className="text-gray-700 flex items-center">
-            <FaFilter className="mr-2 text-purple-500" />
+            <FaFilter className="mr-2 text-indigo-600" />
             {!searchActivity 
               ? "Select activity first" 
               : availableActivityFields.length === 0 
@@ -562,7 +562,7 @@ function AdminPanel() {
               <button
                 type="button"
                 onClick={handleSelectAllActivityFields}
-                className="w-full text-left p-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded"
+                className="w-full text-left p-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded"
               >
                 {selectedActivityFields.length === availableActivityFields.length ? 'Deselect All' : 'Select All'}
               </button>
@@ -575,7 +575,7 @@ function AdminPanel() {
                     checked={selectedActivityFields.includes(field)}
                     onChange={() => handleActivityFieldToggle(field)}
                     disabled={['s_no', 'staff_name', 'department'].includes(field.toLowerCase())}
-                    className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-700">
                     {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -592,7 +592,7 @@ function AdminPanel() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen text-gray-600">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
         <span className="ml-3 text-lg">Loading admin panel...</span>
       </div>
     );
@@ -606,7 +606,7 @@ function AdminPanel() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mr-4 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+            className="mr-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600"
           >
             Retry
           </button>
@@ -622,7 +622,7 @@ function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-purple-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -643,7 +643,7 @@ function AdminPanel() {
               <select
                 value={searchDepartment}
                 onChange={(e) => handleDepartmentChange(e.target.value)}
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">All Departments</option>
                 {departments.map((dept) => (
@@ -662,7 +662,7 @@ function AdminPanel() {
                 value={searchStaffName}
                 onChange={(e) => setSearchStaffName(e.target.value)}
                 placeholder="Enter staff name"
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               />
             </div>
             
@@ -672,7 +672,7 @@ function AdminPanel() {
               <select
                 value={searchActivity}
                 onChange={(e) => handleActivityChange(e.target.value)}
-                className="w-full p-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full p-3 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">All Activities (Staff View)</option>
                 {activities.map((activity) => (
@@ -693,7 +693,7 @@ function AdminPanel() {
                 <button
                   onClick={handleSearch}
                   disabled={loading}
-                  className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg flex items-center justify-center hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50"
+                  className="p-3 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg flex items-center justify-center hover:from-indigo-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50"
                 >
                   <FaSearch className="mr-2" /> Search
                 </button>
@@ -726,12 +726,12 @@ function AdminPanel() {
                 Showing {currentItems.length} of {safeFilteredData.length} {viewMode === 'staff' ? 'staff members' : 'records'}
               </span>
               {viewMode === 'activity' && searchActivity && (
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   Activity: {searchActivity}
                 </span>
               )}
               {searchDepartment && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
                   Department: {searchDepartment}
                 </span>
               )}
@@ -741,7 +741,7 @@ function AdminPanel() {
                 </span>
               )}
             </div>
-            <div className="text-sm text-purple-600 font-medium">
+            <div className="text-sm text-indigo-600 font-medium">
               Page {currentPage} of {totalPages || 1}
             </div>
           </div>
@@ -749,8 +749,8 @@ function AdminPanel() {
 
         {/* Active Activity Fields Display */}
         {selectedActivityFields.length > 0 && (
-          <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg mb-6">
-            <h3 className="text-sm font-medium text-purple-800 mb-2 flex items-center">
+          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg mb-6">
+            <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
               <FaFilter className="mr-2" />
               Active Activity Fields:
             </h3>
@@ -758,13 +758,13 @@ function AdminPanel() {
               {selectedActivityFields.map(field => (
                 <span 
                   key={field}
-                  className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium flex items-center"
+                  className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium flex items-center"
                 >
                   {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   {!['s_no', 'staff_name', 'department'].includes(field.toLowerCase()) && (
                     <button
                       onClick={() => handleActivityFieldToggle(field)}
-                      className="ml-2 text-purple-600 hover:text-purple-800"
+                      className="ml-2 text-indigo-600 hover:text-blue-800"
                     >
                       ×
                     </button>
@@ -773,7 +773,7 @@ function AdminPanel() {
               ))}
               <button
                 onClick={() => setSelectedActivityFields(['s_no', 'staff_name', 'department'])}
-                className="text-purple-600 hover:text-purple-800 text-xs font-medium underline"
+                className="text-indigo-600 hover:text-blue-800 text-xs font-medium underline"
               >
                 Clear all fields
               </button>
@@ -804,7 +804,7 @@ function AdminPanel() {
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -818,7 +818,7 @@ function AdminPanel() {
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

@@ -1,22 +1,23 @@
-import { Op, Sequelize } from "sequelize"; 
+import { Op, Sequelize } from "sequelize";
 import { sequelize } from "../../config/mysql.js";
-import { User, StudentDetails, Department } from "../../models/index.js";
+import { User, StudentDetails, Department, Role } from "../../models/index.js";
 import ExcelJS from "exceljs";
 import bcrypt from "bcrypt";
-import  DownloadHistory  from "../../models/DownloadHistory.js";
+import DownloadHistory from "../../models/student/DownloadHistory.js";
 
 export const exportData = async (req, res) => {
+  const adminRole = await Role.findOne({ where: { roleName: 'Admin' } });
   const admin = await User.findOne({
-    where: { role: 'Admin' },
+    where: { roleId: adminRole?.roleId },
     attributes: ['Userid'],
   });
-  
-  const adminId = admin?.Userid; 
-  
+
+  const adminId = admin?.Userid;
+
   //console.log(adminId);
-  
+
   const { role, filters, type } = req.body;
- 
+
 
   try {
     let query = {}; // Define query object
@@ -25,12 +26,12 @@ export const exportData = async (req, res) => {
       if (filters.username?.trim()) {
         query.username = { [Op.like]: `%${filters.username.trim()}%` };
       }
-     
+
       if (filters.staffId?.trim()) {
-        query.staffId = filters.staffId.trim();
+        query.userNumber = filters.staffId.trim();
       }
-      if (filters.regno?.trim()) {
-        query.regno = filters.regno.trim();
+      if (filters.registerNumber?.trim()) {
+        query.registerNumber = filters.registerNumber.trim();
       }
       if (filters.batch?.trim()) {
         query.batch = filters.batch.trim();
@@ -43,12 +44,13 @@ export const exportData = async (req, res) => {
     let data, formattedData, worksheetName, columns;
 
     if (role === "staff") {
-      if (filters?.Deptid?.trim()) {
-        query["$Department.Deptacronym$"] = filters.Deptid.trim();
+      const staffRole = await Role.findOne({ where: { roleName: 'Staff' } });
+      if (filters?.departmentId?.trim()) {
+        query["$Department.Deptacronym$"] = filters.departmentId.trim();
       }
       data = await User.findAll({
-        where: { ...query, role: 'Staff' },
-        attributes: ["username", "email", "staffId", "Deptid"],
+        where: { ...query, roleId: staffRole?.roleId },
+        attributes: ["userName", "userMail", "userNumber", "departmentId"],
         include: [
           {
             model: Department,
@@ -58,7 +60,7 @@ export const exportData = async (req, res) => {
           {
             model: StudentDetails,
             as: "staffStudents", // Ensure alias matches the association
-            attributes: ["regno"],
+            attributes: ["registerNumber"],
             required: false, // Keep it false to get staff even if they have no students
           },
         ],
@@ -66,12 +68,12 @@ export const exportData = async (req, res) => {
       // Format staff data
       formattedData = data.map((entry) => {
         const studentRegNos = entry.staffStudents
-          ? entry.staffStudents.map((s) => s.regno).join(", ")
+          ? entry.staffStudents.map((s) => s.registerNumber).join(", ")
           : "N/A";
         return {
-          username: entry.username,
-          email: entry.email,
-          staffId: entry.staffId,
+          username: entry.userName,
+          email: entry.userMail,
+          staffId: entry.userNumber,
           DeptAcronym: entry.Department?.Deptacronym || "N/A",
           StudentCount: entry.staffStudents ? entry.staffStudents.length : 0,
           StudentRegNos: studentRegNos,
@@ -88,12 +90,12 @@ export const exportData = async (req, res) => {
         { header: "Student Reg Nos", key: "StudentRegNos", width: 30 },
       ];
     } else if (role === "student") {
-      if (filters?.Deptid?.trim()) {
-        query["$Department.Deptacronym$"] = filters.Deptid.trim();
+      if (filters?.departmentId?.trim()) {
+        query["$Department.Deptacronym$"] = filters.departmentId.trim();
       }
       data = await StudentDetails.findAll({
         where: query,
-        attributes: ["regno", "batch", "Deptid"],
+        attributes: ["registerNumber", "batch", "departmentId"],
         include: [
           {
             model: Department,
@@ -103,31 +105,31 @@ export const exportData = async (req, res) => {
           {
             model: User,
             as: "studentUser", // Alias for student's username
-            attributes: ["username"],
+            attributes: ["userName"],
             required: true,
           },
           {
             model: User,
             as: "staffAdvisor", // Alias for tutor's name
-            attributes: ["username"],
+            attributes: ["userName"],
             required: false,
           },
         ],
       });
-    
+
       // Format student data
       formattedData = data.map((entry) => ({
-        regno: entry.regno,
-        username: entry.studentUser?.username || "N/A", // Fetch student username
+        registerNumber: entry.registerNumber,
+        username: entry.studentUser?.userName || "N/A", // Fetch student username
         batch: entry.batch,
         DeptAcronym: entry.Department?.Deptacronym || "N/A",
-        tutorName: entry.staffAdvisor?.username || "N/A", // Fetch tutor name
+        tutorName: entry.staffAdvisor?.userName || "N/A", // Fetch tutor name
       }));
-    
+
 
       worksheetName = "Student Data";
       columns = [
-        { header: "Reg No", key: "regno", width: 15 },
+        { header: "Reg No", key: "registerNumber", width: 15 },
         { header: "Username", key: "username", width: 20 },
         { header: "Batch", key: "batch", width: 15 },
         { header: "Department Acronym", key: "DeptAcronym", width: 20 },
@@ -150,7 +152,7 @@ export const exportData = async (req, res) => {
 
     // Generate Excel file and calculate file size
     const buffer = await workbook.xlsx.writeBuffer();
-    const file_size = buffer.byteLength / 1024; 
+    const file_size = buffer.byteLength / 1024;
 
     // Log download history
     await DownloadHistory.create({
@@ -183,42 +185,45 @@ export const exportData = async (req, res) => {
 export const addUser = async (req, res) => {
   const {
     username,
-    email,
+    userMail,
     password,
     role,
     staffId, // Staff's own ID (for Staff role)
     TutorId, // Tutor's staffId (for Student role)
-    Deptid,
-    regno, // Student-specific
+    departmentId,
+    registerNumber, // Student-specific
     year, // Student-specific
     course, // Student-specific
     batch, // Student-specific
   } = req.body;
 
   // Check if the user is authenticated
-  if (!req.user || !req.user.Userid) {
-    return res.status(401).json({ 
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({
       success: false,
-      message: "Unauthorized: User not authenticated" 
+      message: "Unauthorized: User not authenticated"
     });
   }
 
-  const createdBy = req.user.Userid;
-  const userRole = req.user.role;
+  const createdBy = req.user.userId;
+  const userRole = req.user.roleName;
 
   // Validate basic required fields
-  if (!username || !email || !password || !role) {
-    return res.status(400).json({ 
+  if (!username || !userMail || !password || !role) {
+    return res.status(400).json({
       success: false,
-      message: "Username, email, password, and role are required" 
+      message: "Username, email, password, and role are required"
     });
   }
 
   // Check if user has permission to create this role
   const rolePermissions = {
-    SuperAdmin: ["Student", "Staff", "DeptAdmin", "IrAdmin", "PgAdmin", "AcademicAdmin", "NewgenAdmin", "PlacementAdmin"],
+    SuperAdmin: ["Student", "Staff", "DeptAdmin", "IrAdmin", "PgAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin", "NewgenAdmin", "PlacementAdmin"],
     DeptAdmin: ["Student", "Staff"],
     AcademicAdmin: ["Student", "Staff"],
+    AcadamicAdmin: ["Student", "Staff"],
+    academicadmin: ["Student", "Staff"],
+    acadamicadmin: ["Student", "Staff"],
     IrAdmin: ["Student"],
     PgAdmin: ["Student"],
     NewgenAdmin: ["Student"],
@@ -226,96 +231,105 @@ export const addUser = async (req, res) => {
   };
 
   const allowedRoles = rolePermissions[userRole] || [];
-  
+
   if (!allowedRoles.includes(role)) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       success: false,
-      message: `You do not have permission to create ${role} role` 
+      message: `You do not have permission to create ${role} role`
     });
   }
 
   // Define which roles require department
-  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin"];
+  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin"];
   const rolesWithoutDept = ["IrAdmin", "PgAdmin", "NewgenAdmin", "PlacementAdmin"];
 
   // Validate department requirement
-  if (rolesRequiringDept.includes(role) && !Deptid) {
-    return res.status(400).json({ 
+  if (rolesRequiringDept.includes(role) && !departmentId) {
+    return res.status(400).json({
       success: false,
-      message: `Department is required for ${role} role` 
+      message: `Department is required for ${role} role`
     });
   }
 
   // For DeptAdmin, verify they can only add to their own department
-  if (userRole === "DeptAdmin" && req.user.Deptid) {
-    if (Deptid && parseInt(Deptid) !== req.user.Deptid) {
-      return res.status(403).json({ 
+  if (userRole === "DeptAdmin" && req.user.departmentId) {
+    if (departmentId && parseInt(departmentId) !== req.user.departmentId) {
+      return res.status(403).json({
         success: false,
-        message: "You can only add users to your own department" 
+        message: "You can only add users to your own department"
       });
     }
   }
 
   // Role-specific validations
   if (role === "Staff" && !staffId) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: "Staff ID is required for Staff role" 
+      message: "Staff ID is required for Staff role"
     });
   }
 
   if (role === "Student") {
-    if (!regno || !year || !course || !batch || !TutorId) {
-      return res.status(400).json({ 
+    if (!registerNumber || !year || !course || !batch || !TutorId) {
+      return res.status(400).json({
         success: false,
-        message: "Regno, year, course, batch, and tutor are required for Student role" 
+        message: "registerNumber, year, course, batch, and tutor are required for Student role"
       });
     }
   }
 
   try {
     // Check if the email already exists
-    const existingUser = await User.findOne({ where: { email } });
+    const existingUser = await User.findOne({ where: { userMail } });
     if (existingUser) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
-        message: "Email already exists" 
+        message: "Email already exists"
       });
     }
 
     // For Staff role, check if the staffId already exists
     if (role === "Staff") {
-      const existingStaff = await User.findOne({ where: { staffId } });
+      const existingStaff = await User.findOne({ where: { userNumber: staffId } });
       if (existingStaff) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           success: false,
-          message: "Staff ID already exists" 
+          message: "Staff ID already exists"
         });
       }
     }
 
-    // For Student role, check if regno already exists
+    // For Student role, check if registerNumber already exists
     if (role === "Student") {
-      const existingStudent = await StudentDetails.findOne({ where: { regno } });
+      const existingStudent = await StudentDetails.findOne({ where: { registerNumber: registerNumber } });
       if (existingStudent) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           success: false,
-          message: "Registration number already exists" 
+          message: "Registration number already exists"
         });
       }
 
       // Validate that the TutorId corresponds to an existing staff member
-      const tutor = await User.findOne({ 
-        where: { staffId: TutorId, role: "Staff", status: "active" },
-        attributes: ['Userid', 'email', 'username']
+      const tutor = await User.findOne({
+        where: { userNumber: TutorId, role: "Staff", status: "active" },
+        attributes: ['Userid', 'userMail', 'username']
       });
 
       if (!tutor) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          message: "Tutor not found or inactive. Please select a valid staff member." 
+          message: "Tutor not found or inactive. Please select a valid staff member."
         });
       }
+    }
+
+    // Get roleId for the text role
+    const targetRole = await Role.findOne({ where: { roleName: role } });
+    if (!targetRole) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role specified"
+      });
     }
 
     // Hash the password before saving
@@ -324,9 +338,9 @@ export const addUser = async (req, res) => {
     // Prepare user data
     const userData = {
       username,
-      email,
+      userMail,
       password: hashedPassword,
-      role,
+      roleId: targetRole.roleId,
       status: 'active',
       Created_by: createdBy,
       Updated_by: createdBy,
@@ -334,12 +348,12 @@ export const addUser = async (req, res) => {
 
     // Add department for roles that require it
     if (rolesRequiringDept.includes(role)) {
-      userData.Deptid = Deptid;
+      userData.departmentId = departmentId;
     }
 
     // Add staffId for Staff role
     if (role === "Staff") {
-      userData.staffId = staffId;
+      userData.userNumber = staffId;
     }
 
     // Create the new User record
@@ -348,9 +362,9 @@ export const addUser = async (req, res) => {
     // If Student role, create StudentDetails record
     if (role === "Student") {
       // Get tutor details again (we already validated above)
-      const tutor = await User.findOne({ 
-        where: { staffId: TutorId, role: "Staff" }, 
-        attributes: ['Userid', 'email', 'username']
+      const tutor = await User.findOne({
+        where: { userNumber: TutorId, role: "Staff" },
+        attributes: ['userId', 'userMail', 'username']
       });
 
       // Determine semester based on year
@@ -362,16 +376,17 @@ export const addUser = async (req, res) => {
       };
 
       await StudentDetails.create({
-        Userid: newUser.Userid,
-        regno,
-        name: username, // Add student name
+        Userid: newUser.userId,
+        registerNumber,
+        studentName: username || registerNumber, // Fallback to registerNumber if username is missing
         year,
         course,
-        Deptid,
+        departmentId,
+        // Deptid: departmentId, // Add missing Deptid
         batch,
-        Semester: semesterMap[year] || "1",
-        staffId: tutor.Userid, // Store the tutor's Userid
-        tutorEmail: tutor.email, // Store the tutor's email
+        semester: semesterMap[year] || "1",
+        staffId: tutor.userId, // Store the tutor's Userid
+        tutorEmail: tutor.userMail, // Store the tutor's email
         Created_by: createdBy,
         Updated_by: createdBy,
       });
@@ -382,12 +397,12 @@ export const addUser = async (req, res) => {
       success: true,
       message: `${role} added successfully`,
       user: {
-        Userid: newUser.Userid,
+        userId: newUser.userId,
         username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        Deptid: newUser.Deptid || null,
-        staffId: newUser.staffId || null,
+        email: newUser.userMail,
+        role: role,
+        departmentId: newUser.departmentId || null,
+        staffId: newUser.userNumber || null,
       }
     });
 
@@ -435,10 +450,15 @@ export const getStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Role is required' });
     }
 
+    const roleRecord = await Role.findOne({ where: { roleName: role } });
+    if (!roleRecord) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+
     // Fetch users with the specified role
     const users = await User.findAll({
-      where: { role },
-      attributes: ['Userid', 'username', 'email', 'staffId'], 
+      where: { roleId: roleRecord.roleId },
+      attributes: ['Userid', 'username', 'userMail', 'userNumber'],
       raw: true,
     });
 
@@ -447,9 +467,10 @@ export const getStaff = async (req, res) => {
     }
 
     const staffList = users.map(user => ({
-      id: user.staffId, // Use staffId as the ID
-      name: user.username,
-      email: user.email,
+      userId: user.Userid,
+      userNumber: user.userNumber,
+      username: user.username,
+      email: user.userMail,
     }));
 
     res.status(200).json({ success: true, staff: staffList });
@@ -469,33 +490,33 @@ export const getStudentDetails = async (req, res) => {
         {
           model: User,
           as: "studentUser", // Fetch user details of the student
-          attributes: ["username", "image", "email"],
+          attributes: ["userName", "profileImage", "userMail"],
         },
         {
           model: User,
           as: "staffAdvisor", // Fetch staff details using staffId (which is actually Userid of staff)
-          attributes: ["Userid", "staffId","username"],
+          attributes: ["userId", "userNumber", "userName"],
         },
       ],
     });
-  //  console.log(students)
+    //  console.log(students)
 
     const studentData = students.map(student => ({
-      id: student.id,
+      id: student.studentId,
       Userid: student.Userid,
-      tutorName: student.staffAdvisor ? student.staffAdvisor.username : "Unknown",
+      tutorName: student.staffAdvisor ? student.staffAdvisor.userName : "Unknown",
       tutorEmail: student.tutorEmail,
       course: student.course,
-      Deptid: student.Deptid,
+      departmentId: student.departmentId,
       batch: student.batch,
-      regno: student.regno,
-      assignedStaffUserid: student.staffId, 
-      staffId: student.staffAdvisor ? student.staffAdvisor.staffId : "Unknown", 
-      username: student.studentUser ? student.studentUser.username : "Unknown",
-      email: student.studentUser ? student.studentUser.email : "Unknown",
-      image: student.studentUser ? student.studentUser.image : "default.png",
+      registerNumber: student.registerNumber,
+      assignedStaffUserid: student.staffId,
+      staffId: student.staffAdvisor ? student.staffAdvisor.userNumber : "Unknown",
+      username: student.studentUser ? student.studentUser.userName : "Unknown",
+      email: student.studentUser ? student.studentUser.userMail : "Unknown",
+      image: student.studentUser ? student.studentUser.profileImage : "/uploads/default.jpg",
     }));
-  
+
 
     res.status(200).json(studentData);
   } catch (error) {
@@ -506,19 +527,22 @@ export const getStudentDetails = async (req, res) => {
 
 export const getStaffDetails = async (req, res) => {
   try {
+    const staffRole = await Role.findOne({ where: { roleName: 'Staff' } });
+    const staffIds = staffRole ? staffRole.roleId : null;
+
     const staffs = await User.findAll({
-      where: { role: "Staff" },
-      attributes: ["Userid", "username", "image", "staffId", "Deptid","email"],
+      where: { roleId: staffIds },
+      attributes: ["userId", "userName", "profileImage", "userNumber", "departmentId", "userMail"],
     });
 
     const staffData = staffs.map(staff => ({
-      id: staff.staffId,
-      Userid: staff.Userid,
-      email:staff.email,
-      Deptid: staff.Deptid,
-      staffId: staff.staffId,
-      username: staff.username,
-      image: staff.image || "default.png",
+      id: staff.userNumber,
+      Userid: staff.userId,
+      email: staff.userMail,
+      departmentId: staff.departmentId,
+      staffId: staff.userNumber,
+      username: staff.userName,
+      image: staff.profileImage || "/uploads/default.jpg",
     }));
 
     res.status(200).json(staffData);
@@ -530,12 +554,34 @@ export const getStaffDetails = async (req, res) => {
 
 
 export const getDepartments = async (req, res) => {
-  
+
   try {
-    const departments = await Department.findAll(); 
+    const departments = await Department.findAll();
 
     res.status(200).json(departments);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching departments', error });
+  }
+};
+
+export const getUserById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findByPk(userId, {
+      include: [
+        { model: Role, as: 'role', attributes: ['roleId', 'roleName'] },
+        { model: Department, as: 'department', attributes: ['departmentId', 'departmentName', 'departmentAcr'] }
+      ],
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error fetching user by ID:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };

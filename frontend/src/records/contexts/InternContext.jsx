@@ -1,46 +1,37 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const InternContext = createContext();
 
 export const InternProvider = ({ children }) => {
-  const backendUrl = "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const UserId = user?.Userid;
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   const [internships, setInternships] = useState([]);
   const [pendingInternships, setPendingInternships] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch Approved Internships
-  const fetchInternships = async () => {
-    if (!token || !UserId) {
-      console.log("❌ No token or UserId found");
+  const fetchInternships = useCallback(async () => {
+    if (!UserId) {
+      console.log("❌ No UserId found for internships fetch");
       return;
     }
 
     try {
       setIsLoading(true);
       console.log("📥 Fetching approved internships for UserId:", UserId);
-      
-      const response = await fetch(`${backendUrl}/api/fetch-internships?UserId=${UserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Fetch error:", response.status, errorText);
-        throw new Error("Failed to fetch internships");
-      }
-
-      const data = await response.json();
+      const response = await API.get(`/fetch-internships?UserId=${UserId}`);
+      const data = response.data;
       console.log("✅ Approved internships fetched:", data);
-      
-      const approvedInternships = Array.isArray(data) 
+
+      const approvedInternships = Array.isArray(data)
         ? data.filter(internship => internship.tutor_approval_status === true)
         : [];
-      
+
       setInternships(approvedInternships);
     } catch (error) {
       console.error("❌ Error fetching internships:", error);
@@ -48,30 +39,21 @@ export const InternProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [UserId]);
 
   // Fetch Pending Internships
-  const fetchPendingInternships = async () => {
-    if (!token || !UserId) {
-      console.log("❌ No token or UserId found");
+  const fetchPendingInternships = useCallback(async () => {
+    if (!UserId) {
+      console.log("❌ No UserId found for pending internships fetch");
       return;
     }
 
     try {
       setIsLoading(true);
       console.log("📥 Fetching pending internships for UserId:", UserId);
-      
-      const response = await fetch(`${backendUrl}/api/pending-internships?userID=${UserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Fetch error:", response.status, errorText);
-        throw new Error("Failed to fetch pending internships");
-      }
-
-      const data = await response.json();
+      const response = await API.get(`/pending-internships?userID=${UserId}`);
+      const data = response.data;
       console.log("✅ Pending internships fetched:", data);
 
       if (data.success && Array.isArray(data.internships)) {
@@ -90,12 +72,12 @@ export const InternProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [UserId]);
 
   // Add Internship
   const addInternship = async (formData) => {
-    if (!token || !UserId) {
-      toast.error("Unauthorized: No token or user ID found");
+    if (!UserId) {
+      toast.error("Unauthorized: No user ID found");
       return;
     }
 
@@ -106,26 +88,17 @@ export const InternProvider = ({ children }) => {
       formData.append("Userid", UserId);
     }
 
-    // Log FormData contents for debugging
-    console.log("📤 Submitting internship with data:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/add-internships`, {
-        method: "POST",
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
+      const response = await API.post("/add-internships", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
         },
-        body: formData,
       });
 
-      const responseData = await response.json();
+      const responseData = response.data;
       console.log("📥 Add internship response:", responseData);
 
-      if (response.ok && responseData.success) {
+      if (responseData.success) {
         toast.success(responseData.message || "Internship added successfully!");
         await fetchInternships();
         await fetchPendingInternships();
@@ -146,33 +119,19 @@ export const InternProvider = ({ children }) => {
 
   // Update Internship
   const updateInternship = async (internshipId, formData) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
     setIsLoading(true);
 
-    // Log FormData contents for debugging
-    console.log("📤 Updating internship with data:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/update-internship/${internshipId}`, {
-        method: "PATCH",
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          // Don't set Content-Type header - let browser set it with boundary
+      const response = await API.patch(`/update-internship/${internshipId}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
         },
-        body: formData,
       });
 
-      const responseData = await response.json();
+      const responseData = response.data;
       console.log("📥 Update internship response:", responseData);
 
-      if (response.ok && responseData.success) {
+      if (responseData.success) {
         toast.success(responseData.message || "Internship updated successfully!");
         await fetchInternships();
         await fetchPendingInternships();
@@ -193,23 +152,14 @@ export const InternProvider = ({ children }) => {
 
   // Delete Internship
   const deleteInternship = async (internshipId) => {
-    if (!token) {
-      toast.error("Unauthorized: No token found");
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/delete-internship/${internshipId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const responseData = await response.json();
+      const response = await API.delete(`/delete-internship/${internshipId}`);
+      const responseData = response.data;
       console.log("📥 Delete internship response:", responseData);
 
-      if (response.ok && responseData.success) {
+      if (responseData.success) {
         toast.success(responseData.message || "Internship deleted successfully!");
         await fetchInternships();
         await fetchPendingInternships();
@@ -229,11 +179,11 @@ export const InternProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (token && UserId) {
+    if (UserId) {
       fetchInternships();
       fetchPendingInternships();
     }
-  }, [token, UserId]);
+  }, [fetchInternships, fetchPendingInternships, UserId]);
 
   return (
     <InternContext.Provider

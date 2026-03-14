@@ -1,49 +1,42 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FaEdit, 
-  FaTrash, 
-  FaCalendarAlt, 
-  FaFileUpload, 
-  FaEye, 
-  FaTimes, 
+import {
+  FaEdit,
+  FaTrash,
+  FaCalendarAlt,
+  FaFileUpload,
+  FaEye,
+  FaTimes,
   FaInfoCircle,
   FaCheckCircle,
   FaTimesCircle,
   FaClock
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import { useLeave } from "../../contexts/LeaveContext";
+import { useAuth } from "../auth/AuthContext";
+import config from "../../../config";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = config.backendUrl;
+
 
 const StudentLeave = () => {
-  const [leaves, setLeaves] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const {
+    pendingLeaves,
+    approvedLeaves,
+    loading,
+    error,
+    addLeave,
+    updateLeave,
+    deleteLeave,
+  } = useLeave();
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
   const [editingLeave, setEditingLeave] = useState(null);
+
   const [showForm, setShowForm] = useState(false);
 
-  // Fetch student's own leaves
-  const fetchMyLeaves = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(`${backendUrl}/api/student/my-leaves`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
-      setLeaves(response.data.leaves || []);
-      setError(null);
-    } catch (error) {
-      console.error("Error fetching leaves:", error);
-      setError("Failed to fetch your leaves.");
-      setLeaves([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMyLeaves();
-  }, []);
+  // Combine both types of leaves for display
+  const allLeaves = [...pendingLeaves, ...approvedLeaves];
 
   const handleEdit = (leave) => {
     if (leave.leave_status === "pending") {
@@ -54,65 +47,21 @@ const StudentLeave = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this leave request?")) {
-      try {
-        setLoading(true);
-        await axios.delete(`${backendUrl}/api/student/delete-leave/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-        await fetchMyLeaves();
-        alert("Leave request deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting leave:", error);
-        alert("Failed to delete leave request");
-      } finally {
-        setLoading(false);
-      }
+      await deleteLeave(id);
     }
   };
 
   const handleSaveLeave = async (leaveData) => {
-    try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append("leave_type", leaveData.leave_type);
-      formData.append("start_date", leaveData.start_date);
-      formData.append("end_date", leaveData.end_date);
-      formData.append("reason", leaveData.reason);
+    let result;
+    if (editingLeave) {
+      result = await updateLeave(editingLeave.id, leaveData);
+    } else {
+      result = await addLeave(leaveData);
+    }
 
-      if (leaveData.document) {
-        formData.append("document", leaveData.document);
-      }
-
-      if (editingLeave) {
-        await axios.patch(
-          `${backendUrl}/api/student/update-leave/${editingLeave.id}`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        alert("Leave request updated successfully!");
-      } else {
-        await axios.post(`${backendUrl}/api/student/add-leave`, formData, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        alert("Leave request submitted successfully!");
-      }
-
+    if (result && result.success) {
       setEditingLeave(null);
       setShowForm(false);
-      await fetchMyLeaves();
-    } catch (error) {
-      console.error("Error saving leave:", error);
-      alert(error.response?.data?.message || "Failed to save leave request");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -122,14 +71,14 @@ const StudentLeave = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen">
+    <div className="p-6 bg-gradient-to-br from-indigo-50 via-indigo-50 to-pink-50 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-7xl mx-auto"
       >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
             My Leave Requests
           </h2>
           {!showForm && (
@@ -137,7 +86,7 @@ const StudentLeave = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowForm(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all font-semibold"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all font-semibold"
             >
               + Apply New Leave
             </motion.button>
@@ -157,14 +106,15 @@ const StudentLeave = () => {
 
         {loading && !showForm ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
           </div>
         ) : error ? (
           <div className="text-center text-red-500 p-8 bg-white rounded-lg shadow-md">
             {error}
           </div>
         ) : (
-          <LeaveList leaves={leaves} onEdit={handleEdit} onDelete={handleDelete} />
+          <LeaveList leaves={allLeaves} onEdit={handleEdit} onDelete={handleDelete} />
+
         )}
       </motion.div>
     </div>
@@ -279,7 +229,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
               name="leave_type"
               value={leaveData.leave_type}
               onChange={handleChange}
-              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               required
             >
               <option value="Sick">Sick Leave</option>
@@ -298,7 +248,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
               value={leaveData.reason}
               onChange={handleChange}
               placeholder="Brief reason for leave"
-              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full border-2 border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               required
             />
           </div>
@@ -313,7 +263,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
                 name="start_date"
                 value={leaveData.start_date}
                 onChange={handleChange}
-                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 required
               />
               <FaCalendarAlt className="absolute left-3 top-4 text-gray-400" />
@@ -330,7 +280,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
                 name="end_date"
                 value={leaveData.end_date}
                 onChange={handleChange}
-                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 required
               />
               <FaCalendarAlt className="absolute left-3 top-4 text-gray-400" />
@@ -339,7 +289,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
         </div>
 
         {days > 0 && (
-          <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center space-x-4 p-4 bg-indigo-50 rounded-lg">
             <div className="text-blue-800">
               <span className="font-semibold">Total Days:</span>{" "}
               <span className="text-2xl font-bold">{days}</span>
@@ -362,7 +312,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
                 type="file"
                 onChange={handleFileChange}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full border-2 border-gray-300 p-3 rounded-lg pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 required={days > 5 && !editingLeave?.document}
               />
               <FaFileUpload className="absolute left-3 top-4 text-gray-400" />
@@ -379,7 +329,7 @@ const LeaveForm = ({ onSave, editingLeave, onCancel, loading }) => {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Processing..." : editingLeave ? "Update Leave" : "Submit Leave Request"}
           </motion.button>
@@ -504,7 +454,7 @@ const LeaveList = ({ leaves, onEdit, onDelete }) => {
                     href={`${backendUrl}/uploads/leaves/${leave.document}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors"
+                    className="flex items-center space-x-1 text-indigo-600 hover:text-blue-800 transition-colors"
                   >
                     <FaEye />
                     <span className="text-sm underline">View Document</span>
@@ -528,7 +478,7 @@ const LeaveList = ({ leaves, onEdit, onDelete }) => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onEdit(leave)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600 transition-all"
                 >
                   <FaEdit />
                   <span>Edit</span>

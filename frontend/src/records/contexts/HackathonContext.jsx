@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import API from "../../api";
+import { useAuth } from "../pages/auth/AuthContext";
 
 const HackathonContext = createContext();
 
@@ -17,20 +18,15 @@ export const HackathonProvider = ({ children }) => {
   const [approvedEvents, setApprovedEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/hackathon";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
+  const { user } = useAuth();
+  const UserId = user?.userId || user?.id;
 
   // Fetch student's hackathon events
   const fetchStudentEvents = useCallback(async () => {
+    if (!UserId) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/my-events`,
-        getAuthHeader()
-      );
+      const response = await API.get("/hackathon/my-events");
       setHackathonEvents(response.data.events || []);
       setError(null);
     } catch (err) {
@@ -39,16 +35,13 @@ export const HackathonProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Fetch pending events (for tutors/admins)
   const fetchPendingEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/pending`,
-        getAuthHeader()
-      );
+      const response = await API.get("/hackathon/pending");
       setPendingEvents(response.data.events || []);
       setError(null);
     } catch (err) {
@@ -57,16 +50,15 @@ export const HackathonProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, []);
 
   // Fetch approved events
-  const fetchApprovedEvents = useCallback(async (userId) => {
+  const fetchApprovedEvents = useCallback(async (targetUserId) => {
+    const id = targetUserId || UserId;
+    if (!id) return;
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${apiBase}/approved?UserId=${userId}`,
-        getAuthHeader()
-      );
+      const response = await API.get(`/hackathon/approved?UserId=${id}`);
       setApprovedEvents(response.data.events || []);
       setError(null);
     } catch (err) {
@@ -75,17 +67,19 @@ export const HackathonProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [UserId]);
 
   // Add new hackathon event
   const addHackathonEvent = async (eventData) => {
-    setLoading(true);
     try {
-      const response = await axios.post(
-        `${apiBase}/add`,
-        eventData,
-        getAuthHeader()
-      );
+      let finalData = eventData;
+      if (eventData instanceof FormData) {
+        if (UserId) finalData.append("Userid", UserId);
+      } else {
+        finalData = { ...eventData, Userid: UserId };
+      }
+
+      const response = await API.post("/hackathon/add", finalData);
       setError(null);
       return response.data;
     } catch (err) {
@@ -100,13 +94,15 @@ export const HackathonProvider = ({ children }) => {
 
   // Update hackathon event
   const updateHackathonEvent = async (eventId, eventData) => {
-    setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/update/${eventId}`,
-        eventData,
-        getAuthHeader()
-      );
+      let finalData = eventData;
+      if (eventData instanceof FormData) {
+        if (UserId) finalData.append("Userid", UserId);
+      } else {
+        finalData = { ...eventData, Userid: UserId };
+      }
+
+      const response = await API.put(`/hackathon/update/${eventId}`, finalData);
       setError(null);
       return response.data;
     } catch (err) {
@@ -123,10 +119,7 @@ export const HackathonProvider = ({ children }) => {
   const deleteHackathonEvent = async (eventId) => {
     setLoading(true);
     try {
-      const response = await axios.delete(
-        `${apiBase}/delete/${eventId}`,
-        getAuthHeader()
-      );
+      const response = await API.delete(`/hackathon/delete/${eventId}`);
       setError(null);
       return response.data;
     } catch (err) {
@@ -140,13 +133,12 @@ export const HackathonProvider = ({ children }) => {
   };
 
   // Approve hackathon event (tutor/admin)
-  const approveEvent = async (eventId, userId, comments = "") => {
+  const approveEvent = async (eventId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/approve/${eventId}`,
-        { Userid: userId, comments },
-        getAuthHeader()
+      const response = await API.put(
+        `/hackathon/approve/${eventId}`,
+        { Userid: targetUserId, comments }
       );
       setError(null);
       return response.data;
@@ -161,13 +153,12 @@ export const HackathonProvider = ({ children }) => {
   };
 
   // Reject hackathon event (tutor/admin)
-  const rejectEvent = async (eventId, userId, comments = "") => {
+  const rejectEvent = async (eventId, targetUserId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${apiBase}/reject/${eventId}`,
-        { Userid: userId, comments },
-        getAuthHeader()
+      const response = await API.put(
+        `/hackathon/reject/${eventId}`,
+        { Userid: targetUserId, comments }
       );
       setError(null);
       return response.data;
@@ -182,6 +173,12 @@ export const HackathonProvider = ({ children }) => {
   };
 
   const clearError = () => setError(null);
+
+  useEffect(() => {
+    if (UserId) {
+      fetchStudentEvents();
+    }
+  }, [UserId, fetchStudentEvents]);
 
   return (
     <HackathonContext.Provider

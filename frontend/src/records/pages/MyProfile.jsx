@@ -3,6 +3,8 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { FaKey, FaSave, FaPlus, FaUser, FaSpinner } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import API from "../../api";
+import config from "../../config";
 
 const MyProfile = () => {
   const [user, setUser] = useState({
@@ -21,29 +23,21 @@ const MyProfile = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = config.backendUrl;
   const userId = localStorage.getItem("userId");
-  const token = localStorage.getItem("token");
   const navigate = useNavigate();
 
   // Fetch user details
   useEffect(() => {
     const fetchUserDetails = async () => {
       try {
-        if (!userId || !token) {
+        if (!userId) {
           toast.error("Session expired. Please log in again.");
           navigate("/records/login");
           return;
         }
 
-        const response = await axios.get(
-          `${backendUrl}/api/get-user/${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await API.get(`/get-user/${userId}`);
 
         if (response.data.success) {
           setUser({
@@ -59,7 +53,7 @@ const MyProfile = () => {
         }
       } catch (error) {
         console.error("Error fetching user details:", error);
-        
+
         if (error.response?.status === 401) {
           toast.error("Session expired. Please login again.");
           localStorage.removeItem("token");
@@ -74,8 +68,13 @@ const MyProfile = () => {
       }
     };
 
-    fetchUserDetails();
-  }, [userId, token, navigate]);
+    if (userId) {
+      fetchUserDetails();
+    } else {
+      setLoading(false);
+      navigate("/records/login");
+    }
+  }, [userId, navigate]);
 
   // Handle image selection and preview
   const handleImageUpload = (e) => {
@@ -132,18 +131,17 @@ const MyProfile = () => {
     try {
       setUpdating(true);
 
-      if (!token) {
+      if (!userId) {
         toast.error("Session expired. Please login again.");
         navigate("/records/login");
         return;
       }
 
-      const response = await axios.put(
-        `${backendUrl}/api/update-profile/${userId}`,
+      const response = await API.put(
+        `/update-profile/${userId}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         }
@@ -170,7 +168,7 @@ const MyProfile = () => {
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      
+
       if (error.response?.status === 401) {
         toast.error("Session expired. Please login again.");
         localStorage.removeItem("token");
@@ -185,9 +183,13 @@ const MyProfile = () => {
     }
   };
 
-  // Navigate to StudentBioData page
+  // Navigate to BioData page
   const handleNavigateToBioData = () => {
-    navigate(`/records/student-biodata/${userId}`);
+    if (user.role?.toLowerCase() === "student") {
+      navigate(`/records/student-biodata/${userId}`);
+    } else {
+      navigate(`/records/staff-biodata/${userId}`);
+    }
   };
 
   // Cancel editing
@@ -202,7 +204,7 @@ const MyProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-blue-500">
+      <div className="flex items-center justify-center min-h-screen bg-indigo-600">
         <div className="text-center text-white">
           <FaSpinner className="animate-spin text-5xl mx-auto mb-4" />
           <p className="text-xl font-semibold">Loading profile...</p>
@@ -212,18 +214,18 @@ const MyProfile = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-blue-500 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-600 p-4">
       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md text-center">
-        
+
         {/* Profile Image Section */}
         <div className="relative w-32 h-32 mx-auto mb-6">
           <img
             src={previewImage || user.profileImage}
             alt="Profile"
-            className="w-32 h-32 rounded-full mx-auto border-4 border-blue-200 object-cover"
+            className="w-32 h-32 rounded-full mx-auto border-4 border-indigo-200 object-cover"
           />
           <div
-            className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors shadow-lg"
+            className="absolute bottom-0 right-0 bg-indigo-600 p-2 rounded-full cursor-pointer hover:bg-indigo-600 transition-colors shadow-lg"
             onClick={() => document.getElementById("fileInput").click()}
             title="Change profile picture"
           >
@@ -246,7 +248,7 @@ const MyProfile = () => {
         </p>
 
         {/* Bio Data Button (Visible only for students) */}
-        {user.role === "Student" && (
+        {user.role?.toLowerCase() === "student" && (
           <button
             className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-full mt-4 hover:bg-green-600 transition-colors w-full"
             onClick={handleNavigateToBioData}
@@ -259,19 +261,19 @@ const MyProfile = () => {
         {/* Password Update Section */}
         <div className="mt-8">
           <button
-            className="flex items-center justify-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors w-full"
+            className="flex items-center justify-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-600 transition-colors w-full"
             onClick={() => setEditPassword(!editPassword)}
           >
             <FaKey className="text-white" />
             <span>{editPassword ? "Cancel Password Change" : "Change Password"}</span>
           </button>
-          
+
           {editPassword && (
             <div className="mt-4 space-y-4">
               <input
                 type="password"
                 placeholder="New Password (min 6 characters)"
-                className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 minLength={6}
@@ -279,7 +281,7 @@ const MyProfile = () => {
               <input
                 type="password"
                 placeholder="Confirm New Password"
-                className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 minLength={6}
@@ -287,6 +289,17 @@ const MyProfile = () => {
             </div>
           )}
         </div>
+
+        {/* Bio Data Button (Visible for staff) */}
+        {user.role?.toLowerCase() !== "student" && (
+          <button
+            className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-full mt-4 hover:bg-green-600 transition-colors w-full"
+            onClick={handleNavigateToBioData}
+          >
+            <FaUser className="text-white" />
+            <span>View Bio Data</span>
+          </button>
+        )}
 
         {/* Action Buttons (Visible only in editable mode) */}
         {(editImage || editPassword) && (
@@ -300,7 +313,7 @@ const MyProfile = () => {
             </button>
             <button
               onClick={handleUpdateProfile}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={updating}
             >
               {updating ? (

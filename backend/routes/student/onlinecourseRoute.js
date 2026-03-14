@@ -6,7 +6,7 @@ import {
   getPendingOnlineCourses,
   getApprovedCourses,
 } from "../../controllers/student/onlinecoursesController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";

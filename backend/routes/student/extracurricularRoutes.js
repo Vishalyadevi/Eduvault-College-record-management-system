@@ -11,7 +11,7 @@ import {
   getStudentExtracurricularActivities,
   getExtracurricularStatistics,
 } from "../../controllers/student/extracurricularController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 

@@ -10,7 +10,7 @@ import {
   deletePublication,
   getAllPublications,
 } from "../../controllers/student/studentPublicationController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 

@@ -1,174 +1,167 @@
-import StaffDetails from "../../models/StaffPersonal.js";
-import User from "../../models/User.js";
-import BankDetails from "../../models/BankDetails.js";
-import RelationDetails from "../../models/RelationDetails.js";
-
-import { Sequelize } from "sequelize";
-import { sequelize } from "../../config/mysql.js"; // Import the Sequelize instance from your database config
+import { StaffDetails, User, BankDetails, RelationDetails } from "../../models/index.js";
+import { sequelize } from "../../config/mysql.js";
 
 export const getStaffDetails = async (req, res) => {
-    try {
-      const userId = req.user.Userid; // Extracted from token middleware
-  
-      const staff = await StaffDetails.findOne({
-        where: { Userid: userId },
-        include: [
-          { 
-            model: User, 
-            as: "staffUser", 
-            attributes: ["Userid", "username", "email", "role", "status"], 
-            include: [
-              { 
-                model: BankDetails, 
-                as: "bankDetails", 
-                attributes: ["bank_name", "branch_name","address","account_type", "account_no", "ifsc_code","micr_code"] 
-              },
-              { 
-                model: RelationDetails, 
-                as: "relationDetails", 
-                attributes: ["relationship", "relation_name", "relation_age", "relation_qualification","relation_occupation","relation_phone","relation_email","relation_photo","relation_income"] ,
-                order: [['id', 'ASC']], 
-                separate:true,
-              }
-            ]
-          },
-          { 
-            model: User,  // Fetch supervisor details using supervisor_id
-            as: "supervisor", 
-            attributes: ["username", "email"]
-          }
-        ]
-      });
-       
-      if (!staff) {
-        return res.status(404).json({ message: "Staff not found" });
-      }
-  
-      res.json(staff); // Send full details
-    } catch (error) {
-      console.error("Error fetching staff details:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  };
-  
-  export const updateStaffDetails = async (req, res) => {
-    const transaction = await sequelize.transaction(); // Start a transaction
-    try {
-      const userId = req.user.Userid;
-      if (!userId) {
-        return res.status(400).json({ message: "Missing Userid in token" });
-      }
-  
-      console.log("🔹 Received data at backend:", JSON.stringify(req.body, null, 2));
-  
-      let { username, email, staffUser, relations = [], ...otherFields } = req.body;
-  
-      // Convert empty fields to `null`
-      Object.keys(otherFields).forEach((key) => {
-        if (otherFields[key] === "") {
-          otherFields[key] = null;
+  try {
+    const userId = req.user.Userid || req.user.userId;
+
+    const staff = await StaffDetails.findOne({
+      where: { Userid: userId },
+      include: [
+        {
+          model: User,
+          as: "staffUser",
+          attributes: ["Userid", "username", "email", "role", "status"],
+          include: [
+            {
+              model: BankDetails,
+              as: "bankDetails",
+            },
+            {
+              model: RelationDetails,
+              as: "relationDetails",
+            }
+          ]
         }
-      });
-  
-      console.log("🔹 Cleaned data before update:", otherFields);
-  
-      // Find staff and user by Userid
-      const staff = await StaffDetails.findOne({ where: { Userid: userId }, transaction });
-      if (!staff) return res.status(404).json({ message: "Staff not found" });
-  
-      const user = await User.findOne({ where: { Userid: userId }, transaction });
-      if (!user) return res.status(404).json({ message: "User not found" });
-  
-      console.log("🔹 Found Staff & User. Updating details...");
-  
-      // ✅ Update staff & user data
+      ]
+    });
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    // Map StaffDetails fields to compatibility names for frontend
+    const responseData = {
+      ...staff.toJSON(),
+      full_name: `${staff.firstName} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName}`.trim(),
+      email: staff.personalEmail,
+      mobile_number: staff.mobileNumber,
+      date_of_birth: staff.dateOfBirth,
+      anna_university_faculty_id: staff.annaUniversityFacultyId,
+      aicte_faculty_id: staff.aicteFacultyId,
+      researcher_id: staff.researcherId,
+      google_scholar_id: staff.googleScholarId,
+      scopus_profile: staff.scopusProfile,
+      vidwan_profile: staff.vidwanProfile,
+      supervisor_id: staff.supervisorId,
+      h_index: staff.hIndex,
+      citation_index: staff.citationIndex,
+      communication_address: staff.currentAddressLine1,
+      permanent_address: staff.permanentAddressLine1,
+      applied_date: staff.dateOfJoining,
+    };
+
+    res.json(responseData);
+  } catch (error) {
+    console.error("Error fetching staff details:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateStaffDetails = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const userId = req.user.Userid || req.user.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "Missing Userid in token" });
+    }
+
+    let { full_name, email, mobile_number, date_of_birth, relations = [], ...otherFields } = req.body;
+
+    // Map frontend names back to StaffDetails fields if provided
+    if (full_name) {
+      const names = full_name.trim().split(' ');
+      otherFields.firstName = names[0];
+      otherFields.lastName = names.slice(1).join(' ') || '.';
+    }
+    if (email) otherFields.personalEmail = email;
+    if (mobile_number) otherFields.mobileNumber = mobile_number;
+    if (date_of_birth) otherFields.dateOfBirth = date_of_birth;
+
+    // Academic & Profile Mappings
+    if (req.body.anna_university_faculty_id) otherFields.annaUniversityFacultyId = req.body.anna_university_faculty_id;
+    if (req.body.aicte_faculty_id) otherFields.aicteFacultyId = req.body.aicte_faculty_id;
+    if (req.body.researcher_id) otherFields.researcherId = req.body.researcher_id;
+    if (req.body.google_scholar_id) otherFields.googleScholarId = req.body.google_scholar_id;
+    if (req.body.scopus_profile) otherFields.scopusProfile = req.body.scopus_profile;
+    if (req.body.vidwan_profile) otherFields.vidwanProfile = req.body.vidwan_profile;
+    if (req.body.supervisor_id) otherFields.supervisorId = req.body.supervisor_id;
+    if (req.body.h_index) otherFields.hIndex = req.body.h_index;
+    if (req.body.citation_index) otherFields.citationIndex = req.body.citation_index;
+    if (req.body.communication_address) otherFields.currentAddressLine1 = req.body.communication_address;
+    if (req.body.permanent_address) otherFields.permanentAddressLine1 = req.body.permanent_address;
+    if (req.body.applied_date) otherFields.dateOfJoining = req.body.applied_date; // Using joining date as placeholder if needed
+
+    // Clean empty strings to null
+    Object.keys(otherFields).forEach((key) => {
+      if (otherFields[key] === "") {
+        otherFields[key] = null;
+      }
+    });
+
+    const user = await User.findOne({ where: { Userid: userId }, transaction });
+    if (!user) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const [staff, created] = await StaffDetails.findOrCreate({
+      where: { Userid: userId },
+      defaults: {
+        ...otherFields,
+        Userid: userId,
+        firstName: otherFields.firstName || user.username,
+        lastName: otherFields.lastName || '.',
+        gender: otherFields.gender || 'Other',
+        dateOfBirth: otherFields.dateOfBirth || new Date().toISOString().split('T')[0],
+        departmentId: user.departmentId || 1, // Fallback to a default dept if unknown
+        designationId: 1, // Fallback to a default designation
+        dateOfJoining: new Date().toISOString().split('T')[0],
+        personalEmail: email || user.email,
+        mobileNumber: mobile_number || '0000000000'
+      },
+      transaction
+    });
+
+    if (!created) {
       await staff.update(otherFields, { transaction });
-      await user.update({ username, email }, { transaction });
-  
-      // Extract bank details (check both top-level and nested inside staffUser)
-      const bankDetails = req.body.staffUser?.bankDetails || {
-        bank_name: req.body.bank_name,
-        branch_name: req.body.branch_name,
-        address: req.body.bank_address,
-        account_type: req.body.account_type,
-        account_no: req.body.account_no,
-        ifsc_code: req.body.ifsc_code,
-        micr_code: req.body.micr_code,
-      };
+    }
+    await user.update({ username: full_name || user.username, email: email || user.email }, { transaction });
 
-      // Update bank details if provided
-      if (bankDetails?.bank_name) {
-        console.log("🔹 Updating bank details in separate table...", bankDetails);
-
-        const existingBankDetails = await BankDetails.findOne({ where: { Userid: userId } });
-
-        if (existingBankDetails) {
-          await existingBankDetails.update(bankDetails);
-          console.log("✅ Bank details updated successfully!");
-        } else {
-          await BankDetails.create({ Userid: userId, ...bankDetails });
-          console.log("✅ New bank details added!");
-        }
-      } else {
-        console.log("⚠️ No bank details provided. Skipping update.");
+    // Bank Details
+    const bankDetails = req.body.staffUser?.bankDetails || req.body.bankDetails;
+    if (bankDetails) {
+      const [bank, created] = await BankDetails.findOrCreate({
+        where: { Userid: userId },
+        defaults: { ...bankDetails, Userid: userId },
+        transaction
+      });
+      if (!created) {
+        await bank.update(bankDetails, { transaction });
       }
-  
-      // ✅ Update Relation Details
-      if (relations.length > 0) {
-        console.log("🔹 Updating relation details in separate table...");
-  
-        for (const relation of relations) {
-          const existingRelation = await RelationDetails.findOne({
-            where: { Userid: userId, relationship: relation.relationship },
-            transaction,
+    }
+
+    // Relation Details
+    if (relations && relations.length > 0) {
+      for (const rel of relations) {
+        if (rel.relationship) {
+          const [relation, created] = await RelationDetails.findOrCreate({
+            where: { Userid: userId, relationship: rel.relationship },
+            defaults: { ...rel, Userid: userId },
+            transaction
           });
-  
-          if (existingRelation) {
-            await existingRelation.update(
-              {
-                relation_name: relation.name,
-                relation_phone: relation.phone,
-                relation_email: relation.email || null,
-                relation_occupation: relation.occupation,
-                relation_qualification: relation.qualification,
-                relation_age: relation.age,
-                relation_income: relation.income,
-                relation_photo: relation.relation_photo || null,
-              },
-              { transaction }
-            );
-            console.log(`✅ Relation details updated for ${relation.relationship}!`);
-          } else {
-            await RelationDetails.create(
-              {
-                Userid: userId,
-                relationship: relation.relationship,
-                relation_name: relation.name,
-                relation_phone: relation.phone,
-                relation_email: relation.email || null,
-                relation_occupation: relation.occupation,
-                relation_qualification: relation.qualification,
-                relation_age: relation.age,
-                relation_income: relation.income,
-                relation_photo: relation.relation_photo || null,
-              },
-              { transaction }
-            );
-            console.log(`✅ New relation details added for ${relation.relationship}!`);
+          if (!created) {
+            await relation.update(rel, { transaction });
           }
         }
-      } else {
-        console.log("⚠️ No relation details provided. Skipping update.");
       }
-  
-      // ✅ Commit the transaction
-      await transaction.commit();
-      console.log("✅ Update successful!");
-      res.status(200).json({ message: "Updated successfully" });
-  
-    } catch (error) {
-      await transaction.rollback(); // Rollback transaction in case of error
-      console.error("❌ Error updating staff details:", error);
-      res.status(500).json({ message: "Internal server error", error });
     }
-  };
+
+    await transaction.commit();
+    res.status(200).json({ message: "Updated successfully" });
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error("❌ Error updating staff details:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};

@@ -1,123 +1,634 @@
+/* ========================================
+   IMAGE SLIDER WITH 3D CAROUSEL
+   ======================================== */
+
 .slider {
   position: relative;
   width: 100%;
-  height: 650px;
+  min-height: 600px;
+  height: 80vh;
+  max-height: 900px;
   overflow: hidden;
-  
-  margin-top: 20px; 
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 2000px;
+  perspective-origin: 50% 50%;
 }
+
+/* When video is playing, container adjusts to video size */
+.slider.video-mode {
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  aspect-ratio: 16 / 9;
+}
+
+/* ========================================
+   VIDEO STYLING
+   ======================================== */
 
 .background-video {
   width: 100%;
   height: 100%;
-  object-fit: cover;           /* Fill the container */
-  object-position: top center; /* Align top part to show head clearly */
-  pointer-events: none;  
+  object-fit: contain;
+  object-position: center;
+  display: block;
 }
 
-.slide {
-  position: relative;
-  z-index: 1;
+/* ========================================
+   3D CAROUSEL TRACK
+   ======================================== */
+
+.slider-3d-track {
   width: 100%;
   height: 100%;
-  
-  transition: all 0.5s ease-in-out;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.animate-slide {
-  animation: fadeIn 1s ease-in-out;
+/* ========================================
+   3D SLIDES
+   ======================================== */
+
+.slide-3d {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 85%;
+  max-width: 1100px;
+  height: 80%;
+  transform-style: preserve-3d;
+  transition: all 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(1.02); }
-  to   { opacity: 1; transform: scale(1); }
+.slider-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
+
+.slide-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0.25) 100%
+  );
+  pointer-events: none;
+}
+
+/* ========================================
+   3D SLIDE POSITIONS - SIDE-BY-SIDE CAROUSEL
+   ======================================== */
+
+/* Active slide - center, front, large */
+.slide-3d.active {
+  transform: translate(-50%, -50%) translateZ(100px) rotateY(0deg) scale(1);
+  z-index: 10;
+  opacity: 1;
+  filter: brightness(1) blur(0);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+/* Next slide - right side */
+.slide-3d.next {
+  transform: translate(-15%, -50%) translateZ(-300px) rotateY(-50deg) scale(0.8);
+  z-index: 5;
+  opacity: 1;
+  filter: brightness(1) blur(0);
+  pointer-events: all;
+}
+
+/* Previous slide - left side */
+.slide-3d.prev {
+  transform: translate(-85%, -50%) translateZ(-300px) rotateY(50deg) scale(0.8);
+  z-index: 5;
+  opacity: 1;
+  filter: brightness(1) blur(0);
+  pointer-events: all;
+}
+
+/* Far next slide - further right */
+.slide-3d.next-next {
+  transform: translate(15%, -50%) translateZ(-550px) rotateY(-70deg) scale(0.6);
+  z-index: 2;
+  opacity: 0.95;
+  filter: brightness(1) blur(0);
+  pointer-events: none;
+}
+
+/* Far previous slide - further left */
+.slide-3d.prev-prev {
+  transform: translate(-115%, -50%) translateZ(-550px) rotateY(70deg) scale(0.6);
+  z-index: 2;
+  opacity: 0.95;
+  filter: brightness(1) blur(0);
+  pointer-events: none;
+}
+
+/* Hidden slides */
+.slide-3d.hidden {
+  transform: translate(-50%, -50%) translateZ(-800px) rotateY(0deg) scale(0.4);
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hover effect on clickable slides */
+.slide-3d.next:hover {
+  transform: translate(-15%, -50%) translateZ(-250px) rotateY(-50deg) scale(0.85);
+  filter: brightness(1) blur(0);
+}
+
+.slide-3d.prev:hover {
+  transform: translate(-85%, -50%) translateZ(-250px) rotateY(50deg) scale(0.85);
+  filter: brightness(1) blur(0);
+}
+
+/* Animation class with circular rotation motion */
+.animate-3d {
+  animation: circularRotateIn 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes circularRotateIn {
+  0% {
+    opacity: 0;
+    transform: translate(-150%, -50%) translateZ(-600px) rotateY(90deg) scale(0.5);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate(-100%, -50%) translateZ(-300px) rotateY(45deg) scale(0.75);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateZ(100px) rotateY(0deg) scale(1);
+  }
+}
+
+/* ========================================
+   HERO TEXT CONTENT
+   ======================================== */
+
+.hero-text-content {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #ffffff;
+  z-index: 10;
+  width: 90%;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -40%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  text-shadow: 3px 3px 12px rgba(0, 45, 114, 0.9), 
+               2px 2px 8px rgba(0, 48, 135, 0.8),
+               1px 1px 4px rgba(0, 48, 135, 1);
+  color: #ffffff;
+}
+
+.hero-subtitle {
+  font-size: 1.8rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  text-shadow: 2px 2px 8px rgba(0, 45, 114, 0.9),
+               1px 1px 4px rgba(0, 48, 135, 1);
+  color: #ffffff;
+}
+
+.hero-description {
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin-bottom: 0;
+  text-shadow: 2px 2px 8px rgba(0, 45, 114, 0.9),
+               1px 1px 4px rgba(0, 48, 135, 1);
+  color: #fbbf24;
+}
+
+/* ========================================
+   PLACEMENT BUTTONS ROW
+   ======================================== */
+
+.placement-button-row {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0 2rem;
+  z-index: 10;
+  max-width: 1200px;
+  width: 100%;
+  animation: fadeInUp 0.8s ease-out 0.2s backwards;
+}
+
+.placement-button {
+  background: linear-gradient(135deg, #002d72 0%, #003087 100%);
+  color: #ffffff;
+  border: 2px solid rgba(251, 191, 36, 0.4);
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 20px rgba(0, 48, 135, 0.4);
+  white-space: nowrap;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(10px);
+}
+
+.placement-button:hover {
+  background: linear-gradient(135deg, #003087 0%, #0066cc 100%);
+  border-color: #fbbf24;
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 102, 204, 0.6);
+  color: #fbbf24;
+}
+
+.placement-button:active {
+  transform: translateY(-2px);
+}
+
+.placement-button:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+/* ========================================
+   NAVIGATION ARROWS
+   ======================================== */
 
 .left-arrow,
 .right-arrow {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 1.8rem; /* Slightly smaller for inner icon */
-  color: white;
-  background-color:#000080; /* Bright blue */
-  border: 3px solid white;   /* White border for outer ring */
-  cursor: pointer;
-  z-index: 2;
-  width: 45px;              /* Bigger width for nicer shape */
-  height: 45px;
+  background: rgba(0, 48, 135, 0.8);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.8rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Stronger shadow */
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  z-index: 20;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-weight: 300;
+}
+
+.left-arrow {
+  left: 2rem;
+}
+
+.right-arrow {
+  right: 2rem;
 }
 
 .left-arrow:hover,
 .right-arrow:hover {
-  background-color: #0056b3; /* Darker blue on hover */
-  transform: translateY(-50%) scale(1.05); /* Slight grow on hover */
+  background: rgba(0, 102, 204, 0.9);
+  border-color: #fbbf24;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 48, 135, 0.5);
 }
 
-.left-arrow {
-  left: 20px;
+.left-arrow:active,
+.right-arrow:active {
+  transform: translateY(-50%) scale(0.95);
 }
 
-.right-arrow {
-  right: 20px;
+.left-arrow:focus-visible,
+.right-arrow:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
 }
+
+/* ========================================
+   NAVIGATION DOTS
+   ======================================== */
 
 .dots-container {
   position: absolute;
-  bottom: 30px;
-  width: 100%;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: center;
-  gap: 15px;
-  z-index: 10;
+  gap: 0.8rem;
+  z-index: 30;
+  padding: 1rem 2rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 40px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .dot {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 5); /* default color */
+  background: rgba(255, 255, 255, 0.4);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
+  border: none;
+  padding: 0;
 }
 
 .dot:hover {
-  background-color: #003087; /* on hover */
+  background: rgba(255, 255, 255, 0.7);
+  transform: scale(1.3);
 }
 
 .active-dot {
-  background-color: #003087; /* active circle color */
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  width: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.6);
 }
 
-.placement-button-row {
+.dot:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 1200px) {
+  .slider {
+    min-height: 500px;
+    height: 70vh;
+  }
+
+  .slide-3d {
+    width: 80%;
+    height: 75%;
+  }
+
+  .hero-title {
+    font-size: 3rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.5rem;
+  }
+
+  .hero-description {
+    font-size: 1.1rem;
+  }
+
+  .placement-button {
+    font-size: 0.95rem;
+    padding: 0.9rem 1.7rem;
+  }
+}
+
+@media (max-width: 968px) {
+  .slider {
+    min-height: 450px;
+    height: 65vh;
+    perspective: 1500px;
+  }
+
+  .slide-3d {
+    width: 85%;
+    height: 70%;
+  }
+
+  .slide-3d.next {
+    transform: translate(-10%, -50%) translateZ(-250px) rotateY(-45deg) scale(0.75);
+  }
+
+  .slide-3d.prev {
+    transform: translate(-90%, -50%) translateZ(-250px) rotateY(45deg) scale(0.75);
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.3rem;
+  }
+
+  .hero-description {
+    font-size: 1rem;
+  }
+
+  .placement-button-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .placement-button {
+    font-size: 0.9rem;
+    padding: 0.8rem 1.5rem;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .left-arrow,
+  .right-arrow {
+    width: 50px;
+    height: 50px;
+  }
+
+  .left-arrow {
+    left: 1.5rem;
+  }
+
+  .right-arrow {
+    right: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .slider {
+    min-height: 400px;
+    height: 60vh;
+  }
+
+  .slide-3d {
+    width: 90%;
+    height: 55%;
+  }
+
+  .slide-3d.next,
+  .slide-3d.prev {
+    opacity: 0.3;
+  }
+
+  .slide-3d.next-next,
+  .slide-3d.prev-prev {
+    opacity: 0;
+  }
+
+  .hero-text-content {
+    top: 30%;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+  }
+
+  .hero-description {
+    font-size: 0.9rem;
+  }
+
+  .placement-button-row {
+    bottom: 15%;
+    gap: 0.7rem;
+  }
+
+  .placement-button {
+    font-size: 0.85rem;
+    padding: 0.75rem 1.2rem;
+  }
+
+  .left-arrow,
+  .right-arrow {
+    width: 45px;
+    height: 45px;
+  }
+
+  .left-arrow {
+    left: 1rem;
+  }
+
+  .right-arrow {
+    right: 1rem;
+  }
+
+  .dots-container {
+    padding: 0.75rem 1.5rem;
+    gap: 0.6rem;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .active-dot {
+    width: 30px;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+button:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .slide-3d,
+  .animate-3d,
+  .hero-text-content,
+  .placement-button-row {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .placement-button {
+    border-width: 3px;
+  }
+
+  .left-arrow,
+  .right-arrow {
+    border-width: 3px;
+  }
+
+  .dot {
+    border: 2px solid white;
+  }
+}
+
+/* ========================================
+   LOADING STATE
+   ======================================== */
+
+.slider::before {
+  content: '';
   position: absolute;
-  bottom: 60px;
-  left: 30%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: left;
-  z-index: 20;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  z-index: -1;
 }
 
-.placement-button {
-  background-color: #2563eb;
-  color: white;
-  padding: 8px 16px;
-  font-size: 14px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
+/* ========================================
+   PRINT STYLES
+   ======================================== */
 
-.placement-button:hover {
-  background-color: #1e40af;
+@media print {
+  .slider {
+    min-height: 400px;
+    height: auto;
+    page-break-inside: avoid;
+  }
+
+  .background-video {
+    display: none;
+  }
+
+  .placement-button-row,
+  .left-arrow,
+  .right-arrow,
+  .dots-container {
+    display: none;
+  }
+
+  .slide-3d:not(.active) {
+    display: none;
+  }
 }

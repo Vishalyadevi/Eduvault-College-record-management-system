@@ -1,7 +1,17 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import {
+  addOrUpdateStudentEducation,
+  getStudentEducationRecord,
+  getStudentEducationAverages,
+  getPendingStudentEducationApprovals,
+  approveStudentEducationRecord,
+  rejectStudentEducationRecord,
+  bulkUploadStudentGPA as apiBulkUploadGPA,
+  getAllStudentEducationRecords
+} from "../services/api";
 
 const StudentEducationContext = createContext();
+
 
 export const useStudentEducation = () => {
   const context = useContext(StudentEducationContext);
@@ -18,17 +28,13 @@ export const StudentEducationProvider = ({ children }) => {
   const [allRecords, setAllRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/student-education";
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
 
   // STUDENT METHODS
+  
   const addOrUpdateEducation = async (educationData) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${apiBase}/add-or-update`, educationData, getAuthHeader());
+      const response = await addOrUpdateStudentEducation(educationData);
       setError(null);
       return response.data;
     } catch (err) {
@@ -43,12 +49,13 @@ export const StudentEducationProvider = ({ children }) => {
   const fetchEducationRecord = useCallback(async (userId) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${apiBase}/my-record?UserId=${userId}`, getAuthHeader());
+      const response = await getStudentEducationRecord(userId);
       setEducationRecord(response.data.education || null);
       setError(null);
     } catch (err) {
       if (err.response?.status === 404) {
         setEducationRecord(null);
+        setError(null); // Not an error - just no record yet
       } else {
         setError(err.response?.data?.message || "Failed to fetch education record");
       }
@@ -60,11 +67,30 @@ export const StudentEducationProvider = ({ children }) => {
   const fetchAverages = useCallback(async (userId) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${apiBase}/averages?UserId=${userId}`, getAuthHeader());
+      const response = await getStudentEducationAverages(userId);
       setAverages(response.data || null);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch averages");
+      if (err.response?.status === 404) {
+        // Set default averages when no record exists
+        setAverages({
+          averageGPA: 0,
+          cgpa: "N/A",
+          semesterBreakdown: {
+            semester_1: "N/A",
+            semester_2: "N/A",
+            semester_3: "N/A",
+            semester_4: "N/A",
+            semester_5: "N/A",
+            semester_6: "N/A",
+            semester_7: "N/A",
+            semester_8: "N/A",
+          }
+        });
+        setError(null);
+      } else {
+        setError(err.response?.data?.message || "Failed to fetch averages");
+      }
     } finally {
       setLoading(false);
     }
@@ -74,7 +100,7 @@ export const StudentEducationProvider = ({ children }) => {
   const fetchPendingApprovals = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${apiBase}/pending-approvals`, getAuthHeader());
+      const response = await getPendingStudentEducationApprovals();
       setPendingApprovals(response.data.records || []);
       setError(null);
     } catch (err) {
@@ -87,7 +113,7 @@ export const StudentEducationProvider = ({ children }) => {
   const approveRecord = async (recordId, userId, comments = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(`${apiBase}/approve/${recordId}`, { Userid: userId, comments }, getAuthHeader());
+      const response = await approveStudentEducationRecord(recordId, { Userid: userId, comments });
       setError(null);
       return response.data;
     } catch (err) {
@@ -102,7 +128,7 @@ export const StudentEducationProvider = ({ children }) => {
   const rejectRecord = async (recordId, userId, reason = "") => {
     setLoading(true);
     try {
-      const response = await axios.put(`${apiBase}/reject/${recordId}`, { Userid: userId, reason }, getAuthHeader());
+      const response = await rejectStudentEducationRecord(recordId, { Userid: userId, reason });
       setError(null);
       return response.data;
     } catch (err) {
@@ -117,7 +143,7 @@ export const StudentEducationProvider = ({ children }) => {
   const bulkUploadGPA = async (data) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${apiBase}/bulk-upload-gpa`, { data }, getAuthHeader());
+      const response = await apiBulkUploadGPA(data);
       setError(null);
       return response.data;
     } catch (err) {
@@ -132,7 +158,7 @@ export const StudentEducationProvider = ({ children }) => {
   const fetchAllRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${apiBase}/all-records`, getAuthHeader());
+      const response = await getAllStudentEducationRecords();
       setAllRecords(response.data.records || []);
       setError(null);
     } catch (err) {

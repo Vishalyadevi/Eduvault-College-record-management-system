@@ -16,8 +16,9 @@ import {
   getTopPerformers,
   getPlatformStatistics,
   verifyCompetencyRecord,
+  getPendingCompetencyRecords
 } from "../../controllers/student/competencyCodingController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 const router = express.Router();
 
@@ -56,5 +57,6 @@ router.get("/search-by-level", authenticate, searchByCompetencyLevel);
 router.get("/top-performers", authenticate, getTopPerformers);
 router.get("/platform-statistics", authenticate, getPlatformStatistics);
 router.put("/verify/:id", authenticate, verifyCompetencyRecord);
+router.get("/pending", authenticate, getPendingCompetencyRecords);
 
 export default router;

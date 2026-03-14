@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, FileText, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
@@ -26,15 +26,23 @@ const EventsOrganizedPage = () => {
     sponsored_by: '',
     amount_sanctioned: '',
     participants: '',
-    proof_link: '',
-    documentation_link: ''
+    proof: null,
+    documentation: null
   });
 
   const fetchEventsOrganized = async () => {
     try {
       setLoading(true);
       const response = await getEventsOrganized();
-      setEventsOrganized(response.data);
+      let arr = [];
+      if (response) {
+        if (Array.isArray(response)) arr = response;
+        else if (response.data) {
+          if (Array.isArray(response.data)) arr = response.data;
+          else if (response.data.data && Array.isArray(response.data.data)) arr = response.data.data;
+        }
+      }
+      setEventsOrganized(arr);
     } catch (error) {
       console.error('Error fetching Events Organized data:', error);
       toast.error('Failed to load Events Organized data');
@@ -69,6 +77,28 @@ const EventsOrganizedPage = () => {
     }
   };
 
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    if (files && files[0]) {
+      // Validate PDF
+      if (files[0].type !== 'application/pdf') {
+        toast.error('Only PDF files are allowed');
+        e.target.value = '';
+        return;
+      }
+      // Validate size (10MB)
+      if (files[0].size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        e.target.value = '';
+        return;
+      }
+      setFormData({
+        ...formData,
+        [name]: files[0]
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       program_name: '',
@@ -82,8 +112,8 @@ const EventsOrganizedPage = () => {
       sponsored_by: '',
       amount_sanctioned: '',
       participants: '',
-      proof_link: '',
-      documentation_link: ''
+      proof: null,
+      documentation: null
     });
     setCurrentRecord(null);
     setIsViewMode(false);
@@ -112,14 +142,59 @@ const EventsOrganizedPage = () => {
     }
   };
 
+  const renderFileLink = (record, label, type) => {
+    if (!record) {
+      return <span className="text-gray-400">No {label}</span>;
+    }
+
+    const handleViewFile = async () => {
+      try {
+        const endpoint = type === 'proof' 
+          ? `/events-organized/proof/${record.id}` 
+          : `/events-organized/documentation/${record.id}`;
+
+        const response = await fetch(`http://localhost:4000/api${endpoint}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        } else {
+          toast.error(`${label} not available`);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${label}:`, error);
+        toast.error(`Error loading ${label}`);
+      }
+    };
+
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleViewFile();
+        }}
+        className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
+        title={`View ${label}`}
+      >
+        <FileText size={14} />
+        View {label}
+      </button>
+    );
+  };
+
   const handleAddNew = () => {
     resetForm();
     setIsModalOpen(true);
   };
 
   const handleEdit = (record) => {
-    setCurrentRecord(record);
-    setFormData({
+    const formDataTemp = {
       program_name: record.program_name || '',
       program_title: record.program_title || '',
       coordinator_name: record.coordinator_name || '',
@@ -131,9 +206,23 @@ const EventsOrganizedPage = () => {
       sponsored_by: record.sponsored_by || '',
       amount_sanctioned: record.amount_sanctioned?.toString() || '',
       participants: record.participants?.toString() || '',
-      proof_link: record.proof_link || '',
-      documentation_link: record.documentation_link || ''
-    });
+      proof: null,
+      documentation: null
+    };
+
+    // Recalculate days if dates are present but days is empty
+    if (formDataTemp.from_date && formDataTemp.to_date && !formDataTemp.days) {
+      const from = new Date(formDataTemp.from_date);
+      const to = new Date(formDataTemp.to_date);
+      if (from <= to) {
+        const timeDiff = to.getTime() - from.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+        formDataTemp.days = daysDiff.toString();
+      }
+    }
+
+    setCurrentRecord(record);
+    setFormData(formDataTemp);
     setIsViewMode(false);
     setIsModalOpen(true);
   };
@@ -152,8 +241,8 @@ const EventsOrganizedPage = () => {
       sponsored_by: record.sponsored_by || '',
       amount_sanctioned: record.amount_sanctioned?.toString() || '',
       participants: record.participants?.toString() || '',
-      proof_link: record.proof_link || '',
-      documentation_link: record.documentation_link || ''
+      proof: null,
+      documentation: null
     });
     setIsViewMode(true);
     setIsModalOpen(true);
@@ -190,11 +279,33 @@ const EventsOrganizedPage = () => {
         return;
       }
 
+      // Create FormData object for file uploads
+      const submitData = new FormData();
+      submitData.append('program_name', formData.program_name);
+      submitData.append('program_title', formData.program_title);
+      submitData.append('coordinator_name', formData.coordinator_name);
+      submitData.append('co_coordinator_names', formData.co_coordinator_names);
+      submitData.append('speaker_details', formData.speaker_details);
+      submitData.append('from_date', formData.from_date);
+      submitData.append('to_date', formData.to_date);
+      submitData.append('days', formData.days);
+      submitData.append('sponsored_by', formData.sponsored_by);
+      submitData.append('amount_sanctioned', formData.amount_sanctioned);
+      submitData.append('participants', formData.participants);
+
+      // Append files if they exist
+      if (formData.proof) {
+        submitData.append('proof', formData.proof);
+      }
+      if (formData.documentation) {
+        submitData.append('documentation', formData.documentation);
+      }
+
       if (currentRecord) {
-        await updateEventOrganized(currentRecord.id, formData);
+        await updateEventOrganized(currentRecord.id, submitData);
         toast.success('Event updated successfully');
       } else {
-        await createEventOrganized(formData);
+        await createEventOrganized(submitData);
         toast.success('Event created successfully');
       }
 
@@ -233,32 +344,14 @@ const EventsOrganizedPage = () => {
       header: 'Amount Sanctioned',
     },
     { 
-      field: 'proof_link', 
-      header: 'Proof Link',
-      render: (value) => value ? (
-        <a 
-          href={value} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 underline"
-        >
-          View
-        </a>
-      ) : '-'
+      field: 'proof', 
+      header: 'Proof',
+      render: (row) => renderFileLink(row, 'Proof', 'proof')
     },
     { 
-      field: 'documentation_link', 
-      header: 'Documentation Link',
-      render: (value) => value ? (
-        <a 
-          href={value} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 underline"
-        >
-          View
-        </a>
-      ) : '-'
+      field: 'documentation', 
+      header: 'Documentation',
+      render: (row) => renderFileLink(row, 'Documentation', 'documentation')
     }
   ];
 
@@ -267,7 +360,7 @@ const EventsOrganizedPage = () => {
       <div className="mb-6 flex justify-between items-center">
         <button 
           onClick={handleAddNew}           
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-purple-400 hover:from-blue-800 hover:to-purple-500 px-4 py-2 rounded-md shadow-md"
+          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
         >
           <Plus size={16} />
           Add New Event
@@ -393,24 +486,94 @@ const EventsOrganizedPage = () => {
             placeholder="Optional"
             step="0.01"
           />
-          <FormField
-            label="Proof Link"
-            name="proof_link"
-            type="url"
-            value={formData.proof_link}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional - URL to proof documents"
-          />
-          <FormField
-            label="Documentation Link"
-            name="documentation_link"
-            type="url"
-            value={formData.documentation_link}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional - URL to event documentation"
-          />
+          
+          {/* File Upload Fields */}
+          <div className="md:col-span-2 space-y-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Proof Document (PDF only, max 10MB)
+    </label>
+
+    {isViewMode ? (
+      currentRecord?.proof ? (
+        renderFileLink(currentRecord, 'Proof', 'proof')
+      ) : (
+        <span className="text-gray-400">No proof uploaded</span>
+      )
+    ) : (
+      <>
+        <input
+          type="file"
+          name="proof"
+          accept=".pdf"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-md file:border-0
+            file:text-sm file:font-semibold
+            file:bg-indigo-50 file:text-indigo-700
+            hover:file:bg-indigo-100"
+        />
+
+        {formData.proof && (
+          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <Upload size={14} />
+            Selected: {formData.proof.name}
+          </p>
+        )}
+
+        {currentRecord?.proof && !formData.proof && (
+          <p className="text-xs text-gray-500 mt-1">
+            Current: {renderFileLink(currentRecord, 'Proof', 'proof')}
+          </p>
+        )}
+      </>
+    )}
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Documentation (PDF only, max 10MB)
+    </label>
+
+    {isViewMode ? (
+      currentRecord?.documentation ? (
+        renderFileLink(currentRecord, 'Documentation', 'documentation')
+      ) : (
+        <span className="text-gray-400">No documentation uploaded</span>
+      )
+    ) : (
+      <>
+        <input
+          type="file"
+          name="documentation"
+          accept=".pdf"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-md file:border-0
+            file:text-sm file:font-semibold
+            file:bg-indigo-50 file:text-indigo-700
+            hover:file:bg-indigo-100"
+        />
+
+        {formData.documentation && (
+          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <Upload size={14} />
+            Selected: {formData.documentation.name}
+          </p>
+        )}
+
+        {currentRecord?.documentation && !formData.documentation && (
+          <p className="text-xs text-gray-500 mt-1">
+            Current: {renderFileLink(currentRecord, 'Documentation', 'documentation')}
+          </p>
+        )}
+      </>
+    )}
+  </div>
+</div>
+
         </div>
       </Modal>
     </div>

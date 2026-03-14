@@ -10,7 +10,7 @@ import {
   updateAchievement,
   deleteAchievement,
 } from "../../controllers/student/achievementController.js";
-import { authenticate } from "../../middlewares/auth.js";
+import { authenticate } from "../../middlewares/requireauth.js";
 
 // Multer configuration (matches your reference exactly but for achievements)
 const storage = multer.diskStorage({
@@ -31,7 +31,7 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     "application/pdf",
-    "image/jpeg", 
+    "image/jpeg",
     "image/png",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

@@ -3,6 +3,8 @@ import { FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaPlus, FaClock, FaChec
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { useOrganizedEventContext } from "../../contexts/OrganizedEventContext";
+import { useAuth } from "../auth/AuthContext";
+
 
 // Memoized FormField Component
 const FormField = memo(({ type, name, value, onChange, placeholder, required }) => (
@@ -12,7 +14,7 @@ const FormField = memo(({ type, name, value, onChange, placeholder, required }) 
     value={value}
     onChange={onChange}
     placeholder={placeholder}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
     required={required}
   />
 ));
@@ -23,7 +25,7 @@ const Select = memo(({ name, value, onChange, children, required }) => (
     name={name}
     value={value}
     onChange={onChange}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
     required={required}
   >
     {children}
@@ -35,11 +37,10 @@ const StatusBadge = ({ status }) => {
   const isApproved = status === 'Approved';
   return (
     <span
-      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-        isApproved
-          ? 'bg-green-100 text-green-700'
-          : 'bg-yellow-100 text-yellow-700'
-      }`}
+      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${isApproved
+        ? 'bg-green-100 text-green-700'
+        : 'bg-yellow-100 text-yellow-700'
+        }`}
     >
       {isApproved ? <FaCheckCircle size={12} /> : <FaClock size={12} />}
       {status}
@@ -49,13 +50,17 @@ const StatusBadge = ({ status }) => {
 
 const StudentEventOrganized = () => {
   const {
-    events,
+    events = [], // Adding default value if context provides it
     loading,
     error,
     addEvent,
     updateEvent,
     deleteEvent,
   } = useOrganizedEventContext();
+  const { user } = useAuth();
+  const userId = user?.userId || user?.id;
+
+
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEvent, setEditingEvent] = useState({
@@ -106,10 +111,10 @@ const StudentEventOrganized = () => {
   // Filter events based on role and status
   const filteredEvents = Array.isArray(events)
     ? events.filter((event) => {
-        const roleMatch = filterRole === "All" || event.role === filterRole;
-        const statusMatch = filterStatus === "All" || event.approval_status === filterStatus;
-        return roleMatch && statusMatch;
-      })
+      const roleMatch = filterRole === "All" || event.role === filterRole;
+      const statusMatch = filterStatus === "All" || event.approval_status === filterStatus;
+      return roleMatch && statusMatch;
+    })
     : [];
 
   // Calculate Paginated Data
@@ -160,17 +165,8 @@ const StudentEventOrganized = () => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      return toast.error("No token found. Please log in.");
-    }
-
-    let decodedData;
-    try {
-      const base64Url = token.split(".")[1];
-      decodedData = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch (error) {
-      return toast.error("Error fetching user details");
+    if (!userId) {
+      return toast.error("User not found. Please log in.");
     }
 
     setIsSubmitting(true);
@@ -187,8 +183,9 @@ const StudentEventOrganized = () => {
         mode: editingEvent.mode,
         funding_agency: editingEvent.funding_agency || "",
         funding_amount: editingEvent.funding_amount || "",
-        Userid: String(decodedData.Userid),
+        Userid: String(userId),
       };
+
 
       if (editingEvent.id) {
         await updateEvent(editingEvent.id, eventData);
@@ -267,7 +264,7 @@ const StudentEventOrganized = () => {
 
   return (
     <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-sm w-full min-h-screen">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
         Events Organized
       </h2>
 
@@ -285,7 +282,7 @@ const StudentEventOrganized = () => {
           type="submit"
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="absolute top-4 right-4 p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="absolute top-4 right-4 p-3 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-full shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           title={editingEvent.id ? "Update" : "Submit"}
         >
           {editingEvent.id ? <FaEdit size={20} /> : <FaPlus size={20} />}
@@ -453,7 +450,7 @@ const StudentEventOrganized = () => {
           <>
             <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: '600px' }}>
               <table className="border-collapse border border-gray-200" style={{ minWidth: '2000px', width: '100%' }}>
-                <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white sticky top-0 z-10">
+                <thead className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white sticky top-0 z-10">
                   <tr>
                     <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '130px' }}>Status</th>
                     <th className="border border-gray-200 p-3 text-left whitespace-nowrap" style={{ minWidth: '150px' }}>Event Name</th>
@@ -495,11 +492,10 @@ const StudentEventOrganized = () => {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleEdit(event)}
-                            className={`p-2 rounded-full transition-all duration-200 ${
-                              event.approval_status === 'Pending'
-                                ? 'bg-blue-100 hover:bg-blue-200 text-blue-600 cursor-pointer'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            }`}
+                            className={`p-2 rounded-full transition-all duration-200 ${event.approval_status === 'Pending'
+                              ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-600 cursor-pointer'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              }`}
                             title={event.approval_status === 'Pending' ? 'Edit' : 'Cannot edit approved events'}
                           >
                             <FaEdit size={16} />
@@ -508,11 +504,10 @@ const StudentEventOrganized = () => {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleDelete(event)}
-                            className={`p-2 rounded-full transition-all duration-200 ${
-                              event.approval_status === 'Pending'
-                                ? 'bg-red-100 hover:bg-red-200 text-red-600 cursor-pointer'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            }`}
+                            className={`p-2 rounded-full transition-all duration-200 ${event.approval_status === 'Pending'
+                              ? 'bg-red-100 hover:bg-red-200 text-red-600 cursor-pointer'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              }`}
                             title={event.approval_status === 'Pending' ? 'Delete' : 'Cannot delete approved events'}
                           >
                             <FaTrash size={16} />
@@ -536,11 +531,10 @@ const StudentEventOrganized = () => {
                   whileTap={{ scale: 0.9 }}
                   onClick={handlePrevPage}
                   disabled={currentPage === 1}
-                  className={`p-2 rounded-full ${
-                    currentPage === 1
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-                  } transition-all duration-200`}
+                  className={`p-2 rounded-full ${currentPage === 1
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                    } transition-all duration-200`}
                 >
                   <FaChevronLeft size={18} />
                 </motion.button>
@@ -552,11 +546,10 @@ const StudentEventOrganized = () => {
                   whileTap={{ scale: 0.9 }}
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
-                  className={`p-2 rounded-full ${
-                    currentPage === totalPages
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-blue-100 hover:bg-blue-200 text-blue-600"
-                  } transition-all duration-200`}
+                  className={`p-2 rounded-full ${currentPage === totalPages
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-indigo-100 hover:bg-indigo-200 text-indigo-600"
+                    } transition-all duration-200`}
                 >
                   <FaChevronRight size={18} />
                 </motion.button>

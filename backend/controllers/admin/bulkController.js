@@ -3,7 +3,7 @@ import xlsx from "xlsx";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import { sequelize } from "../../config/mysql.js";
-import { User, StudentDetails, BulkUploadHistory } from "../../models/index.js";
+import { User, StudentDetails, BulkUploadHistory, Role } from "../../models/index.js";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -30,12 +30,12 @@ const bulkUpload = async (req, res) => {
 
     // Check for duplicate emails in the file itself
     const emailsInFile = data.map(row => row.email?.toLowerCase().trim());
-    const duplicateEmailsInFile = emailsInFile.filter((email, index) => 
+    const duplicateEmailsInFile = emailsInFile.filter((email, index) =>
       emailsInFile.indexOf(email) !== index
     );
 
     if (duplicateEmailsInFile.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Duplicate emails found in the file",
         duplicates: [...new Set(duplicateEmailsInFile)] // Get unique duplicates
       });
@@ -55,9 +55,16 @@ const bulkUpload = async (req, res) => {
         attributes: ['email'],
         transaction: t
       });
-      
+
       existingUsers.forEach(user => {
         existingEmails.add(user.email.toLowerCase());
+      });
+
+      // Fetch all roles to map name to ID
+      const rolesList = await Role.findAll();
+      const roleMap = {};
+      rolesList.forEach(r => {
+        roleMap[r.roleName] = r.roleId;
       });
 
       // Process each row in the CSV
@@ -67,8 +74,14 @@ const bulkUpload = async (req, res) => {
           throw new Error(`Missing required fields in row: ${JSON.stringify(row)}`);
         }
 
+        const roleName = row.role;
+        const roleId = roleMap[roleName];
+        if (!roleId) {
+          throw new Error(`Invalid role '${roleName}' in row: ${JSON.stringify(row)}`);
+        }
+
         const email = row.email.toLowerCase().trim();
-        
+
         // Check if email already exists in database
         if (existingEmails.has(email)) {
           duplicateEmails.push(email);
@@ -84,10 +97,9 @@ const bulkUpload = async (req, res) => {
           username: row.username,
           email: email,
           password: hashedPassword,
-          role: row.role,
-          role: row.role,
+          roleId: roleId,
           status: row.status || "active",
-          Deptid: row.Deptid || null,
+          departmentId: row.departmentId || null,
           image: row.image || '/uploads/deafult.jpg',
           Created_by: ADMIN_USER_ID,
           Updated_by: ADMIN_USER_ID,
@@ -100,7 +112,7 @@ const bulkUpload = async (req, res) => {
           if (!row.staffId) {
             throw new Error(`Missing staffId for staff member: ${JSON.stringify(row)}`);
           }
-          userData.staffId = row.staffId;
+          userData.userNumber = row.staffId;
         }
 
         users.push(userData);
@@ -109,7 +121,7 @@ const bulkUpload = async (req, res) => {
 
       // If there were duplicate emails, return them
       if (duplicateEmails.length > 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Some emails already exist in the system",
           duplicates: duplicateEmails
         });
@@ -129,7 +141,7 @@ const bulkUpload = async (req, res) => {
 
         if (user.role === "Student") {
           // Validate required fields for StudentDetails
-          if (!row.regno || !row.Deptid || !row.batch || !row.staffId) {
+          if (!row.registerNumber || !row.departmentId || !row.batch || !row.staffId) {
             throw new Error(`Missing required student fields in row: ${JSON.stringify(row)}`);
           }
 
@@ -138,21 +150,21 @@ const bulkUpload = async (req, res) => {
           let tutorId = 0;
           if (row.staffId) {
             const tutor = await User.findOne({
-              where: { staffId: row.staffId },
-              attributes: ["email", "Userid"],
+              where: { userNumber: row.staffId },
+              attributes: ["userMail", "Userid"],
               transaction: t,
             });
             if (tutor) {
-              tutorEmail = tutor.email;
+              tutorEmail = tutor.userMail;
               tutorId = tutor.Userid;
             }
           }
 
           // Prepare StudentDetails data
           students.push({
-            Userid: user.Userid,
-            regno: row.regno,
-            Deptid: row.Deptid,
+            Userid: user.UserId || user.Userid || user.userId,
+            registerNumber: row.registerNumber,
+            departmentId: row.departmentId,
             batch: row.batch,
             staffId: tutorId,
             tutorEmail: tutorEmail,
@@ -188,7 +200,7 @@ const bulkUpload = async (req, res) => {
         fs.unlinkSync(filePath);
       }
 
-      res.json({ 
+      res.json({
         message: `Users imported successfully! ${createdUsers.length} out of ${data.length} records processed.`,
         totalRecords: data.length,
         recordsProcessed: createdUsers.length,
@@ -202,7 +214,7 @@ const bulkUpload = async (req, res) => {
     }
   } catch (error) {
     console.error("Error processing file:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message || "Failed to process the file.",
       details: error.details
     });
