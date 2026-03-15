@@ -1,0 +1,128 @@
+.companies-list-container {
+  padding: 4rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  background-image: url('/images/placement-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+
+.companies-list-title {
+  text-align: center;
+  font-size: 2.8rem;
+  color: #003087;
+  margin-bottom: 3rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.companies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2.5rem;
+  padding: 1rem;
+}
+
+.company-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  animation: fadeInUp 0.6s ease forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+
+.company-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.company-logo-container {
+  position: relative;
+  padding: 2rem;
+  background: rgba(248, 250, 252, 0.8);
+  min-height: 200px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.company-logo {
+  max-width: 80%;
+  height: auto;
+  transition: transform 0.3s ease;
+  margin: 0 auto;
+  display: block;
+}
+
+
+
+.company-logo {
+  max-width: 80%;
+  height: auto;
+  transition: transform 0.3s ease;
+}
+
+.company-card:hover .company-logo {
+  transform: scale(1.05);
+}
+
+.company-name {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  transition: color 0.3s ease;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  margin-top: auto;
+}
+
+
+.company-card:hover .company-name {
+  color: #003087;
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .companies-list-title {
+    font-size: 2.2rem;
+  }
+  
+  .companies-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .company-logo-container {
+    min-height: 150px;
+    padding: 1.5rem;
+  }
+  
+  .company-name {
+    padding: 1rem;
+    font-size: 1.1rem;
+  }
+}

@@ -1,0 +1,171 @@
+.fee-page-wrapper {
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.fee-banner {
+    background-image: url('/images/13.jpg');
+    width: 100%;
+    background-size: cover;
+    background-position: center;
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.fee-banner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 55, 128, 0.55); /* dark blue overlay */
+}
+
+.fee-title {
+    position: relative;
+    color: white;
+    font-family: Georgia, Times, serif;
+    font-size: 2.5rem;
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: center;
+    z-index: 1;
+    box-sizing: border-box;
+}
+
+.fee-content {
+    max-width: 1100px;
+    margin: 0 auto 10px auto;
+    padding: 30px 20px;
+    font-family: Georgia, Times, serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: #26262c;
+    box-sizing: border-box;
+}
+
+ol {
+    padding-left: 20px;
+}
+
+ol li {
+    margin-bottom: 12px;
+}
+
+.mono {
+    font-family: Georgia, Times, serif;
+    color: #26262c;
+    font-weight: 700;
+    line-height: 1.2em;
+}
+
+.fee-link-cta {
+    margin: 20px 0;
+    text-align: left;
+}
+
+.fee-link-text {
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.2em;
+    font-family: Georgia, Times, serif;
+    color: #26262c;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fee-link-anchor {
+    color: rgb(32, 124, 201);
+    text-decoration: none;
+    transition: 0.2s linear;
+}
+
+.fee-link-anchor:hover {
+    color: #26262c;
+}
+
+.fee-link-icon {
+    vertical-align: middle;
+    height: 45px;
+    max-width: 100%;
+    border: none;
+}
+
+/* Media Queries for Mobile Responsiveness */
+
+@media (max-width: 768px) {
+    .fee-title {
+        font-size: 2rem; /* Smaller font size on mobile */
+        padding: 0 15px;
+    }
+
+    .fee-content {
+        padding: 20px 10px; /* Less padding on smaller screens */
+        font-size: 1.2rem; /* Smaller text for mobile */
+    }
+
+    ol {
+        padding-left: 15px; /* Reduce padding on smaller screens */
+    }
+
+    .fee-link-text {
+        font-size: 1.2rem; /* Smaller text size */
+        gap: 5px; /* Reduce space between elements */
+    }
+
+    .fee-link-cta {
+        margin: 15px 0;
+    }
+
+    
+}
+
+@media (max-width: 480px) {
+    .fee-title {
+        font-size: 1.6rem; /* Even smaller font size for very small screens */
+        padding: 0 10px;
+    }
+
+    .fee-content {
+        font-size: 1rem; /* Reduce font size more on very small screens */
+    }
+
+    ol {
+        padding-left: 10px; /* Even smaller padding */
+    }
+
+    .fee-link-text {
+        font-size: 1rem;
+    }
+
+
+    .fee-link-anchor {
+        font-size: 1rem; /* Smaller anchor text */
+    }
+}
+.table-wrapper {
+  overflow-x: auto; /* You can change to 'hidden' to remove scroll */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.table-wrapper::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.custom-table th,
+.custom-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+  white-space: normal; /* Allows wrapping */
+}

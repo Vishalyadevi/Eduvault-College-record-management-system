@@ -1,0 +1,1031 @@
+/* ========================================
+   WHY NEC SECTION - MODERN PROFESSIONAL DESIGN
+   ======================================== */
+
+.why-nec-section {
+  position: relative;
+  width: 100%;
+  padding: 5rem 2rem;
+  background: linear-gradient(135deg, #f8fbff 0%, #e3f2fd 50%, #bbdefb 100%);
+  overflow: hidden;
+}
+
+.why-nec-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 4rem;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* ========================================
+   LEFT SIDE - VIDEO/IMAGE WITH OVERLAY
+   ======================================== */
+
+.why-nec-image-wrapper {
+  position: relative;
+  height: 100%;
+  min-height: 500px;
+  max-height: 600px;
+}
+
+.why-nec-image-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 48, 135, 0.3);
+  background: linear-gradient(135deg, #e3f2fd 0%, #f8fbff 100%);
+  transition: box-shadow 0.5s ease;
+}
+
+.why-nec-image-container:hover {
+  box-shadow: 0 25px 70px rgba(0, 48, 135, 0.4);
+}
+
+.why-nec-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: opacity 0.5s ease;
+}
+
+.why-nec-image-container:hover .why-nec-image {
+  opacity: 0.95;
+}
+
+.why-nec-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 48, 135, 0.15) 0%,
+    rgba(0, 102, 204, 0.2) 50%,
+    rgba(0, 45, 114, 0.25) 100%
+  );
+  pointer-events: none;
+}
+
+/* Floating badge */
+.why-nec-badge {
+  position: absolute;
+  bottom: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  padding: 1.25rem 1.75rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 48, 135, 0.3);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.badge-icon {
+  font-size: 2.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.badge-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-year {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #003087;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.badge-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0066cc;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ========================================
+   RIGHT SIDE - CONTENT
+   ======================================== */
+
+.why-nec-content {
+  padding: 2rem 0;
+}
+
+/* Header with animated title */
+.why-nec-header {
+  margin-bottom: 2rem;
+}
+
+.why-nec-title {
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.title-main {
+  color: #002d72;
+  position: relative;
+  animation: slideInLeft 0.8s ease-out;
+}
+
+.title-highlight {
+  background: linear-gradient(135deg, #0066cc 0%, #237ccf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: slideInUp 0.8s ease-out 0.2s backwards;
+}
+
+.title-question {
+  color: #fbbf24;
+  animation: rotateIn 0.8s ease-out 0.4s backwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rotateIn {
+  from {
+    opacity: 0;
+    transform: rotate(-180deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/* Animated underline */
+.title-underline {
+  position: relative;
+  width: 150px;
+  height: 4px;
+  background: linear-gradient(90deg, #0066cc 0%, #fbbf24 100%);
+  margin-top: 1rem;
+  border-radius: 2px;
+  animation: expandWidth 1s ease-out 0.6s backwards;
+}
+
+@keyframes expandWidth {
+  from {
+    width: 0;
+  }
+  to {
+    width: 150px;
+  }
+}
+
+.underline-dot {
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: #fbbf24;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    transform: translateY(-50%) scale(1);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.2);
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.8);
+  }
+}
+
+/* Main description */
+.why-nec-description {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #1f2937;
+  margin-bottom: 2.5rem;
+  text-align: justify;
+  animation: fadeIn 0.8s ease-out 0.8s backwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.why-nec-description strong {
+  color: #003087;
+  font-weight: 700;
+}
+
+/* ========================================
+   FEATURE GRID
+   ======================================== */
+
+.why-nec-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  animation: slideInUp 0.6s ease-out backwards;
+}
+
+.feature-card:hover {
+  background: #ffffff;
+  border-color: #0066cc;
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 48, 135, 0.15);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.feature-card:hover .feature-icon {
+  animation: spin 0.5s ease-in-out;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.feature-content {
+  flex: 1;
+}
+
+.feature-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #003087;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.feature-description {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ========================================
+   CALL TO ACTION
+   ======================================== */
+
+.why-nec-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(0, 48, 135, 0.05) 0%, rgba(0, 102, 204, 0.08) 100%);
+  border-radius: 20px;
+  border-left: 4px solid #0066cc;
+  animation: fadeIn 0.8s ease-out 1s backwards;
+}
+
+.cta-text {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0;
+  text-align: justify;
+}
+
+.cta-button {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #003087 0%, #0066cc 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 48, 135, 0.3);
+}
+
+.cta-button:hover {
+  background: linear-gradient(135deg, #0066cc 0%, #237ccf 100%);
+  transform: translateX(5px);
+  box-shadow: 0 6px 20px rgba(0, 48, 135, 0.4);
+}
+
+.cta-arrow {
+  transition: transform 0.3s ease;
+}
+
+.cta-button:hover .cta-arrow {
+  transform: translateX(5px);
+}
+
+/* ========================================
+   DECORATIVE BACKGROUND ELEMENTS - ENGINEERING GEARS
+   ======================================== */
+
+.bg-decoration {
+  position: absolute;
+  opacity: 0.08;
+  z-index: 1;
+  pointer-events: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.bg-decoration-1 {
+  width: 400px;
+  height: 400px;
+  top: -100px;
+  right: -100px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%230066cc' d='M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z'/%3E%3C/svg%3E");
+  animation: rotateGear 20s linear infinite;
+}
+
+.bg-decoration-2 {
+  width: 320px;
+  height: 320px;
+  bottom: -80px;
+  left: 10%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23fbbf24' d='M495.9 166.6c3.2 8.7.5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6.3-24.5-6.8-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6 4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2 5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8 8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80-80 35.8-80 80 35.8 80 80 80z'/%3E%3C/svg%3E");
+  animation: rotateGear 25s linear infinite reverse;
+}
+
+.bg-decoration-3 {
+  width: 250px;
+  height: 250px;
+  top: 40%;
+  right: 10%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23003087' d='M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z'/%3E%3C/svg%3E");
+  animation: rotateGear 30s linear infinite;
+}
+
+@keyframes rotateGear {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 1400px) {
+  .why-nec-container {
+    gap: 3.5rem;
+  }
+
+  .why-nec-title {
+    font-size: 3.75rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 480px;
+    max-height: 560px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .why-nec-section {
+    padding: 4.5rem 2rem;
+  }
+
+  .why-nec-container {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 450px;
+    max-height: 520px;
+    order: -1; /* Image first on mobile */
+  }
+
+  .why-nec-content {
+    order: 1;
+  }
+
+  .why-nec-title {
+    font-size: 3.5rem;
+  }
+
+  .why-nec-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bg-decoration-1,
+  .bg-decoration-2,
+  .bg-decoration-3 {
+    opacity: 0.05;
+  }
+}
+
+@media (max-width: 968px) {
+  .why-nec-section {
+    padding: 4rem 1.5rem;
+  }
+
+  .why-nec-container {
+    gap: 2.5rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 400px;
+    max-height: 480px;
+  }
+
+  .why-nec-title {
+    font-size: 3rem;
+  }
+
+  .title-underline {
+    width: 120px;
+  }
+
+  .why-nec-description {
+    font-size: 1.05rem;
+    margin-bottom: 2rem;
+  }
+
+  .why-nec-features {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .feature-card {
+    padding: 1.25rem;
+  }
+
+  .feature-icon {
+    font-size: 2.25rem;
+  }
+
+  .why-nec-cta {
+    padding: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .why-nec-section {
+    padding: 3.5rem 1.25rem;
+  }
+
+  .why-nec-container {
+    gap: 2rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 350px;
+    max-height: 420px;
+  }
+
+  .why-nec-image-container {
+    border-radius: 10px;
+  }
+
+  .why-nec-badge {
+    padding: 1.1rem 1.4rem;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    gap: 0.85rem;
+  }
+
+  .badge-icon {
+    font-size: 2.25rem;
+  }
+
+  .badge-year {
+    font-size: 1.35rem;
+  }
+
+  .badge-text {
+    font-size: 0.85rem;
+  }
+
+  .why-nec-title {
+    font-size: 2.75rem;
+    gap: 0.4rem;
+  }
+
+  .title-underline {
+    width: 100px;
+    height: 3px;
+  }
+
+  .underline-dot {
+    width: 14px;
+    height: 14px;
+  }
+
+  .why-nec-description {
+    font-size: 1rem;
+    text-align: left;
+  }
+
+  .feature-title {
+    font-size: 0.975rem;
+  }
+
+  .feature-description {
+    font-size: 0.875rem;
+  }
+
+  .cta-text {
+    font-size: 0.95rem;
+    text-align: left;
+  }
+
+  .cta-button {
+    padding: 0.9rem 1.75rem;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .why-nec-section {
+    padding: 3rem 1rem;
+  }
+
+  .why-nec-container {
+    gap: 1.75rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 300px;
+    max-height: 360px;
+  }
+
+  .why-nec-image-container {
+    border-radius: 8px;
+  }
+
+  .why-nec-badge {
+    padding: 1rem 1.25rem;
+    bottom: 1rem;
+    left: 1rem;
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .badge-icon {
+    font-size: 2rem;
+  }
+
+  .badge-year {
+    font-size: 1.25rem;
+  }
+
+  .badge-text {
+    font-size: 0.8rem;
+  }
+
+  .why-nec-content {
+    padding: 0;
+  }
+
+  .why-nec-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .why-nec-title {
+    font-size: 2.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .title-underline {
+    width: 90px;
+    height: 3px;
+    margin-top: 0.75rem;
+  }
+
+  .underline-dot {
+    width: 12px;
+    height: 12px;
+    right: -6px;
+  }
+
+  .why-nec-description {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 1.75rem;
+  }
+
+  .why-nec-features {
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .feature-card {
+    padding: 1rem;
+  }
+
+  .feature-icon {
+    font-size: 2rem;
+  }
+
+  .feature-title {
+    font-size: 0.95rem;
+  }
+
+  .feature-description {
+    font-size: 0.85rem;
+  }
+
+  .why-nec-cta {
+    padding: 1.5rem;
+    gap: 1.25rem;
+  }
+
+  .cta-text {
+    font-size: 0.9rem;
+  }
+
+  .cta-button {
+    width: 100%;
+    justify-content: center;
+    padding: 0.85rem 1.5rem;
+  }
+
+  .bg-decoration-1 {
+    width: 300px;
+    height: 300px;
+    top: -80px;
+    right: -80px;
+  }
+
+  .bg-decoration-2 {
+    width: 250px;
+    height: 250px;
+    bottom: -60px;
+    left: 5%;
+  }
+
+  .bg-decoration-3 {
+    width: 180px;
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .why-nec-section {
+    padding: 2.5rem 0.75rem;
+  }
+
+  .why-nec-container {
+    gap: 1.5rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 280px;
+    max-height: 320px;
+  }
+
+  .why-nec-image-container {
+    border-radius: 8px;
+  }
+
+  .why-nec-badge {
+    padding: 0.85rem 1rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .badge-icon {
+    font-size: 1.75rem;
+  }
+
+  .badge-year {
+    font-size: 1.1rem;
+  }
+
+  .badge-text {
+    font-size: 0.75rem;
+  }
+
+  .why-nec-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .why-nec-title {
+    font-size: 2rem;
+    gap: 0.3rem;
+  }
+
+  .title-underline {
+    width: 70px;
+    height: 2.5px;
+    margin-top: 0.6rem;
+  }
+
+  .underline-dot {
+    width: 10px;
+    height: 10px;
+    right: -5px;
+  }
+
+  .why-nec-description {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+  }
+
+  .why-nec-features {
+    gap: 0.85rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .feature-card {
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+
+  .feature-icon {
+    font-size: 1.85rem;
+  }
+
+  .feature-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .feature-description {
+    font-size: 0.8rem;
+  }
+
+  .why-nec-cta {
+    padding: 1.25rem;
+    gap: 1rem;
+    border-radius: 16px;
+  }
+
+  .cta-text {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .cta-button {
+    padding: 0.8rem 1.25rem;
+    font-size: 0.9rem;
+    border-radius: 10px;
+  }
+
+  .bg-decoration-1,
+  .bg-decoration-2,
+  .bg-decoration-3 {
+    display: none; /* Hide gears on very small screens */
+  }
+}
+
+@media (max-width: 360px) {
+  .why-nec-section {
+    padding: 2rem 0.5rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 260px;
+    max-height: 300px;
+  }
+
+  .why-nec-title {
+    font-size: 1.75rem;
+  }
+
+  .title-underline {
+    width: 60px;
+  }
+
+  .why-nec-description {
+    font-size: 0.85rem;
+  }
+
+  .feature-card {
+    padding: 0.75rem;
+  }
+
+  .feature-icon {
+    font-size: 1.65rem;
+  }
+
+  .feature-title {
+    font-size: 0.85rem;
+  }
+
+  .feature-description {
+    font-size: 0.75rem;
+  }
+
+  .why-nec-cta {
+    padding: 1rem;
+  }
+
+  .cta-text {
+    font-size: 0.8rem;
+  }
+
+  .cta-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Landscape orientation for mobile */
+@media (max-height: 600px) and (orientation: landscape) {
+  .why-nec-section {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .why-nec-image-wrapper {
+    min-height: 320px;
+    max-height: 380px;
+  }
+
+  .why-nec-title {
+    font-size: 2.25rem;
+  }
+
+  .why-nec-features {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .feature-card {
+    padding: 0.85rem;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .why-nec-image-container:hover {
+    box-shadow: 0 20px 60px rgba(0, 48, 135, 0.3);
+  }
+
+  .why-nec-image-container:hover .why-nec-image {
+    opacity: 1;
+  }
+
+  .feature-card:hover {
+    transform: none;
+  }
+
+  .feature-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+
+  .cta-button:hover {
+    transform: none;
+  }
+
+  .cta-button:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
+  }
+
+  /* Increase touch target sizes */
+  .cta-button {
+    min-height: 48px;
+  }
+}
+
+/* High DPI screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .feature-card {
+    border-width: 1.5px;
+  }
+
+  .why-nec-cta {
+    border-left-width: 5px;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+.cta-button:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .why-nec-badge,
+  .badge-icon,
+  .underline-dot,
+  .feature-icon,
+  .bg-decoration-1,
+  .bg-decoration-2,
+  .bg-decoration-3,
+  .title-main,
+  .title-highlight,
+  .title-question,
+  .title-underline,
+  .why-nec-description {
+    animation: none !important;
+  }
+
+  .why-nec-image-container,
+  .why-nec-image,
+  .feature-card,
+  .cta-button,
+  .cta-arrow {
+    transition: none !important;
+  }
+}

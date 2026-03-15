@@ -1,0 +1,47 @@
+/* ============================= */
+/* 1. Import Fonts (must be first) */
+/* ============================= */
+@import url('https://fonts.googleapis.com/css2?family=Arial:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap');
+
+/* ============================= */
+/* 2. Tailwind Directives         */
+/* ============================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================= */
+/* 3. Base Layer Overrides        */
+/* ============================= */
+@layer base {
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Arial', system-ui, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: #fff; /* Ensures no browser default gray background */
+  }
+}
+
+/* ============================= */
+/* 4. Components Layer (reusable) */
+/* ============================= */
+@layer components {
+  .container {
+    @apply max-w-7xl mx-auto px-4;
+  }
+}
+
+/* ============================= */
+/* 5. Extra Reset (for safety)    */
+/* ============================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}

@@ -1,0 +1,13 @@
+[
+  "staffId",
+  "staffNumber",
+  "firstName",
+  "lastName",
+  "departmentId",
+  "status",
+  "createdAt",
+  "updatedAt",
+  "deletedAt",
+  "companyId",
+  "dateOfJoining"
+]

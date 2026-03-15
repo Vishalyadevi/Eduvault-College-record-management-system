@@ -1,0 +1,51 @@
+username,email,password,role,registerNumber,year,course,Deptid,batch,staffId
+Student 1,student1@example.com,password123,Student,2001,4st YEAR,B.TECH,13,2023,101
+Student 2,student2@example.com,password123,Student,2002,4st YEAR,B.E,15,2023,101
+Student 3,student3@example.com,password123,Student,2003,4st YEAR,B.E,10,2023,101
+Student 4,student4@example.com,password123,Student,2004,4st YEAR,B.E,14,2023,101
+Student 5,student5@example.com,password123,Student,2005,1st YEAR,B.TECH,11,2023,101
+Student 6,student6@example.com,password123,Student,2006,3st YEAR,B.TECH,13,2023,101
+Student 7,student7@example.com,password123,Student,2007,3st YEAR,B.TECH,15,2023,101
+Student 8,student8@example.com,password123,Student,2008,4st YEAR,B.TECH,13,2023,101
+Student 9,student9@example.com,password123,Student,2009,2st YEAR,B.TECH,13,2023,101
+Student 10,student10@example.com,password123,Student,2010,3st YEAR,B.TECH,15,2023,101
+Student 11,student11@example.com,password123,Student,2011,3st YEAR,B.E,11,2023,101
+Student 12,student12@example.com,password123,Student,2012,2st YEAR,B.E,13,2023,101
+Student 13,student13@example.com,password123,Student,2013,4st YEAR,B.E,13,2023,101
+Student 14,student14@example.com,password123,Student,2014,2st YEAR,B.E,13,2023,101
+Student 15,student15@example.com,password123,Student,2015,4st YEAR,B.E,11,2023,101
+Student 16,student16@example.com,password123,Student,2016,1st YEAR,B.E,14,2023,101
+Student 17,student17@example.com,password123,Student,2017,3st YEAR,B.E,10,2023,101
+Student 18,student18@example.com,password123,Student,2018,3st YEAR,B.E,13,2023,101
+Student 19,student19@example.com,password123,Student,2019,2st YEAR,B.TECH,13,2023,101
+Student 20,student20@example.com,password123,Student,2020,4st YEAR,B.E,10,2023,101
+Student 21,student21@example.com,password123,Student,2021,3st YEAR,B.TECH,13,2023,101
+Student 22,student22@example.com,password123,Student,2022,3st YEAR,B.E,11,2023,101
+Student 23,student23@example.com,password123,Student,2023,2st YEAR,B.E,10,2023,101
+Student 24,student24@example.com,password123,Student,2024,3st YEAR,B.E,11,2023,101
+Student 25,student25@example.com,password123,Student,2025,2st YEAR,B.TECH,13,2023,101
+Staff 81,staff81@example.com,password123,Staff,,,,15,,101
+Staff 2,staff2@example.com,password123,Staff,,,,15,,102
+Staff 3,staff3@example.com,password123,Staff,,,,12,,103
+Staff 4,staff4@example.com,password123,Staff,,,,13,,104
+Staff 5,staff5@example.com,password123,Staff,,,,13,,105
+Staff 6,staff6@example.com,password123,Staff,,,,15,,106
+Staff 7,staff7@example.com,password123,Staff,,,,12,,107
+Staff 8,staff8@example.com,password123,Staff,,,,13,,108
+Staff 9,staff9@example.com,password123,Staff,,,,15,,109
+Staff 10,staff10@example.com,password123,Staff,,,,15,,110
+Staff 11,staff11@example.com,password123,Staff,,,,15,,111
+Staff 12,staff12@example.com,password123,Staff,,,,15,,112
+Staff 13,staff13@example.com,password123,Staff,,,,13,,113
+Staff 14,staff14@example.com,password123,Staff,,,,15,,121
+Staff 15,staff15@example.com,password123,Staff,,,,12,,181
+Staff 16,staff16@example.com,password123,Staff,,,,12,,201
+Staff 17,staff17@example.com,password123,Staff,,,,12,,191
+Staff 18,staff18@example.com,password123,Staff,,,,12,,981
+Staff 19,staff19@example.com,password123,Staff,,,,13,,841
+Staff 20,staff20@example.com,password123,Staff,,,,12,,869
+Staff 21,staff21@example.com,password123,Staff,,,,12,,213
+Staff 22,staff22@example.com,password123,Staff,,,,12,,151
+Staff 23,staff23@example.com,password123,Staff,,,,12,,811
+Staff 24,staff24@example.com,password123,Staff,,,,12,,86
+Staff 25,staff25@example.com,password123,Staff,,,,15,,890
