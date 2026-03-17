@@ -249,12 +249,14 @@ export const NonCGPAProvider = ({ children }) => {
   }, [UserId]);
 
   useEffect(() => {
+    const path = window.location.pathname;
+    const isRecordsPath = path.startsWith("/records");
+    if (!UserId || !isRecordsPath) return;
+
     fetchCategories();
     fetchCourseNames();
     fetchCourseCodes();
-    if (UserId) {
-      fetchStudentRecords();
-    }
+    fetchStudentRecords();
   }, [UserId, fetchCategories, fetchCourseNames, fetchCourseCodes, fetchStudentRecords]);
 
   return (

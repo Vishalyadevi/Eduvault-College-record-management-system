@@ -126,6 +126,11 @@ export const OnlineCoursesProvider = ({ children }) => {
 
   // Fetch data on mount
   useEffect(() => {
+    const path = window.location.pathname;
+    const isRecordsPath = path.startsWith("/records");
+    const token = localStorage.getItem("token");
+    if (!isRecordsPath || !token) return;
+
     fetchOnlineCourses();
     fetchPendingCourses();
   }, [fetchOnlineCourses, fetchPendingCourses]);

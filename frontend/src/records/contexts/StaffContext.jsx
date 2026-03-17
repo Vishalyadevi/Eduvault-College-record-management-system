@@ -48,6 +48,10 @@ export const StaffProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
+    const path = window.location.pathname;
+    const isRecordsPath = path.startsWith("/records");
+    if (!isRecordsPath || !user) return;
+
     fetchData();
   }, [fetchData]);
 
