@@ -96,9 +96,14 @@ const BatchRegulationAllocation = () => {
       (!selectedBranch || batch.branch === selectedBranch)
     );
 
-  // Backend can send department acronym either as `Deptacronym`
-  // or nested under `Department.Deptacronym`.
-  const getRegDeptAcronym = (reg) => reg?.Deptacronym || reg?.Department?.Deptacronym || '';
+  // Backend can send department acronym as `departmentAcr` (current),
+  // or legacy `Deptacronym` variants.
+  const getRegDeptAcronym = (reg) =>
+    reg?.departmentAcr ||
+    reg?.Deptacronym ||
+    reg?.Department?.departmentAcr ||
+    reg?.Department?.Deptacronym ||
+    '';
 
   // Get regulations filtered by selected branch
   const filteredRegulations = regulations

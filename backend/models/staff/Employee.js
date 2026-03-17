@@ -30,7 +30,7 @@ const Employee = sequelize.define('Employee', {
     salutation: { type: DataTypes.STRING(10), allowNull: true },
     firstName: { type: DataTypes.STRING(50), allowNull: false },
     middleName: { type: DataTypes.STRING(50), allowNull: true },
-    lastName: { type: DataTypes.STRING(50), allowNull: false },
+    lastName: { type: DataTypes.STRING(50), allowNull: true },
     gender: { type: DataTypes.ENUM('Male', 'Female', 'Other'), allowNull: false },
     dateOfBirth: { type: DataTypes.DATEONLY, allowNull: false, field: 'DOB' },
     bloodGroup: { type: DataTypes.ENUM('A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'), allowNull: true },
@@ -70,11 +70,11 @@ const Employee = sequelize.define('Employee', {
         references: { model: 'departments', key: 'departmentId' },
     },
 
-    // designationId: {
-    //   type: DataTypes.INTEGER,
-    //   allowNull: false,
-    //   references: { model: 'designations', key: 'designationId' },
-    // },
+    designationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'designations', key: 'designationId' },
+    },
 
     // employeeGradeId: {
     //   type: DataTypes.INTEGER,

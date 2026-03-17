@@ -60,6 +60,13 @@ const ManageRegulations = () => {
     }
   };
 
+  const getRegDeptAcronym = (reg) =>
+    reg?.departmentAcr ||
+    reg?.Deptacronym ||
+    reg?.Department?.departmentAcr ||
+    reg?.Department?.Deptacronym ||
+    '';
+
   const fetchVerticals = async (regulationId) => {
     setLoading(true);
     try {
@@ -542,7 +549,7 @@ const ManageRegulations = () => {
                   <option value="">Select Regulation</option>
                   {regulations.map(reg => (
                     <option key={reg.regulationId} value={reg.regulationId}>
-                      {reg.Deptacronym} - {reg.regulationYear}
+                      {getRegDeptAcronym(reg)} - {reg.regulationYear}
                     </option>
                   ))}
                 </select>
