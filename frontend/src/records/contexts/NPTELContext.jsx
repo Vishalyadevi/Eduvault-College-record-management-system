@@ -203,10 +203,12 @@ export const NPTELProvider = ({ children }) => {
   const clearError = () => setError(null);
 
   useEffect(() => {
+    const path = window.location.pathname;
+    const isRecordsPath = path.startsWith("/records");
+    if (!isRecordsPath || !UserId) return;
+
     fetchAllCourses();
-    if (UserId) {
-      fetchStudentEnrollments();
-    }
+    fetchStudentEnrollments();
   }, [UserId, fetchAllCourses, fetchStudentEnrollments]);
 
   return (

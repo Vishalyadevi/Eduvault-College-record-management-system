@@ -56,7 +56,19 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    refresh();
+    const path = window.location.pathname;
+    const isPublicAuthPath =
+      path === "/login" ||
+      path.startsWith("/records/login") ||
+      path.startsWith("/placement/login") ||
+      path.startsWith("/records/forgot-password") ||
+      path.startsWith("/records/reset-password");
+
+    if (!isPublicAuthPath) {
+      refresh();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const logout = async () => {

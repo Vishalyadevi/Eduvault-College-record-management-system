@@ -37,6 +37,28 @@ API.interceptors.response.use(
 
     originalRequest._retry = true;
 
+    const pathname = window.location.pathname;
+
+    const isPlacement = pathname.startsWith('/placement');
+    const isRecords = pathname.startsWith('/records');
+    const isAcadamic = pathname.startsWith('/admin') || pathname.startsWith('/staff') || pathname.startsWith('/student');
+
+    // Public paths where automatic refresh/redirect is NOT desired
+    const isPublicPath =
+      pathname === "/" ||
+      pathname === "/placement" ||
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname.startsWith("/records/login") ||
+      pathname.startsWith("/placement/login") ||
+      pathname.startsWith("/records/forgot-password") ||
+      pathname.startsWith("/records/reset-password") ||
+      (!isPlacement && !isRecords && !isAcadamic);
+
+    if (isPublicPath) {
+      return Promise.reject(error);
+    }
+
     try {
       if (!refreshPromise) {
         refreshPromise = API.post("/auth/refresh", {}).finally(() => {
@@ -46,24 +68,6 @@ API.interceptors.response.use(
       await refreshPromise;
       return API(originalRequest);
     } catch (refreshError) {
-      const pathname = window.location.pathname;
-
-      const isPlacement = pathname.startsWith('/placement');
-      const isRecords = pathname.startsWith('/records');
-      const isAcadamic = pathname.startsWith('/admin') || pathname.startsWith('/staff') || pathname.startsWith('/student');
-
-      // Public paths where automatic redirect on 401 is NOT desired
-      const isPublicPath =
-        pathname === "/" ||
-        pathname === "/placement" ||
-        pathname === "/login" || // Added top-level login
-        pathname === "/register" || // Added top-level register
-        pathname.startsWith("/records/login") ||
-        pathname.startsWith("/placement/login") ||
-        pathname.startsWith("/records/forgot-password") ||
-        pathname.startsWith("/records/reset-password") ||
-        (!isPlacement && !isRecords && !isAcadamic); // Handle main website paths
-
       if (!isPublicPath) {
         // Redirect to the appropriate login page based on current system
         if (isPlacement) {
