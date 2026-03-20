@@ -20,6 +20,13 @@ export default (sequelize) => {
         sourceKey: 'registerNumber'
       });
     }
+
+    if (models.PeriodAttendance) {
+      StudentDetails.hasMany(models.PeriodAttendance, {
+        foreignKey: 'regno',
+        sourceKey: 'registerNumber'
+      });
+    }
   };
 
   // Returns the unified model from the main student folder
