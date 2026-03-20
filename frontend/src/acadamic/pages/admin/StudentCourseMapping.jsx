@@ -6,6 +6,7 @@ import {
 import { 
   SearchOutlined, CheckOutlined, CloseOutlined, UserOutlined, AppstoreOutlined 
 } from '@ant-design/icons';
+import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import { api } from "../../services/authService"; 
@@ -179,6 +180,38 @@ const StudentCourseMapping = () => {
   const getDeptName = () => departments.find(d => d.departmentId === selectedDept)?.Deptacronym || selectedDept;
   const getBatchName = () => selectedBatch;
 
+  const exportToExcel = () => {
+    if (!students.length || !courses.length) {
+      MySwal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'info',
+        title: 'No data to export',
+        showConfirmButton: false,
+        timer: 2000,
+      });
+      return;
+    }
+
+    const header = ['Reg No', 'Student Name', ...courses.map(c => c.courseCode || `Course ${c.courseId}`)];
+    const rows = students.map((student) => {
+      const base = [student.regno, student.name];
+      const courseCells = courses.map((course) => {
+        const isEnrolled = enrollmentSet.has(`${student.regno}::${course.courseId}`);
+        return isEnrolled ? '✔' : '-';
+      });
+      return [...base, ...courseCells];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Student Course Mapping');
+    const deptLabel = getDeptName() || 'Dept';
+    const batchLabel = getBatchName() || 'Batch';
+    const semLabel = selectedSemester ? `Sem${selectedSemester}` : 'Sem';
+    XLSX.writeFile(wb, `student_course_mapping_${deptLabel}_${batchLabel}_${semLabel}.xlsx`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
       {/* Stronger containment – same pattern as successful consolidated marks pages */}
@@ -283,9 +316,14 @@ const StudentCourseMapping = () => {
                   <span className="font-semibold">Enrollment Matrix</span>
                   <Tag color="success" bordered={false}>{students.length}</Tag>
                 </Space>
-                <span className="text-gray-600 text-sm">
-                  Courses: {courses.length}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-600 text-sm">
+                    Courses: {courses.length}
+                  </span>
+                  <Button type="primary" onClick={exportToExcel}>
+                    Export Excel
+                  </Button>
+                </div>
               </div>
             }
             className="shadow-sm border-gray-200 overflow-hidden"

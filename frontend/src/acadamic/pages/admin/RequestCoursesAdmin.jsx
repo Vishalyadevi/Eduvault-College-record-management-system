@@ -13,12 +13,22 @@ const RequestCoursesAdmin = () => {
   const [requests, setRequests] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ dept: '', branch: '', semester: '', batch: '', name: '' });
+  const [filters, setFilters] = useState({ dept: '', branch: '', semester: '', batch: '', name: '', type: '' });
+  const [staffNameQuery, setStaffNameQuery] = useState('');
   const [branches, setBranches] = useState([]);
   const [depts, setDepts] = useState([]);
   const [requestWindowOpen, setRequestWindowOpen] = useState(false);
   const [togglingWindow, setTogglingWindow] = useState(false);
   const { user } = useAuth(); // For admin
+  const canToggleWindow = [
+    'admin',
+    'superadmin',
+    'super admin',
+    'acadamicadmin',
+    'academicadmin',
+    'academic admin',
+    'acadamic admin'
+  ].includes(String(user?.role || '').trim().toLowerCase());
 
   const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'EXPERIENTIAL LEARNING']; // Define for type filter to avoid undefined error
 
@@ -93,7 +103,8 @@ const RequestCoursesAdmin = () => {
         dept: filters.dept,
         branch: filters.branch,
         semester: filters.semester,
-        batch: filters.batch
+        batch: filters.batch,
+        type: filters.type
       });
       const res = await api.get(`/staff/pending-requests?${params}`);
       setRequests(res.data.data || []);
@@ -116,6 +127,10 @@ const RequestCoursesAdmin = () => {
   };
 
   const handleToggleRequestWindow = async () => {
+    if (!canToggleWindow) {
+      toast.error('Only admin can change request lock status');
+      return;
+    }
     try {
       setTogglingWindow(true);
       const nextState = !requestWindowOpen;
@@ -158,8 +173,40 @@ const RequestCoursesAdmin = () => {
 
   const filteredRequests = requests.filter(request => {
     const title = request.Course?.courseTitle || request.courseTitle || '';
-    return !filters.name || title.toLowerCase().includes(filters.name.toLowerCase());
+    const staffName = request.User?.userName || request.staffName || '';
+    const courseMatch = !filters.name || title.toLowerCase().includes(filters.name.toLowerCase());
+    const staffMatch = !staffNameQuery || staffName.toLowerCase().includes(staffNameQuery.toLowerCase());
+    return courseMatch && staffMatch;
   });
+
+  const courseColumns = (() => {
+    const map = new Map();
+    filteredRequests.forEach((request) => {
+      const code = request.Course?.courseCode || request.courseCode || '';
+      const title = request.Course?.courseTitle || request.courseTitle || '';
+      const key = request.courseId ? String(request.courseId) : `${code}-${title}`;
+      if (!map.has(key)) {
+        map.set(key, { key, code, title });
+      }
+    });
+    return Array.from(map.values());
+  })();
+
+  const staffRows = (() => {
+    const map = new Map();
+    filteredRequests.forEach((request) => {
+      const staffId = request.User?.userId || request.staffId || request.User?.userMail || request.email || request.requestId;
+      const staffName = request.User?.userName || request.staffName || 'N/A';
+      const row = map.get(staffId) || { staffId, staffName, requestsByCourse: new Map() };
+      const courseId = request.courseId ? String(request.courseId) : '';
+      const code = request.Course?.courseCode || request.courseCode || '';
+      const title = request.Course?.courseTitle || request.courseTitle || '';
+      const courseKey = courseId || `${code}-${title}`;
+      row.requestsByCourse.set(courseKey, request);
+      map.set(staffId, row);
+    });
+    return Array.from(map.values());
+  })();
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -186,17 +233,19 @@ const RequestCoursesAdmin = () => {
           <span className={`px-3 py-1 rounded-full text-xs font-bold ${requestWindowOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
             {requestWindowOpen ? 'Request Open' : 'Request Locked'}
           </span>
-          <button
-            onClick={handleToggleRequestWindow}
-            disabled={togglingWindow}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              requestWindowOpen
-                ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-            } ${togglingWindow ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            {togglingWindow ? 'Updating...' : (requestWindowOpen ? 'Lock Requests' : 'Open Requests')}
-          </button>
+          {canToggleWindow && (
+            <button
+              onClick={handleToggleRequestWindow}
+              disabled={togglingWindow}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                requestWindowOpen
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              } ${togglingWindow ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+              {togglingWindow ? 'Updating...' : (requestWindowOpen ? 'Lock Requests' : 'Open Requests')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -208,47 +257,68 @@ const RequestCoursesAdmin = () => {
         departments={depts}
       />
 
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Staff Name</label>
+        <input
+          type="text"
+          placeholder="Filter by staff name..."
+          value={staffNameQuery}
+          onChange={(e) => setStaffNameQuery(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
       {loading ? (
         <div className="p-6 text-center text-gray-600">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600 mb-4"></div>
           <p className="text-lg">Loading pending requests...</p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRequests.map(request => (
-            <div 
-              key={request.requestId} 
-              className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-all duration-300 border border-gray-200"
-            >
-              <h3 className="font-semibold text-lg mb-2 text-gray-800">
-                {request.Course?.courseCode || request.courseCode || 'N/A'} - {request.Course?.courseTitle || request.courseTitle || 'N/A'}
-              </h3>
-              <div className="space-y-1 text-sm text-gray-600 mb-4">
-                <p><span className="font-medium">Requested by:</span> {request.User?.userName || request.staffName || 'N/A'} ({request.User?.userMail || request.email || 'N/A'})</p>
-                <p><span className="font-medium">Branch:</span> {request.Course?.Semester?.Batch?.branch || request.branch || 'N/A'}</p>
-                <p><span className="font-medium">Semester:</span> {request.Course?.Semester?.semesterNumberequest.semesterNumber || 'N/A'}</p>
-                <p><span className="font-medium">Batch:</span> {request.Course?.Semester?.Batch?.batch || request.batch || 'N/A'}</p>
-                <p><span className="font-medium">Credits:</span> {request.Course?.credits || request.credits || 'N/A'}</p>
-                <p><span className="font-medium">Department:</span> {request.Course?.Semester?.Batch?.Regulation?.Department?.Deptname || request.deptName || 'N/A'}</p>
-                <p><span className="font-medium">Requested on:</span> {request.requestedAt ? new Date(request.requestedAt).toLocaleDateString() : 'N/A'}</p>
-                <p><span className="font-medium">Assigned Slots:</span> {request.assignedCount ?? 0}/{request.sectionCount ?? 0}</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAcceptRequest(request.requestId)}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium"
-                >
-                  <Check size={16} /> Accept
-                </button>
-                <button
-                  onClick={() => handleRejectRequest(request.requestId)}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium"
-                >
-                  <X size={16} /> Reject
-                </button>
-              </div>
-            </div>
-          ))}
+        <div className="mt-6 overflow-x-auto bg-white rounded-xl shadow-md border border-gray-200">
+          <table className="min-w-full text-sm text-left">
+            <thead className="bg-gray-100 text-gray-700">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Staff Name</th>
+                {courseColumns.map((course) => (
+                  <th key={course.key} className="px-4 py-3 font-semibold whitespace-nowrap">
+                    {course.code || 'Course'}{course.title ? ` - ${course.title}` : ''}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {staffRows.map((row) => (
+                <tr key={row.staffId}>
+                  <td className="px-4 py-3 font-medium text-gray-800">{row.staffName}</td>
+                  {courseColumns.map((course) => {
+                    const request = row.requestsByCourse.get(course.key);
+                    return (
+                      <td key={course.key} className="px-4 py-3">
+                        {request ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAcceptRequest(request.requestId)}
+                              className="bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium"
+                            >
+                              <Check size={14} /> Accept
+                            </button>
+                            <button
+                              onClick={() => handleRejectRequest(request.requestId)}
+                              className="bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium"
+                            >
+                              <X size={14} /> Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

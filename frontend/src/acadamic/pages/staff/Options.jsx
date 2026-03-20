@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, BarChart3, Calculator } from 'lucide-react';
+import { ChevronLeft, BarChart3, Calculator, AlertTriangle } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 const Options = () => {
@@ -35,6 +35,14 @@ const Options = () => {
       icon: Calculator,
       color: 'bg-indigo-600 hover:bg-indigo-700',
       path: `/staff/internal-marks/${targetCourseId}`,
+    },
+    {
+      id: 'attendance-shortage',
+      title: 'Attendance Shortage',
+      description: 'Students below 75% attendance with percentage',
+      icon: AlertTriangle,
+      color: 'bg-amber-600 hover:bg-amber-700',
+      path: `/staff/attendance-shortage/${targetCourseId}`,
     },
   ];
 

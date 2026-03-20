@@ -381,3 +381,29 @@ export const exportCourseWiseCsv = async (courseCode) => {
   link.click();
   document.body.removeChild(link);
 };
+
+export const getMarksLockStatus = async (courseCode) => {
+  try {
+    const codes = splitIds(courseCode);
+    const response = await api.get(`/marks/lock-status/${codes[0]}`);
+    return response.data?.data?.isLocked ?? false;
+  } catch (error) {
+    console.error('Error in getMarksLockStatus:', error);
+    return false;
+  }
+};
+
+export const getAttendanceShortage = async (courseCode, sectionIds, minPercentage = 75) => {
+  try {
+    const codes = splitIds(courseCode).join('_');
+    const sections = splitIds(sectionIds).join('_');
+    const params = {};
+    if (sections) params.sections = sections;
+    if (minPercentage !== undefined && minPercentage !== null) params.min = minPercentage;
+    const response = await api.get(`/attendance/shortage/${codes}`, { params });
+    return response.data?.data || [];
+  } catch (error) {
+    console.error('Error in getAttendanceShortage:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch shortage students');
+  }
+};

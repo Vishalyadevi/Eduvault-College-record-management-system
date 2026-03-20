@@ -193,8 +193,6 @@ const Sidebar = () => {
   const staffAcadamicItems = [
     { to: "/staff/dashboard", icon: <FaTachometerAlt />, label: "Dashboard" },
     { to: "/staff/attendance", icon: <FaClipboardCheck />, label: "Attendance" },
-    { to: "/staff/marks-allocation", icon: <FaMedal />, label: "Marks Allocation" },
-    { to: "/staff/request-courses", icon: <FaBook />, label: "Request Courses" },
   ];
 
   const studentAcadamicItems = [

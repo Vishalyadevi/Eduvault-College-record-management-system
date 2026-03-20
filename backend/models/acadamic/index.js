@@ -88,7 +88,7 @@ export const {
   CoursePartitions, COType, ToolDetails, ElectiveBucket,
   ElectiveBucketCourse, StudentCoMarks, StudentElectiveSelection,
   NptelCourse, StudentNptelEnrollment, NptelCreditTransfer,
-  GradePoint, StudentSemesterGPA, CourseRequest,
+  GradePoint, StudentSemesterGPA, CourseRequest, AppSetting,
   CBCS, CBCSSubject, CBCSSectionStaff, studentcourseChoices,
   studentTempChoice
 } = db;

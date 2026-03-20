@@ -40,6 +40,7 @@ const Report = () => {
   const [courseOutcomes, setCourseOutcomes] = useState([]);
   const [editingCell, setEditingCell] = useState(null); // { regno, coId }
   const [editValue, setEditValue] = useState('');
+  const [marksLocked, setMarksLocked] = useState(false);
 
   const api = axios.create({
     baseURL: 'http://localhost:4000/api',
@@ -224,7 +225,8 @@ const Report = () => {
       console.log('Sending request with params:', params);
       const res = await api.get('/admin/consolidated-marks', { params });
       console.log('Consolidated marks API response:', JSON.stringify(res.data, null, 2));
-      const { students, courses: apiCourses, marks, message } = res.data.data;
+      const { students, courses: apiCourses, marks, message, isLocked } = res.data.data;
+      setMarksLocked(!!isLocked);
       if (message || apiCourses.length === 0 || students.length === 0 || Object.keys(marks).length === 0) {
         setError(message || 'No data available for the selected criteria.');
         MySwal.fire({
@@ -330,6 +332,10 @@ const Report = () => {
 
   // CO-wise functions
   const startEdit = (regno, coId, value) => {
+    if (marksLocked) {
+      MySwal.fire('Locked', 'Marks are locked because consolidation has been generated for this semester.', 'warning');
+      return;
+    }
     setEditingCell({ regno, coId });
     setEditValue(value?.toString() || '0');
   };
@@ -499,7 +505,9 @@ const Report = () => {
           ) : (
             <span
               onClick={() => startEdit(regno, co.coId, coMark)}
-              className={`inline-flex items-center justify-center w-14 h-8 text-sm font-semibold cursor-pointer hover:bg-blue-50 ${
+              className={`inline-flex items-center justify-center w-14 h-8 text-sm font-semibold ${
+                marksLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-blue-50'
+              } ${
                 coMark >= 80 ? 'text-emerald-700' :
                 coMark >= 70 ? 'text-blue-700' :
                 coMark >= 60 ? 'text-amber-700' :
@@ -1333,7 +1341,9 @@ const Report = () => {
                           <Title level={4} className="text-gray-800 mb-0">
                             CO Wise Marks - {getSelectedCourseInfo()?.courseTitle || selectedCourse}
                           </Title>
-                          <Text className="text-sm text-gray-600">Click on marks to edit</Text>
+                          <Text className="text-sm text-gray-600">
+                            {marksLocked ? 'Marks are locked' : 'Click on marks to edit'}
+                          </Text>
                         </div>
                       </div>
                       <div className="text-sm text-gray-600">

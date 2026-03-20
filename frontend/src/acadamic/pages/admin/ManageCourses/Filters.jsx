@@ -3,14 +3,29 @@ import { Search } from 'lucide-react';
 
 const Filters = ({ filters, setFilters, semesters, courseTypes, departments }) => {
   const deptOptions = Array.isArray(departments) && departments.length > 0
-    ? departments.map((dept) => ({
-        value: String(dept.departmentIdept.id ?? ''),
-        label: `${dept.departmentName || dept.Deptname || 'Department'}${
-          dept.departmentAcr || dept.deptCodept.Deptacronym
-            ? ` (${dept.departmentAcr || dept.deptCodept.Deptacronym})`
-            : ''
-        }`
-      })).filter(d => d.value)
+    ? departments.map((dept) => {
+        const deptId =
+          dept?.departmentIdept?.id ??
+          dept?.departmentId ??
+          dept?.id ??
+          dept?.department_id ??
+          '';
+        const deptName =
+          dept?.departmentName ??
+          dept?.Deptname ??
+          dept?.deptName ??
+          'Department';
+        const deptAcr =
+          dept?.departmentAcr ??
+          dept?.deptAcr ??
+          dept?.deptCodept?.Deptacronym ??
+          dept?.Deptacronym ??
+          '';
+        return {
+          value: deptId ? String(deptId) : '',
+          label: `${deptName}${deptAcr ? ` (${deptAcr})` : ''}`
+        };
+      }).filter(d => d.value)
     : [...new Set((semesters || [])
         .map(s => s.branch ?? s.Batch?.branch)
         .filter(Boolean)
@@ -86,7 +101,9 @@ const Filters = ({ filters, setFilters, semesters, courseTypes, departments }) =
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Types</option>
-            {courseTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            {(Array.isArray(courseTypes) ? courseTypes : []).map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
         <button
