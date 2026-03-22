@@ -279,18 +279,9 @@ export const getStudentLeaves = async (req, res) => {
 // Get Pending Leaves for Dept Admin (only their department)
 export const getPendingLeavesForDeptAdmin = async (req, res) => {
   try {
-    const deptAdminUser = await User.findByPk(req.user.userId);
-    if (!deptAdminUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const deptAdminDetails = await StudentDetails.findOne({
-      where: { Userid: req.user.userId },
-      include: [{ model: Department, as: "department", attributes: ["departmentId", "departmentName"] }]
-    });
-
-    if (!deptAdminDetails || !deptAdminDetails.Department) {
-      return res.status(404).json({ message: "Department information not found" });
+    const departmentId = req.user.departmentId;
+    if (!departmentId) {
+      return res.status(404).json({ message: "Department information not found for this admin" });
     }
 
     const pendingLeaves = await StudentLeave.findAll({
@@ -307,8 +298,8 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
               model: StudentDetails,
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
-              where: { departmentId: deptAdminDetails.departmentId },
-              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
+              where: { departmentId: departmentId },
+              include: [{ model: Department, as: "department", attributes: ["departmentName"] }]
             },
           ],
         },
@@ -316,19 +307,21 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    const formattedLeaves = pendingLeaves.map((leave) => {
-      const { LeaveUser, ...rest } = leave.get({ plain: true });
-      const days = calculateDays(rest.start_date, rest.end_date);
-      return {
-        ...rest,
-        username: LeaveUser?.userName || "N/A",
-        email: LeaveUser?.userMail || "N/A",
-        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
-        staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
-        total_days: days,
-      };
-    });
+    const formattedLeaves = pendingLeaves
+      .map((leave) => {
+        const { LeaveUser, ...rest } = leave.get({ plain: true });
+        const days = calculateDays(rest.start_date, rest.end_date);
+        return {
+          ...rest,
+          username: LeaveUser?.userName || "N/A",
+          email: LeaveUser?.userMail || "N/A",
+          registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
+          staffId: LeaveUser?.studentDetails?.staffId || "N/A",
+          department: LeaveUser?.studentDetails?.department?.departmentName || "N/A",
+          total_days: days,
+        };
+      })
+      .filter((leave) => leave.total_days > 3); // Filter in JS as column doesn't exist
 
     res.status(200).json({ success: true, leaves: formattedLeaves });
   } catch (error) {
@@ -337,22 +330,15 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
   }
 };
 
-// Get All Leaves for Dept Admin (their department)
 export const getAllLeavesForDeptAdmin = async (req, res) => {
   try {
-    const deptAdminDetails = await StudentDetails.findOne({
-      where: { Userid: req.user.userId },
-      include: [{ model: Department, as: 'department', attributes: ["departmentId", "departmentName"] }]
-    });
-
-    if (!deptAdminDetails || !deptAdminDetails.Department) {
-      return res.status(404).json({ message: "Department information not found" });
+    const departmentId = req.user.departmentId;
+    if (!departmentId) {
+      return res.status(404).json({ message: "Department information not found for this admin" });
     }
 
     const allLeaves = await StudentLeave.findAll({
-      where: {
-        requires_dept_approval: true,
-      },
+      where: {}, // Removed non-existent column filter
       include: [
         {
           model: User,
@@ -363,8 +349,8 @@ export const getAllLeavesForDeptAdmin = async (req, res) => {
               model: StudentDetails,
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
-              where: { departmentId: deptAdminDetails.departmentId },
-              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
+              where: { departmentId: departmentId },
+              include: [{ model: Department, as: "department", attributes: ["departmentName"] }]
             },
           ],
         },
@@ -372,19 +358,21 @@ export const getAllLeavesForDeptAdmin = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    const formattedLeaves = allLeaves.map((leave) => {
-      const { LeaveUser, ...rest } = leave.get({ plain: true });
-      const days = calculateDays(rest.start_date, rest.end_date);
-      return {
-        ...rest,
-        username: LeaveUser?.userName || "N/A",
-        email: LeaveUser?.userMail || "N/A",
-        registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
-        staffId: LeaveUser?.studentDetails?.staffId || "N/A",
-        department: LeaveUser?.studentDetails?.Department?.departmentName || "N/A",
-        total_days: days,
-      };
-    });
+    const formattedLeaves = allLeaves
+      .map((leave) => {
+        const { LeaveUser, ...rest } = leave.get({ plain: true });
+        const days = calculateDays(rest.start_date, rest.end_date);
+        return {
+          ...rest,
+          username: LeaveUser?.userName || "N/A",
+          email: LeaveUser?.userMail || "N/A",
+          registerNumber: LeaveUser?.studentDetails?.registerNumber || "N/A",
+          staffId: LeaveUser?.studentDetails?.staffId || "N/A",
+          department: LeaveUser?.studentDetails?.department?.departmentName || "N/A",
+          total_days: days,
+        };
+      })
+      .filter((leave) => leave.total_days > 3); // Filter in JS as column doesn't exist
 
     res.status(200).json({ success: true, leaves: formattedLeaves });
   } catch (error) {
@@ -423,31 +411,29 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
       return res.status(404).json({ message: "Leave request not found" });
     }
 
-    // Verify dept admin belongs to same department
-    const deptAdminDetails = await StudentDetails.findOne({
-      where: { Userid: req.user.userId }
-    });
+    const departmentId = req.user.departmentId;
+    if (!departmentId) {
+      return res.status(404).json({ message: "Department information not found for this admin" });
+    }
 
-    if (!deptAdminDetails ||
-      deptAdminDetails.Department.departmentId !== leaveRequest.LeaveUser.studentDetails.Department.departmentId) {
+    if (departmentId !== leaveRequest.LeaveUser.studentDetails.departmentId) {
       return res.status(403).json({ message: "Unauthorized: You can only manage leaves from your department" });
     }
 
-    if (!leaveRequest.requires_dept_approval) {
+    // Check if leave should have been handled by dept admin
+    const days = calculateDays(leaveRequest.start_date, leaveRequest.end_date);
+    if (days <= 3) {
       return res.status(400).json({ message: "This leave does not require department approval" });
     }
 
-    if (leaveRequest.dept_admin_approval_status) {
-      return res.status(400).json({ message: "This leave has already been processed by department admin" });
+    if (leaveRequest.leave_status !== 'pending') {
+      return res.status(400).json({ message: `This leave has already been ${leaveRequest.leave_status}` });
     }
 
     // Get dept admin user info
     const deptAdminUser = await User.findByPk(req.user.userId);
 
     if (action === 'approve') {
-      leaveRequest.dept_admin_approval_status = true;
-      leaveRequest.dept_admin_approved_by = req.user.userId;
-      leaveRequest.dept_admin_approved_at = new Date();
       leaveRequest.leave_status = 'approved';
       leaveRequest.approved_by = req.user.userId;
       leaveRequest.approved_at = new Date();

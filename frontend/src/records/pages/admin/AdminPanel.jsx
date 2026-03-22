@@ -50,9 +50,9 @@ const AdminPanel = () => {
   const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
   const itemsPerPage = 3;
 
-  // Check if user is super admin (deptId is null)
-  const isSuperAdmin = !user?.deptId;
-  const userDeptId = user?.deptId;
+  // Check if user is super admin (departmentId is null)
+  const isSuperAdmin = !user?.departmentId;
+  const userDeptId = user?.departmentId;
 
   // Format timestamp
   const formatTimestampToLocal = (timestamp) => {
@@ -94,12 +94,12 @@ const AdminPanel = () => {
   // Filter data based on admin role
   const filteredStaffs = useMemo(() => {
     if (isSuperAdmin) return staffs;
-    return staffs.filter(staff => staff.deptId === userDeptId);
+    return staffs.filter(staff => (staff.departmentId || staff.Deptid) === userDeptId);
   }, [staffs, isSuperAdmin, userDeptId]);
 
   const filteredStudents = useMemo(() => {
     if (isSuperAdmin) return students;
-    return students.filter(student => student.deptId === userDeptId);
+    return students.filter(student => (student.departmentId || student.Deptid) === userDeptId);
   }, [students, isSuperAdmin, userDeptId]);
 
   // Staff chart data - filtered by department
@@ -113,7 +113,9 @@ const AdminPanel = () => {
     } else {
       // Show only user's department
       const deptName = Object.keys(departmentWiseCounts.deptStaffCounts || {}).find(
-        dept => departmentWiseCounts.deptStaffCounts[dept] && staffs.some(s => s.deptId === userDeptId && s.department === dept)
+        dept => departmentWiseCounts.deptStaffCounts[dept] && (
+          staffs.some(s => (s.departmentId || s.Deptid) === userDeptId && (s.department === dept || s.Deptacronym === dept))
+        )
       );
       if (!deptName) return [];
       return [{
@@ -130,7 +132,7 @@ const AdminPanel = () => {
     } else {
       // Find user's department name
       const deptName = Object.keys(departmentWiseCounts.deptStudentCounts || {}).find(
-        dept => students.some(s => s.deptId === userDeptId && s.department === dept)
+        dept => students.some(s => (s.departmentId || s.Deptid) === userDeptId && (s.department === dept || s.Deptacronym === dept))
       );
       return deptName ? [deptName] : [];
     }
