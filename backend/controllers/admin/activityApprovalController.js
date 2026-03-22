@@ -12,7 +12,7 @@ export const getPendingActivities = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['Userid', 'username', 'email'],
+          attributes: ['Userid', 'username', 'userMail'],
           as: 'creator',
           foreignKey: 'Created_by',
         },
@@ -43,7 +43,7 @@ export const getAllActivities = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['Userid', 'username', 'email'],
+          attributes: ['Userid', 'username', 'userMail'],
           as: 'creator',
           foreignKey: 'Created_by',
         },

@@ -213,7 +213,10 @@ const Sidebar = () => {
       case "admin":
         return (<>
           <SidebarLink to="/records/admin" icon={<FaTachometerAlt />} label="Dashboard" />
-          <SidebarLink to="/records/add-user" icon={<FaUserCog />} label="Add User" />
+          {role === "superadmin" && (
+            <SidebarLink to="/records/add-user" icon={<FaUserCog />} label="Add User" />
+          )}
+          <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" />
           <SidebarLink to="/records/department-management" icon={<FaSitemap />} label="Manage Departments" />
           <SidebarLink to="/records/role-management" icon={<FaUserShield />} label="Manage Roles" />
           <SidebarLink to="/records/student-list" icon={<FaGraduationCap />} label="Student List" />
@@ -231,12 +234,13 @@ const Sidebar = () => {
       case "deptadmin":
         return (<>
           <SidebarLink to="/records/admin" icon={<FaTachometerAlt />} label="Dashboard" />
+          <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" />
           <SidebarLink to="/records/student-list" icon={<FaGraduationCap />} label="Student List" />
           <SidebarLink to="/records/staff-list" icon={<FaChalkboardTeacher />} label="Staff List" />
           <SidebarLink to="/records/staff-activities" icon={<FaClipboardList />} label="Staff Activities" />
           <SidebarLink to="/records/student-activities" icon={<FaRunning />} label="Student Activities" />
           <SidebarLink to="/records/noncgpa-category" icon={<FaLayerGroup />} label="Add Non CGPA" />
-          <SidebarLink to="/records/nptel-course" icon={<FaGlobe />} label="NPTEL Course" />
+          {/* <SidebarLink to="/records/nptel-course" icon={<FaGlobe />} label="NPTEL Course" /> */}
           <SidebarLink to="/records/student-leave-approval" icon={<FaPlane />} label="Student Leave Approval" />
           <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           <SidebarLink to="/records/activity-approval" icon={<FaClipboardCheck />} label="Activity Approval" />
@@ -299,7 +303,7 @@ const Sidebar = () => {
           <SidebarLink to="/records/student-competency" icon={<FaCode />} label="Competency & Coding" />
           <SidebarLink to="/records/student-skillrack" icon={<FaLaptopCode />} label="Skillrack" />
           <SidebarLink to="/records/student-publication" icon={<FaBookOpen />} label="Publications" />
-          <SidebarLink to="/records/nptel" icon={<FaRegNewspaper />} label="NPTEL Course" />
+          {/* <SidebarLink to="/records/nptel" icon={<FaRegNewspaper />} label="NPTEL Course" /> */}
           <SidebarLink to="/records/noncgpa" icon={<FaAward />} label="Non CGPA" />
           <SidebarLink to="/records/student-resume-generator" icon={<FaFileAlt />} label="Resume Generator" />
           <SidebarLink to="/records/student-marksheets" icon={<FaClipboardList />} label="Marksheets" />
