@@ -302,6 +302,7 @@ const Sidebar = () => {
           <SidebarLink to="/records/nptel" icon={<FaRegNewspaper />} label="NPTEL Course" />
           <SidebarLink to="/records/noncgpa" icon={<FaAward />} label="Non CGPA" />
           <SidebarLink to="/records/student-resume-generator" icon={<FaFileAlt />} label="Resume Generator" />
+          <SidebarLink to="/records/student-marksheets" icon={<FaClipboardList />} label="Marksheets" />
           <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStudentAcadamicActive} label="Acadamic" icon={<FaSchool />} items={studentAcadamicItems} />
           <NavDropdown isOpen={showPlacementDropdown} setIsOpen={setShowPlacementDropdown} isActive={isStudentPlacementActive} label="Placement" icon={<FaNetworkWired />} items={studentPlacementItems} />
         </>);

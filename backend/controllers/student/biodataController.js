@@ -9,12 +9,13 @@ import EventOrganized from "../../models/student/EventOrganized.js";
 import Internship from "../../models/student/Internship.js";
 import Scholarship from "../../models/student/Scholarship.js";
 import StudentLeave from "../../models/student/StudentLeave.js";
+import Achievement from "../../models/student/Achievement.js";
 import { sequelize } from "../../config/mysql.js"; // Import Sequelize instance
 
 // ✅ Get Student Biodata
 export const getStudentBiodata = async (req, res) => {
   try {
-    const userId = req.params.userId; // Extract userId from request parameters
+    const userId = req.params.userId;
 
     const student = await StudentDetails.findOne({
       where: { Userid: userId },
@@ -55,15 +56,12 @@ export const getStudentBiodata = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.json(student); // Send full details
+    res.json(student);
   } catch (error) {
     console.error("Error fetching student biodata:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
 
 // Fetch Online Courses by User ID
 export const getUserOnlineCourses = async (req, res) => {
@@ -74,10 +72,8 @@ export const getUserOnlineCourses = async (req, res) => {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    // Fetch all online courses for the given User ID
     const userCourses = await OnlineCourses.findAll({
       where: { tutor_approval_status: true, Userid: userId },
-
       include: [
         {
           model: User,
@@ -85,14 +81,11 @@ export const getUserOnlineCourses = async (req, res) => {
           attributes: ["userId", "userName", "userMail"],
         },
       ],
-      order: [["createdAt", "DESC"]], // Sort by latest courses
+      order: [["createdAt", "DESC"]],
     });
 
-    if (!userCourses.length) {
-      return res.status(404).json({ message: "No online courses found for this user." });
-    }
-
-    res.status(200).json({ success: true, courses: userCourses });
+    // Return 200 with empty array if nothing found
+    res.status(200).json({ success: true, courses: userCourses || [] });
   } catch (error) {
     console.error("Error fetching user online courses:", error);
     res.status(500).json({ success: false, message: "Error fetching user online courses" });
@@ -102,7 +95,7 @@ export const getUserOnlineCourses = async (req, res) => {
 // ✅ Get Approved Events Attended
 export const getApprovedEventsAttended = async (req, res) => {
   try {
-    const userId = req.params.userId; // Extract userId from request parameters
+    const userId = req.params.userId;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
@@ -113,15 +106,7 @@ export const getApprovedEventsAttended = async (req, res) => {
       order: [["approved_at", "DESC"]],
     });
 
-
-
-    if (!approvedEvents.length) {
-      return res.status(404).json({ message: "No approved events found for this user." });
-    }
-
-
-
-    res.status(200).json(approvedEvents); // Send approved events
+    res.status(200).json(approvedEvents || []);
   } catch (error) {
     console.error("Error fetching approved events:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -131,7 +116,7 @@ export const getApprovedEventsAttended = async (req, res) => {
 // ✅ Get Approved Events Organized
 export const getApprovedEventsOrganized = async (req, res) => {
   try {
-    const userId = req.params.userId; // Extract userId from request parameters
+    const userId = req.params.userId;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
@@ -142,20 +127,14 @@ export const getApprovedEventsOrganized = async (req, res) => {
       order: [["approved_at", "DESC"]],
     });
 
-    if (!approvedEvents.length) {
-      return res.status(404).json({ message: "No approved events found for this user." });
-    }
-
-    res.status(200).json(approvedEvents); // Send approved events
+    res.status(200).json(approvedEvents || []);
   } catch (error) {
     console.error("Error fetching approved events:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// controllers/internshipController.js
-
-
+// ✅ Get Approved Internships
 export const getApprovedInternships = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -169,42 +148,38 @@ export const getApprovedInternships = async (req, res) => {
       order: [["approved_at", "DESC"]],
     });
 
-    res.status(200).json(approvedInternships);
+    res.status(200).json(approvedInternships || []);
   } catch (error) {
     console.error("Error fetching approved internships:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-
-
-// ✅ Get Approved Scholarships for a User
+// ✅ Get Approved Scholarships
 export const getApprovedScholarships = async (req, res) => {
   try {
-    const { userId } = req.params;// ✅ Fetch using UserId (NOT token)
+    const { userId } = req.params;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    // ✅ Fetch all approved scholarships for the user
     const approvedScholarships = await Scholarship.findAll({
       where: { tutor_approval_status: true, Userid: userId },
       order: [["approved_at", "DESC"]],
     });
 
-    return res.status(200).json(approvedScholarships);
+    return res.status(200).json(approvedScholarships || []);
   } catch (error) {
     console.error("Error fetching approved scholarships:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-
-/// Get Approved Leaves for a Specific User
+// ✅ Get Approved Leaves
 export const getApprovedLeaves = async (req, res) => {
   try {
-    const { userId } = req.params; // Corrected: Extract userId from params
+    const { userId } = req.params;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
@@ -215,13 +190,30 @@ export const getApprovedLeaves = async (req, res) => {
       order: [["approved_at", "DESC"]],
     });
 
-    return res.status(200).json(approvedLeaves);
+    return res.status(200).json(approvedLeaves || []);
   } catch (error) {
     console.error("Error fetching approved leaves:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
+// ✅ Get Approved Achievements
+export const getApprovedAchievements = async (req, res) => {
+  try {
+    const { userId } = req.params;
 
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
 
+    const approvedAchievements = await Achievement.findAll({
+      where: { tutor_approval_status: true, Userid: userId },
+      order: [["approved_at", "DESC"]],
+    });
 
+    return res.status(200).json(approvedAchievements || []);
+  } catch (error) {
+    console.error("Error fetching approved achievements:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

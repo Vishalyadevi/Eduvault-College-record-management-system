@@ -5,7 +5,7 @@ export const getFilterOptions = async (req, res) => {
   try {
     // Fetch departments
     const departments = await sequelize.query(
-      'SELECT DISTINCT Deptid, Deptname, Deptacronym FROM department ORDER BY Deptname',
+      'SELECT DISTINCT departmentId, departmentName, departmentAcr FROM departments ORDER BY departmentName',
       { type: QueryTypes.SELECT }
     );
 
@@ -96,7 +96,7 @@ export const getEligibleStudents = async (req, res) => {
       whereConditions.push(`(sd.Semester = 'Semester ${sem1}' OR sd.Semester = 'Semester ${sem2}' OR sd.Semester = '${sem1}' OR sd.Semester = '${sem2}')`);
     }
 
-    if (deptId) whereConditions.push(`u.Deptid = ${deptId}`);
+    if (deptId) whereConditions.push(`u.departmentId = ${deptId}`);
 
     // 10th percentage filters
     if (minTenth) whereConditions.push(`ser.tenth_percentage >= ${parseFloat(minTenth)}`);
@@ -161,15 +161,15 @@ export const getEligibleStudents = async (req, res) => {
     }
 
     const whereClause = whereConditions.length > 0
-      ? `WHERE u.role = 'Student' AND u.status = 'active' AND ${whereConditions.join(' AND ')}`
-      : `WHERE u.role = 'Student' AND u.status = 'active'`;
+      ? `WHERE r.roleName = 'Student' AND u.status = 'active' AND ${whereConditions.join(' AND ')}`
+      : `WHERE r.roleName = 'Student' AND u.status = 'active'`;
 
     const query = `
       SELECT 
-        u.Userid,
-        u.username,
+        u.userId as Userid,
+        u.userName as username,
         sd.registerNumber,
-        u.email,
+        u.userMail as email,
         sd.batch,
         sd.Semester as semester,
         sd.section,
@@ -177,8 +177,8 @@ export const getEligibleStudents = async (req, res) => {
         sd.blood_group,
         sd.personal_phone,
         sd.personal_email,
-        d.Deptname as department,
-        d.Deptacronym as department_acronym,
+        d.departmentName as department,
+        d.departmentAcr as department_acronym,
         ser.tenth_percentage,
         ser.tenth_board,
         ser.tenth_maths_marks,
@@ -214,11 +214,12 @@ export const getEligibleStudents = async (req, res) => {
         ser.semester_7_gpa,
         ser.semester_8_gpa
       FROM users u
-      LEFT JOIN student_details sd ON u.Userid = sd.Userid
-      LEFT JOIN department d ON u.Deptid = d.Deptid
-      LEFT JOIN student_education_records ser ON u.Userid = ser.Userid
+      JOIN roles r ON u.roleId = r.roleId
+      LEFT JOIN student_details sd ON u.userId = sd.Userid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
+      LEFT JOIN student_education_records ser ON u.userId = ser.Userid
       ${whereClause}
-      ORDER BY sd.batch DESC, d.Deptname, sd.registerNumber
+      ORDER BY sd.batch DESC, d.departmentName, sd.registerNumber
     `;
 
     const students = await sequelize.query(query, { type: QueryTypes.SELECT });
@@ -258,9 +259,9 @@ export const getMyWardStudents = async (req, res) => {
 
     const query = `
       SELECT 
-        u.Userid,
-        u.username,
-        u.email,
+        u.userId as Userid,
+        u.userName as username,
+        u.userMail as email,
         sd.registerNumber,
         sd.batch,
         sd.Semester as semester,
@@ -269,8 +270,8 @@ export const getMyWardStudents = async (req, res) => {
         sd.blood_group,
         sd.personal_phone,
         sd.personal_email,
-        d.Deptname as department,
-        d.Deptacronym as department_acronym,
+        d.departmentName as department,
+        d.departmentAcr as department_acronym,
         ser.tenth_percentage,
         ser.tenth_board,
         ser.tenth_maths_marks,
@@ -298,10 +299,11 @@ export const getMyWardStudents = async (req, res) => {
         ser.gap_during_degree_years,
         ser.gap_during_degree_reason
       FROM users u
-      INNER JOIN student_details sd ON u.Userid = sd.Userid
-      LEFT JOIN department d ON u.Deptid = d.Deptid
-      LEFT JOIN student_education_records ser ON u.Userid = ser.Userid
-      WHERE sd.staffId = ? AND u.status = 'active' AND u.role = 'Student'
+      JOIN roles r ON u.roleId = r.roleId
+      INNER JOIN student_details sd ON u.userId = sd.Userid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
+      LEFT JOIN student_education_records ser ON u.userId = ser.Userid
+      WHERE sd.staffId = ? AND u.status = 'active' AND r.roleName = 'Student'
       ORDER BY sd.batch DESC, sd.Semester DESC, sd.registerNumber ASC
     `;
 
@@ -313,7 +315,7 @@ export const getMyWardStudents = async (req, res) => {
     console.log(`Found ${students.length} ward students`);
 
     // Get tutor information
-    const tutorQuery = `SELECT username, email FROM users WHERE Userid = ?`;
+    const tutorQuery = `SELECT userName as username, userMail as email FROM users WHERE userId = ?`;
     const tutorResult = await sequelize.query(tutorQuery, {
       replacements: [tutorId],
       type: QueryTypes.SELECT

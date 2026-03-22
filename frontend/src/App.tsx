@@ -159,6 +159,7 @@ import ResetPassword from './records/pages/ResetPassword';
 import StudentBioData from './records/pages/Student/StudentBioData';
 import StaffBioData from './records/pages/StaffPage/StaffBioData';
 import StudentActivity from './records/pages/Student/StudentActivity';
+import StudentMarksheets from './records/pages/Student/StudentMarksheets';
 
 // New Staff Pages for Records
 import DashboardPage from './records/pages/StaffPage/DashboardPage';
@@ -951,6 +952,14 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute allowedRoles={['Student']}>
           <RecordsLayoutWithLocation includeStudentProvider={true}>
             <Publication />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/records/student-marksheets" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentMarksheets />
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />

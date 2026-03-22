@@ -28,6 +28,7 @@ const StudentActivity = () => {
   const [internships, setInternships] = useState([]); // Internships added
   const [scholarships, setScholarships] = useState([]);
   const [approvedLeaves, setApprovedLeaves] = useState([]);
+  const [achievements, setAchievements] = useState([]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -99,6 +100,10 @@ const StudentActivity = () => {
       const leavesRes = await API.get(`/fetch-leaves/${effectiveUserId}`);
       setApprovedLeaves(leavesRes.data || []);
 
+      // Fetch achievements
+      const achievementsRes = await API.get(`/approved-achievements/${effectiveUserId}`);
+      setAchievements(achievementsRes.data || []);
+
       setError(null);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -113,6 +118,7 @@ const StudentActivity = () => {
       fetchAllData();
     }
   }, [userId, authUser, fetchAllData]);
+
 
 
 
@@ -708,7 +714,7 @@ const StudentActivity = () => {
       </div>
 
 
-      {/* Leaves Section - Styled to match */}
+      {/* Leaves Section */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Approved Leaves</h2>
 
@@ -716,42 +722,20 @@ const StudentActivity = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Leave Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reason
-                </th>
-
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Start Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  End Date
-                </th>
-
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {approvedLeaves.map((leave) => (
                 <tr key={leave.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {leave.leave_type}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {leave.reason}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {leave.start_date.split("T")[0]}
-
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {leave.end_date.split("T")[0]}
-                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{leave.leave_type}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{leave.reason}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{leave.start_date.split("T")[0]}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{leave.end_date.split("T")[0]}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {leave.document ? (
                       <a
@@ -768,6 +752,56 @@ const StudentActivity = () => {
                   </td>
                 </tr>
               ))}
+              {approvedLeaves.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500 italic">No approved leaves found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Achievements Section */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Achievements</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Awarded</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {achievements.map((achievement) => (
+                <tr key={achievement.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{achievement.title}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{achievement.description || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(achievement.date_awarded)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {achievement.certificate_file ? (
+                      <a
+                        href={`${backendUrl}/uploads/achievements/${achievement.certificate_file}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-blue-800"
+                      >
+                        View Certificate
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-500">No Document</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {achievements.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500 italic">No achievements found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -791,4 +825,3 @@ const StudentActivity = () => {
 }
 
 export default StudentActivity;
-

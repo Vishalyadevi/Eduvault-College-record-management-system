@@ -30,7 +30,7 @@ export const addLeave = async (req, res) => {
 
     const student = await StudentDetails.findOne({
       where: { Userid: req.user.userId },
-      include: [{ model: Department, attributes: ["departmentName"] }]
+      include: [{ model: Department, as: "department", attributes: ["departmentName"] }]
     });
     if (!student) {
       return res.status(404).json({ message: "Student details not found" });
@@ -186,7 +186,7 @@ export const deleteLeave = async (req, res) => {
 
     const student = await StudentDetails.findOne({
       where: { Userid: leaveRequest.Userid },
-      include: [{ model: Department, attributes: ["departmentName"] }]
+      include: [{ model: Department, as: "department", attributes: ["departmentName"] }]
     });
     const user = await User.findByPk(leaveRequest.Userid);
 
@@ -286,7 +286,7 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
 
     const deptAdminDetails = await StudentDetails.findOne({
       where: { Userid: req.user.userId },
-      include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
+      include: [{ model: Department, as: "department", attributes: ["departmentId", "departmentName"] }]
     });
 
     if (!deptAdminDetails || !deptAdminDetails.Department) {
@@ -412,7 +412,7 @@ export const updateLeaveByDeptAdmin = async (req, res) => {
             {
               model: StudentDetails,
               as: "studentDetails",
-              include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
+              include: [{ model: Department, as: "department", attributes: ["departmentId", "departmentName"] }]
             },
           ],
         },
