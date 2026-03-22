@@ -9,7 +9,7 @@ async function syncDatabase() {
     await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
     console.log('⏳ Syncing database (Foreign Key checks disabled)...');
 
-    await sequelize.sync({ alter: true }); // Automatically create/update tables
+await sequelize.sync({ alter: { drop: false }, logging: console.log }); // Safely update tables without dropping indexes
 
     await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
     console.log('✅ All tables created/updated successfully.');

@@ -9,12 +9,13 @@ const ResourcePerson = sequelize.define(
             autoIncrement: true,
             primaryKey: true,
         },
-        Userid: {
+Userid: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
+            field: 'userid',
             references: {
                 model: 'users',
-                key: 'Userid',
+                key: 'userId',
             },
         },
         program_specification: {

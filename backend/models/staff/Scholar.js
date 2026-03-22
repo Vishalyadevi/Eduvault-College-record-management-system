@@ -9,12 +9,13 @@ const Scholar = sequelize.define(
             autoIncrement: true,
             primaryKey: true,
         },
-        Userid: {
+Userid: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
+            field: 'Userid',
             references: {
                 model: 'users',
-                key: 'Userid',
+                key: 'userId',
             },
         },
         scholar_name: {

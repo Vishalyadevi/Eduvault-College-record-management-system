@@ -9,7 +9,9 @@ import {
   Calendar, 
   BookOpen,
   ArrowRight,
-  Plus
+  Plus,
+  Award,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getMyCourses } from '../../services/staffService';
@@ -159,13 +161,79 @@ const Dashboard = () => {
               <p className="text-sm text-slate-500">Manage your active courses and assessments</p>
             </div>
             
-            <button
-              onClick={() => navigate('/staff/request-courses')}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Request Course</span>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate('/staff/request-courses')}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Request Course</span>
+              </button>
+              <button
+                onClick={() => navigate('/staff/resume')}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
+              >
+                <Award className="w-5 h-5" />
+                <span>My Resume</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Quick Stats Cards (NEW) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div 
+            onClick={() => navigate('/staff/resume')}
+            className="group bg-gradient-to-br from-purple-500 to-pink-600 p-8 rounded-2xl text-white shadow-xl hover:shadow-2xl cursor-pointer transition-all hover:scale-[1.02] border-0"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                <Award className="w-7 h-7" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold mb-1">Resume</h3>
+            <p className="text-white/90 text-sm opacity-0 group-hover:opacity-100 transition-all duration-300">
+              View achievements & activities
+            </p>
+          </div>
+
+          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
+                <GraduationCap className="w-7 h-7 text-blue-600" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 px-3 py-1 bg-slate-100 rounded-full">
+                {courses.length}
+              </span>
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-1">Active Courses</h3>
+            <p className="text-slate-600 text-sm">Manage assessments & marks</p>
+          </div>
+
+          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-14 h-14 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <Users className="w-7 h-7 text-emerald-600" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 px-3 py-1 bg-slate-100 rounded-full">
+                24
+              </span>
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-1">Students</h3>
+            <p className="text-slate-600 text-sm">Across all sections</p>
+          </div>
+
+          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-14 h-14 bg-orange-100 rounded-xl flex items-center justify-center">
+                <Calendar className="w-7 h-7 text-orange-600" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 px-3 py-1 bg-slate-100 rounded-full">
+                Today
+              </span>
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-1">Attendance</h3>
+            <p className="text-slate-600 text-sm">Mark daily attendance</p>
           </div>
         </div>
 

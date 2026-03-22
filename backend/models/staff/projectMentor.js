@@ -13,9 +13,10 @@ const ProjectMentor = sequelize.define(
     Userid: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'userid',
       references: {
-        model: 'Users',
-        key: 'Userid',
+        model: 'users',
+        key: 'userId',
       },
     },
     project_title: {

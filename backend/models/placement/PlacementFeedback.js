@@ -12,7 +12,7 @@ const PlacementFeedback = sequelize.define('PlacementFeedback', {
         allowNull: false,
         references: {
             model: 'users',
-            key: 'Userid'
+            key: 'userId'
         }
     },
     registerNumber: {

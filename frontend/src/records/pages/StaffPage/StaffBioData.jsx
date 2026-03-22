@@ -127,22 +127,22 @@ const StaffBioData = () => {
                     setEducation(data.education || null);
 
                     // Set activities - map from backend keys to frontend state
-                    setEventsAttended(data.eventsAttended || []);
-                    setEventsOrganized(data.eventsOrganized || []);
-                    setPublications(data.publications || []);
-                    setCertificationCourses(data.certifications || []);
-                    setIndustryKnowhow(data.industryKnowhow || []);
-                    setConsultancyProposals(data.consultancyProjects || []);
-                    setProjectProposals(data.projectProposals || []);
-                    setHIndex(data.hIndex || null);
-                    setScholars(data.scholars || []);
-                    setProposalsSubmitted(data.proposalsSubmitted || []);
-                    setResourcePerson(data.resourcePerson || []);
-                    setSeedMoney(data.seedMoney || []);
-                    setRecognition(data.recognition || []);
-                    setPatents(data.patents || []);
-                    setProjectMentors(data.projectMentors || []);
-                    setSponsoredResearch(data.researchProjects || []);
+                    setEventsAttended(data.eventsAttended || data['Events Attended'] || []);
+                    setEventsOrganized(data.eventsOrganized || data['Events Organized'] || []);
+                    setPublications(data.publications || data['Publications'] || []);
+                    setCertificationCourses(data.certificationCourses || data.certifications || data['Certification Courses'] || []);
+                    setIndustryKnowhow(data.industryKnowhow || data['Industry Knowhow'] || []);
+                    setConsultancyProposals(data.consultancyProjects || data['Consultancy Projects'] || []);
+                    setProjectProposals(data.projectProposals || data['Research Projects'] || []);
+                    setHIndex(data.hIndex || data['H-Index'] || null);
+                    setScholars(data.scholars || data['Scholars'] || []);
+                    setProposalsSubmitted(data.proposalsSubmitted || data['Proposals Submitted'] || []);
+                    setResourcePerson(data.resourcePerson || data['Resource Person'] || []);
+                    setSeedMoney(data.seedMoney || data['Seed Money'] || []);
+                    setRecognition(data.recognition || data['Recognition & Appreciation'] || []);
+                    setPatents(data.patents || data['Patents & Products'] || []);
+                    setProjectMentors(data.projectMentors || data['Project Mentors'] || []);
+                    setSponsoredResearch(data.researchProjects || data['Sponsored Research'] || []);
                 } else {
                     console.error("Failed to load staff data:", response.data.message);
                     toast.error(response.data.message || "Failed to load staff data");

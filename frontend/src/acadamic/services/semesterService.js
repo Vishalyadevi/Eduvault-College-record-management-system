@@ -1,7 +1,7 @@
 import { showErrorToast } from '../utils/swalConfig.js';
 import { api } from '../services/authService.js';
 
-const API_BASE = 'http://localhost:4000/api/admin';
+const API_BASE = '/api/admin';
 
 const manageStudentsService = {
   fetchFilterOptions: async (branch) => {

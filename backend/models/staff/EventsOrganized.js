@@ -10,9 +10,10 @@ const EventsOrganized = sequelize.define('EventsOrganized', {
   Userid: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    field: 'userid',
     references: {
       model: 'users',
-      key: 'Userid',
+      key: 'userId',
     },
     onDelete: 'CASCADE',
   },

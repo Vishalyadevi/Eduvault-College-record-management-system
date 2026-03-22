@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const backendUrl = "http://localhost:4000";
+const backendUrl = "/api";
   const [departments, setDepartments] = useState([]);
   const [staffs, setStaffs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,8 +14,8 @@ export const AppProvider = ({ children }) => {
     const fetchData = async () => {
       try {
         const [deptRes, staffRes] = await Promise.all([
-          axios.get(`${backendUrl}/api/departments`),
-          axios.get(`${backendUrl}/api/get-staff`, { params: { role: "Staff" } }),
+axios.get(`${backendUrl}/departments`),
+axios.get(`${backendUrl}/get-staff?role=Staff`),
         ]);
 
         setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);

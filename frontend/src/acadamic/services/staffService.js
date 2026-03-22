@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:4000/api/staff';
+const API_URL = '/api/staff';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -29,7 +29,7 @@ api.interceptors.response.use(
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        await axios.post('http://localhost:4000/api/auth/refresh', {}, { withCredentials: true });
+await axios.post('/api/auth/refresh', {}, { withCredentials: true });
         return api(originalRequest);
       } catch {
         window.location.href = '/login';
@@ -277,6 +277,13 @@ export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
     console.error('Error in getStudentMarksForTool:', error);
     throw new Error(error.response?.data?.message || 'Failed to fetch marks');
   }
+};
+
+// ─── RESUME INTEGRATION (NEW) ───────────────────────────────────────────────────
+// Wrapper for backward compatibility with existing code
+export const getStaffResume = async (userId) => {
+  const { getStaffResume: fetchResume } = await import('./resumeService.js');
+  return fetchResume(userId);
 };
 
 // --- STANDARD EXPORTS ---

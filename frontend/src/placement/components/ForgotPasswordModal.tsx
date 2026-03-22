@@ -16,7 +16,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const API_URL = 'http://localhost:4000/api/auth';
+const API_URL = '/api/auth';
 
     // Reset modal state
     const resetModal = () => {

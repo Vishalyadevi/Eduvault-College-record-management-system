@@ -1,7 +1,7 @@
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const getAllowedOrigins = () => {
-  const defaults = ["http://localhost:5173"];
+const defaults = ["http://localhost:5173", "http://localhost:5174"];
   const envOrigins = (process.env.FRONTEND_URL || "")
     .split(",")
     .map((s) => s.trim())

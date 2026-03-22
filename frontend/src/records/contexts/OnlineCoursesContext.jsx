@@ -20,14 +20,20 @@ export const OnlineCoursesProvider = ({ children }) => {
   const [pendingCourses, setPendingCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000"; // Update if needed
+const API = axios.create({ baseURL: '/api', withCredentials: true });
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'; // Fallback
 
   // Fetch approved online courses
   const fetchOnlineCourses = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("No token found, skipping fetch");
+      return;
+    }
     setLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/online-courses`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      const response = await API.get('/online-courses', {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setOnlineCourses(response.data.courses || []);
       setError(null);
@@ -42,10 +48,15 @@ export const OnlineCoursesProvider = ({ children }) => {
 
   // Fetch pending online courses
   const fetchPendingCourses = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("No token found, skipping fetch");
+      return;
+    }
     setLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/online-courses/pending`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      const response = await API.get('/online-courses/pending', {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setPendingCourses(response.data.courses || []);
       setError(null);

@@ -10,9 +10,10 @@ const PatentProduct = sequelize.define('PatentProduct', {
     Userid: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        field: 'userid',
         references: {
             model: 'users',
-            key: 'Userid'
+            key: 'userId'
         }
     },
     project_title: {

@@ -10,9 +10,10 @@ const HIndex = sequelize.define('HIndex', {
   Userid: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    field: 'Userid',
     references: {
       model: 'users',
-      key: 'Userid',
+      key: 'userId',
     },
     onDelete: 'CASCADE',
   },

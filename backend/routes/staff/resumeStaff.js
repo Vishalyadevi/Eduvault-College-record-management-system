@@ -43,7 +43,7 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       // Tables: users, personal_information, staff_details, departments
       // ---------------------------------------------------------------
       const personalInfo = await safeQuery(`
-        SELECT 
+        SELECT
           u.userId,
           u.userName       AS username,
           u.userMail       AS email,
@@ -133,42 +133,44 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
 
       // ---------------------------------------------------------------
       // 2. Education  (table: education)
-      // Columns: id, Userid, tenth_*, twelfth_*, ug_*, pg_*, mphil_*, phd_*
+      // Columns: id, userid, tenth_*, twelfth_*, ug_*, pg_*, mphil_*, phd_*
       // ---------------------------------------------------------------
       const education = await safeQuery(
-        `SELECT * FROM education WHERE Userid = ?`, [userId]
+        `SELECT * FROM education WHERE Userid = ? OR userid = ?`, [userId, userId]
       );
+      console.log(`Education data for userId ${userId}:`, education.length, 'records');
 
       // ---------------------------------------------------------------
-      // 3. Events Attended  (table: events_attended)
-      // Columns: id, Userid, programme_name, title, from_date, to_date,
+      // 3. Events Attended  (table: staff_events_attended)
+      // Columns: id, userid, programme_name, title, from_date, to_date,
       //          mode, organized_by, participants, financial_support,
       //          support_amount, permission_letter_link, certificate_link,
       //          financial_proof_link, programme_report_link, created_at, updated_at
       // ---------------------------------------------------------------
       const eventsAttended = await safeQuery(
-        `SELECT * FROM events_attended WHERE Userid = ? ORDER BY from_date DESC`, [userId]
+        `SELECT * FROM staff_events_attended WHERE userid = ? ORDER BY from_date DESC`, [userId]
       );
+      console.log(`Events Attended for userId ${userId}:`, eventsAttended.length, 'records');
 
       // ---------------------------------------------------------------
       // 4. Events Organized  (table: events_organized)
-      // Columns: id, Userid, program_name, program_title, coordinator_name,
+      // Columns: id, userid, program_name, program_title, coordinator_name,
       //          co_coordinator_names, speaker_details, from_date, to_date,
       //          days, sponsored_by, amount_sanctioned, participants, proof,
       //          documentation, created_at, updated_at
       // ---------------------------------------------------------------
       const eventsOrganized = await safeQuery(
-        `SELECT * FROM events_organized WHERE Userid = ? ORDER BY from_date DESC`, [userId]
+        `SELECT * FROM events_organized WHERE userid = ? ORDER BY from_date DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 5. Publications  (table: book_chapters)
-      // Columns: id, Userid, publication_type, publication_name, publication_title,
+      // Columns: id, userid, publication_type, publication_name, publication_title,
       //          authors, index_type, doi, citations, publisher, page_no,
       //          publication_date, impact_factor, publication_link, created_at, updated_at
       // ---------------------------------------------------------------
       const publications = await safeQuery(
-        `SELECT * FROM book_chapters WHERE Userid = ? ORDER BY publication_date DESC`, [userId]
+        `SELECT * FROM book_chapters WHERE Userid = ? OR userid = ? ORDER BY publication_date DESC`, [userId, userId]
       );
 
       // ---------------------------------------------------------------
@@ -179,40 +181,41 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       //          funding_agency, fund_received, report_file, status, ...
       // ---------------------------------------------------------------
       const activities = await safeQuery(
-        `SELECT * FROM activities WHERE userid = ? ORDER BY from_date DESC`, [userId]
+        `SELECT * FROM activities WHERE Userid = ? OR userid = ? ORDER BY from_date DESC`, [userId, userId]
       );
+      console.log(`Activities for userId ${userId}:`, activities.length, 'records');
 
       // ---------------------------------------------------------------
       // 7. Research Projects  (table: project_proposals)
-      // Columns: id, Userid, pi_name, co_pi_names, project_title,
+      // Columns: id, userid, pi_name, co_pi_names, project_title,
       //          funding_agency, from_date, to_date, amount, amount_received,
       //          proof, yearly_report, final_report, organization_name,
       //          created_at, updated_at
       // ---------------------------------------------------------------
       const projectProposals = await safeQuery(
-        `SELECT * FROM project_proposals WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM project_proposals WHERE userid = ? ORDER BY created_at DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 8. Consultancy Projects  (table: consultancy_proposals)
-      // Columns: id, Userid, pi_name, co_pi_names, project_title,
+      // Columns: id, userid, pi_name, co_pi_names, project_title,
       //          industry, from_date, to_date, amount, proof,
       //          yearly_report, order_copy, final_report, organization_name,
       //          created_at, updated_at
       // ---------------------------------------------------------------
       const consultancyProjects = await safeQuery(
-        `SELECT * FROM consultancy_proposals WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM consultancy_proposals WHERE userid = ? ORDER BY created_at DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 8a. Industry Knowhow  (table: industry_knowhow)
-      // Columns: id, Userid, internship_name, title, company, outcomes,
+      // Columns: id, userid, internship_name, title, company, outcomes,
       //          from_date, to_date, venue, participants, financial_support,
       //          support_amount, certificate_link, certificate_pdf,
       //          created_at, updated_at
       // ---------------------------------------------------------------
       const industryKnowhow = await safeQuery(
-        `SELECT * FROM industry_knowhow WHERE Userid = ? ORDER BY from_date DESC`, [userId]
+        `SELECT * FROM industry_knowhow WHERE userid = ? ORDER BY from_date DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
@@ -229,14 +232,15 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
           `SELECT * FROM certification_courses WHERE userid = ? ORDER BY from_date DESC`, [userId]
         );
       }
+      console.log(`Certification Courses for userId ${userId}:`, certificationCourses.length, 'records');
 
       // ---------------------------------------------------------------
       // 10. H-Index  (table: h_index)
-      // Columns: id, Userid, citations, h_index, i_index,
+      // Columns: id, userid, citations, h_index, i_index,
       //          google_citations, scopus_citations, created_at, updated_at
       // ---------------------------------------------------------------
       const hIndex = await safeQuery(
-        `SELECT * FROM h_index WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM h_index WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`, [userId, userId]
       );
 
       // ---------------------------------------------------------------
@@ -246,7 +250,7 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       const [tablesCheck] = await connection.query("SHOW TABLES LIKE 'proposals_submitted'");
       if (tablesCheck && tablesCheck.length > 0) {
         proposalsSubmitted = await safeQuery(
-          `SELECT * FROM proposals_submitted WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+          `SELECT * FROM proposals_submitted WHERE userid = ? ORDER BY created_at DESC`, [userId]
         );
       }
 
@@ -257,65 +261,65 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       const [sponsoredCheck] = await connection.query("SHOW TABLES LIKE 'sponsored_research'");
       if (sponsoredCheck && sponsoredCheck.length > 0) {
         sponsoredResearch = await safeQuery(
-          `SELECT * FROM sponsored_research WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+          `SELECT * FROM sponsored_research WHERE userid = ? ORDER BY created_at DESC`, [userId]
         );
       }
 
       // ---------------------------------------------------------------
       // 13. Patents & Products  (table: patent_product)
-      // Columns: id, Userid, project_title, patent_status, month_year,
+      // Columns: id, userid, project_title, patent_status, month_year,
       //          patent_proof_link, working_model, working_model_proof_link,
       //          prototype_developed, prototype_proof_link, created_at, updated_at
       // ---------------------------------------------------------------
       const patents = await safeQuery(
-        `SELECT * FROM patent_product WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM patent_product WHERE userid = ? ORDER BY created_at DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 14. Recognition & Appreciation  (table: recognition_appreciation)
-      // Columns: id, Userid, category, program_name, recognition_date,
+      // Columns: id, userid, category, program_name, recognition_date,
       //          proof_link, created_at, updated_at
       // ---------------------------------------------------------------
       const recognitions = await safeQuery(
-        `SELECT * FROM recognition_appreciation WHERE Userid = ? ORDER BY recognition_date DESC`, [userId]
+        `SELECT * FROM recognition_appreciation WHERE userid = ? ORDER BY recognition_date DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 15. Seed Money  (table: seed_money)
-      // Columns: id, Userid, project_title, project_duration, from_date,
+      // Columns: id, userid, project_title, project_duration, from_date,
       //          to_date, amount, outcomes, proof_link, created_at, updated_at
       // ---------------------------------------------------------------
       const seedMoney = await safeQuery(
-        `SELECT * FROM seed_money WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM seed_money WHERE userid = ? ORDER BY from_date DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 16. Resource Person  (table: resource_person)
-      // Columns: id, Userid, program_specification, title, venue,
+      // Columns: id, userid, program_specification, title, venue,
       //          event_date, proof_link, photo_link, created_at, updated_at
       // ---------------------------------------------------------------
       const resourcePerson = await safeQuery(
-        `SELECT * FROM resource_person WHERE Userid = ? ORDER BY event_date DESC`, [userId]
+        `SELECT * FROM resource_person WHERE userid = ? ORDER BY event_date DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 17. Scholars  (table: scholars)
-      // Columns: id, Userid, scholar_name, scholar_type, institute,
+      // Columns: id, userid, scholar_name, scholar_type, institute,
       //          university, title, domain, phd_registered_year,
       //          completed_year, status, publications, created_at, updated_at
       // ---------------------------------------------------------------
       const scholars = await safeQuery(
-        `SELECT * FROM scholars WHERE Userid = ? ORDER BY phd_registered_year DESC`, [userId]
+        `SELECT * FROM scholars WHERE userid = ? ORDER BY phd_registered_year DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
       // 17b. Project Mentors  (table: project_mentors)
-      // Columns: id, Userid, project_title, student_details, event_details,
+      // Columns: id, userid, project_title, student_details, event_details,
       //          participation_status, certificate_link, proof_link,
       //          created_at, updated_at
       // ---------------------------------------------------------------
       const projectMentors = await safeQuery(
-        `SELECT * FROM project_mentors WHERE Userid = ? ORDER BY created_at DESC`, [userId]
+        `SELECT * FROM project_mentors WHERE userid = ? ORDER BY created_at DESC`, [userId]
       );
 
       // ---------------------------------------------------------------
@@ -324,7 +328,7 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       let mous = [];
       const [mouCheck] = await connection.query("SHOW TABLES LIKE 'mou'");
       if (mouCheck && mouCheck.length > 0) {
-        mous = await safeQuery(`SELECT * FROM mou WHERE Userid = ? ORDER BY created_at DESC`, [userId]);
+        mous = await safeQuery(`SELECT * FROM mou WHERE userid = ? ORDER BY created_at DESC`, [userId]);
       }
 
       // ---------------------------------------------------------------

@@ -7,7 +7,7 @@ import config from "../../../config";
 const EnhancedStaffResumeGenerator = () => {
   const { user } = useUser();
   // compute effective id (backend tokens and user object may use either property)
-  const effectiveUserId = user?.Userid || user?.userId;
+  const effectiveUserId = user?.userId || user?.Userid || user?.id;
 
   // State management
   const [selectedSections, setSelectedSections] = useState({
@@ -128,26 +128,26 @@ const EnhancedStaffResumeGenerator = () => {
 
           // Transform API data to match component expectations
           const transformedData = {
-            "Personal Information": apiData["Personal Information"] || [],
-            "Education": apiData["Education"] || [],
-            "Events Attended": apiData["Events Attended"] || [],
-            "Events Organized": apiData["Events Organized"] || [],
-            "Publications": apiData["Publications"] || [],
-            "Consultancy Projects": apiData["Consultancy Projects"] || [],
-            "Research Projects": apiData["Research Projects"] || [],
-            "Industry Knowhow": apiData["Industry Knowhow"] || [],
-            "Certification Courses": apiData["Certification Courses"] || [],
-            "H-Index": apiData["H-Index"] || [],
-            "Proposals Submitted": apiData["Proposals Submitted"] || [],
-            "Resource Person": apiData["Resource Person"] || [],
-            "Scholars": apiData["Scholars"] || [],
-            "Seed Money": apiData["Seed Money"] || [],
-            "Recognition & Appreciation": apiData["Recognition & Appreciation"] || [],
-            "Patents & Products": apiData["Patents & Products"] || [],
-            "Project Mentors": apiData["Project Mentors"] || [],
-            "Sponsored Research": apiData["Sponsored Research"] || [],
-            "Activities": apiData["Activities"] || [],
-            "TLP Activities": apiData["TLP Activities"] || [],
+            "Personal Information": apiData["Personal Information"] || (apiData.personalInfo ? [apiData.personalInfo] : []),
+            "Education": apiData["Education"] || apiData.education || [],
+            "Events Attended": apiData["Events Attended"] || apiData.eventsAttended || [],
+            "Events Organized": apiData["Events Organized"] || apiData.eventsOrganized || [],
+            "Publications": apiData["Publications"] || apiData.publications || [],
+            "Consultancy Projects": apiData["Consultancy Projects"] || apiData.consultancyProjects || [],
+            "Research Projects": apiData["Research Projects"] || apiData.researchProjects || [],
+            "Industry Knowhow": apiData["Industry Knowhow"] || apiData.industryKnowhow || [],
+            "Certification Courses": apiData["Certification Courses"] || apiData.certificationCourses || apiData.certifications || [],
+            "H-Index": Array.isArray(apiData["H-Index"]) ? apiData["H-Index"] : (apiData.hIndex ? (Array.isArray(apiData.hIndex) ? apiData.hIndex : [apiData.hIndex]) : []),
+            "Proposals Submitted": apiData["Proposals Submitted"] || apiData.proposalsSubmitted || [],
+            "Resource Person": apiData["Resource Person"] || apiData.resourcePerson || [],
+            "Scholars": apiData["Scholars"] || apiData.scholars || [],
+            "Seed Money": apiData["Seed Money"] || apiData.seedMoney || [],
+            "Recognition & Appreciation": apiData["Recognition & Appreciation"] || apiData.recognition || [],
+            "Patents & Products": apiData["Patents & Products"] || apiData.patents || [],
+            "Project Mentors": apiData["Project Mentors"] || apiData.projectMentors || [],
+            "Sponsored Research": apiData["Sponsored Research"] || apiData.sponsoredResearch || [],
+            "Activities": apiData["Activities"] || apiData.activities || [],
+            "TLP Activities": apiData["TLP Activities"] || apiData.tlpActivities || [],
             userInfo: {
               ...apiData.userInfo,
               phone: cleanPhone,

@@ -6,7 +6,7 @@ dotenv.config();
 const sequelize = new Sequelize(
     process.env.DB_NAME || 'record',
     process.env.DB_USER || 'root',
-    process.env.DB_PASSWORD || 'Vishal2005#',
+    process.env.DB_PASSWORD || 'Monisha_018',
     {
         host: process.env.DB_HOST || 'localhost',
         dialect: 'mysql',

@@ -1,4 +1,4 @@
-import { Education } from '../../models/index.js';
+import Education from '../../models/staff/Education.js';
 
 // Validation middlewares reused in controller so it can be exported for routes
 export const validateEducationInfo = (req, res, next) => {

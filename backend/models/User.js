@@ -119,6 +119,7 @@ const User = sequelize.define(
   }
 );
 
+/*
 User.associate = (models) => {
   User.belongsTo(models.Role, {
     foreignKey: 'roleId',
@@ -142,5 +143,6 @@ User.associate = (models) => {
     constraints: false, // No DB-level constraint
   });
 };
+*/
 
 export default User;

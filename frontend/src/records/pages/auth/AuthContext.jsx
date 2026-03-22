@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
         throw new Error("User ID missing from authentication response");
       }
 
-      const { data: profileResponse } = await API.get(`/get-user/${userId}`);
+      const { data: profileResponse } = await API.get(`/auth/get-user/${userId}`);
       const profile = profileResponse.user || profileResponse;
 
       const merged = {

@@ -221,7 +221,44 @@ const routes = [
     ],
   },
 
-  { path: "*", element: <NotFound /> },
+      // Profile & BioData Routes (Fixed 404)
+      {
+        path: "/records/profile",
+        element: (
+          <ProtectedRoute role={["student", "staff", "faculty"]}>
+            <iframe 
+              src="http://localhost:5173/#/records/profile" 
+              style={{ width: "100vw", height: "100vh", border: "none" }}
+              title="Profile"
+            />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "/records/student-biodata/:userId",
+        element: (
+          <ProtectedRoute role="student">
+            <iframe 
+              src="http://localhost:5173/#/records/student-biodata/dummy" 
+              style={{ width: "100vw", height: "100vh", border: "none" }}
+              title="Student BioData"
+            />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "/records/staff-biodata/:userId",
+        element: (
+          <ProtectedRoute role={["staff", "faculty"]}>
+            <iframe 
+              src="http://localhost:5173/#/records/staff-biodata/dummy" 
+              style={{ width: "100vw", height: "100vh", border: "none" }}
+              title="Staff BioData"
+            />
+          </ProtectedRoute>
+        )
+      },
+    { path: "*", element: <NotFound /> },
 ];
 
 export default routes;

@@ -9,14 +9,16 @@ const Recognition = sequelize.define(
             autoIncrement: true,
             primaryKey: true,
         },
-        Userid: {
+Userid: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
+            field: 'userid',
             references: {
                 model: 'users',
-                key: 'Userid',
+                key: 'userId',
             },
         },
+
         category: {
             type: DataTypes.STRING(255),
             allowNull: false,

@@ -12,7 +12,8 @@ const Achievement = sequelize.define(
     Userid: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: "users", key: 'Userid' }
+      field: 'userid',
+      references: { model: "users", key: 'userId' }
     },
     title: {
       type: DataTypes.STRING,

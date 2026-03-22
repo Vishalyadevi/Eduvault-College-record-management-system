@@ -13,9 +13,10 @@ const ConsultancyProposal = sequelize.define(
         Userid: {
             type: DataTypes.INTEGER,
             allowNull: false,
+            field: 'userid',
             references: {
                 model: 'users',
-                key: 'Userid',
+                key: 'userId',
             },
         },
         pi_name: {
