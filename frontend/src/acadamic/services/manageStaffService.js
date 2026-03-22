@@ -44,7 +44,7 @@ const manageStaffService = {
 
   getUsers: async () => {
     try {
-      const res = await api.get(`${API_BASE}/admin/users`);
+      const res = await api.get(`${API_BASE}/admin/staff-users`);
       return res.data.data || [];
     } catch (err) {
       console.error('Error fetching users:', err.response?.data || err.message);

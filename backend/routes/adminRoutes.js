@@ -20,9 +20,9 @@ const router = express.Router();
 // ==================== USER ROUTES ====================
 // All user routes require authentication and admin privileges
 
-router.get('/users', authenticate, isAdmin, getAllUsers);
-router.post('/users', authenticate, isAdmin, createUser);
-router.put('/users/:userId', authenticate, isAdmin, updateUser);
+router.get('/users', authenticate, isSuperAdmin, getAllUsers);
+router.post('/users', authenticate, isSuperAdmin, createUser);
+router.put('/users/:userId', authenticate, isSuperAdmin, updateUser);
 router.delete('/users/:userId', authenticate, isSuperAdmin, deleteUser); // Only SuperAdmin can delete
 
 // ==================== ROLE ROUTES ====================
@@ -40,5 +40,16 @@ router.get('/departments', authenticate, isAdmin, getAllDepartments);
 router.post('/departments', authenticate, isSuperAdmin, createDepartment);
 router.put('/departments/:departmentId', authenticate, isSuperAdmin, updateDepartment);
 router.delete('/departments/:departmentId', authenticate, isSuperAdmin, deleteDepartment);
+
+// ==================== TUTOR ALLOCATION ROUTES ====================
+import {
+  getStaffForTutorAllocation,
+  getStudentsForTutorAllocation,
+  assignStudentsToTutor
+} from '../controllers/tutorAllocationController.js';
+
+router.get('/tutor-allocation/staff', authenticate, isAdmin, getStaffForTutorAllocation);
+router.get('/tutor-allocation/students', authenticate, isAdmin, getStudentsForTutorAllocation);
+router.post('/tutor-allocation/assign', authenticate, isAdmin, assignStudentsToTutor);
 
 export default router;

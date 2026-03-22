@@ -138,6 +138,7 @@ import StudentSkillRackPage from './records/pages/Student/SkillrackPage.jsx';
 
 import DepartmentManagement from './records/pages/admin/DepartmentManagement.jsx';
 import RoleManagement from './records/pages/admin/RoleManagement.jsx';
+import TutorAllocation from './records/pages/admin/TutorAllocation.jsx';
 
 import ActivityPage from './records/pages/StaffPage/ActivityPage.jsx';
 import ActivityApprovalPage from './records/pages/admin/ActivityApprovalPage.clean.jsx';
@@ -643,6 +644,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/records/student-leave-approval" element={
         <ProtectedRoute allowedRoles={['Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation><StudentLeaveApproval /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/tutor-allocation" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin', 'Admin']}>
+          <RecordsLayoutWithLocation><TutorAllocation /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
 
