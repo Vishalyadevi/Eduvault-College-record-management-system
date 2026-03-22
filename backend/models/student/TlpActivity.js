@@ -11,7 +11,7 @@ const TlpActivity = sequelize.define('TlpActivity', {
     type: DataTypes.INTEGER,
     allowNull: false,
     field: 'userid',
-    references: { model: 'users', key: 'userId' },
+    references: { model: 'users', key: 'Userid' },
     onDelete: 'CASCADE',
   },
   // removed: tlp_activity is no longer stored separately; use course_code_and_name + activity_name

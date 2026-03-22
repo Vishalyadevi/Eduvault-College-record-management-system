@@ -14,7 +14,7 @@ const Activity = sequelize.define('Activity', {
     field: 'userid',
     references: {
       model: 'users',
-      key: 'userId',
+      key: 'Userid',
     },
     onDelete: 'CASCADE',
   },

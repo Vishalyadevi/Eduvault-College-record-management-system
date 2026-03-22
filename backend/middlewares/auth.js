@@ -45,7 +45,7 @@ export const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('✅ Decoded token:', decoded);
 
-    const userId = decoded.userId || decoded.id;
+    const userId = decoded.userId;
 
     if (!userId) {
       console.log('❌ No user ID found in token! Token payload:', decoded);

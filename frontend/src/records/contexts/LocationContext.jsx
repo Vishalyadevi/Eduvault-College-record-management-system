@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 
 // API Base URL
-const API_BASE_URL = "/api";
+const API_BASE_URL = "http://localhost:4000/api";
 
 // Create the context
 const LocationContext = createContext();

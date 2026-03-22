@@ -1,6 +1,6 @@
 import { api } from '../services/authService.js'; // Adjust path to your api.js file
 
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:4000/api';
 
 // Simple in-memory cache for sections
 const sectionCache = new Map();

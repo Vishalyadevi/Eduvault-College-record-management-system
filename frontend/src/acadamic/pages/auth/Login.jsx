@@ -110,10 +110,10 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-        const { data } = await API.post("/auth/login", {
-          identifier,
-          password
-        });
+      const { data } = await API.post("/auth/login", {
+        identifier,
+        password
+      });
 
       if (data?.message || data?.user || data?.role || data?.token) {
         const refreshedUser = await refresh(); // This updates the user in context

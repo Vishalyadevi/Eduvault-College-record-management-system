@@ -55,7 +55,6 @@ import ResourcePerson from "./staff/ResourcePerson.js";
 import SeedMoney from "./staff/SeedMoney.js";
 import Scholar from "./staff/Scholar.js";
 import StaffEventAttended from "./staff/StaffEventAttended.js";
-import Education from "./staff/Education.js";
 
 import PlacementCompany from "./placement/Company.js";
 import FeedbackRound from "./placement/FeedbackRound.js";
@@ -81,11 +80,11 @@ const applyAssociations = () => {
 
   // User - Role associations
   Role.hasMany(User, { foreignKey: "roleId", as: "users" });
-  User.belongsTo(Role, { foreignKey: "roleId", as: "role" });
+  // User.belongsTo(Role, { foreignKey: "roleId", as: "role" }); // Defined in User.js associate()
 
   // User - Department associations (fixed foreign key)
-  // Department.hasMany(User, { foreignKey: "departmentId", as: "users" }); // Already defined elsewhere
-  User.belongsTo(Department, { foreignKey: "departmentId", as: "department" });
+  // Department.hasMany(User, { foreignKey: "departmentId", as: "users" }); // Defined in Department.js associate()
+  // User.belongsTo(Department, { foreignKey: "departmentId", as: "department" }); // Defined in User.js associate()
 
   User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentDetails" });
   User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentProfile" }); // Many controllers expect this
@@ -488,8 +487,8 @@ User.hasMany(PatentProduct, { foreignKey: "Userid", as: "patentProducts" });
 PatentProduct.belongsTo(User, { foreignKey: "Userid", as: "user" });
 
 // FundedProject (project_proposals) Associations
-User.hasMany(FundedProject, { foreignKey: "Userid", targetKey: "userId", as: "fundedProjects" });
-FundedProject.belongsTo(User, { foreignKey: "Userid", targetKey: "userId", as: "user" });
+User.hasMany(FundedProject, { foreignKey: "Userid", as: "fundedProjects" });
+FundedProject.belongsTo(User, { foreignKey: "Userid", as: "user" });
 
 // FundedProjectPayment (project_payment_details) Associations
 FundedProject.hasMany(FundedProjectPayment, { foreignKey: "proposal_id", as: "payments" });
@@ -502,7 +501,6 @@ ConsultancyProposal.belongsTo(User, { foreignKey: "Userid", as: "user" });
 // Recognition (recognition_appreciation) Associations
 User.hasMany(Recognition, { foreignKey: "Userid", as: "recognitions" });
 Recognition.belongsTo(User, { foreignKey: "Userid", as: "user" });
-
 
 // ResourcePerson (resource_person) Associations
 User.hasMany(ResourcePerson, { foreignKey: "Userid", as: "resourcePersonEntries" });
@@ -655,8 +653,7 @@ const db = {
   Notification,
   PlacementDrive,
   PlacementFeedback,
-RegisteredStudentPlacement,
-  Education,
+  RegisteredStudentPlacement,
   applyAssociations,
 };
 

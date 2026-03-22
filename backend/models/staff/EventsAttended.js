@@ -10,10 +10,9 @@ const EventsAttended = sequelize.define('EventsAttended', {
   Userid: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    field: 'userid',
     references: {
       model: 'users',
-      key: 'userId',
+      key: 'Userid',
     },
     onDelete: 'CASCADE',
   },

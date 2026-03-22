@@ -3,121 +3,68 @@ import { sequelize } from "../../config/mysql.js";
 
 export const getStaffDetails = async (req, res) => {
   try {
-    const userId = req.user?.Userid || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: "Invalid token - no userId", userId: null });
-    }
-    console.log(`🔍 Fetching staff details for userId: ${userId}`);
+    const userId = req.user.Userid || req.user.userId;
 
-
-    if (!userId) {
-      console.error('❌ No userId in req.user:', req.user);
-      return res.status(401).json({ message: "User ID not found in token" });
-    }
-
-    // Step 1: Fetch core StaffDetails first (no includes)
-    console.log('📊 Querying StaffDetails...');
     const staff = await StaffDetails.findOne({
-      where: { Userid: userId }
+      where: { Userid: userId },
+      include: [
+        {
+          model: User,
+          as: "staffUser",
+          attributes: ["Userid", "username", "email", "role", "status"],
+          include: [
+            {
+              model: BankDetails,
+              as: "bankDetails",
+            },
+            {
+              model: RelationDetails,
+              as: "relationDetails",
+            }
+          ]
+        }
+      ]
     });
 
     if (!staff) {
-      console.log(`⚠️ No StaffDetails record found for Userid: ${userId}`);
-      return res.status(404).json({ 
-        message: "Staff profile not found. Please complete your profile setup.", 
-        userId 
-      });
+      return res.status(404).json({ message: "Staff not found" });
     }
 
-    console.log('✅ StaffDetails found:', {
-      staffId: staff.staffId,
-      staffNumber: staff.staffNumber,
-      firstName: staff.firstName
-    });
-
-    // Step 2: Safe fetch User (minimal)
-    let userData = null;
-    try {
-      userData = await User.findByPk(userId, {
-        attributes: ["Userid", "username", "email", "role", "status"]
-      });
-    } catch (userErr) {
-      console.warn('⚠️ User fetch failed (non-critical):', userErr.message);
-    }
-
-    // Step 3: Safe fetch BankDetails (optional)
-    let bankDetails = [];
-    try {
-      bankDetails = await BankDetails.findAll({ where: { Userid: userId } });
-    } catch (bankErr) {
-      console.warn('⚠️ BankDetails fetch failed (optional):', bankErr.message);
-    }
-
-    // Step 4: Safe fetch RelationDetails (optional)
-    let relationDetails = [];
-    try {
-      relationDetails = await RelationDetails.findAll({ where: { Userid: userId } });
-    } catch (relErr) {
-      console.warn('⚠️ RelationDetails fetch failed (optional):', relErr.message);
-    }
-
-    // Map response safely
+    // Map StaffDetails fields to compatibility names for frontend
     const responseData = {
       ...staff.toJSON(),
-      staffUser: userData ? userData.toJSON() : null,
-      bankDetails: bankDetails.map(b => b.toJSON()),
-      relationDetails: relationDetails.map(r => r.toJSON()),
-      // Frontend mappings
-      full_name: `${staff.firstName || ''} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName || ''}`.trim() || staff.staffUser?.username || 'N/A',
-      email: staff.personalEmail || staff.staffUser?.email || 'N/A',
-      mobile_number: staff.mobileNumber || 'N/A',
-      date_of_birth: staff.dateOfBirth || 'N/A',
-      anna_university_faculty_id: staff.annaUniversityFacultyId || 'N/A',
-      aicte_faculty_id: staff.aicteFacultyId || 'N/A',
-      researcher_id: staff.researcherId || 'N/A',
-      google_scholar_id: staff.googleScholarId || 'N/A',
-      scopus_profile: staff.scopusProfile || 'N/A',
-      vidwan_profile: staff.vidwanProfile || 'N/A',
-      supervisor_id: staff.supervisorId || null,
-      h_index: staff.hIndex || null,
-      citation_index: staff.citationIndex || null,
-      communication_address: staff.currentAddressLine1 || 'N/A',
-      permanent_address: staff.permanentAddressLine1 || 'N/A',
-      applied_date: staff.dateOfJoining || 'N/A',
+      full_name: `${staff.firstName} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName}`.trim(),
+      email: staff.personalEmail,
+      mobile_number: staff.mobileNumber,
+      date_of_birth: staff.dateOfBirth,
+      anna_university_faculty_id: staff.annaUniversityFacultyId,
+      aicte_faculty_id: staff.aicteFacultyId,
+      researcher_id: staff.researcherId,
+      google_scholar_id: staff.googleScholarId,
+      scopus_profile: staff.scopusProfile,
+      vidwan_profile: staff.vidwanProfile,
+      supervisor_id: staff.supervisorId,
+      h_index: staff.hIndex,
+      citation_index: staff.citationIndex,
+      communication_address: staff.currentAddressLine1,
+      permanent_address: staff.permanentAddressLine1,
+      applied_date: staff.dateOfJoining,
     };
 
-    console.log('✅ Staff details response prepared successfully');
     res.json(responseData);
   } catch (error) {
-    console.error('💥 CRITICAL ERROR in getStaffDetails:', {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user?.Userid,
-      code: error.code,
-      name: error.name
-    });
-    res.status(500).json({ 
-      message: "Failed to fetch staff details", 
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Server error',
-      userId: req.user?.Userid 
-    });
+    console.error("Error fetching staff details:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-// Helper function
-const getUserId = (req) => req.user?.Userid || req.user?.userId;
 
 export const updateStaffDetails = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const userId = getUserId(req);
+    const userId = req.user.Userid || req.user.userId;
     if (!userId) {
       return res.status(400).json({ message: "Missing Userid in token" });
     }
-
-    console.log(`📝 Updating staff for userId: ${userId}, payload keys:`, Object.keys(req.body));
-
 
     let { full_name, email, mobile_number, date_of_birth, relations = [], ...otherFields } = req.body;
 
@@ -152,25 +99,10 @@ export const updateStaffDetails = async (req, res) => {
       }
     });
 
-    // Ensure required address fields have defaults (for update path)
-    otherFields.currentAddressLine1 = otherFields.currentAddressLine1 || 'Default Address';
-    otherFields.currentCity = otherFields.currentCity || 'Chennai';
-    otherFields.currentState = otherFields.currentState || 'Tamil Nadu';
-    otherFields.currentPincode = otherFields.currentPincode || '600000';
-    otherFields.currentCountry = otherFields.currentCountry || 'India';
-
     const user = await User.findOne({ where: { Userid: userId }, transaction });
     if (!user) {
       await transaction.rollback();
       return res.status(404).json({ message: "User not found" });
-    }
-
-    // Validate dates
-    const today = new Date().toISOString().split('T')[0];
-    const dob = otherFields.dateOfBirth;
-    if (dob && (isNaN(Date.parse(dob)) || new Date(dob) > new Date(today))) {
-      await transaction.rollback();
-      return res.status(400).json({ message: 'Invalid dateOfBirth' });
     }
 
     const [staff, created] = await StaffDetails.findOrCreate({
@@ -178,20 +110,15 @@ export const updateStaffDetails = async (req, res) => {
       defaults: {
         ...otherFields,
         Userid: userId,
-        firstName: otherFields.firstName || user.userName || user.username || 'Staff',
+        firstName: otherFields.firstName || user.username,
         lastName: otherFields.lastName || '.',
         gender: otherFields.gender || 'Other',
-        dateOfBirth: dob || '2000-01-01',
-        departmentId: user.departmentId || 1,
-        designationId: 1, // Seeded 'Assistant Professor'
-        dateOfJoining: otherFields.dateOfJoining || today,
-        personalEmail: otherFields.personalEmail || user.userMail || user.email || 'staff@example.com',
-        mobileNumber: otherFields.mobileNumber || '9876543210',
-        currentAddressLine1: otherFields.currentAddressLine1 || 'Default Address',
-        currentCity: otherFields.currentCity || 'Chennai',
-        currentState: otherFields.currentState || 'Tamil Nadu',
-        currentPincode: otherFields.currentPincode || '600000',
-        currentCountry: 'India'
+        dateOfBirth: otherFields.dateOfBirth || new Date().toISOString().split('T')[0],
+        departmentId: user.departmentId || 1, // Fallback to a default dept if unknown
+        designationId: 1, // Fallback to a default designation
+        dateOfJoining: new Date().toISOString().split('T')[0],
+        personalEmail: email || user.email,
+        mobileNumber: mobile_number || '0000000000'
       },
       transaction
     });
@@ -201,53 +128,40 @@ export const updateStaffDetails = async (req, res) => {
     }
     await user.update({ username: full_name || user.username, email: email || user.email }, { transaction });
 
-    // TODO: BankDetails/RelationDetails models missing - skipped
-    // Once models created, uncomment and import:
-    /*
-    try {
-      const bankDetailsData = req.body.staffUser?.bankDetails || req.body.bankDetails;
-      if (bankDetailsData) {
-        // update logic
+    // Bank Details
+    const bankDetails = req.body.staffUser?.bankDetails || req.body.bankDetails;
+    if (bankDetails) {
+      const [bank, created] = await BankDetails.findOrCreate({
+        where: { Userid: userId },
+        defaults: { ...bankDetails, Userid: userId },
+        transaction
+      });
+      if (!created) {
+        await bank.update(bankDetails, { transaction });
       }
-    } catch (optErr) {
-      console.warn('Optional BankDetails update skipped:', optErr.message);
     }
 
-    try {
-      if (relations && relations.length > 0) {
-        // relation logic
+    // Relation Details
+    if (relations && relations.length > 0) {
+      for (const rel of relations) {
+        if (rel.relationship) {
+          const [relation, created] = await RelationDetails.findOrCreate({
+            where: { Userid: userId, relationship: rel.relationship },
+            defaults: { ...rel, Userid: userId },
+            transaction
+          });
+          if (!created) {
+            await relation.update(rel, { transaction });
+          }
+        }
       }
-    } catch (optErr) {
-      console.warn('Optional RelationDetails update skipped:', optErr.message);
     }
-    */
 
     await transaction.commit();
     res.status(200).json({ message: "Updated successfully" });
   } catch (error) {
-    await transaction.rollback();
-    console.error("❌ Detailed error in updateStaffDetails:", {
-      code: error.code || error.original?.code,
-      message: error.message,
-      userId,
-      name: error.name
-    });
-
-    // Specific error handling
-    if (error.name === 'SequelizeUniqueIntegrityConstraintError') {
-      return res.status(409).json({ message: 'Profile already exists with different unique fields' });
-    }
-    if (error.name === 'SequelizeForeignKeyConstraintError' || error.code === 'ER_NO_REFERENCED_ROW_2') {
-      return res.status(400).json({ message: 'Invalid departmentId or designationId reference. Contact admin.' });
-    }
-    if (error.name === 'SequelizeValidationError') {
-      return res.status(400).json({ message: 'Validation error: ' + error.errors[0].message });
-    }
-
-    res.status(500).json({ 
-      message: "Update failed", 
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Server error',
-      code: error.code
-    });
+    if (transaction) await transaction.rollback();
+    console.error("❌ Error updating staff details:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

@@ -9,11 +9,10 @@ const StaffCertificationCourse = sequelize.define(
             primaryKey: true,
             autoIncrement: true,
         },
-Userid: {
+        Userid: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            field: 'userid',
-            references: { model: 'users', key: 'userId' },
+            references: { model: 'users', key: 'Userid' },
             onDelete: 'CASCADE',
         },
         course_name: {

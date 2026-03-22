@@ -1,21 +1,17 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "/api",
+  baseURL: "http://localhost:4000/api", // Ensure this matches your backend port (4000)
   withCredentials: true,
 });
 
 // Request Logger
 API.interceptors.request.use((config) => {
-  console.log(
-    `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
-    config.data || ""
-  );
+  console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || "");
   return config;
 });
 
 let refreshPromise = null;
-
 const isAuthPath = (url = "") =>
   url.includes("/auth/login") ||
   url.includes("/auth/google-login") ||
@@ -27,27 +23,15 @@ const isAuthPath = (url = "") =>
 
 API.interceptors.response.use(
   (response) => {
-    console.log(
-      `✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
-      response.status
-    );
+    console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
     return response;
   },
   async (error) => {
-    console.error(
-      `❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
-      error.message,
-      error.response?.data
-    );
-
+    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.message, error.response?.data);
     const originalRequest = error.config || {};
     const status = error.response?.status;
 
-    if (
-      status !== 401 ||
-      originalRequest._retry ||
-      isAuthPath(originalRequest.url || "")
-    ) {
+    if (status !== 401 || originalRequest._retry || isAuthPath(originalRequest.url || "")) {
       return Promise.reject(error);
     }
 
@@ -55,13 +39,11 @@ API.interceptors.response.use(
 
     const pathname = window.location.pathname;
 
-    const isPlacement = pathname.startsWith("/placement");
-    const isRecords = pathname.startsWith("/records");
-    const isAcadamic =
-      pathname.startsWith("/admin") ||
-      pathname.startsWith("/staff") ||
-      pathname.startsWith("/student");
+    const isPlacement = pathname.startsWith('/placement');
+    const isRecords = pathname.startsWith('/records');
+    const isAcadamic = pathname.startsWith('/admin') || pathname.startsWith('/staff') || pathname.startsWith('/student');
 
+    // Public paths where automatic refresh/redirect is NOT desired
     const isPublicPath =
       pathname === "/" ||
       pathname === "/placement" ||
@@ -83,11 +65,11 @@ API.interceptors.response.use(
           refreshPromise = null;
         });
       }
-
       await refreshPromise;
       return API(originalRequest);
     } catch (refreshError) {
       if (!isPublicPath) {
+        // Redirect to the appropriate login page based on current system
         if (isPlacement) {
           window.location.href = "/placement/login";
         } else if (isRecords) {
@@ -96,7 +78,6 @@ API.interceptors.response.use(
           window.location.href = "/records/login";
         }
       }
-
       return Promise.reject(refreshError);
     }
   }

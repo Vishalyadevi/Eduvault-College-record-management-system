@@ -36,7 +36,7 @@ export const deletePersonalInfoEntry = (id) => api.delete(`/personal-info/${id}`
 // Education services
 export const getEducationEntries = async () => {
   try {
-    const response = await api.get('/staff/education/');
+    const response = await api.get('/education');
     return response.data;
   } catch (error) {
     console.error('Error fetching education entries:', error);
@@ -46,7 +46,7 @@ export const getEducationEntries = async () => {
 
 export const getEducationEntry = async (id) => {
   try {
-    const response = await api.get(`/staff/education/${id}`);
+    const response = await api.get(`/education/${id}`);
     return { data: response.data };
   } catch (error) {
     console.error('Error fetching education entry:', error);
@@ -56,7 +56,7 @@ export const getEducationEntry = async (id) => {
 
 export const createEducationEntry = async (data) => {
   try {
-    const response = await api.post('/staff/education/', data);
+    const response = await api.post('/education', data);
     return response.data;
   } catch (error) {
     console.error('Error creating education entry:', error);
@@ -66,7 +66,7 @@ export const createEducationEntry = async (data) => {
 
 export const updateEducationEntry = async (id, data) => {
   try {
-    const response = await api.put(`/staff/education/${id}`, data);
+    const response = await api.put(`/education/${id}`, data);
     return response.data;
   } catch (error) {
     console.error('Error updating education entry:', error);
@@ -76,7 +76,7 @@ export const updateEducationEntry = async (id, data) => {
 
 export const deleteEducationEntry = async (id) => {
   try {
-    const response = await api.delete(`/staff/education/${id}`);
+    const response = await api.delete(`/education/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error deleting education entry:', error);

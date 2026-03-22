@@ -10,8 +10,7 @@ const IndustryKnowhow = sequelize.define('IndustryKnowhow', {
     Userid: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        field: 'userid',
-        references: { model: 'users', key: 'userId' },
+        references: { model: 'users', key: 'Userid' },
         onDelete: 'CASCADE',
     },
     internship_name: {

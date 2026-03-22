@@ -47,20 +47,12 @@ app.use((req, res, next) => {
 });
 
 // CORS (moved early)
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  ...(process.env.FRONTEND_URL ? (process.env.FRONTEND_URL.split(',') || []).map(o => o.trim()) : [])
-].filter(Boolean);
-
+const allowedOrigins = [process.env.FRONTEND_URL || 'http://localhost:5173'];
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow all origins in development for easier testing
-    if (process.env.NODE_ENV === 'development' || !origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -80,7 +72,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'"],
       scriptSrc: ["'self'"],
-connectSrc: ["'self'", ...(process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim())],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:4000'],
       imgSrc: ["'self'", 'data:']
     }
   }
@@ -118,11 +110,11 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/google-login', authLimiter);
 
-// Routes (apply limiter only where needed; remove from bulk routes if batching)
-import authRoutes from './routes/authRoutes.js';
+app.use(csrfProtection);
 
-// Mount auth routes - FIXED
-app.use('/api/auth', authRoutes);
+// Routes (apply limiter only where needed; remove from bulk routes if batching)
+// NOTE: Auth limiter commented out above, so removed from here
+// app.use('/api/auth', sanitizeInput, authRoutes);
 app.use('/api/companies', sanitizeInput, companyRoutes);
 app.use('/api/roles', sanitizeInput, roleRoutes);
 app.use('/api/users', sanitizeInput, userRoutes);
@@ -151,16 +143,6 @@ app.get('/api/health', (req, res) => {
 
 // Error handling
 app.use((err, req, res, next) => {
-  // Enhanced logging for auth errors
-  if (req.path.includes('/auth')) {
-    console.error(`AUTH ERROR [${req.method}] ${req.path}:`, {
-      body: req.body,
-      ip: req.ip,
-      error: err.message,
-      stack: err.stack
-    });
-  }
-  
   res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, CSRF-Token');

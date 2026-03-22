@@ -10,13 +10,12 @@ const FundedProject = sequelize.define(
       primaryKey: true,
     },
     // FK to users.Userid (capital U — matches DB convention for staff models)
-Userid: {
+    Userid: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'userid',
       references: {
         model: 'users',
-        key: 'userId',
+        key: 'Userid',
       },
     },
     pi_name: {
