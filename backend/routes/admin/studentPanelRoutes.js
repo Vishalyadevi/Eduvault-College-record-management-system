@@ -247,7 +247,7 @@ router.get('/student-admin-panel/departments', requireAuth, async (req, res) => 
 
     query += ' ORDER BY departmentName';
 
-    const [departments] = await sequelize.query(query, {
+    const departments = await sequelize.query(query, {
       replacements: params,
       type: sequelize.QueryTypes.SELECT
     });
@@ -302,7 +302,7 @@ router.get('/student-admin-panel/students-with-activities', requireAuth, async (
 
     query += ' ORDER BY u.userName';
 
-    const [students] = await sequelize.query(query, {
+    const students = await sequelize.query(query, {
       replacements: params,
       type: sequelize.QueryTypes.SELECT
     });
@@ -390,7 +390,7 @@ router.get('/student-admin-panel/activity-data/:tableName', requireAuth, async (
       query += ` ORDER BY ${activityMapping.alias}.${activityMapping.useridField} DESC`;
     }
 
-    const [rows] = await sequelize.query(query, {
+    const rows = await sequelize.query(query, {
       replacements: queryParams,
       type: sequelize.QueryTypes.SELECT
     });
@@ -436,6 +436,126 @@ router.get('/student-admin-panel/activity-fields/:activityName', requireAuth, as
   } catch (error) {
     console.error('Error fetching activity fields:', error);
     res.status(500).json({ error: 'Failed to fetch activity fields' });
+  }
+});
+
+// Get student detail fields for a specific category (personal, family, bank)
+router.get('/student-admin-panel/student-detail-fields/:category', requireAuth, async (req, res) => {
+  try {
+    const { category } = req.params;
+    const mapping = detailCategoryMappings[category];
+
+    if (!mapping) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+
+    res.json(mapping.columns);
+  } catch (error) {
+    console.error('Error fetching student detail fields:', error);
+    res.status(500).json({ error: 'Failed to fetch student detail fields' });
+  }
+});
+
+// Detail category mappings for student list
+const detailCategoryMappings = {
+  personal: {
+    table: 'personal_information',
+    alias: 'pi',
+    joinKey: 'user_id',  // personal_information uses user_id
+    columns: ['full_name', 'date_of_birth', 'age', 'gender', 'email', 'mobile_number', 'communication_address', 'permanent_address', 'religion', 'community', 'caste'],
+    joinQuery: `
+      SELECT u.userId as Userid, u.userName as username, u.userNumber as registerNumber, d.departmentAcr as department,
+             pi.full_name, pi.date_of_birth, pi.age, pi.gender, pi.email as personal_email, pi.mobile_number,
+             pi.communication_address, pi.permanent_address, pi.religion, pi.community, pi.caste
+      FROM users u
+      LEFT JOIN personal_information pi ON u.userId = pi.user_id
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
+      JOIN roles r ON u.roleId = r.roleId
+      WHERE r.roleName = 'Student'
+    `
+  },
+  family: {
+    table: 'relation_details',
+    alias: 'rd',
+    joinKey: 'Userid',
+    columns: ['relationship', 'relation_name', 'relation_income', 'relation_age', 'relation_occupation', 'relation_qualification', 'relation_email', 'relation_phone'],
+    joinQuery: `
+      SELECT u.userId as Userid, u.userName as username, u.userNumber as registerNumber, d.departmentAcr as department,
+             rd.relationship, rd.relation_name, rd.relation_income, rd.relation_age, rd.relation_occupation,
+             rd.relation_qualification, rd.relation_email, rd.relation_phone
+      FROM users u
+      LEFT JOIN relation_details rd ON u.userId = rd.Userid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
+      JOIN roles r ON u.roleId = r.roleId
+      WHERE r.roleName = 'Student'
+    `
+  },
+  bank: {
+    table: 'bank_details',
+    alias: 'bd',
+    joinKey: 'Userid',
+    columns: ['bank_name', 'branch_name', 'address', 'account_type', 'account_no', 'ifsc_code', 'micr_code'],
+    joinQuery: `
+      SELECT u.userId as Userid, u.userName as username, u.userNumber as registerNumber, d.departmentAcr as department,
+             bd.bank_name, bd.branch_name, bd.address as bank_address, bd.account_type, bd.account_no, bd.ifsc_code, bd.micr_code
+      FROM users u
+      LEFT JOIN bank_details bd ON u.userId = bd.Userid
+      LEFT JOIN departments d ON u.departmentId = d.departmentId
+      JOIN roles r ON u.roleId = r.roleId
+      WHERE r.roleName = 'Student'
+    `
+  }
+};
+
+// Get student details by category (personal, family, bank)
+router.get('/student-admin-panel/student-details/:category', requireAuth, async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { fields } = req.query; // Optional fields query param
+    const mapping = detailCategoryMappings[category];
+
+    if (!mapping) {
+      return res.status(400).json({ error: 'Invalid category. Use: personal, family, or bank' });
+    }
+
+    const { roleName, departmentId } = req.user;
+    let query = mapping.joinQuery.trim();
+    const params = [];
+
+    // Role-based department filtering
+    const isGlobalAdmin = roleName === 'SuperAdmin' || roleName === 'Admin';
+    if (!isGlobalAdmin) {
+      if (departmentId) {
+        query += ' AND u.departmentId = ?';
+        params.push(departmentId);
+      } else {
+        return res.json({ data: [], columns: [] });
+      }
+    }
+
+    query += ' ORDER BY u.userName';
+
+    const rows = await sequelize.query(query, {
+      replacements: params,
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    // If specific fields are requested, only return those + basic info
+    let selectedColumns = mapping.columns;
+    if (fields) {
+      const requestedFields = fields.split(',');
+      selectedColumns = mapping.columns.filter(col => requestedFields.includes(col));
+    }
+
+    const baseColumns = ['username', 'registerNumber', 'department', ...selectedColumns];
+
+    res.json({
+      data: rows || [],
+      columns: baseColumns
+    });
+  } catch (error) {
+    console.error('Error fetching student details by category:', error);
+    res.status(500).json({ error: 'Failed to fetch student details', details: error.message });
   }
 });
 

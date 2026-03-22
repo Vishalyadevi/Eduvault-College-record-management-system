@@ -134,7 +134,11 @@ const StudentDashboard = () => {
 
   const studentName = studentData?.studentUser?.username || user?.username || 'Student';
   const rollNumber = studentData?.registerNumber || 'N/A';
-  const department = studentData?.Department?.departmentName || 'N/A';
+  const department = studentData?.department?.departmentName 
+    || studentData?.Department?.departmentName 
+    || studentData?.department?.departmentAcr 
+    || studentData?.department?.Deptacronym 
+    || 'N/A';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-indigo-100" style={{ padding: '1rem', fontFamily: 'Inter, sans-serif' }}>
