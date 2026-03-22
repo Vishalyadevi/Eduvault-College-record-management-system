@@ -52,4 +52,8 @@ router.get('/tutor-allocation/staff', authenticate, isAdmin, getStaffForTutorAll
 router.get('/tutor-allocation/students', authenticate, isAdmin, getStudentsForTutorAllocation);
 router.post('/tutor-allocation/assign', authenticate, isAdmin, assignStudentsToTutor);
 
-export default router;
+import { getPlacementStats } from '../controllers/admin/dashboardController.js';
+
+router.get('/dashboard-stats', authenticate, isAdmin, getPlacementStats);
+
+export default router;

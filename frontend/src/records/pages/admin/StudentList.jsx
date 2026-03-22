@@ -162,7 +162,7 @@ function StudentList() {
 
       const departmentMatch = searchDepartment
         ? departments
-          .find((dept) => dept.departmentId === student.departmentId)
+          .find((dept) => (dept.departmentId || dept.Deptid) === (student.departmentId || student.Deptid))
           ?.departmentAcr?.toLowerCase()
           .includes(searchDepartment.toLowerCase())
         : true;
@@ -219,12 +219,14 @@ function StudentList() {
 
       let exportData = dataToExport;
       if (!detailCategory) {
-        exportData = dataToExport.map(student => ({
-          ...student,
-          department: departments.find(dept => dept.departmentId === student.departmentId)?.departmentAcr 
-                      || departments.find(dept => dept.departmentId === student.departmentId)?.Deptacronym 
-                      || 'N/A'
-        }));
+        exportData = dataToExport.map(student => {
+          const deptId = student.departmentId || student.Deptid;
+          const deptObj = Array.isArray(departments) ? departments.find(dept => (dept.departmentId || dept.Deptid) === deptId) : null;
+          return {
+            ...student,
+            department: student.department?.departmentAcr || deptObj?.departmentAcr || deptObj?.Deptacronym || 'N/A'
+          };
+        });
       }
 
       const exportPayload = {
@@ -403,11 +405,12 @@ function StudentList() {
             const image = `${backendUrl}${student.image}` || `${backendUrl}/uploads/default.jpg`;
             const tutorName = student.tutorName || "No tutor";
 
-            const department = Array.isArray(departments)
-              ? departments.find((dept) => dept.departmentId === student.departmentId)?.departmentAcr
-                || departments.find((dept) => dept.departmentId === student.departmentId)?.Deptacronym
+            const deptId = student.departmentId || student.Deptid;
+            const department = student.department?.departmentAcr || (Array.isArray(departments)
+              ? departments.find((dept) => (dept.departmentId || dept.Deptid) === deptId)?.departmentAcr
+                || departments.find((dept) => (dept.departmentId || dept.Deptid) === deptId)?.Deptacronym
                 || "N/A"
-              : "N/A";
+              : "N/A");
 
             return (
               <tr key={index} className="hover:bg-gray-50 transition-colors">
@@ -654,9 +657,11 @@ function StudentList() {
                 <p className="text-gray-600">Reg No: {selectedStudent.registerNumber || "No Reg No"}</p>
                 <p className="text-gray-600">Batch: {selectedStudent.batch || "No batch"}</p>
                 <p className="text-gray-600">Department: {
-                  departments.find((dept) => dept.departmentId === selectedStudent.departmentId)?.departmentAcr
-                  || departments.find((dept) => dept.departmentId === selectedStudent.departmentId)?.Deptacronym
-                  || "N/A"
+                  (() => {
+                    const deptId = selectedStudent.departmentId || selectedStudent.Deptid;
+                    const deptObj = Array.isArray(departments) ? departments.find((dept) => (dept.departmentId || dept.Deptid) === deptId) : null;
+                    return selectedStudent.department?.departmentAcr || deptObj?.departmentAcr || deptObj?.Deptacronym || "N/A";
+                  })()
                 }</p>
                 <p className="text-gray-600">Tutor: {selectedStudent.tutorName || "No tutor assigned"}</p>
                 <p className="text-gray-600 mt-4">More details coming soon...</p>

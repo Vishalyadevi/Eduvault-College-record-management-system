@@ -32,7 +32,7 @@ export const StudentProvider = ({ children }) => {
       // Extract data safely
       let allStudents = Array.isArray(studentsRes.data)
         ? studentsRes.data
-        : studentsRes.data.students || [];
+        : studentsRes.data.data || studentsRes.data.students || [];
 
       let allStaff = Array.isArray(staffRes.data)
         ? staffRes.data

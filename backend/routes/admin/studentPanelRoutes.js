@@ -462,12 +462,23 @@ const detailCategoryMappings = {
     table: 'personal_information',
     alias: 'pi',
     joinKey: 'user_id',  // personal_information uses user_id
-    columns: ['full_name', 'date_of_birth', 'age', 'gender', 'email', 'mobile_number', 'communication_address', 'permanent_address', 'religion', 'community', 'caste'],
+    columns: [
+      'full_name', 'email', 'mobile_number', 'batch', 'semester', 'blood_group', 
+      'aadhar_card_no', 'student_type', 'mother_tongue', 'religion', 'community', 
+      'gender', 'seat_type', 'section', 'pincode', 'personal_phone', 'parents_phone', 
+      'admission_quota', 'nationality', 'present_address', 'permanent_address', 'umis_number'
+    ],
     joinQuery: `
       SELECT u.userId as Userid, u.userName as username, u.userNumber as registerNumber, d.departmentAcr as department,
-             pi.full_name, pi.date_of_birth, pi.age, pi.gender, pi.email as personal_email, pi.mobile_number,
-             pi.communication_address, pi.permanent_address, pi.religion, pi.community, pi.caste
+             COALESCE(sd.studentName, pi.full_name, u.userName) as full_name, 
+             COALESCE(sd.personal_email, pi.email, u.userMail) as email, 
+             COALESCE(sd.personal_phone, pi.mobile_number) as mobile_number,
+             sd.batch, sd.semester, sd.blood_group, sd.aadhar_card_no, sd.student_type, 
+             sd.mother_tongue, sd.religion, sd.community, sd.gender, sd.seat_type, 
+             sd.section, sd.pincode, sd.personal_phone, sd.parents_phone, 
+             sd.admission_quota, sd.nationality, sd.present_address, sd.permanent_address, sd.umis_number
       FROM users u
+      LEFT JOIN student_details sd ON u.userId = sd.Userid
       LEFT JOIN personal_information pi ON u.userId = pi.user_id
       LEFT JOIN departments d ON u.departmentId = d.departmentId
       JOIN roles r ON u.roleId = r.roleId
@@ -497,7 +508,7 @@ const detailCategoryMappings = {
     columns: ['bank_name', 'branch_name', 'address', 'account_type', 'account_no', 'ifsc_code', 'micr_code'],
     joinQuery: `
       SELECT u.userId as Userid, u.userName as username, u.userNumber as registerNumber, d.departmentAcr as department,
-             bd.bank_name, bd.branch_name, bd.address as bank_address, bd.account_type, bd.account_no, bd.ifsc_code, bd.micr_code
+             bd.bank_name, bd.branch_name, bd.address as address, bd.account_type, bd.account_no, bd.ifsc_code, bd.micr_code
       FROM users u
       LEFT JOIN bank_details bd ON u.userId = bd.Userid
       LEFT JOIN departments d ON u.departmentId = d.departmentId

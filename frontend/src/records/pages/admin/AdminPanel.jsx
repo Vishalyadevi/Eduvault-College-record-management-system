@@ -13,7 +13,9 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaBuilding,
+  FaBriefcase,
 } from "react-icons/fa";
+import API from "../../../api";
 import { useUser } from "../../contexts/UserContext";
 import { useStaff } from "../../contexts/StaffContext";
 import { useStudent } from "../../contexts/StudentContext";
@@ -27,8 +29,8 @@ const AdminPanel = () => {
   const {
     bulkHistory = [],
     uploadHistory = [],
-    fetchBulkHistory = async () => {},
-    fetchUploadHistory = async () => {},
+    fetchBulkHistory = async () => { },
+    fetchUploadHistory = async () => { },
     user = null, // Get current user to check deptId
   } = userContext;
 
@@ -48,6 +50,8 @@ const AdminPanel = () => {
   const [expandedUploadId, setExpandedUploadId] = useState(null);
   const [expandedDownloadId, setExpandedDownloadId] = useState(null);
   const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
+  const [placementStats, setPlacementStats] = useState({ totalPlaced: 0 });
+  const [loadingStats, setLoadingStats] = useState(false);
   const itemsPerPage = 3;
 
   // Check if user is super admin (departmentId is null)
@@ -79,17 +83,28 @@ const AdminPanel = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        await fetchBulkHistory();
-        await fetchUploadHistory();
+        setLoadingStats(true);
+        await Promise.all([
+          fetchBulkHistory(),
+          fetchUploadHistory(),
+        ]);
+
+        const statsRes = await API.get("/admin/dashboard-stats");
+        if (statsRes.data?.success) {
+          setPlacementStats(statsRes.data);
+        }
+
         setLastUpdated(new Date());
       } catch (err) {
         setError("Failed to fetch data. Please try again later.");
         console.error(err);
+      } finally {
+        setLoadingStats(false);
       }
     };
 
     fetchData();
-  }, [fetchBulkHistory, fetchUploadHistory]);
+  }, []);
 
   // Filter data based on admin role
   const filteredStaffs = useMemo(() => {
@@ -196,11 +211,11 @@ const AdminPanel = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <FaChartLine className="mr-3 text-yellow-300" /> 
+              <FaChartLine className="mr-3 text-yellow-300" />
               {isSuperAdmin ? "Super Admin Dashboard" : "Department Admin Dashboard"}
             </h1>
             <p className="text-gray-100 flex items-center">
-              <FaClipboardList className="mr-2 text-yellow-300" /> 
+              <FaClipboardList className="mr-2 text-yellow-300" />
               {isSuperAdmin ? "Manage all departments and track activities" : `Manage ${availableDepartments[0] || "your department"}`}
             </p>
           </div>
@@ -275,6 +290,24 @@ const AdminPanel = () => {
           </div>
         </motion.div>
 
+        {/* Total Placements Card */}
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="bg-gradient-to-r from-blue-400 to-blue-600 p-6 rounded-lg shadow-lg text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">{isSuperAdmin ? "Total Placements" : "Dept. Placements"}</h2>
+              <p className="text-3xl font-semibold">{loadingStats ? "..." : placementStats.totalPlaced}</p>
+            </div>
+            <FaBriefcase className="text-4xl opacity-80" />
+          </div>
+          <div className="mt-4 text-sm opacity-90">
+            Students successfully placed
+          </div>
+        </motion.div>
+
         {/* Recent Downloads Card */}
         <motion.div
           whileHover={{ scale: 1.05 }}
@@ -297,7 +330,7 @@ const AdminPanel = () => {
         className="bg-white p-6 rounded-lg shadow-lg mb-8"
       >
         <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUsers className="mr-3 text-indigo-600" /> 
+          <FaUsers className="mr-3 text-indigo-600" />
           {isSuperAdmin ? "Total Staff in Each Department" : `Staff in ${availableDepartments[0] || "Department"}`}
         </h2>
         <ResponsiveContainer width="100%" height={400}>
@@ -331,7 +364,7 @@ const AdminPanel = () => {
         className="bg-white p-6 rounded-lg shadow-lg mb-8"
       >
         <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUserGraduate className="mr-3 text-indigo-600" /> 
+          <FaUserGraduate className="mr-3 text-indigo-600" />
           Batch-wise Students in {availableDepartments[currentDeptIndex] || "Department"}
         </h2>
         {isSuperAdmin && availableDepartments.length > 1 && (
