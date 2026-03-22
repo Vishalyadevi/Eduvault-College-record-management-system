@@ -17,12 +17,57 @@ import {
     Trophy,
     Presentation,
     DollarSign,
-    Microscope
+    Microscope,
+    X
 } from "lucide-react";
 import config from "../../../config";
 
-const StaffBioData = () => {
-    const { userId } = useParams();
+import { useAuth } from "../auth/AuthContext";
+
+const CollapsibleSection = ({ title, icon: Icon, children, sectionKey, count = 0, isOpen, onToggle }) => (
+    <div className="bg-white rounded-lg shadow-md mb-4 overflow-hidden">
+        <button
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                onToggle(sectionKey);
+            }}
+            className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-50 hover:from-indigo-100 hover:to-indigo-100 transition-all duration-200"
+        >
+            <div className="flex items-center gap-3">
+                <Icon className="w-6 h-6 text-indigo-600" />
+                <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+                <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    {count}
+                </span>
+            </div>
+            {isOpen ? (
+                <ChevronUp className="w-5 h-5 text-gray-600" />
+            ) : (
+                <ChevronDown className="w-5 h-5 text-gray-600" />
+            )}
+        </button>
+
+        {isOpen && (
+            <div className="max-h-96 overflow-y-auto border-t border-gray-200">
+                <div className="p-6">
+                    {children}
+                </div>
+            </div>
+        )}
+    </div>
+);
+
+const StaffBioData = ({ userId: propUserId }) => {
+    const { userId: urlUserId } = useParams();
+    const { user: authUser } = useAuth();
+    
+    // Explicitly determine which userId to use: 
+    // 1. passed prop (highest priority)
+    // 2. URL parameter
+    // 3. Current authenticated user (lowest priority - for self view)
+    const userId = propUserId || urlUserId || authUser?.userId || authUser?.id;
+
     const [user, setUser] = useState({
         username: "",
         email: "",
@@ -31,7 +76,7 @@ const StaffBioData = () => {
     });
     const [personalInfo, setPersonalInfo] = useState(null);
     const [education, setEducation] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // Activity states
@@ -163,37 +208,9 @@ const StaffBioData = () => {
         };
 
         fetchData();
-    }, [userId, navigate, backendUrl]);
+    }, [userId, navigate, backendUrl, authUser]);
 
-    const CollapsibleSection = ({ title, icon: Icon, children, sectionKey, count = 0 }) => (
-        <div className="bg-white rounded-lg shadow-md mb-4 overflow-hidden">
-            <button
-                onClick={() => toggleSection(sectionKey)}
-                className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-50 hover:from-indigo-100 hover:to-indigo-100 transition-all duration-200"
-            >
-                <div className="flex items-center gap-3">
-                    <Icon className="w-6 h-6 text-indigo-600" />
-                    <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-                    <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                        {count}
-                    </span>
-                </div>
-                {openSections[sectionKey] ? (
-                    <ChevronUp className="w-5 h-5 text-gray-600" />
-                ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-600" />
-                )}
-            </button>
 
-            {openSections[sectionKey] && (
-                <div className="max-h-96 overflow-y-auto border-t border-gray-200">
-                    <div className="p-6">
-                        {children}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
 
     return (
         <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
@@ -201,7 +218,28 @@ const StaffBioData = () => {
                 Staff BioData
             </h2>
 
-            {/* User Details */}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center p-20 bg-white rounded-lg shadow-md">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                    <p className="text-gray-500 font-medium">Loading staff profile...</p>
+                </div>
+            ) : error ? (
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-md">
+                    <div className="flex items-center space-x-3 mb-2">
+                        <X className="text-red-500" />
+                        <h3 className="text-lg font-bold text-red-700">Error Loading Data</h3>
+                    </div>
+                    <p className="text-red-600">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
+                    >
+                        Retry
+                    </button>
+                </div>
+            ) : (
+                <>
+
             <div className="bg-white p-6 rounded-lg shadow-md mb-6">
                 <div className="relative w-32 h-32 mx-auto mb-6">
                     <img
@@ -306,12 +344,7 @@ const StaffBioData = () => {
 
             {/* H-Index */}
             {hIndex && (
-                <CollapsibleSection
-                    title="H-Index & Citations"
-                    icon={TrendingUp}
-                    sectionKey="hindex"
-                    count={1}
-                >
+                <CollapsibleSection title="H-Index & Citations" icon={TrendingUp} sectionKey="hindex" count={1} isOpen={openSections["hindex"]} onToggle={toggleSection}>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="bg-indigo-50 p-4 rounded-lg text-center">
                             <p className="text-2xl font-bold text-indigo-600">{hIndex.h_index}</p>
@@ -338,12 +371,7 @@ const StaffBioData = () => {
             )}
 
             {/* Publications */}
-            <CollapsibleSection
-                title="Publications"
-                icon={BookOpen}
-                sectionKey="publications"
-                count={publications.length}
-            >
+            <CollapsibleSection title="Publications" icon={BookOpen} sectionKey="publications" count={publications.length} isOpen={openSections["publications"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -373,12 +401,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Events Attended */}
-            <CollapsibleSection
-                title="Events Attended"
-                icon={Users}
-                sectionKey="eventsAttended"
-                count={eventsAttended.length}
-            >
+            <CollapsibleSection title="Events Attended" icon={Users} sectionKey="eventsAttended" count={eventsAttended.length} isOpen={openSections["eventsAttended"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -406,12 +429,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Events Organized */}
-            <CollapsibleSection
-                title="Events Organized"
-                icon={Presentation}
-                sectionKey="eventsOrganized"
-                count={eventsOrganized.length}
-            >
+            <CollapsibleSection title="Events Organized" icon={Presentation} sectionKey="eventsOrganized" count={eventsOrganized.length} isOpen={openSections["eventsOrganized"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -439,12 +457,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Certification Courses */}
-            <CollapsibleSection
-                title="Certification Courses"
-                icon={Award}
-                sectionKey="certCourses"
-                count={certificationCourses.length}
-            >
+            <CollapsibleSection title="Certification Courses" icon={Award} sectionKey="certCourses" count={certificationCourses.length} isOpen={openSections["certCourses"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -472,12 +485,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Industry Knowhow */}
-            <CollapsibleSection
-                title="Industry Knowhow / Internships"
-                icon={Briefcase}
-                sectionKey="industryKnowhow"
-                count={industryKnowhow.length}
-            >
+            <CollapsibleSection title="Industry Knowhow / Internships" icon={Briefcase} sectionKey="industryKnowhow" count={industryKnowhow.length} isOpen={openSections["industryKnowhow"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -505,12 +513,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Consultancy Proposals */}
-            <CollapsibleSection
-                title="Consultancy Proposals"
-                icon={DollarSign}
-                sectionKey="consultancy"
-                count={consultancyProposals.length}
-            >
+            <CollapsibleSection title="Consultancy Proposals" icon={DollarSign} sectionKey="consultancy" count={consultancyProposals.length} isOpen={openSections["consultancy"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -538,12 +541,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Project Proposals */}
-            <CollapsibleSection
-                title="Project Proposals"
-                icon={FileText}
-                sectionKey="projects"
-                count={projectProposals.length}
-            >
+            <CollapsibleSection title="Project Proposals" icon={FileText} sectionKey="projects" count={projectProposals.length} isOpen={openSections["projects"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -571,12 +569,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Scholars */}
-            <CollapsibleSection
-                title="Scholars Guided"
-                icon={GraduationCap}
-                sectionKey="scholars"
-                count={scholars.length}
-            >
+            <CollapsibleSection title="Scholars Guided" icon={GraduationCap} sectionKey="scholars" count={scholars.length} isOpen={openSections["scholars"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -611,12 +604,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Proposals Submitted */}
-            <CollapsibleSection
-                title="Student Proposals Submitted"
-                icon={Target}
-                sectionKey="proposalsSubmitted"
-                count={proposalsSubmitted.length}
-            >
+            <CollapsibleSection title="Student Proposals Submitted" icon={Target} sectionKey="proposalsSubmitted" count={proposalsSubmitted.length} isOpen={openSections["proposalsSubmitted"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -646,12 +634,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Resource Person */}
-            <CollapsibleSection
-                title="Resource Person Activities"
-                icon={Presentation}
-                sectionKey="resourcePerson"
-                count={resourcePerson.length}
-            >
+            <CollapsibleSection title="Resource Person Activities" icon={Presentation} sectionKey="resourcePerson" count={resourcePerson.length} isOpen={openSections["resourcePerson"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -677,12 +660,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Seed Money */}
-            <CollapsibleSection
-                title="Seed Money Projects"
-                icon={DollarSign}
-                sectionKey="seedMoney"
-                count={seedMoney.length}
-            >
+            <CollapsibleSection title="Seed Money Projects" icon={DollarSign} sectionKey="seedMoney" count={seedMoney.length} isOpen={openSections["seedMoney"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -710,12 +688,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Recognition & Appreciation */}
-            <CollapsibleSection
-                title="Recognition & Appreciation"
-                icon={Trophy}
-                sectionKey="recognition"
-                count={recognition.length}
-            >
+            <CollapsibleSection title="Recognition & Appreciation" icon={Trophy} sectionKey="recognition" count={recognition.length} isOpen={openSections["recognition"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -739,12 +712,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Patents */}
-            <CollapsibleSection
-                title="Patents & Products"
-                icon={Lightbulb}
-                sectionKey="patents"
-                count={patents.length}
-            >
+            <CollapsibleSection title="Patents & Products" icon={Lightbulb} sectionKey="patents" count={patents.length} isOpen={openSections["patents"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -772,12 +740,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Project Mentors */}
-            <CollapsibleSection
-                title="Project Mentoring"
-                icon={Users}
-                sectionKey="projectMentors"
-                count={projectMentors.length}
-            >
+            <CollapsibleSection title="Project Mentoring" icon={Users} sectionKey="projectMentors" count={projectMentors.length} isOpen={openSections["projectMentors"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -803,12 +766,7 @@ const StaffBioData = () => {
             </CollapsibleSection>
 
             {/* Sponsored Research */}
-            <CollapsibleSection
-                title="Sponsored Research"
-                icon={Microscope}
-                sectionKey="sponsoredResearch"
-                count={sponsoredResearch.length}
-            >
+            <CollapsibleSection title="Sponsored Research" icon={Microscope} sectionKey="sponsoredResearch" count={sponsoredResearch.length} isOpen={openSections["sponsoredResearch"]} onToggle={toggleSection}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -844,6 +802,8 @@ const StaffBioData = () => {
                     Back to Profile
                 </button>
             </div>
+                </>
+            )}
         </div>
     );
 };

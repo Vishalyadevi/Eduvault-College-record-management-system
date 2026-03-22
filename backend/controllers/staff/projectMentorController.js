@@ -9,9 +9,9 @@ const formatRecord = (row) => {
   return {
     id: r.id,
     Userid: r.Userid,
-    // staffId surfaced from the JOIN with Users table
-    staffId: r.user?.staffId ?? null,
-    staffName: r.user?.username ?? null,
+    // staffId/userNumber surfaced from the JOIN with Users table
+    staffId: r.user?.userNumber ?? null,
+    staffName: r.user?.userName ?? null,
     project_title: r.project_title,
     student_details: r.student_details,
     event_details: r.event_details,
@@ -33,7 +33,7 @@ const getUserInclude = async () => {
   return {
     model: User,
     as: 'user',
-    attributes: ['Userid', 'staffId', 'username'],
+    attributes: ['userId', 'userNumber', 'userName'],
   };
 };
 
@@ -43,12 +43,12 @@ export const getAllProjectMentors = async (req, res) => {
     const include = await getUserInclude();
 
     const records = await ProjectMentor.findAll({
-      include,
       order: [['created_at', 'DESC']],
     });
 
     res.status(200).json(records.map(formatRecord));
   } catch (error) {
+    fs.writeFileSync('pm_error.txt', error.stack || error.toString());
     console.error('Error fetching project mentors:', error);
     res.status(500).json({ message: 'Server error' });
   }

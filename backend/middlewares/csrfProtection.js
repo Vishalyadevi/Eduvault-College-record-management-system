@@ -17,12 +17,16 @@ export const csrfProtection = (req, res, next) => {
   const origin = req.get("origin");
   const referer = req.get("referer");
 
-  if (origin && allowedOrigins.has(origin)) return next();
-  if (referer && [...allowedOrigins].some((o) => referer.startsWith(o))) return next();
+  // Localhost port range check (5173-5179)
+  const isLocalhost = (url) => /^http:\/\/localhost:517[3-9]/.test(url);
+
+  if (origin && (allowedOrigins.has(origin) || isLocalhost(origin))) return next();
+  if (referer && ([...allowedOrigins].some((o) => referer.startsWith(o)) || isLocalhost(referer))) return next();
 
   return res.status(403).json({
     status: "error",
     message: "CSRF validation failed: untrusted origin",
+    origin: origin, // for debugging
   });
 };
 

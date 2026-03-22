@@ -11,7 +11,7 @@ export const getStaffDetails = async (req, res) => {
         {
           model: User,
           as: "staffUser",
-          attributes: ["Userid", "username", "email", "role", "status"],
+          attributes: ["userId", "userName", "userMail", "roleId", "status"],
           include: [
             {
               model: BankDetails,
@@ -110,14 +110,14 @@ export const updateStaffDetails = async (req, res) => {
       defaults: {
         ...otherFields,
         Userid: userId,
-        firstName: otherFields.firstName || user.username,
+        firstName: otherFields.firstName || user.userName,
         lastName: otherFields.lastName || '.',
         gender: otherFields.gender || 'Other',
         dateOfBirth: otherFields.dateOfBirth || new Date().toISOString().split('T')[0],
         departmentId: user.departmentId || 1, // Fallback to a default dept if unknown
         designationId: 1, // Fallback to a default designation
         dateOfJoining: new Date().toISOString().split('T')[0],
-        personalEmail: email || user.email,
+        personalEmail: email || user.userMail,
         mobileNumber: mobile_number || '0000000000'
       },
       transaction
@@ -126,7 +126,7 @@ export const updateStaffDetails = async (req, res) => {
     if (!created) {
       await staff.update(otherFields, { transaction });
     }
-    await user.update({ username: full_name || user.username, email: email || user.email }, { transaction });
+    await user.update({ userName: full_name || user.userName, userMail: email || user.userMail }, { transaction });
 
     // Bank Details
     const bankDetails = req.body.staffUser?.bankDetails || req.body.bankDetails;

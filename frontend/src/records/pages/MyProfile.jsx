@@ -209,10 +209,16 @@ const MyProfile = () => {
 
         <div className="space-y-3">
           <button
+            type="button"
             className={`flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl transition-all w-full font-bold text-white shadow-md transform active:scale-95 ${
               showBioData ? 'bg-gray-800 hover:bg-gray-900' : 'bg-emerald-500 hover:bg-emerald-600'
             }`}
-            onClick={() => setShowBioData(!showBioData)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log("Toggling BioData for userId:", userId, "isStudent:", isStudent);
+              setShowBioData(!showBioData);
+            }}
           >
             <FaUser className="text-white" />
             <span>
@@ -278,9 +284,9 @@ const MyProfile = () => {
       {showBioData && (
         <div className="w-full max-w-6xl animate-scaleIn mt-4 bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
           {isStudent ? (
-              <StudentBioData />
+              <StudentBioData userId={userId} />
           ) : (
-              <StaffBioData />
+              <StaffBioData userId={userId} />
           )}
         </div>
       )}

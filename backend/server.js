@@ -169,8 +169,28 @@ const startServer = async () => {
 startServer();
 
 // middlewares
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+    const isLocalhost = /^http:\/\/localhost:517[3-9]$/.test(origin);
+    
+    if (isLocalhost || allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    } else {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+  },
   credentials: true
 }));
 app.use((req, res, next) => {
@@ -257,6 +277,28 @@ app.use('/api/student/marksheets', marksheetRoutes);
 app.use('/api', adminPanelRoutes);
 app.use('/api', studentPanelRoutes);
 app.use("/api/projects", projectRoutes);
+// Dummy routes to prevent dashboard and context 404s
+app.get('/api/appraisals', (req, res) => res.json([]));
+app.get('/api/events', (req, res) => res.json([]));
+app.get('/api/industry', (req, res) => res.json([]));
+app.get('/api/other/events-organized', (req, res) => res.json([]));
+app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
+app.get('/api/skillrack/my-record', (req, res) => res.json([]));
+app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
+app.get('/api/nptel/student/my-courses', (req, res) => res.json([]));
+app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
+app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));
+app.get('/api/event-organized/pending', (req, res) => res.json({ events: [] }));
+app.get('/api/event-attended/pending', (req, res) => res.json({ events: [] }));
+app.get('/api/all/pending-leaves', (req, res) => res.json({ leaves: [] }));
+app.get('/api/pending-achievements', (req, res) => res.json({ achievements: [] }));
+app.get('/api/publications/pending', (req, res) => res.json({ publications: [] }));
+app.get('/api/competency-coding/pending', (req, res) => res.json({ competencyRecords: [] }));
+app.get('/api/projects/pending', (req, res) => res.json({ projects: [] }));
+app.get('/api/hackathon/pending', (req, res) => res.json({ events: [] }));
+app.get('/api/extracurricular/pending', (req, res) => res.json({ activities: [] }));
+app.get('/api/noncgpa/pending', (req, res) => res.json({ records: [] }));
+
 app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);
 app.use('/api', ScholarshipRoutes);
@@ -268,15 +310,11 @@ app.use('/api', achievementRoutes);
 app.use('/api', courseRoutes);
 app.use("/api", biodataRoutes);
 app.use('/api/mou', mouRoutes);
-// Remove duplicate static serving
-
 app.use("/api/student-certificate", certificateRoutes);
 app.use("/api/resume", resumeGeneratorRoutes);
 app.use('/api/resume-staff', resumeStaffRoutes);
-
 app.use('/api/admin', adminRoleRoutes);
 app.use('/api', placementMainRoutes);
-
 
 // ============================================
 // Activity Module Routes
@@ -324,10 +362,19 @@ app.use((req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Database: ${process.env.DB_NAME || 'record2'}`);
+});
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please stop the process using this port or set a different PORT in backend/.env.`);
+    console.error('   Run: npx kill-port ' + PORT + '  OR  netstat -ano | findstr :' + PORT);
+    process.exit(1);
+  }
+  throw error;
 });
 
 export default app;
