@@ -308,7 +308,7 @@ export const getPendingLeavesForDeptAdmin = async (req, res) => {
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
               where: { departmentId: deptAdminDetails.departmentId },
-              include: [{ model: Department, attributes: ["departmentName"] }]
+              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
             },
           ],
         },
@@ -342,7 +342,7 @@ export const getAllLeavesForDeptAdmin = async (req, res) => {
   try {
     const deptAdminDetails = await StudentDetails.findOne({
       where: { Userid: req.user.userId },
-      include: [{ model: Department, attributes: ["departmentId", "departmentName"] }]
+      include: [{ model: Department, as: 'department', attributes: ["departmentId", "departmentName"] }]
     });
 
     if (!deptAdminDetails || !deptAdminDetails.Department) {
@@ -364,7 +364,7 @@ export const getAllLeavesForDeptAdmin = async (req, res) => {
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
               where: { departmentId: deptAdminDetails.departmentId },
-              include: [{ model: Department, attributes: ["departmentName"] }]
+              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
             },
           ],
         },
@@ -556,7 +556,7 @@ export const getPendingLeaves = async (req, res) => {
               model: StudentDetails,
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
-              include: [{ model: Department, attributes: ["departmentName"] }]
+              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
             },
           ],
         },
@@ -600,7 +600,7 @@ export const getApprovedLeaves = async (req, res) => {
               model: StudentDetails,
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId"],
-              include: [{ model: Department, attributes: ["departmentName"] }]
+              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
             },
           ],
         },
@@ -779,7 +779,7 @@ export const getStudentPendingLeavesWithDetails = async (req, res) => {
               as: "studentDetails",
               attributes: ["registerNumber", "staffId", "departmentId", "tutorEmail"],
               required: false, // Use LEFT JOIN
-              include: [{ model: Department, attributes: ["departmentName"] }]
+              include: [{ model: Department, as: 'department', attributes: ["departmentName"] }]
             },
           ],
         },

@@ -27,7 +27,7 @@ const activityMappings = {
       SELECT s.*, u.username as staff_name, d.Deptacronym as department 
       FROM scholars s 
       JOIN users u ON s.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   Consultancy: {
@@ -49,7 +49,7 @@ const activityMappings = {
       SELECT cp.*, u.username as staff_name, d.Deptacronym as department 
       FROM consultancy_proposals cp 
       JOIN users u ON cp.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Funded Project': {
@@ -71,7 +71,7 @@ const activityMappings = {
       SELECT pp.*, u.username as staff_name, d.Deptacronym as department 
       FROM project_proposals pp 
       JOIN users u ON pp.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Seed Money': {
@@ -82,7 +82,7 @@ const activityMappings = {
       SELECT sm.*, u.username as staff_name, d.Deptacronym as department 
       FROM seed_money sm 
       JOIN users u ON sm.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Events Attended': {
@@ -105,7 +105,7 @@ const activityMappings = {
       SELECT ea.*, u.username as staff_name, d.Deptacronym as department 
       FROM events_attended ea 
       JOIN users u ON ea.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Industry Knowhow': {
@@ -129,7 +129,7 @@ const activityMappings = {
       SELECT ik.*, u.username as staff_name, d.Deptacronym as department 
       FROM industry_knowhow ik 
       JOIN users u ON ik.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Certification Courses': {
@@ -149,7 +149,7 @@ const activityMappings = {
       SELECT cc.*, u.username as staff_name, d.Deptacronym as department 
       FROM staff_certification_courses cc 
       JOIN users u ON cc.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   Publications: {
@@ -174,7 +174,7 @@ const activityMappings = {
       SELECT bc.*, u.username as staff_name, d.Deptacronym as department 
       FROM book_chapters bc 
       JOIN users u ON bc.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Events Organized': {
@@ -199,7 +199,7 @@ const activityMappings = {
       SELECT eo.*, u.username as staff_name, d.Deptacronym as department 
       FROM events_organized eo 
       JOIN users u ON eo.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'H-Index': {
@@ -210,7 +210,7 @@ const activityMappings = {
       SELECT hi.*, u.username as staff_name, d.Deptacronym as department 
       FROM h_index hi 
       JOIN users u ON hi.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Resource Person': {
@@ -221,7 +221,7 @@ const activityMappings = {
       SELECT rp.*, u.username as staff_name, d.Deptacronym as department 
       FROM resource_person rp 
       JOIN users u ON rp.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   Recognition: {
@@ -232,7 +232,7 @@ const activityMappings = {
       SELECT ra.*, u.username as staff_name, d.Deptacronym as department 
       FROM recognition_appreciation ra 
       JOIN users u ON ra.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Patent/Product Development': {
@@ -251,7 +251,7 @@ const activityMappings = {
       SELECT pat.*, u.username as staff_name, d.Deptacronym as department 
       FROM patent_product pat 
       JOIN users u ON pat.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Project Mentors': {
@@ -262,7 +262,7 @@ const activityMappings = {
       SELECT pm.*, u.username as staff_name, d.Deptacronym as department 
       FROM project_mentors pm 
       JOIN users u ON pm.Userid = u.Userid 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   Education: {
@@ -324,7 +324,7 @@ const activityMappings = {
       SELECT e.*, u.username as staff_name, d.Deptacronym as department
       FROM education e
       JOIN users u ON e.Userid = u.Userid
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   'Personal Information': {
@@ -353,7 +353,7 @@ const activityMappings = {
       SELECT pi.*, u.username as staff_name, d.Deptacronym as department
       FROM personal_information pi
       JOIN users u ON pi.Userid = u.Userid
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
     `,
   },
   // MOU mapping for Staff Activities
@@ -361,13 +361,13 @@ const activityMappings = {
     table: 'mou',
     alias: 'm',
     columns: ['id', 'Userid', 'company_name', 'signed_on', 'mou_copy_link', 'created_at', 'updated_at'],
-    joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN department d ON u.Deptid = d.Deptid`
+    joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN departments d ON u.Deptid = d.Deptid`
   }
 };
 
 router.get('/admin-panel/departments', async (req, res) => {
   try {
-    const [departments] = await sequelize.query('SELECT * FROM department ORDER BY Deptname');
+    const [departments] = await sequelize.query('SELECT * FROM departments ORDER BY Deptname');
     res.json(departments);
   } catch (error) {
     console.error('Error fetching departments:', error);
@@ -382,7 +382,7 @@ router.get('/admin-panel/staff-with-activities', async (req, res) => {
     const [staffMembers] = await sequelize.query(`
       SELECT u.Userid, u.username, u.userMail as email, u.userNumber as staffId, u.Deptid, u.image, d.Deptacronym as department
       FROM users u 
-      JOIN department d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.Deptid = d.Deptid
       WHERE u.roleId IS NOT NULL
       ORDER BY u.username
     `);

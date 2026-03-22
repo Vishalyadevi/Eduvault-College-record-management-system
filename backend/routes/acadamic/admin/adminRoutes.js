@@ -103,7 +103,7 @@ import {
 // FIXED IMPORT: Changed 'protect' to 'requireAuth' and added 'authorize'
 import { requireAuth, authorize } from "../../../middlewares/requireauth.js";
 
-const academicAdminRoles = ['AcadamicAdmin', 'acadamicadmin', 'AcademicAdmin', 'academicadmin'];
+const academicAdminRoles = ['AcadamicAdmin', 'acadamicadmin', 'AcademicAdmin', 'academicadmin', 'SuperAdmin', 'superadmin', 'Superadmin'];
 const restrictToAcademicAdmin = authorize(...academicAdminRoles);
 
 import { getStudentEnrollments } from "../../../controllers/acadamic/studentEnrollmentViewController.js";
@@ -149,7 +149,7 @@ router.route("/courses/:courseId").put(requireAuth, restrictToAcademicAdmin, upd
 /* =========================
 📌 Staff-Course Allocation Routes
 ========================= */
-router.get("/users", requireAuth, restrictToAcademicAdmin, getUsers);
+router.get("/staff-users", requireAuth, restrictToAcademicAdmin, getUsers);
 router.post("/courses/:courseId/staff", requireAuth, restrictToAcademicAdmin, allocateStaffToCourse);
 router.post("/staff/:Userid/courses", requireAuth, restrictToAcademicAdmin, allocateCourseToStaff);
 router.put("/staff-courses/:staffCourseId", requireAuth, restrictToAcademicAdmin, updateStaffAllocation);

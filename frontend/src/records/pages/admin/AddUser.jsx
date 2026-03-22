@@ -553,26 +553,6 @@ const UserManagement = () => {
                       <>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tutor <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            name="tutorId"
-                            value={formData.tutorId}
-                            onChange={handleInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            required
-                          >
-                            <option value="">Select Tutor</option>
-                            {staff.map((s) => (
-                              <option key={s.userId} value={s.userId}>
-                                {s.username || s.userName} ({s.userNumber})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Batch
                           </label>
                           <input
