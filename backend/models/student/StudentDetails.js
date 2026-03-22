@@ -194,12 +194,26 @@ const StudentDetails = sequelize.define(
 
     pincode: {
       type: DataTypes.STRING(6),
-      validate: { is: /^[0-9]{6}$/ },
+      allowNull: true,
+      validate: {
+        isValidPincode(val) {
+          if (val && val.trim() !== '' && !/^[0-9]{6}$/.test(val)) {
+            throw new Error('Pincode must be 6 digits');
+          }
+        }
+      }
     },
 
     personal_phone: {
       type: DataTypes.STRING(10),
-      validate: { is: /^[6-9]\d{9}$/ },
+      allowNull: true,
+      validate: {
+        isValidPhone(val) {
+          if (val && val.trim() !== '' && !/^[6-9]\d{9}$/.test(val)) {
+            throw new Error('Phone must be 10 digits starting with 6-9');
+          }
+        }
+      }
     },
 
     pending: {
@@ -213,6 +227,51 @@ const StudentDetails = sequelize.define(
     },
 
     approved_at: DataTypes.DATE,
+
+    parents_phone: {
+      type: DataTypes.STRING(15),
+      allowNull: true,
+    },
+    lateral_entry: {
+      type: DataTypes.ENUM("Yes", "No"),
+      allowNull: true,
+    },
+    admission_quota: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    student_district: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    student_state: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    address: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    sixteen_digit_reg_no: {
+      type: DataTypes.STRING(16),
+      allowNull: true,
+    },
+    nationality: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    present_address: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    permanent_address: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    umis_number: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
 
     messages: DataTypes.JSON,
 

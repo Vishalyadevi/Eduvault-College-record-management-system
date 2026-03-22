@@ -21,7 +21,7 @@ import StudentLeave from "./student/StudentLeave.js";
 import OnlineCourses from "./student/OnlineCourses.js";
 import Achievement from "./student/Achievement.js";
 import Course from "./student/Course.js";
-import Marksheet from "./student/marksheet.js";
+import Marksheet from "./student/Marksheet.js";
 import HackathonEvent from "./student/HackathonEvent.js";
 import Extracurricular from "./student/Extracurricular.js";
 import Project from "./student/Project.js";

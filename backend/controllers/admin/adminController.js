@@ -240,7 +240,7 @@ export const addUser = async (req, res) => {
   }
 
   // Define which roles require department
-  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin"];
+  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin", "SuperAdmin"];
   const rolesWithoutDept = ["IrAdmin", "PgAdmin", "NewgenAdmin", "PlacementAdmin"];
 
   // Validate department requirement
@@ -485,7 +485,15 @@ export const getStaff = async (req, res) => {
 };
 export const getStudentDetails = async (req, res) => {
   try {
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = {};
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
     const students = await StudentDetails.findAll({
+      where: whereClause,
       include: [
         {
           model: User,
@@ -530,8 +538,15 @@ export const getStaffDetails = async (req, res) => {
     const staffRole = await Role.findOne({ where: { roleName: 'Staff' } });
     const staffIds = staffRole ? staffRole.roleId : null;
 
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = { roleId: staffIds };
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
     const staffs = await User.findAll({
-      where: { roleId: staffIds },
+      where: whereClause,
       attributes: ["userId", "userName", "profileImage", "userNumber", "departmentId", "userMail"],
     });
 
@@ -554,9 +569,18 @@ export const getStaffDetails = async (req, res) => {
 
 
 export const getDepartments = async (req, res) => {
-
   try {
-    const departments = await Department.findAll();
+
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = {};
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
+    const departments = await Department.findAll({
+      where: whereClause
+    });
 
     res.status(200).json(departments);
   } catch (error) {

@@ -58,7 +58,9 @@ import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
+import studentPanelRoutes from './routes/admin/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
+import marksheetRoutes from "./routes/student/marksheetRoutes.js";
 
 import PersonalInfo from './routes/staff/personalRoutes.js';
 
@@ -102,7 +104,7 @@ const __dirname = path.dirname(__filename);
 export const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
+  password: process.env.DB_PASSWORD || 'root',
   database: process.env.DB_NAME || 'record',
   waitForConnections: true,
   connectionLimit: 10,
@@ -248,8 +250,12 @@ app.use("/api/noncgpa-category", nonCGPACategoryRoutes);
 app.use("/api/competency-coding", CompetencyCoding);
 app.use("/api/noncgpa", Noncgpa);
 
+app.use('/api/student/certificates', certificateRoutes);
+app.use('/api/student/marksheets', marksheetRoutes);
+
 // Admin Panel Routes
 app.use('/api', adminPanelRoutes);
+app.use('/api', studentPanelRoutes);
 app.use("/api/projects", projectRoutes);
 app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);

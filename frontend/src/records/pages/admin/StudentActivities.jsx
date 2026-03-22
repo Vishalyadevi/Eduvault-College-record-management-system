@@ -12,7 +12,10 @@ import {
   School,
   Filter,
   ChevronDown,
-  AlertCircle
+  AlertCircle,
+  ClipboardList,
+  FileCheck,
+  FileText
 } from "lucide-react";
 
 const backendUrl = "http://localhost:4000";
@@ -45,8 +48,8 @@ function StudentActivities() {
 
   // Student activities from studentPanel.js
   const studentActivityList = [
-    { name: 'Events Attended', table: 'events_attended' },
-    { name: 'Events Organized', table: 'events_organized' },
+    { name: 'Events Attended', table: 'event_attended' },
+    { name: 'Events Organized', table: 'events_organized_student' },
     { name: 'Online Courses', table: 'online_courses' },
     { name: 'Achievements', table: 'achievements' },
     { name: 'Internships', table: 'internships' },
@@ -57,7 +60,10 @@ function StudentActivities() {
     { name: 'Project Details', table: 'student_projects' },
     { name: 'Competency Coding Details', table: 'competency_coding' },
     { name: 'Student Publication Details', table: 'student_publications' },
-    { name: 'Student Non-CGPA Details', table: 'student_noncgpa' }
+    { name: 'Student Non-CGPA Details', table: 'student_noncgpa' },
+    { name: 'Student Leave', table: 'student_leave' },
+    { name: 'NPTEL Details', table: 'student_nptel' },
+    { name: 'Student Marksheets', table: 'marksheet_statuses' }
   ];
 
   // Helper function to ensure data is always an array
@@ -71,10 +77,16 @@ function StudentActivities() {
   const fetchDepartments = async () => {
     console.log('Fetching departments...');
     try {
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/departments`);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/departments`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch departments');
       const data = await response.json();
-      setDepartments(ensureArray(data));
+      const deptArray = ensureArray(data);
+      setDepartments(deptArray);
+
+      // If there's only one department (e.g., for DeptAdmin), select it automatically
+      if (deptArray.length === 1 && !searchDepartment) {
+        setSearchDepartment(deptArray[0].departmentAcr);
+      }
     } catch (error) {
       console.error('Error fetching departments:', error);
       setError('Failed to load departments');
@@ -86,7 +98,7 @@ function StudentActivities() {
   const fetchBatches = async () => {
     try {
       console.log('Fetching batches from API...');
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/batches`);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/batches`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch batches');
       const data = await response.json();
 
@@ -107,7 +119,7 @@ function StudentActivities() {
   // Fetch student data
   const fetchStudentData = async (departmentId = null) => {
     try {
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/students-with-activities`);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/students-with-activities`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch student data');
       const data = await response.json();
       const studentArray = ensureArray(data);
@@ -127,7 +139,7 @@ function StudentActivities() {
     try {
       console.log('Fetching fields for activity:', activityName);
       const encodedActivityName = encodeURIComponent(activityName);
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-fields/${encodedActivityName}`);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-fields/${encodedActivityName}`, { credentials: 'include' });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -214,7 +226,7 @@ function StudentActivities() {
       if (studentName) params.append('studentName', studentName);
       if (fields && fields.length > 0) params.append('fields', fields.join(','));
 
-      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-data/${activity.table}?${params}`);
+      const response = await fetch(`${backendUrl}/api/student-admin-panel/activity-data/${activity.table}?${params}`, { credentials: 'include' });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch ${activityName} data: ${errorText}`);
@@ -284,9 +296,9 @@ function StudentActivities() {
     try {
       if (searchActivity) {
         const selectedDept = departments.find(dept =>
-          dept.Deptacronym && dept.Deptacronym.toLowerCase() === searchDepartment.toLowerCase()
+          dept.departmentAcr && dept.departmentAcr.toLowerCase() === searchDepartment.toLowerCase()
         );
-        await fetchActivityData(searchActivity, selectedDept?.Deptid, null, selectedActivityFields);
+        await fetchActivityData(searchActivity, selectedDept?.departmentId, null, selectedActivityFields);
       } else {
         const studentArray = ensureArray(studentData);
         let filtered = studentArray.filter((student) => {
@@ -296,8 +308,8 @@ function StudentActivities() {
 
           const departmentMatch = searchDepartment
             ? departments
-              .find((dept) => dept.Deptid === student.Deptid)
-              ?.Deptacronym?.toLowerCase()
+              .find((dept) => dept.departmentId === student.departmentId)
+              ?.departmentAcr?.toLowerCase()
               .includes(searchDepartment.toLowerCase())
             : true;
 
@@ -352,7 +364,7 @@ function StudentActivities() {
       if (viewMode === 'student') {
         exportData = dataToExport.map(student => ({
           ...student,
-          department: departments.find(dept => dept.Deptid === student.Deptid)?.Deptacronym || 'N/A'
+          department: departments.find(dept => dept.departmentId === student.departmentId)?.departmentAcr || 'N/A'
         }));
       }
 
@@ -364,7 +376,15 @@ function StudentActivities() {
           selectedActivityFields: selectedActivityFields
         },
         data: exportData,
-        columns: viewMode === 'activity' ? activityColumns : null
+        columns: viewMode === 'activity' ? (() => {
+          const defaultFields = ['S.NO', 'ID', 'Department', 'Student Name', 'student_name', 'department', 'id', 's_no'];
+          const existingDefaultColumns = activityColumns.filter(column =>
+            defaultFields.some(defaultField =>
+              column.toLowerCase().includes(defaultField.toLowerCase())
+            )
+          );
+          return [...new Set([...existingDefaultColumns, ...selectedActivityFields])];
+        })() : null
       };
 
       const response = await fetch(`${backendUrl}/api/student-admin-panel/export-excel`, {
@@ -372,6 +392,7 @@ function StudentActivities() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(exportPayload),
       });
 
@@ -417,7 +438,10 @@ function StudentActivities() {
       'Achievements': <Medal className="w-4 h-4" />,
       'Internships': <School className="w-4 h-4" />,
       'Scholarships': <BookOpen className="w-4 h-4" />,
-      'Student Details': <GraduationCap className="w-4 h-4" />
+      'Student Details': <GraduationCap className="w-4 h-4" />,
+      'Student Leave': <ClipboardList className="w-4 h-4" />,
+      'NPTEL Details': <FileCheck className="w-4 h-4" />,
+      'Student Marksheets': <FileText className="w-4 h-4" />
     };
     return iconMap[activity] || <Users className="w-4 h-4" />;
   };
@@ -436,7 +460,7 @@ function StudentActivities() {
       </thead>
       <tbody className="bg-white divide-y divide-gray-200">
         {currentItems.map((student, index) => {
-          const department = departments.find((dept) => dept.Deptid === student.Deptid)?.Deptacronym || "N/A";
+          const department = departments.find((dept) => dept.departmentId === student.departmentId)?.departmentAcr || "N/A";
           return (
             <tr key={student.Userid || index} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4 whitespace-nowrap">
@@ -462,7 +486,7 @@ function StudentActivities() {
                 <div className="text-xs text-gray-500">Student</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {student.userMail || "Unknown"}
+                {student.email || "Unknown"}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className="bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
@@ -711,8 +735,8 @@ function StudentActivities() {
               >
                 <option value="">All Departments</option>
                 {departments.map((dept) => (
-                  <option key={dept.Deptid} value={dept.Deptacronym}>
-                    {dept.Deptacronym} - {dept.Deptname}
+                  <option key={dept.departmentId} value={dept.departmentAcr}>
+                    {dept.departmentAcr} - {dept.departmentName}
                   </option>
                 ))}
               </select>
