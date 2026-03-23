@@ -56,6 +56,7 @@ import mouRoutes from './routes/staff/mouRoutes.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
+import educationRoutes from './routes/staff/educationRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import staffIndustryRoutes from './routes/staff/industryRoutes.js';
@@ -105,9 +106,9 @@ const __dirname = path.dirname(__filename);
 
 // MySQL Connection Pool - EXPORTED for use in routes
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST ,
-  user: process.env.DB_USER ,
-  password: process.env.DB_PASSWORD ,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
@@ -233,6 +234,7 @@ app.use('/api/student', studentPdfRoutes);
 app.use('/api/education', educationRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api/auth', authRoutes);
+app.use('/api/education', educationRoutes);
 
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/book-chapters', bookChapterRoutes);
