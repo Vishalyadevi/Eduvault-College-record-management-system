@@ -58,6 +58,8 @@ import StaffEventAttended from "./staff/StaffEventAttended.js";
 
 import PlacementCompany from "./placement/Company.js";
 import FeedbackRound from "./placement/FeedbackRound.js";
+import EducationModel from "./staff/Education.js";
+const Education = EducationModel(sequelize);
 
 // Include and initialize Academic project models
 // import acadamicModels from "./acadamic/index.js";
@@ -106,6 +108,9 @@ const applyAssociations = () => {
 
   User.hasOne(StaffDetails, { foreignKey: "Userid", as: "staffPersonalInfo" });
   StaffDetails.belongsTo(User, { foreignKey: "Userid", as: "staffUser" });
+
+  User.hasOne(Education, { foreignKey: "Userid", as: "staffEducation" });
+  Education.belongsTo(User, { foreignKey: "Userid", as: "userAccount" });
 
   User.hasOne(BankDetails, { foreignKey: "Userid", as: "bankDetails" });
   BankDetails.belongsTo(User, { foreignKey: "Userid", as: "bankUser" });
@@ -654,6 +659,7 @@ const db = {
   PlacementDrive,
   PlacementFeedback,
   RegisteredStudentPlacement,
+  Education,
   applyAssociations,
 };
 
@@ -724,6 +730,7 @@ export {
   PlacementDrive,
   PlacementFeedback,
   RegisteredStudentPlacement,
+  Education,
   applyAssociations,
 };
 
