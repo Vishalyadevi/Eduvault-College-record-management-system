@@ -47,10 +47,15 @@ app.use((req, res, next) => {
 });
 
 // CORS (moved early)
-const allowedOrigins = [process.env.FRONTEND_URL || 'http://localhost:5173'];
+// CORS Configuration (consolidated)
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+    const isLocalhost = /^http:\/\/localhost:517[3-9]$/.test(origin);
+    
+    if (isLocalhost || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -128,13 +133,7 @@ app.use('/api/student', sanitizeInput, studentRoutes);
 app.use('/api/admin', sanitizeInput, verticalRoutes);
 app.use('/api/cbcs', cbcsRouter);
 
-// Global CORS fallback for any response (add this new middlewares)
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, CSRF-Token');
-  next();
-});
+// Removed duplicate CORS header overrides (handled by cors middleware)
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -143,7 +142,7 @@ app.get('/api/health', (req, res) => {
 
 // Error handling
 app.use((err, req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:5173');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, CSRF-Token');
   logger.error({

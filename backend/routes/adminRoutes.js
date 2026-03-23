@@ -56,4 +56,4 @@ import { getPlacementStats } from '../controllers/admin/dashboardController.js';
 
 router.get('/dashboard-stats', authenticate, isAdmin, getPlacementStats);
 
-export default router;
+export default router;

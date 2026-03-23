@@ -925,7 +925,7 @@ const AppRoutes: React.FC = () => {
         </ProtectedRoute>
       } />
       <Route path="/records/staff-biodata/:userId" element={
-        <ProtectedRoute allowedRoles={['Staff', 'Superadmin', 'Deptadmin', 'acadamicadmin']}>
+        <ProtectedRoute allowedRoles={['Staff', 'Admin', 'Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation>
             <StaffBioData />
           </RecordsLayoutWithLocation>

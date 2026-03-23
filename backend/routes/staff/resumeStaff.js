@@ -2,7 +2,8 @@ import express from 'express';
 import { pool } from '../../db/db.js';
 import fs from 'fs';
 import path from 'path';
-import { requireAuth as authenticate } from '../../middlewares/requireauth.js';
+import { authenticate } from '../../middlewares/requireauth.js';
+const authenticateToken = authenticate;
 
 const router = express.Router();
 
@@ -13,91 +14,103 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    console.log('Authenticated user from token:', req.user);
-    console.log('Requested userId param:', userId);
+    let query = 'Query not started';
+    console.log('Authenticated user from token/database:', req.user);
+    console.log('Requested userId parameter:', userId);
 
-    const authenticatedUserId = req.user.userId || req.user.Userid;
-    const userRole = req.user.roleName || req.user.role;
+    const authenticatedUserId = req.user.userId || req.user.Userid || req.user.id;
+    const userRole = req.user.roleName || req.user.role || '';
 
-    // FIX 1: Compare both sides as strings to avoid integer vs string mismatch
-    if (
-      String(authenticatedUserId) !== String(userId) &&
-      userRole !== 'Admin' &&
-      userRole !== 'SuperAdmin'
-    ) {
-      console.log('Access denied — userId mismatch or insufficient role');
+    console.log(`[RESUME_API] AuthID: ${authenticatedUserId}, ParamID: ${userId}, Role: ${userRole}`);
+
+    if (!authenticatedUserId) {
+        return res.status(401).json({ error: 'Unauthorized. User ID missing.', success: false });
+    }
+
+    // Security check - allowing self or admins
+    const isSelf = String(authenticatedUserId) === String(userId);
+    const isAdmin = ['Admin', 'SuperAdmin'].includes(userRole) || userRole.toLowerCase() === 'admin';
+
+    if (!isSelf && !isAdmin) {
+      console.log(`[RESUME_API] Access denied - User ID mismatch (${authenticatedUserId} vs ${userId}) and not admin`);
       return res.status(403).json({ error: 'Access denied.', success: false });
     }
 
     const connection = await pool.getConnection();
 
     try {
-      // Safe query helper — returns [] on any error (missing table, bad column, etc.)
-      const safeQuery = async (sql, params = []) => {
+      // Find the correct table name from a list of possibilities
+      const findTable = async (possibilities) => {
+        const tableList = Array.isArray(possibilities) ? possibilities : [possibilities];
+        for (const table of tableList) {
+          try {
+            const [tables] = await connection.query(`SHOW TABLES LIKE ?`, [table]);
+            if (tables && tables.length > 0) return table;
+          } catch (e) { /* ignore */ }
+        }
+        return null;
+      };
+
+      // Safe query helper - returns [] if table doesn't exist or query fails
+      const safeQuery = async (tables, sqlTemplate, params = []) => {
+        const table = await findTable(tables);
+        if (!table) return [];
+        
+        // Replace {{TABLE}} with the actual found table name
+        const sql = sqlTemplate.replace('{{TABLE}}', `\`${table}\``);
         try {
           const [rows] = await connection.query(sql, params);
           return rows;
-        } catch (err) {
-          console.warn('safeQuery failed:', err.message, '\nSQL:', sql.slice(0, 120));
+        } catch (queryErr) {
+          console.error(`[SAFE_QUERY] Error querying table ${table}:`, queryErr.message);
           return [];
         }
       };
 
       console.log(`Starting data fetch for userId: ${userId}`);
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 1. Personal Information
-      //    FIX 2: JOIN designations table to get real designation name
-      //    FIX 3: Query research_area from staff_details
-      // ───────────────────────────────────────────────────────────────────────
-      const personalInfo = await safeQuery(
-        `SELECT
-          u.userId,
-          u.userName                                                       AS username,
-          u.userMail                                                        AS email,
-          u.userNumber,
-          u.profileImage,
-          TRIM(CONCAT_WS(' ',
-            COALESCE(sd.salutation, ''),
-            COALESCE(sd.firstName,  ''),
-            COALESCE(sd.middleName, ''),
-            COALESCE(sd.lastName,   '')
-          ))                                                                AS full_name,
-          sd.mobileNumber                                                   AS phone,
-          TRIM(CONCAT_WS(', ',
-            NULLIF(TRIM(COALESCE(sd.currentAddressLine1, '')), ''),
-            NULLIF(TRIM(COALESCE(sd.currentAddressLine2, '')), ''),
-            NULLIF(TRIM(COALESCE(sd.currentCity,         '')), ''),
-            NULLIF(TRIM(COALESCE(sd.currentState,        '')), ''),
-            NULLIF(TRIM(COALESCE(sd.currentPincode,      '')), '')
-          ))                                                                AS address,
-          'Faculty'                                                         AS designation,
-          d.departmentName                                                  AS department,
-          sd.staffNumber,
-          sd.gender,
-          sd.bloodGroup,
-          sd.DOB                                                            AS dob,
-          sd.DOJ                                                            AS date_of_joining,
-          sd.panNumber,
-          sd.aadhaarNumber,
-          sd.emergencyContactNumber                                         AS emergencyContact,
-          sd.annaUniversityFacultyId,
-          sd.aicteFacultyId,
-          sd.orcid,
-          sd.researcherId                                                   AS researcher_id,
-          sd.googleScholarId                                                AS google_scholar_id,
-          sd.scopusProfile                                                  AS scopus_profile,
-          sd.vidwanProfile                                                  AS vidwan_profile,
-          sd.supervisorId                                                   AS supervisor_id,
-          sd.hIndex                                                         AS h_index,
-          sd.citationIndex                                                  AS citation_index,
-          sd.researchArea                                                   AS research_area
-        FROM users u
-        LEFT JOIN staff_details sd ON u.userId = sd.Userid
-        LEFT JOIN departments   d  ON u.departmentId = d.departmentId
-        WHERE u.userId = ?`,
-        [userId]
-      );
+      // Check which tables exist for personal info
+      const hasPersonalInfoTable = await findTable('personal_information');
+      const hasStaffDetailsTable = await findTable('staff_details');
+      const hasDepartmentsTable = await findTable('departments');
+
+      // Safe column getter - returns list of column names for a table
+      const getColumns = async (tableName) => {
+        if (!tableName) return [];
+        try {
+          const [cols] = await connection.query(`DESCRIBE \`${tableName}\``);
+          // MySQL returns 'Field' but sometimes drivers/modes might change case
+          return cols.map(c => (c.Field || c.field || '').toString());
+        } catch (e) { 
+          console.error(`Error describing table ${tableName}:`, e.message);
+          return []; 
+        }
+      };
+
+      let personalInfo = [];
+      if (hasPersonalInfoTable || hasStaffDetailsTable) {
+        query = `
+          SELECT u.userId, u.userName, u.userMail, u.userNumber, u.profileImage,
+                 pi.*, sd.*, d.departmentName AS department
+          FROM users u
+          ${hasPersonalInfoTable ? `LEFT JOIN \`${hasPersonalInfoTable}\` pi ON u.userId = pi.Userid` : ''}
+          ${hasStaffDetailsTable ? `LEFT JOIN \`${hasStaffDetailsTable}\` sd ON u.userNumber = sd.staffNumber` : ''}
+          ${hasDepartmentsTable ? `LEFT JOIN \`${hasDepartmentsTable}\` d ON u.departmentId = d.departmentId` : ''}
+          WHERE u.userId = ?
+        `;
+
+        try {
+          [personalInfo] = await connection.query(query, [userId]);
+        } catch (sqlErr) {
+          console.error('[RESUME_API] Join query failed, falling back to minimal:', sqlErr.message);
+          // Fallback if joined query fails (e.g. column ambiguity or schema issues)
+          query = `SELECT * FROM users WHERE userId = ?`;
+          [personalInfo] = await connection.query(query, [userId]);
+        }
+      } else {
+        query = `SELECT * FROM users WHERE userId = ?`;
+        [personalInfo] = await connection.query(query, [userId]);
+      }
 
       if (!personalInfo || personalInfo.length === 0) {
         return res.status(404).json({ success: false, message: 'User not found' });
@@ -112,117 +125,105 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
         'N/A';
 
       const staffInfo = {
-        userid:                   parseInt(userId),
-        full_name:                resolvedName,
-        username:                 raw.username                || 'N/A',
-        name:                     resolvedName,
-        email:                    raw.email                  || 'N/A',
-        userNumber:               raw.userNumber             || 'N/A',
-        staffNumber:              raw.staffNumber            || raw.userNumber || 'N/A',
-        staffId:                  raw.staffNumber            || raw.userNumber || 'N/A',
-        phone:                    raw.phone                  || 'N/A',
-        mobile_number:            raw.phone                  || 'N/A',
-        address:                  raw.address                || 'N/A',
-        designation:              raw.designation            || 'N/A',
-        post:                     raw.designation            || 'N/A',
-        department:               raw.department             || 'N/A',
-        date_of_joining:          raw.date_of_joining        || 'N/A',
-        gender:                   raw.gender                 || 'N/A',
-        bloodGroup:               raw.bloodGroup             || 'N/A',
-        dob:                      raw.dob                    || 'N/A',
-        date_of_birth:            raw.dob                    || 'N/A',
-        panNumber:                raw.panNumber              || 'N/A',
-        aadharNumber:             raw.aadhaarNumber          || 'N/A',
-        emergencyContact:         raw.emergencyContact       || 'N/A',
-        anna_university_faculty_id: raw.annaUniversityFacultyId || 'N/A',
-        aicte_faculty_id:         raw.aicteFacultyId         || 'N/A',
-        orcid:                    raw.orcid                  || 'N/A',
-        researcher_id:            raw.researcher_id          || 'N/A',
-        google_scholar_id:        raw.google_scholar_id      || 'N/A',
-        scopus_profile:           raw.scopus_profile         || 'N/A',
-        vidwan_profile:           raw.vidwan_profile         || 'N/A',
-        supervisor_id:            raw.supervisor_id          || 'N/A',
-        h_index:                  raw.h_index                || 'N/A',
-        citation_index:           raw.citation_index         || 'N/A',
-        research_area:            raw.research_area          || 'N/A',
-        profileImage:             raw.profileImage           || null,
+        userid: parseInt(userId),
+        full_name: rawData.full_name || rawData.userName || 'N/A',
+        username: rawData.userName || 'N/A',
+        email: rawData.userMail || 'N/A',
+        userNumber: rawData.userNumber || 'N/A',
+        staffNumber: rawData.staffNumber || rawData.userNumber || 'N/A',
+        phone: rawData.mobile_number || rawData.mobileNumber || 'N/A',
+        mobile_number: rawData.mobile_number || rawData.mobileNumber || 'N/A',
+        address: rawData.communication_address || 'N/A',
+        designation: rawData.post || 'N/A',
+        post: rawData.post || 'N/A',
+        department: rawData.department || 'N/A',
+        date_of_joining: rawData.DOJ || rawData.date_of_joining || 'N/A',
+        gender: rawData.gender || 'N/A',
+        bloodGroup: rawData.bloodGroup || 'N/A',
+        dob: rawData.DOB || rawData.dob || 'N/A',
+        date_of_birth: rawData.DOB || rawData.dob || 'N/A',
+        pi_h_index: rawData.h_index || 0,
+        pi_citation_index: rawData.citation_index || 0,
+        profileImage: rawData.profileImage || null,
       };
 
       // ───────────────────────────────────────────────────────────────────────
       // 2. Education
       // ───────────────────────────────────────────────────────────────────────
       const education = await safeQuery(
-        `SELECT * FROM education WHERE Userid = ?`,
-        [userId]
+        ['education'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ?`, [userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 3. Events Attended
       // ───────────────────────────────────────────────────────────────────────
       const eventsAttended = await safeQuery(
-        `SELECT * FROM events_attended WHERE Userid = ? ORDER BY from_date DESC`,
-        [userId]
+        ['staff_events_attended', 'events_attended'], 
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY from_date DESC`, 
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 4. Events Organized
       // ───────────────────────────────────────────────────────────────────────
       const eventsOrganized = await safeQuery(
-        `SELECT * FROM events_organized WHERE Userid = ? ORDER BY from_date DESC`,
-        [userId]
+        ['events_organized', 'events_organized_student'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY from_date DESC`, 
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 5. Publications  (table: book_chapters)
       // ───────────────────────────────────────────────────────────────────────
       const publications = await safeQuery(
-        `SELECT * FROM book_chapters WHERE Userid = ? ORDER BY publication_date DESC`,
-        [userId]
+        ['book_chapters', 'publications'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY publication_date DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 6. Activities
       // ───────────────────────────────────────────────────────────────────────
       const activities = await safeQuery(
-        `SELECT * FROM activities WHERE userid = ? ORDER BY from_date DESC`,
-        [userId]
+        ['activities'],
+        `SELECT * FROM {{TABLE}} WHERE userid = ? OR Userid = ? ORDER BY from_date DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 7. Research Projects  (table: project_proposals)
       // ───────────────────────────────────────────────────────────────────────
       const projectProposals = await safeQuery(
-        `SELECT * FROM project_proposals WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['project_proposals'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 8. Consultancy Projects
-      // ───────────────────────────────────────────────────────────────────────
       const consultancyProjects = await safeQuery(
-        `SELECT * FROM consultancy_proposals WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['consultancy_proposals'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY from_date DESC`,
+        [userId, userId]
       );
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 9. Industry Knowhow
-      // ───────────────────────────────────────────────────────────────────────
       const industryKnowhow = await safeQuery(
-        `SELECT * FROM industry_knowhow WHERE Userid = ? ORDER BY from_date DESC`,
-        [userId]
+        ['industry_knowhow'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY from_date DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 10. Certification Courses — try both table names
       // ───────────────────────────────────────────────────────────────────────
       let certificationCourses = await safeQuery(
-        `SELECT * FROM staff_certification_courses WHERE userid = ? ORDER BY from_date DESC`,
-        [userId]
+        ['staff_certification_courses', 'certification_courses'],
+        `SELECT * FROM {{TABLE}} WHERE userid = ? OR Userid = ? ORDER BY from_date DESC`,
+        [userId, userId]
       );
       if (certificationCourses.length === 0) {
         certificationCourses = await safeQuery(
-          `SELECT * FROM certification_courses WHERE userid = ? ORDER BY from_date DESC`,
-          [userId]
+          ['certification_courses'],
+          `SELECT * FROM {{TABLE}} WHERE userid = ? ORDER BY from_date DESC`, [userId]
         );
       }
 
@@ -230,120 +231,149 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       // 11. H-Index
       // ───────────────────────────────────────────────────────────────────────
       const hIndex = await safeQuery(
-        `SELECT * FROM h_index WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['h_index'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 12. Proposals Submitted (optional table)
-      // ───────────────────────────────────────────────────────────────────────
-      let proposalsSubmitted = [];
-      const [proposalTableCheck] = await connection.query(
-        `SHOW TABLES LIKE 'proposals_submitted'`
+      const proposalsSubmitted = await safeQuery(
+        ['proposals_submitted'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
-      if (proposalTableCheck && proposalTableCheck.length > 0) {
-        proposalsSubmitted = await safeQuery(
-          `SELECT * FROM proposals_submitted WHERE Userid = ? ORDER BY created_at DESC`,
-          [userId]
-        );
-      }
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 13. Sponsored Research (optional table)
-      // ───────────────────────────────────────────────────────────────────────
-      let sponsoredResearch = [];
-      const [sponsoredCheck] = await connection.query(
-        `SHOW TABLES LIKE 'sponsored_research'`
+      const sponsoredResearch = await safeQuery(
+        ['sponsored_research'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
-      if (sponsoredCheck && sponsoredCheck.length > 0) {
-        sponsoredResearch = await safeQuery(
-          `SELECT * FROM sponsored_research WHERE Userid = ? ORDER BY created_at DESC`,
-          [userId]
-        );
-      }
 
       // ───────────────────────────────────────────────────────────────────────
       // 14. Patents & Products
       // ───────────────────────────────────────────────────────────────────────
       const patents = await safeQuery(
-        `SELECT * FROM patent_product WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['patent_product'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 15. Recognition & Appreciation
       // ───────────────────────────────────────────────────────────────────────
       const recognitions = await safeQuery(
-        `SELECT * FROM recognition_appreciation WHERE Userid = ? ORDER BY recognition_date DESC`,
-        [userId]
+        ['recognition_appreciation'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY recognition_date DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 16. Seed Money
       // ───────────────────────────────────────────────────────────────────────
       const seedMoney = await safeQuery(
-        `SELECT * FROM seed_money WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['seed_money'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 17. Resource Person
       // ───────────────────────────────────────────────────────────────────────
       const resourcePerson = await safeQuery(
-        `SELECT * FROM resource_person WHERE Userid = ? ORDER BY event_date DESC`,
-        [userId]
+        ['resource_person'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY event_date DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 18. Scholars
       // ───────────────────────────────────────────────────────────────────────
       const scholars = await safeQuery(
-        `SELECT * FROM scholars WHERE Userid = ? ORDER BY phd_registered_year DESC`,
-        [userId]
+        ['scholars'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY phd_registered_year DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // 19. Project Mentors
       // ───────────────────────────────────────────────────────────────────────
       const projectMentors = await safeQuery(
-        `SELECT * FROM project_mentors WHERE Userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['project_mentors', 'pm_details'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
-      // ───────────────────────────────────────────────────────────────────────
-      // 20. TLP Activities
-      // ───────────────────────────────────────────────────────────────────────
+      // ---------------------------------------------------------------
+      // 18. MOUs  (table may not exist)
+      // ---------------------------------------------------------------
+      const mous = await safeQuery(
+        ['mou'],
+        `SELECT * FROM {{TABLE}} WHERE Userid = ? OR userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
+      );
+
       const tlpActivities = await safeQuery(
-        `SELECT * FROM tlp_activities WHERE userid = ? ORDER BY created_at DESC`,
-        [userId]
+        ['tlp_activities'],
+        `SELECT * FROM {{TABLE}} WHERE userid = ? OR Userid = ? ORDER BY created_at DESC`,
+        [userId, userId]
       );
 
       // ───────────────────────────────────────────────────────────────────────
       // Build response — keys match frontend selectedSections exactly
       // ───────────────────────────────────────────────────────────────────────
       const responseData = {
-        userInfo: staffInfo,
-
-        'Personal Information':    [staffInfo],
-        'Education':               education,
-        'Events Attended':         eventsAttended,
-        'Events Organized':        eventsOrganized,
-        'Publications':            publications,
-        'Consultancy Projects':    consultancyProjects,
-        'Research Projects':       projectProposals,
-        'Industry Knowhow':        industryKnowhow,
-        'Certification Courses':   certificationCourses,
-        'H-Index':                 hIndex,
-        'Proposals Submitted':     proposalsSubmitted,
-        'Resource Person':         resourcePerson,
-        'Scholars':                scholars,
-        'Seed Money':              seedMoney,
+        userInfo: {
+          ...staffInfo,
+          name: staffInfo.full_name || staffInfo.username || 'N/A',
+        },
+        'Personal Information': [staffInfo],
+        personalInfo: staffInfo,
+        'Education': education,
+        education: education[0] || null, // Front-end expects a single object
+        'Events Attended': eventsAttended,
+        eventsAttended,
+        'Events Organized': eventsOrganized,
+        eventsOrganized,
+        'Publications': publications,
+        publications,
+        'Activities': activities,
+        activities,
+        'Consultancy Projects': consultancyProjects,
+        consultancyProjects,
+        'Industry Knowhow': industryKnowhow,
+        industryKnowhow,
+        'Research Projects': projectProposals,
+        researchProjects: projectProposals,
+        projectProposals: projectProposals, // Front-end expects this
+        'Certification Courses': certificationCourses,
+        certificationCourses,
+        certifications: certificationCourses, // Alias for frontend
+        'H-Index': hIndex,
+        hIndex: hIndex[0] || null, // Front-end expects a single object
+        'Proposals Submitted': proposalsSubmitted,
+        proposalsSubmitted,
+        'Sponsored Research': sponsoredResearch,
+        sponsoredResearch,
+        researchProjects: sponsoredResearch, // Front-end expects this key for sponsored research
+        'Patents & Products': patents,
+        patents: patents,
+        patentProduct: patents, // Front-end expects this
         'Recognition & Appreciation': recognitions,
-        'Patents & Products':      patents,
-        'Project Mentors':         projectMentors,
-        'Sponsored Research':      sponsoredResearch,
-        'Activities':              activities,
-        'TLP Activities':          tlpActivities,
+        recognitions: recognitions,
+        recognition: recognitions, // Front-end expects this
+        'Seed Money': seedMoney,
+        seedMoney,
+        'Resource Person': resourcePerson,
+        resourcePerson,
+        'Scholars': scholars,
+        scholars: scholars,
+        scholar: scholars, // Front-end expects this
+        'Project Mentors': projectMentors,
+        projectMentors: projectMentors,
+        projectMentor: projectMentors, // Front-end expects this
+        'MOUs': mous,
+        mous,
+        'TLP Activities': tlpActivities,
+        tlpActivities,
       };
 
       console.log(
@@ -368,6 +398,8 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
     return res.status(500).json({
       error: 'Failed to fetch staff resume data',
       details: error.message,
+      query: (typeof query !== 'undefined') ? query : 'Query not generated',
+      stack: error.stack,
       success: false,
     });
   }
@@ -380,27 +412,41 @@ router.get('/statistics/:userId', authenticate, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const authenticatedUserId = req.user.userId || req.user.Userid;
-    const userRole = req.user.roleName || req.user.role;
+    const authenticatedUserId = req.user.userId || req.user.Userid || req.user.id;
+    const userRole = req.user.roleName || req.user.role || '';
 
-    if (
-      String(authenticatedUserId) !== String(userId) &&
-      userRole !== 'Admin' &&
-      userRole !== 'SuperAdmin'
-    ) {
+    if (!authenticatedUserId) {
+        return res.status(401).json({ error: 'Unauthorized. User ID missing.', success: false });
+    }
+
+    if (authenticatedUserId !== parseInt(userId) && 
+        !['Admin', 'SuperAdmin'].includes(userRole) && 
+        userRole.toLowerCase() !== 'admin') {
       return res.status(403).json({ error: 'Access denied.', success: false });
     }
 
     const connection = await pool.getConnection();
 
     try {
-      const safeCount = async (table, col = 'Userid') => {
+      // Find the correct table name from a list of possibilities
+      const findTable = async (possibilities) => {
+        const tableList = Array.isArray(possibilities) ? possibilities : [possibilities];
+        for (const table of tableList) {
+          try {
+            const [tables] = await connection.query(`SHOW TABLES LIKE ?`, [table]);
+            if (tables && tables.length > 0) return table;
+          } catch (e) { /* ignore */ }
+        }
+        return null;
+      };
+
+      const safeCount = async (tables, col = 'Userid') => {
+        const table = await findTable(tables);
+        if (!table) return 0;
         try {
-          const [tables] = await connection.query(`SHOW TABLES LIKE ?`, [table]);
-          if (!tables || tables.length === 0) return 0;
           const [[{ cnt }]] = await connection.query(
-            `SELECT COUNT(*) AS cnt FROM \`${table}\` WHERE \`${col}\` = ?`,
-            [userId]
+            `SELECT COUNT(*) AS cnt FROM \`${table}\` WHERE \`${col}\` = ? OR Userid = ? OR userid = ?`, 
+            [userId, userId, userId]
           );
           return Number(cnt);
         } catch (err) {
@@ -409,24 +455,24 @@ router.get('/statistics/:userId', authenticate, async (req, res) => {
         }
       };
 
-      const statistics = {
-        events_attended:       await safeCount('events_attended'),
-        events_organized:      await safeCount('events_organized'),
-        publications:          await safeCount('book_chapters'),
-        consultancy_projects:  await safeCount('consultancy_proposals'),
-        research_projects:     await safeCount('project_proposals'),
-        industry_knowhow:      await safeCount('industry_knowhow'),
-        certification_courses: await safeCount('staff_certification_courses', 'userid'),
-        resource_person:       await safeCount('resource_person'),
-        scholars:              await safeCount('scholars'),
-        seed_money:            await safeCount('seed_money'),
-        recognition:           await safeCount('recognition_appreciation'),
-        patents:               await safeCount('patent_product'),
-        project_mentors:       await safeCount('project_mentors'),
-        activities:            await safeCount('activities', 'userid'),
-        tlp_activities:        await safeCount('tlp_activities', 'userid'),
-        proposals_submitted:   await safeCount('proposals_submitted'),
-        sponsored_research:    await safeCount('sponsored_research'),
+      const statsObj = {
+        events_attended: await safeCount(['staff_events_attended', 'events_attended']),
+        events_organized: await safeCount(['events_organized', 'events_organized_student']),
+        publications: await safeCount(['book_chapters', 'publications']),
+        consultancy_projects: await safeCount(['consultancy_proposals']),
+        research_projects: await safeCount(['project_proposals']),
+        industry_knowhow: await safeCount(['industry_knowhow']),
+        certification_courses: await safeCount(['staff_certification_courses', 'certification_courses'], 'userid'),
+        resource_person: await safeCount(['resource_person']),
+        scholars: await safeCount(['scholars']),
+        seed_money: await safeCount(['seed_money']),
+        recognition: await safeCount(['recognition_appreciation']),
+        patents: await safeCount(['patent_product']),
+        project_mentors: await safeCount(['project_mentors', 'pm_details']),
+        activities: await safeCount(['activities'], 'userid'),
+        tlp_activities: await safeCount(['tlp_activities'], 'userid'),
+        proposals_submitted: await safeCount(['proposals_submitted']),
+        sponsored_research: await safeCount(['sponsored_research']),
       };
 
       return res.json({ success: true, statistics });
@@ -452,14 +498,10 @@ router.get('/profile-image/:userId', authenticate, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const authenticatedUserId = req.user.userId || req.user.Userid;
-    const userRole = req.user.roleName || req.user.role;
+    const authenticatedUserId = req.user.userId || req.user.Userid || req.user.id;
+    const userRole = req.user.roleName || req.user.role || '';
 
-    if (
-      String(authenticatedUserId) !== String(userId) &&
-      userRole !== 'Admin' &&
-      userRole !== 'SuperAdmin'
-    ) {
+    if (String(authenticatedUserId) !== String(userId) && !['Admin', 'SuperAdmin'].includes(userRole) && userRole.toLowerCase() !== 'admin') {
       return res.status(403).json({ error: 'Access denied.', success: false });
     }
 

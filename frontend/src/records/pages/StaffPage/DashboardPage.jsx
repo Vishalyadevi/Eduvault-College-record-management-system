@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, AlertCircle, Users, Briefcase, FileSpreadsheet, FileText, Calendar, Award, BookOpen, BookMarked, Sparkles, TrendingUp } from 'lucide-react';
+import { RefreshCw, AlertCircle, Users, Briefcase, FileSpreadsheet, FileText, Calendar, Award, BookOpen, BookMarked, Sparkles, TrendingUp, Download } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { useAuth } from '../auth/AuthContext';
-import { getDashboardStats } from '../../services/api';
+import { getDashboardStats, getStaffResumeData } from '../../services/api';
+import { generateStaffResumePDF } from '../../utils/generateStaffResume';
 import API from '../../../api';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler, ChartDataLabels);
@@ -42,6 +43,7 @@ const Dashboard = () => {
   const [notification, setNotification] = useState(null);
   const [staffName, setStaffName] = useState(user?.username || 'Staff');
   const [appraisals, setAppraisals] = useState([]);
+  const [downloadingResume, setDownloadingResume] = useState(false);
 
   useEffect(() => {
     if (user?.username) {
@@ -203,6 +205,47 @@ const Dashboard = () => {
     showNotification('Data refreshed successfully!');
   };
 
+  const handleDownloadResume = async () => {
+    try {
+      setDownloadingResume(true);
+      const effectiveUserId = user?.Userid || user?.userId;
+      if (!effectiveUserId) {
+        showNotification('User ID not found', 'error');
+        return;
+      }
+
+      const response = await getStaffResumeData(effectiveUserId);
+      if (response.data.success) {
+        // Fetch profile image if exists
+        let profileImageData = null;
+        try {
+          const imageResponse = await API.get(`/resume-staff/profile-image/${effectiveUserId}`);
+          if (imageResponse.data.success) {
+            profileImageData = {
+              data: imageResponse.data.imageData,
+              format: imageResponse.data.format
+            };
+          }
+        } catch (imageErr) {
+          console.warn('Could not fetch profile image:', imageErr);
+        }
+
+        await generateStaffResumePDF(response.data.data, profileImageData);
+        showNotification('Resume downloaded successfully!');
+      } else {
+        throw new Error(response.data.error || 'Failed to fetch resume data');
+      }
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      const data = error.response?.data;
+      const errorMsg = data?.details || data?.error || data?.message || error.message || 'Unknown error';
+      const sqlQuery = data?.query ? ` (SQL: ${data.query})` : '';
+      showNotification(`Failed to download resume: ${errorMsg}${sqlQuery}`, 'error');
+    } finally {
+      setDownloadingResume(false);
+    }
+  };
+
   return (
     <div className="h-screen bg-white overflow-hidden relative">
       {/* Animated Background Effect */}
@@ -252,6 +295,21 @@ const Dashboard = () => {
               </div>
 
               <button
+                type="button"
+                onClick={handleDownloadResume}
+                disabled={downloadingResume}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-50 transition-all text-sm shadow-md"
+              >
+                {downloadingResume ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Download Resume
+              </button>
+
+              <button
+                type="button"
                 onClick={handleRefresh}
                 disabled={loading}
                 className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-gray-800 rounded-lg hover:bg-white/20 disabled:opacity-50 transition-all text-sm"
