@@ -28,13 +28,12 @@ const StudentDashboard = () => {
       // Fetch additional data using standardized API
       const fetchExtraData = async () => {
         try {
-          const [nptelRes, skillRes, noncgpaRes] = await Promise.all([
-            API.get(`/nptel/student/my-courses`),
+          const [skillRes, noncgpaRes] = await Promise.all([
             API.get(`/skillrack/my-stats?UserId=${userId}`),
             API.get(`/noncgpa/my-records`)
           ]);
 
-          const nptelExtracted = Array.isArray(nptelRes.data?.enrollments) ? nptelRes.data.enrollments : [];
+          const nptelExtracted = [];
           const skillrackExtracted = skillRes.data?.stats || { rank: '-', medals: 0 };
           const noncgpaExtracted = Array.isArray(noncgpaRes.data?.records) ? noncgpaRes.data.records : [];
 
@@ -172,17 +171,7 @@ const StudentDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2"><FaBookOpen className="text-green-600" /> NPTEL</h3>
-              <FaCertificate className="text-2xl text-green-500" />
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span>Completed</span><strong className="text-green-600">{nptelStats.completed}</strong></div>
-              <div className="flex justify-between"><span>Credits Transferred</span><strong className="text-indigo-600">{nptelStats.creditsTransferred}</strong></div>
-              <div className="flex justify-between"><span>Yet to Complete</span><strong className="text-orange-600">{nptelStats.yetToComplete}</strong></div>
-            </div>
-          </div>
+
 
           <div className="bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition">
             <div className="flex items-center justify-between mb-3">

@@ -10,8 +10,8 @@ const formatRecord = (row) => {
     id: r.id,
     Userid: r.Userid,
     // staffId surfaced from the JOIN with Users table
-    staffId: r.user?.staffId ?? null,
-    staffName: r.user?.username ?? null,
+    staffId: r.user?.userNumber ?? null,
+    staffName: r.user?.userName ?? null,
     project_title: r.project_title,
     student_details: r.student_details,
     event_details: r.event_details,
@@ -33,7 +33,7 @@ const getUserInclude = async () => {
   return {
     model: User,
     as: 'user',
-    attributes: ['Userid', 'staffId', 'username'],
+    attributes: ['userId', 'userNumber', 'userName'],
   };
 };
 
