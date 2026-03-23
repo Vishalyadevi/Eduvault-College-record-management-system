@@ -10,7 +10,10 @@ import nodemailer from 'nodemailer';
 import bodyParser from 'body-parser';
 import { applyAssociations } from './models/index.js';
 import cookieParser from 'cookie-parser';
-
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import logger from './utils/logger.js';
+import redisClient from './config/redis.js';
 
 // Import Routes
 import leaveRoutes from './routes/student/leaveRoutes.js';
@@ -56,6 +59,7 @@ import mouRoutes from './routes/staff/mouRoutes.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
+import educationRoutes from './routes/staff/educationRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import staffIndustryRoutes from './routes/staff/industryRoutes.js';
@@ -64,6 +68,8 @@ import staffEventsOrganizedRoutes from './routes/staff/eventsOrganizedRoutes.js'
 import studentPanelRoutes from './routes/admin/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
 import marksheetRoutes from "./routes/student/marksheetRoutes.js";
+
+import facultyPublicRoutes from './routes/public/facultyRoutes.js';
 
 import PersonalInfo from './routes/staff/personalRoutes.js';
 
@@ -108,7 +114,7 @@ export const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 100, // Expanded for 5000+ concurrency
   queueLimit: 0,
 });
 
@@ -203,9 +209,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+// Security Headers (Helmet)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+
+// Global Rate Limiting for all API requests
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // Limit each IP to 300 requests per `window` (production scale)
+  standardHeaders: true, 
+  legacyHeaders: false, 
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
+});
+app.use('/api', apiLimiter);
+
 // Request logging middlewares
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  logger.info(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
@@ -331,6 +352,7 @@ app.use('/api/staff/tlp', tlpRoutes);
 app.use('/api/admin/tlp', tlpApprovalRoutes);
 app.use('/api/public/tlp', tlpPublicRoutes);
 app.use('/api/public/tlp', tlpCommentRoutes);
+app.use('/api/public/faculty', facultyPublicRoutes);
 app.use('/api/admin/tlp/comments', tlpCommentAdminRoutes);
 
 // Health check

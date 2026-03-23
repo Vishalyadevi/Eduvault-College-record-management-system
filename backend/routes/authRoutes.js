@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import requireAuth from "../middlewares/requireauth.js"; // Renamed to lowercase
 import {
   login,
@@ -45,9 +46,16 @@ const upload = multer({
 
 const router = express.Router();
 
+// Specific login rate limiter to prevent brute force attacks
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per `window`
+  message: { success: false, message: 'Too many login attempts from this IP, please try again after 15 minutes' },
+});
+
 // Public routes
-router.post("/login", login);
-router.post("/google-login", googleLogin);
+router.post("/login", loginLimiter, login);
+router.post("/google-login", loginLimiter, googleLogin);
 router.post("/refresh", refresh);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);

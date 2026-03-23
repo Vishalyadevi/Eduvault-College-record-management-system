@@ -6,8 +6,8 @@ import config from "../../../config";
 
 const EnhancedStaffResumeGenerator = () => {
   const { user } = useUser();
-  // Extra safeguard to fall back to id if userId or Userid are missing
-  const effectiveUserId = user?.userId || user?.Userid || user?.id;
+  // Extra safeguard to fall back to valid staff IDs if standard internal ID maps are missing
+  const effectiveUserId = user?.userId || user?.Userid || user?.id || user?.userNumber || user?.staffId;
 
   // State management
   const [selectedSections, setSelectedSections] = useState({
