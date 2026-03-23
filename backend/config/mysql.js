@@ -20,7 +20,7 @@ const sequelize = new Sequelize(
 
         // Connection pool settings for better performance and reliability
         pool: {
-            max: 10,
+            max: 100, // Expanded for 5000+ users concurrency
             min: 0,
             acquire: 60000, // Maximum time (ms) before a timeout error during connection acquisition
             idle: 20000, // Maximum time (ms) before a timeout error on an idle connection

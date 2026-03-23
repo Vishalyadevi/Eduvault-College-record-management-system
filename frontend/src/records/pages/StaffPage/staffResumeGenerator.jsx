@@ -6,8 +6,8 @@ import config from "../../../config";
 
 const EnhancedStaffResumeGenerator = () => {
   const { user } = useUser();
-  // compute effective id (backend tokens and user object may use either property)
-  const effectiveUserId = user?.Userid || user?.userId;
+  // Extra safeguard to fall back to valid staff IDs if standard internal ID maps are missing
+  const effectiveUserId = user?.userId || user?.Userid || user?.id || user?.userNumber || user?.staffId;
 
   // State management
   const [selectedSections, setSelectedSections] = useState({
@@ -107,15 +107,10 @@ const EnhancedStaffResumeGenerator = () => {
         }
 
         console.log(`Fetching staff data for ID: ${effectiveUserId}`);
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error("No authentication token found"); // Added token check
         const response = await axios.get(
           `${backendUrl}/api/resume-staff/staff-data/${effectiveUserId}`, // Used backendUrl
           {
-            withCredentials: true,
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
+            withCredentials: true
           }
         );
 
@@ -152,9 +147,9 @@ const EnhancedStaffResumeGenerator = () => {
               ...apiData.userInfo,
               phone: cleanPhone,
               address: cleanAddress,
-              name: apiData.userInfo?.name || user.username || 'N/A',
-              email: apiData.userInfo?.email || user.email || 'N/A',
-              staffId: apiData.userInfo?.staffId || user.staffId || 'N/A',
+              name: apiData.userInfo?.name || user.userName || 'N/A',
+              email: apiData.userInfo?.email || user.userMail || 'N/A',
+              staffId: apiData.userInfo?.staffId || user.staffId || user.userNumber || 'N/A',
               department: apiData.userInfo?.department || 'N/A',
               post: apiData.userInfo?.post || apiData.userInfo?.designation || 'N/A', // handle backend naming
             }
@@ -168,9 +163,7 @@ const EnhancedStaffResumeGenerator = () => {
           if (profileImage) {
             try {
               const imageResponse = await axios.get(`${backendUrl}/api/resume-staff/profile-image/${effectiveUserId}`, {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem('token')}`
-                }
+                withCredentials: true
               });
               if (imageResponse.data.success) {
                 setProfileImageData({
@@ -216,10 +209,10 @@ const EnhancedStaffResumeGenerator = () => {
           "Activities": [],
           "TLP Activities": [],
           userInfo: {
-            name: user.username || 'N/A',
-            email: user.email || 'N/A',
+            name: user.userName || 'N/A',
+            email: user.userMail || 'N/A',
             phone: 'N/A',
-            staffId: user.staffId || 'N/A',
+            staffId: user.staffId || user.userNumber || 'N/A',
             department: 'N/A',
             post: 'N/A',
             address: 'N/A'
@@ -234,7 +227,7 @@ const EnhancedStaffResumeGenerator = () => {
     };
 
     fetchStaffData();
-  }, [user]);
+  }, [user, effectiveUserId]); // Re-run when explicit user contexts change
 
   // Filter data by date
   const filterByDate = (data, dateField = 'created_at') => {
@@ -264,10 +257,15 @@ const EnhancedStaffResumeGenerator = () => {
     const filtered = {};
 
     Object.keys(staffData).forEach(key => {
-      if (key === 'userInfo') {
+      // Forcefully never filter the personal info arrays to prevent length 0.
+      if (key === 'userInfo' || key === 'Personal Information') {
         filtered[key] = staffData[key];
       } else if (Array.isArray(staffData[key])) {
-        filtered[key] = filterByDate(staffData[key]);
+        // Protect components without strict dates from completely vanishing
+        const filteredArray = filterByDate(staffData[key]);
+        filtered[key] = filteredArray.length > 0 ? filteredArray : (
+          (dateFilters.startDate || dateFilters.month || dateFilters.year) ? [] : staffData[key]
+        );
       } else {
         filtered[key] = staffData[key];
       }
@@ -275,6 +273,7 @@ const EnhancedStaffResumeGenerator = () => {
 
     setFilteredData(filtered);
   };
+
 
   const resetFilters = () => {
     setDateFilters({ startDate: "", endDate: "", month: "", year: "" });
@@ -314,12 +313,19 @@ const EnhancedStaffResumeGenerator = () => {
       const { jsPDF } = await import('jspdf');
 
       const doc = new jsPDF();
-      const { userInfo } = filteredData;
 
-      if (!userInfo) {
-        alert('User information not available. Please try again.');
-        return;
-      }
+      // Defend against any undefined userInfo state by explicitly resolving it
+      const userInfo = filteredData?.userInfo || staffData?.userInfo || {
+        name: user?.userName || 'N/A',
+        email: user?.userMail || 'N/A',
+        staffId: user?.staffId || user?.userNumber || 'N/A',
+        department: 'N/A',
+        phone: 'N/A',
+        post: 'N/A',
+        address: 'N/A'
+      };
+
+      console.log('User info resolved:', userInfo);
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -620,7 +626,10 @@ const EnhancedStaffResumeGenerator = () => {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-600 bg-clip-text text-transparent mb-3">
             Staff Resume Generator
           </h1>
-          <p className="text-gray-600 text-lg">Create your professional academic resume with advanced filtering</p>
+          <p className="text-gray-600 text-lg">
+            Create your professional academic resume with advanced filtering.
+            [DEBUG: PersonalInfo={staffData["Personal Information"]?.length ?? "NULL"} // ID={effectiveUserId}]
+          </p>
         </div>
 
         {/* Filter Section */}

@@ -7,8 +7,8 @@ import API from "../../services/api";
 import config from "../../../config";
 
 
-const StudentBioData = () => {
-  const { userId } = useParams();
+const StudentBioData = ({ userId: propUserId }) => {
+  const { userId: urlUserId } = useParams();
   const [user, setUser] = useState({
     username: "",
     email: "",
@@ -80,7 +80,7 @@ const StudentBioData = () => {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const effectiveUserId = userId || authUser?.userId || authUser?.id;
+        const effectiveUserId = propUserId || urlUserId || authUser?.userId || authUser?.id;
 
 
         if (!effectiveUserId) {
@@ -198,7 +198,7 @@ const StudentBioData = () => {
       fetchAllData();
     }
 
-  }, [userId]);
+  }, [urlUserId, propUserId, authUser, backendUrl]);
 
   const CollapsibleSection = ({ title, icon: Icon, count, isExpanded, onToggle, children }) => (
     <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">

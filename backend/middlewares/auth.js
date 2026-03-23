@@ -9,25 +9,20 @@ dotenv.config();
 // Main authentication middlewares
 export const authenticate = async (req, res, next) => {
   try {
+    let token = req.cookies?.access_token || req.cookies?.["access_token"];
     const authHeader = req.headers.authorization;
 
-    console.log('🔍 Auth Header:', authHeader ? 'Present' : 'Missing');
+    console.log('🔍 Auth Check:', authHeader ? 'Header Present' : 'Header Missing', token ? '| Cookie Present' : '| Cookie Missing');
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ No token found in header!');
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+
+    if (!token || token === 'null' || token === 'undefined') {
+      console.log('❌ No token found in header or cookie!');
       return res.status(401).json({
         success: false,
         message: 'Unauthorized: No token provided',
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    if (!token || token === 'null' || token === 'undefined') {
-      console.log('❌ Token is null or undefined!');
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Invalid token format',
       });
     }
 
@@ -45,7 +40,7 @@ export const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('✅ Decoded token:', decoded);
 
-    const userId = decoded.userId;
+    const userId = decoded.userId || decoded.id;
 
     if (!userId) {
       console.log('❌ No user ID found in token! Token payload:', decoded);

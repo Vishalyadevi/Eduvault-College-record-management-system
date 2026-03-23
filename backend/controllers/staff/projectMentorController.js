@@ -43,12 +43,12 @@ export const getAllProjectMentors = async (req, res) => {
     const include = await getUserInclude();
 
     const records = await ProjectMentor.findAll({
-      include,
       order: [['created_at', 'DESC']],
     });
 
     res.status(200).json(records.map(formatRecord));
   } catch (error) {
+    fs.writeFileSync('pm_error.txt', error.stack || error.toString());
     console.error('Error fetching project mentors:', error);
     res.status(500).json({ message: 'Server error' });
   }

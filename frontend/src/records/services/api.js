@@ -9,6 +9,7 @@ export const getCurrentUser = () => api.get('/auth/me');
 
 // Personal Information services
 export const getPersonal = (userId) => api.get(`/personal/${userId}`);
+export const getStaffResumeData = (userId) => api.get(`/resume-staff/staff-data/${userId}`);
 export const createPersonal = (data) => {
   return api.post('/personal', data, {
     headers: {
