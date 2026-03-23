@@ -10,18 +10,20 @@ dotenv.config();
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    let token = null;
 
-    console.log('🔍 Auth Header:', authHeader ? 'Present' : 'Missing');
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ No token found in header!');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+      console.log('🔍 Token found in Cookies instead of Header!');
+      token = req.cookies.token;
+    } else {
+      console.log('❌ No token found in header or cookies!');
       return res.status(401).json({
         success: false,
         message: 'Unauthorized: No token provided',
       });
     }
-
-    const token = authHeader.split(' ')[1];
 
     if (!token || token === 'null' || token === 'undefined') {
       console.log('❌ Token is null or undefined!');

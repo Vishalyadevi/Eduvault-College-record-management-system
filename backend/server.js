@@ -56,7 +56,6 @@ import mouRoutes from './routes/staff/mouRoutes.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
-import educationRoutes from './routes/staff/educationRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import staffIndustryRoutes from './routes/staff/industryRoutes.js';

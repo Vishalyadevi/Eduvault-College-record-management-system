@@ -311,23 +311,18 @@ const SeedMoneyPage = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-center">
-           
-            <button
-              onClick={() => {
-                setEditingItem(null);
-                setIsViewOnly(false);
-                setModalOpen(true);
-              }}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-medium rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus size={18} />
-              Add New Entry
-            </button>
-          </div>
-        </div>
+           <div className="flex justify-between items-center mb-4">
+                 <button
+                   className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
+                   onClick={() => {
+                     setEditingItem(null);
+                     setModalOpen(true);
+                   }}
+                 >
+                   <Plus size={16} />
+                   Add Seed Money
+                 </button>
+               </div>
 
         {/* Data Table Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
