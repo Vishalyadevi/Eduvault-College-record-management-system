@@ -51,7 +51,6 @@ function StudentActivities() {
     { name: 'Events Attended', table: 'event_attended' },
     { name: 'Events Organized', table: 'events_organized_student' },
     { name: 'Online Courses', table: 'online_courses' },
-    { name: 'Achievements', table: 'achievements' },
     { name: 'Internships', table: 'internships' },
     { name: 'Scholarships', table: 'scholarships' },
     { name: 'Student Details', table: 'student_details' },
@@ -62,7 +61,6 @@ function StudentActivities() {
     { name: 'Student Publication Details', table: 'student_publications' },
     { name: 'Student Non-CGPA Details', table: 'student_noncgpa' },
     { name: 'Student Leave', table: 'student_leave' },
-    { name: 'NPTEL Details', table: 'student_nptel' },
     { name: 'Student Marksheets', table: 'marksheet_statuses' }
   ];
 

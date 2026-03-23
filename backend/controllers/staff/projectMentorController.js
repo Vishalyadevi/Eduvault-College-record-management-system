@@ -9,7 +9,7 @@ const formatRecord = (row) => {
   return {
     id: r.id,
     Userid: r.Userid,
-    // staffId/userNumber surfaced from the JOIN with Users table
+    // staffId surfaced from the JOIN with Users table
     staffId: r.user?.userNumber ?? null,
     staffName: r.user?.userName ?? null,
     project_title: r.project_title,

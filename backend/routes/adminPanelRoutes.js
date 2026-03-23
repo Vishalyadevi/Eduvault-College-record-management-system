@@ -24,10 +24,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT s.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT s.*, u.userName as staff_name, d.departmentAcr as department 
       FROM scholars s 
-      JOIN users u ON s.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON s.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   Consultancy: {
@@ -46,10 +46,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT cp.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT cp.*, u.userName as staff_name, d.departmentAcr as department 
       FROM consultancy_proposals cp 
-      JOIN users u ON cp.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON cp.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Funded Project': {
@@ -68,10 +68,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT pp.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT pp.*, u.userName as staff_name, d.departmentAcr as department 
       FROM project_proposals pp 
-      JOIN users u ON pp.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON pp.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Seed Money': {
@@ -79,10 +79,10 @@ const activityMappings = {
     alias: 'sm',
     columns: ['id', 'project_title', 'project_duration', 'amount', 'outcomes', 'created_at'],
     joinQuery: `
-      SELECT sm.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT sm.*, u.userName as staff_name, d.departmentAcr as department 
       FROM seed_money sm 
-      JOIN users u ON sm.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON sm.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Events Attended': {
@@ -102,10 +102,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT ea.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT ea.*, u.userName as staff_name, d.departmentAcr as department 
       FROM events_attended ea 
-      JOIN users u ON ea.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON ea.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Industry Knowhow': {
@@ -126,10 +126,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT ik.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT ik.*, u.userName as staff_name, d.departmentAcr as department 
       FROM industry_knowhow ik 
-      JOIN users u ON ik.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON ik.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Certification Courses': {
@@ -146,10 +146,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT cc.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT cc.*, u.userName as staff_name, d.departmentAcr as department 
       FROM staff_certification_courses cc 
-      JOIN users u ON cc.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON cc.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   Publications: {
@@ -171,10 +171,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT bc.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT bc.*, u.userName as staff_name, d.departmentAcr as department 
       FROM book_chapters bc 
-      JOIN users u ON bc.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON bc.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Events Organized': {
@@ -196,10 +196,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT eo.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT eo.*, u.userName as staff_name, d.departmentAcr as department 
       FROM events_organized eo 
-      JOIN users u ON eo.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON eo.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'H-Index': {
@@ -207,10 +207,10 @@ const activityMappings = {
     alias: 'hi',
     columns: ['id', 'faculty_name', 'citations', 'h_index', 'created_at'],
     joinQuery: `
-      SELECT hi.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT hi.*, u.userName as staff_name, d.departmentAcr as department 
       FROM h_index hi 
-      JOIN users u ON hi.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON hi.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Resource Person': {
@@ -218,10 +218,10 @@ const activityMappings = {
     alias: 'rp',
     columns: ['id', 'program_specification', 'title', 'venue', 'event_date', 'created_at'],
     joinQuery: `
-      SELECT rp.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT rp.*, u.userName as staff_name, d.departmentAcr as department 
       FROM resource_person rp 
-      JOIN users u ON rp.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON rp.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   Recognition: {
@@ -229,10 +229,10 @@ const activityMappings = {
     alias: 'ra',
     columns: ['id', 'category', 'program_name', 'recognition_date', 'created_at'],
     joinQuery: `
-      SELECT ra.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT ra.*, u.userName as staff_name, d.departmentAcr as department 
       FROM recognition_appreciation ra 
-      JOIN users u ON ra.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON ra.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Patent/Product Development': {
@@ -248,10 +248,10 @@ const activityMappings = {
       'created_at',
     ],
     joinQuery: `
-      SELECT pat.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT pat.*, u.userName as staff_name, d.departmentAcr as department 
       FROM patent_product pat 
-      JOIN users u ON pat.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON pat.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Project Mentors': {
@@ -259,10 +259,10 @@ const activityMappings = {
     alias: 'pm',
     columns: ['id', 'project_title', 'student_details', 'event_details', 'participation_status', 'created_at'],
     joinQuery: `
-      SELECT pm.*, u.username as staff_name, d.Deptacronym as department 
+      SELECT pm.*, u.userName as staff_name, d.departmentAcr as department 
       FROM project_mentors pm 
-      JOIN users u ON pm.Userid = u.Userid 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON pm.Userid = u.userId 
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   Education: {
@@ -321,10 +321,10 @@ const activityMappings = {
       'updated_at',
     ],
     joinQuery: `
-      SELECT e.*, u.username as staff_name, d.Deptacronym as department
+      SELECT e.*, u.userName as staff_name, d.departmentAcr as department
       FROM education e
-      JOIN users u ON e.Userid = u.Userid
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON e.Userid = u.userId
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   'Personal Information': {
@@ -350,10 +350,10 @@ const activityMappings = {
       'updated_at',
     ],
     joinQuery: `
-      SELECT pi.*, u.username as staff_name, d.Deptacronym as department
+      SELECT pi.*, u.userName as staff_name, d.departmentAcr as department
       FROM personal_information pi
-      JOIN users u ON pi.Userid = u.Userid
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN users u ON pi.Userid = u.userId
+      JOIN departments d ON u.departmentId = d.departmentId
     `,
   },
   // MOU mapping for Staff Activities
@@ -361,13 +361,13 @@ const activityMappings = {
     table: 'mou',
     alias: 'm',
     columns: ['id', 'Userid', 'company_name', 'signed_on', 'mou_copy_link', 'created_at', 'updated_at'],
-    joinQuery: `SELECT m.*, u.username as staff_name, d.Deptacronym as department FROM mou m JOIN users u ON m.Userid = u.Userid JOIN departments d ON u.Deptid = d.Deptid`
+    joinQuery: `SELECT m.*, u.userName as staff_name, d.departmentAcr as department FROM mou m JOIN users u ON m.Userid = u.userId JOIN departments d ON u.departmentId = d.departmentId`
   }
 };
 
 router.get('/admin-panel/departments', async (req, res) => {
   try {
-    const [departments] = await sequelize.query('SELECT * FROM departments ORDER BY Deptname');
+    const [departments] = await sequelize.query('SELECT * FROM departments ORDER BY departmentName');
     res.json(departments);
   } catch (error) {
     console.error('Error fetching departments:', error);
@@ -380,11 +380,11 @@ router.get('/admin-panel/staff-with-activities', async (req, res) => {
   try {
     // Get all staff members
     const [staffMembers] = await sequelize.query(`
-      SELECT u.Userid, u.username, u.userMail as email, u.userNumber as staffId, u.Deptid, u.image, d.Deptacronym as department
+      SELECT u.userId as Userid, u.userName as username, u.userMail as email, u.userNumber as staffId, u.departmentId as Deptid, u.profileImage as image, d.departmentAcr as department
       FROM users u 
-      JOIN departments d ON u.Deptid = d.Deptid
+      JOIN departments d ON u.departmentId = d.departmentId
       WHERE u.roleId IS NOT NULL
-      ORDER BY u.username
+      ORDER BY u.userName
     `);
 
     console.log(`Found ${staffMembers?.length || 0} staff members`);
@@ -473,12 +473,12 @@ router.get('/admin-panel/activity-data/:tableName', async (req, res) => {
     const conditions = [];
 
     if (departmentId && departmentId !== 'null' && departmentId !== '') {
-      conditions.push('u.Deptid = ?');
+      conditions.push('u.departmentId = ?');
       queryParams.push(departmentId);
     }
 
     if (staffName && staffName.trim() !== '') {
-      conditions.push('u.username LIKE ?');
+      conditions.push('u.userName LIKE ?');
       queryParams.push(`%${staffName.trim()}%`);
     }
 

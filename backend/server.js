@@ -52,12 +52,16 @@ import patentProductRoutes from './routes/staff/patentProductRoutes.js';
 import projectMentorRoutes from './routes/staff/projectMentorRoutes.js';
 import ScholarRoutes from './routes/staff/scholarRoutes.js';
 import projectProposalRoutes from './routes/staff/fundedProjectRoutes.js';
-import mouRoutes from './routes/mou.js';
+import mouRoutes from './routes/staff/mouRoutes.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
+import educationRoutes from './routes/staff/educationRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
+import staffIndustryRoutes from './routes/staff/industryRoutes.js';
+import staffEventsRoutes from './routes/staff/eventsRoutes.js';
+import staffEventsOrganizedRoutes from './routes/staff/eventsOrganizedRoutes.js';
 import studentPanelRoutes from './routes/admin/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
 import marksheetRoutes from "./routes/student/marksheetRoutes.js";
@@ -79,7 +83,7 @@ import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 
 
 import adminRoleRoutes from './routes/adminRoutes.js';
-
+import educationRoutes from './routes/staff/educationRoutes.js';
 
 import placementMainRoutes from './routes/placement/index.js';
 
@@ -102,9 +106,9 @@ const __dirname = path.dirname(__filename);
 
 // MySQL Connection Pool - EXPORTED for use in routes
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST ,
-  user: process.env.DB_USER ,
-  password: process.env.DB_PASSWORD ,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
@@ -247,8 +251,10 @@ app.use("/api/bulk", bulkRoutes);
 app.use("/api", studentRoutes);
 
 app.use('/api/student', studentPdfRoutes);
+app.use('/api/education', educationRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api/auth', authRoutes);
+app.use('/api/education', educationRoutes);
 
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/book-chapters', bookChapterRoutes);
@@ -269,6 +275,9 @@ app.use("/api/publications", publicationRoutes);
 app.use("/api/noncgpa-category", nonCGPACategoryRoutes);
 app.use("/api/competency-coding", CompetencyCoding);
 app.use("/api/noncgpa", Noncgpa);
+app.use('/api/industry', staffIndustryRoutes);
+app.use('/api/events', staffEventsRoutes);
+app.use('/api/events-organized', staffEventsOrganizedRoutes);
 
 app.use('/api/student/certificates', certificateRoutes);
 app.use('/api/student/marksheets', marksheetRoutes);

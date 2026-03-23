@@ -1,7 +1,7 @@
 import { DataTypes } from 'sequelize';
-import { sequelize } from '../../config/mysql.js';
 
-const Education = sequelize.define('Education', {
+const Education = (sequelize) => {
+  const EducationModel = sequelize.define('Education', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -224,9 +224,11 @@ const Education = sequelize.define('Education', {
     field: 'updated_at',
     defaultValue: DataTypes.NOW,
   },
-}, {
-  timestamps: true,
-  tableName: 'education',
-});
+  }, {
+    timestamps: true,
+    tableName: 'education',
+  });
+  return EducationModel;
+};
 
 export default Education;

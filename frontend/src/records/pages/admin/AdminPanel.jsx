@@ -1,95 +1,60 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  FaUsers,
   FaUserGraduate,
-  FaUpload,
-  FaDownload,
-  FaChartLine,
-  FaClipboardList,
-  FaClock,
-  FaSearch,
-  FaChevronDown,
-  FaChevronUp,
-  FaChevronLeft,
-  FaChevronRight,
   FaBuilding,
+  FaTrophy,
+  FaLaptopCode,
+  FaCalendarAlt,
+  FaChartPie,
+  FaChartBar,
+  FaBriefcase,
+  FaClock,
+  FaUsers
 } from "react-icons/fa";
+import API from "../../../api";
 import { useUser } from "../../contexts/UserContext";
 import { useStaff } from "../../contexts/StaffContext";
 import { useStudent } from "../../contexts/StudentContext";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
 
 const AdminPanel = () => {
-  // Safe destructuring with fallback
   const userContext = useUser() || {};
-  const {
-    bulkHistory = [],
-    uploadHistory = [],
-    fetchBulkHistory = async () => {},
-    fetchUploadHistory = async () => {},
-    user = null, // Get current user to check deptId
-  } = userContext;
-
+  const { user = null } = userContext;
+  
   const staffContext = useStaff() || {};
   const { staffs = [] } = staffContext;
 
   const studentContext = useStudent() || {};
-  const { students = [], batchWiseCounts = {}, departmentWiseCounts = { deptStaffCounts: {}, deptStudentCounts: {} } } = studentContext;
+  const { students = [], departmentWiseCounts = { deptStaffCounts: {}, deptStudentCounts: {} } } = studentContext;
 
-  const navigate = useNavigate();
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [uploadSearchQuery, setUploadSearchQuery] = useState("");
-  const [downloadSearchQuery, setDownloadSearchQuery] = useState("");
-  const [currentUploadPage, setCurrentUploadPage] = useState(1);
-  const [currentDownloadPage, setCurrentDownloadPage] = useState(1);
-  const [expandedUploadId, setExpandedUploadId] = useState(null);
-  const [expandedDownloadId, setExpandedDownloadId] = useState(null);
-  const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
-  const itemsPerPage = 3;
+  
+  const [stats, setStats] = useState({
+    totalPlaced: 0,
+    totalRecruiters: 0,
+    upcomingDrives: 0,
+    eventWins: 0,
+    hackathonWins: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
   // Check if user is super admin (departmentId is null)
   const isSuperAdmin = !user?.departmentId;
   const userDeptId = user?.departmentId;
-
-  // Format timestamp
-  const formatTimestampToLocal = (timestamp) => {
-    if (!timestamp) return "Invalid Date";
-    return new Date(timestamp).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  // Format file size
-  const formatFileSize = (size) => {
-    if (!size) return "N/A";
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
-  // Fetch data on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await fetchBulkHistory();
-        await fetchUploadHistory();
-        setLastUpdated(new Date());
-      } catch (err) {
-        setError("Failed to fetch data. Please try again later.");
-        console.error(err);
-      }
-    };
-
-    fetchData();
-  }, [fetchBulkHistory, fetchUploadHistory]);
 
   // Filter data based on admin role
   const filteredStaffs = useMemo(() => {
@@ -102,413 +67,287 @@ const AdminPanel = () => {
     return students.filter(student => (student.departmentId || student.Deptid) === userDeptId);
   }, [students, isSuperAdmin, userDeptId]);
 
-  // Staff chart data - filtered by department
-  const staffChartData = useMemo(() => {
-    if (isSuperAdmin) {
-      // Show all departments
-      return Object.entries(departmentWiseCounts.deptStaffCounts || {}).map(([dept, staffCount]) => ({
-        department: dept,
-        staff: staffCount,
-      }));
-    } else {
-      // Show only user's department
-      const deptName = Object.keys(departmentWiseCounts.deptStaffCounts || {}).find(
-        dept => departmentWiseCounts.deptStaffCounts[dept] && (
-          staffs.some(s => (s.departmentId || s.Deptid) === userDeptId && (s.department === dept || s.Deptacronym === dept))
-        )
-      );
-      if (!deptName) return [];
-      return [{
-        department: deptName,
-        staff: departmentWiseCounts.deptStaffCounts[deptName] || 0,
-      }];
-    }
-  }, [departmentWiseCounts, isSuperAdmin, userDeptId, staffs]);
+  // Fetch only the new analytical data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await API.get("/admin/dashboard-stats");
+        if (res.data?.success) {
+          setStats({
+            totalPlaced: res.data.totalPlaced || 0,
+            totalRecruiters: res.data.totalRecruiters || 0,
+            upcomingDrives: res.data.upcomingDrives || 0,
+            eventWins: res.data.eventWins || 0,
+            hackathonWins: res.data.hackathonWins || 0,
+          });
+        }
+        setLastUpdated(new Date());
+      } catch (err) {
+        setError("Failed to fetch analytical data.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Student chart data - filtered by department
-  const availableDepartments = useMemo(() => {
-    if (isSuperAdmin) {
-      return Object.keys(departmentWiseCounts.deptStudentCounts || {});
-    } else {
-      // Find user's department name
-      const deptName = Object.keys(departmentWiseCounts.deptStudentCounts || {}).find(
-        dept => students.some(s => (s.departmentId || s.Deptid) === userDeptId && (s.department === dept || s.Deptacronym === dept))
-      );
-      return deptName ? [deptName] : [];
-    }
-  }, [departmentWiseCounts, isSuperAdmin, userDeptId, students]);
+    fetchData();
+  }, []);
 
-  const studentChartData = useMemo(() => {
-    if (availableDepartments.length === 0) return [];
-    const currentDept = availableDepartments[currentDeptIndex];
-    const batchData = batchWiseCounts[currentDept] || {};
-    return Object.entries(batchData).map(([batch, studentCount]) => ({
-      batch: `Batch ${batch}`,
-      students: studentCount,
-    }));
-  }, [batchWiseCounts, availableDepartments, currentDeptIndex]);
-
-  // Next/Previous Department
-  const handleNext = () => {
-    if (availableDepartments.length === 0) return;
-    setCurrentDeptIndex((prev) => (prev + 1) % availableDepartments.length);
-  };
-  const handlePrevious = () => {
-    if (availableDepartments.length === 0) return;
-    setCurrentDeptIndex((prev) => (prev - 1 + availableDepartments.length) % availableDepartments.length);
+  const formatTimestamp = (date) => {
+    return new Date(date).toLocaleString("en-US", {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
   };
 
-  // Filter & paginate history
-  const filteredUploadHistory = useMemo(() => bulkHistory.filter(item =>
-    item.filename?.toLowerCase()?.includes(uploadSearchQuery.toLowerCase())
-  ), [bulkHistory, uploadSearchQuery]);
+  // Data for Charts
+  const achievementData = [
+    { name: "Event Wins", value: stats.eventWins || 0 },
+    { name: "Hackathon Wins", value: stats.hackathonWins || 0 },
+  ];
+  const PIE_COLORS = ["#10B981", "#8B5CF6"]; // Emerald, Violet
 
-  const filteredDownloadHistory = useMemo(() => uploadHistory.filter(item =>
-    item.filename?.toLowerCase()?.includes(downloadSearchQuery.toLowerCase())
-  ), [uploadHistory, downloadSearchQuery]);
+  const overviewBarData = [
+    { name: "Placements", count: stats.totalPlaced || 0 },
+    { name: "Recruiters", count: stats.totalRecruiters || 0 },
+    { name: "Drives", count: stats.upcomingDrives || 0 },
+    { name: "Total Wins", count: (stats.eventWins || 0) + (stats.hackathonWins || 0) },
+  ];
 
-  const paginatedUploadHistory = useMemo(() => {
-    const startIndex = (currentUploadPage - 1) * itemsPerPage;
-    return filteredUploadHistory.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredUploadHistory, currentUploadPage]);
-
-  const paginatedDownloadHistory = useMemo(() => {
-    const startIndex = (currentDownloadPage - 1) * itemsPerPage;
-    return filteredDownloadHistory.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredDownloadHistory, currentDownloadPage]);
-
-  // Toggle expanded rows
-  const toggleUploadRow = (id) => setExpandedUploadId(expandedUploadId === id ? null : id);
-  const toggleDownloadRow = (id) => setExpandedDownloadId(expandedDownloadId === id ? null : id);
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+  
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300 } }
+  };
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-8">
-        <div className="text-red-500 text-center text-xl">{error}</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <div className="bg-white p-8 rounded-2xl shadow-xl border-l-4 border-red-500">
+          <p className="text-red-600 font-bold text-lg flex items-center gap-2">
+            ⚠️ {error}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-indigo-50 to-indigo-50 p-8">
-      {/* Header */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-indigo-600 to-indigo-600 rounded-lg shadow-lg text-white">
-        <div className="flex justify-between items-center">
+    <div className="min-h-[90vh] bg-slate-50 pb-12 font-inter selection:bg-purple-200">
+      <div className="max-w-[1600px] mx-auto px-6 lg:px-12 pt-8">
+        
+        {/* Modern Dynamic Header */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-10 pb-6 border-b border-slate-200">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <FaChartLine className="mr-3 text-yellow-300" /> 
-              {isSuperAdmin ? "Super Admin Dashboard" : "Department Admin Dashboard"}
-            </h1>
-            <p className="text-gray-100 flex items-center">
-              <FaClipboardList className="mr-2 text-yellow-300" /> 
-              {isSuperAdmin ? "Manage all departments and track activities" : `Manage ${availableDepartments[0] || "your department"}`}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white rounded-xl shadow-lg shadow-violet-200">
+                <FaChartPie size={22} />
+              </div>
+              <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">
+                Analytics Hub
+              </h1>
+            </div>
+            <p className="text-slate-500 font-medium flex items-center gap-2 text-sm ml-1">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              Real-time synchronization • Updated {formatTimestamp(lastUpdated)}
             </p>
           </div>
-          {!isSuperAdmin && (
-            <div className="bg-white bg-opacity-20 px-4 py-2 rounded-lg flex items-center">
-              <FaBuilding className="mr-2 text-yellow-300" />
-              <span className="font-semibold">{availableDepartments[0] || "Department"}</span>
-            </div>
-          )}
+          
+          <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
+            <FaClock className="text-slate-400" />
+            <span className="text-sm font-bold text-slate-700">Academic Year 2026</span>
+          </div>
         </div>
-        <div className="mt-2 text-gray-200 text-sm flex items-center">
-          <FaClock className="mr-2 text-yellow-300" /> Last Updated: {formatTimestampToLocal(lastUpdated)}
+
+        {/* Vibrant KPI Cards */}
+        <motion.div 
+          variants={containerVariants} initial="hidden" animate="show"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12"
+        >
+          {/* Total Staff */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-slate-500/10 group-hover:bg-slate-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-slate-50 text-slate-600 rounded-2xl"><FaUsers size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">{isSuperAdmin ? "Total Staff" : "Department Staff"}</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{filteredStaffs.length}</p>
+          </motion.div>
+
+          {/* Total Students */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-teal-500/10 group-hover:bg-teal-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl"><FaUserGraduate size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">{isSuperAdmin ? "Total Students" : "Department Students"}</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{filteredStudents.length}</p>
+          </motion.div>
+
+          {/* Placements */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><FaBriefcase size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">Student Placements</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{loading ? "..." : stats.totalPlaced}</p>
+          </motion.div>
+
+          {/* Recruiters */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-fuchsia-50 text-fuchsia-600 rounded-2xl"><FaBuilding size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">Total Recruiters</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{loading ? "..." : stats.totalRecruiters}</p>
+          </motion.div>
+
+          {/* Upcoming Drives */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-3xl shadow-lg shadow-orange-200/50 group hover:-translate-y-1 transition-transform duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/20"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-white/20 text-white rounded-2xl backdrop-blur-sm"><FaCalendarAlt size={24} /></div>
+            </div>
+            <h3 className="text-amber-50 font-bold text-xs uppercase tracking-wider">Upcoming Drives</h3>
+            <p className="text-4xl font-black text-white mt-1">{loading ? "..." : stats.upcomingDrives}</p>
+          </motion.div>
+
+          {/* Event Wins */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><FaTrophy size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">Event Wins</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{loading ? "..." : stats.eventWins}</p>
+          </motion.div>
+
+          {/* Hackathon Wins */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="p-3 bg-violet-50 text-violet-600 rounded-2xl"><FaLaptopCode size={24} /></div>
+            </div>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider">Hackathons Won</h3>
+            <p className="text-4xl font-black text-slate-800 mt-1">{loading ? "..." : stats.hackathonWins}</p>
+          </motion.div>
+        </motion.div>
+
+        {/* Beautiful Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Main Bar Chart */}
+          <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-[450px] flex flex-col relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-fuchsia-500 to-orange-500"></div>
+            <div className="mb-6 flex justify-between items-end">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                  <FaChartBar className="text-fuchsia-500" /> Institution Overview
+                </h2>
+                <p className="text-slate-500 font-medium mt-1">Comparing global scale metrics</p>
+              </div>
+            </div>
+            
+            <div className="flex-1 w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={overviewBarData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="multiColor" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B82F6" />
+                      <stop offset="100%" stopColor="#8B5CF6" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748B', fontWeight: 600}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontWeight: 500}} />
+                  <Tooltip 
+                    cursor={{fill: '#F8FAFC'}}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', padding: '16px 24px' }}
+                    itemStyle={{ fontWeight: 'bold', color: '#1E293B', fontSize: '18px' }}
+                    labelStyle={{ color: '#64748B', marginBottom: '4px', textTransform: 'uppercase', fontSize: '12px', fontWeight: 'bold' }}
+                  />
+                  <Bar dataKey="count" radius={[8, 8, 8, 8]} barSize={55} animationDuration={1500}>
+                    {overviewBarData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill="url(#multiColor)" />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Achievements Pie Chart */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-[450px] flex flex-col relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-400 to-violet-500"></div>
+            <div className="mb-2">
+              <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                <FaTrophy className="text-emerald-500" /> Success Yield
+              </h2>
+              <p className="text-slate-500 font-medium mt-1">Distribution of competition victories</p>
+            </div>
+
+            <div className="flex-1 w-full relative -mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
+                    itemStyle={{ fontWeight: 'bold', color: '#1E293B' }}
+                  />
+                  <Pie
+                    data={achievementData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={110}
+                    paddingAngle={8}
+                    dataKey="value"
+                    stroke="none"
+                    animationDuration={1500}
+                  >
+                    {achievementData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              
+              {/* Center Label for Pie */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
+                <span className="text-4xl font-black text-slate-800">
+                  {loading ? "-" : (stats.eventWins + stats.hackathonWins)}
+                </span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Total Wins</span>
+              </div>
+            </div>
+
+            {/* Custom Legend */}
+            <div className="flex justify-center gap-6 mt-4 border-t border-slate-100 pt-6">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
+                <span className="text-sm font-bold text-slate-600">Events</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-violet-500 shadow-lg shadow-violet-200"></div>
+                <span className="text-sm font-bold text-slate-600">Hackathons</span>
+              </div>
+            </div>
+          </div>
+          
         </div>
-      </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Staff Card */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-orange-400 to-orange-600 p-6 rounded-lg shadow-lg text-white"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">{isSuperAdmin ? "Total Staff" : "Department Staff"}</h2>
-              <p className="text-3xl font-semibold">{filteredStaffs.length}</p>
-            </div>
-            <FaUsers className="text-4xl opacity-80" />
-          </div>
-          <button
-            onClick={() => navigate("/records/staff-list")}
-            className="mt-4 w-full bg-transparent text-white py-2 hover:underline flex items-center justify-end"
-          >
-            View Details <span className="ml-2">{">"}</span>
-          </button>
-        </motion.div>
-
-        {/* Total Students Card */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-teal-400 to-teal-600 p-6 rounded-lg shadow-lg text-white"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">{isSuperAdmin ? "Total Students" : "Department Students"}</h2>
-              <p className="text-3xl font-semibold">{filteredStudents.length}</p>
-            </div>
-            <FaUserGraduate className="text-4xl opacity-80" />
-          </div>
-          <button
-            onClick={() => navigate("/records/student-list")}
-            className="mt-4 w-full bg-transparent text-white py-2 hover:underline flex items-center justify-end"
-          >
-            View Details <span className="ml-2">{">"}</span>
-          </button>
-        </motion.div>
-
-        {/* Recent Uploads Card */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-pink-400 to-pink-600 p-6 rounded-lg shadow-lg text-white"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Recent Uploads</h2>
-              <p className="text-3xl font-semibold">{bulkHistory.length}</p>
-            </div>
-            <FaUpload className="text-4xl opacity-80" />
-          </div>
-        </motion.div>
-
-        {/* Recent Downloads Card */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-indigo-400 to-indigo-600 p-6 rounded-lg shadow-lg text-white"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Recent Downloads</h2>
-              <p className="text-3xl font-semibold">{uploadHistory.length}</p>
-            </div>
-            <FaDownload className="text-4xl opacity-80" />
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Department-wise Staff Counts */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="bg-white p-6 rounded-lg shadow-lg mb-8"
-      >
-        <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUsers className="mr-3 text-indigo-600" /> 
-          {isSuperAdmin ? "Total Staff in Each Department" : `Staff in ${availableDepartments[0] || "Department"}`}
-        </h2>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={staffChartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-          >
-            <defs>
-              <linearGradient id="pinkGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f472b6" />
-                <stop offset="100%" stopColor="#db2777" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="department" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar
-              dataKey="staff"
-              fill="url(#pinkGradient)"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
-
-      {/* Batch-wise Students Chart */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="bg-white p-6 rounded-lg shadow-lg mb-8"
-      >
-        <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-          <FaUserGraduate className="mr-3 text-indigo-600" /> 
-          Batch-wise Students in {availableDepartments[currentDeptIndex] || "Department"}
-        </h2>
-        {isSuperAdmin && availableDepartments.length > 1 && (
-          <div className="flex justify-between items-center mb-4">
-            <button
-              onClick={handlePrevious}
-              className="p-2 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors"
-            >
-              <FaChevronLeft className="text-indigo-600" />
-            </button>
-            <span className="text-gray-600 font-medium">
-              Department {currentDeptIndex + 1} of {availableDepartments.length}
-            </span>
-            <button
-              onClick={handleNext}
-              className="p-2 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors"
-            >
-              <FaChevronRight className="text-indigo-600" />
-            </button>
-          </div>
-        )}
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={studentChartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-          >
-            <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" />
-                <stop offset="100%" stopColor="#ec4899" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="batch" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar
-              dataKey="students"
-              fill="url(#barGradient)"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
-
-      {/* Bulk Upload and Download History Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bulk Upload History */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="bg-white p-6 rounded-lg shadow-lg"
-        >
-          <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <FaUpload className="mr-3 text-indigo-600" /> Bulk Upload History
-          </h2>
-          <div className="mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search uploads..."
-                value={uploadSearchQuery}
-                onChange={(e) => setUploadSearchQuery(e.target.value)}
-                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              />
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
-            </div>
-          </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {paginatedUploadHistory.map((upload, index) => (
-              <div
-                key={upload.id || index}
-                className="flex flex-col p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-300 cursor-pointer"
-                onClick={() => toggleUploadRow(upload.id || index)}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-700 font-semibold">{upload.filename}</p>
-                  {expandedUploadId === (upload.id || index) ? (
-                    <FaChevronUp className="text-gray-500" />
-                  ) : (
-                    <FaChevronDown className="text-gray-500" />
-                  )}
-                </div>
-                {expandedUploadId === (upload.id || index) && (
-                  <div className="mt-2 text-sm text-gray-500">
-                    <p>Type: {upload.download_type || "N/A"}</p>
-                    <p>Size: {formatFileSize(upload.file_size)}</p>
-                    <p>Total Records: {upload.total_records || "N/A"}</p>
-                    <p>Date: {formatTimestampToLocal(upload.created_at)}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between items-center mt-4">
-            <button
-              onClick={() => setCurrentUploadPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentUploadPage === 1}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
-            >
-              Previous
-            </button>
-            <span className="text-gray-700">Page {currentUploadPage}</span>
-            <button
-              onClick={() => setCurrentUploadPage((prev) => prev + 1)}
-              disabled={paginatedUploadHistory.length < itemsPerPage}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
-            >
-              Next
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Download History */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="bg-white p-6 rounded-lg shadow-lg"
-        >
-          <h2 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-            <FaDownload className="mr-3 text-indigo-600" /> Download History
-          </h2>
-          <div className="mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search downloads..."
-                value={downloadSearchQuery}
-                onChange={(e) => setDownloadSearchQuery(e.target.value)}
-                className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              />
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
-            </div>
-          </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {paginatedDownloadHistory.map((download, index) => (
-              <div
-                key={download.id || index}
-                className="flex flex-col p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-300 cursor-pointer"
-                onClick={() => toggleDownloadRow(download.id || index)}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-700 font-semibold">{download.filename}</p>
-                  {expandedDownloadId === (download.id || index) ? (
-                    <FaChevronUp className="text-gray-500" />
-                  ) : (
-                    <FaChevronDown className="text-gray-500" />
-                  )}
-                </div>
-                {expandedDownloadId === (download.id || index) && (
-                  <div className="mt-2 text-sm text-gray-500">
-                    <p>Type: {download.download_type || "N/A"}</p>
-                    <p>Size: {formatFileSize(download.file_size)}</p>
-                    <p>Total Records: {download.total_records || "N/A"}</p>
-                    <p>Date: {formatTimestampToLocal(download.created_at)}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between items-center mt-4">
-            <button
-              onClick={() => setCurrentDownloadPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentDownloadPage === 1}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
-            >
-              Previous
-            </button>
-            <span className="text-gray-700">Page {currentDownloadPage}</span>
-            <button
-              onClick={() => setCurrentDownloadPage((prev) => prev + 1)}
-              disabled={paginatedDownloadHistory.length < itemsPerPage}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
-            >
-              Next
-            </button>
-          </div>
-        </motion.div>
       </div>
     </div>
   );

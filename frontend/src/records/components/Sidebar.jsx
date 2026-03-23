@@ -86,7 +86,8 @@ const NavDropdown = ({ isOpen, setIsOpen, isActive, label, icon, items }) => (
         backgroundColor: isActive ? "#eff6ff" : "transparent",
         color: isActive ? "#2563eb" : "#374151",
         borderLeft: isActive ? "3px solid #2563eb" : "3px solid transparent",
-        border: "none", cursor: "pointer", transition: "all 0.15s",
+        borderTop: "none", borderRight: "none", borderBottom: "none",
+        cursor: "pointer", transition: "all 0.15s",
       }}
     >
       <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -216,7 +217,7 @@ const Sidebar = () => {
           {role === "superadmin" && (
             <SidebarLink to="/records/add-user" icon={<FaUserCog />} label="Add User" />
           )}
-          <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" />
+          {/* <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" /> */}
           <SidebarLink to="/records/department-management" icon={<FaSitemap />} label="Manage Departments" />
           <SidebarLink to="/records/role-management" icon={<FaUserShield />} label="Manage Roles" />
           <SidebarLink to="/records/student-list" icon={<FaGraduationCap />} label="Student List" />
@@ -338,21 +339,23 @@ const Sidebar = () => {
 
       <div style={S.sidebar}>
         <div style={S.profileSection}>
-          <div style={S.avatarRing} onClick={() => setShowDropdown(!showDropdown)}>
+          <div style={S.avatarRing} onClick={() => { if (!user?.role?.toLowerCase().includes('admin')) setShowDropdown(!showDropdown); }}>
             <img src={profileImageSrc} alt="profile" style={S.avatar} />
-            <div style={S.chevronBadge}>
-              <svg style={{ width: "10px", height: "10px", color: "#2563eb", transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+            {!user?.role?.toLowerCase().includes('admin') && (
+              <div style={S.chevronBadge}>
+                <svg style={{ width: "10px", height: "10px", color: "#2563eb", transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            )}
           </div>
           <p style={S.username}>{user?.username}</p>
           <p style={S.roleTag}>{user?.role}</p>
-          {showDropdown && (
+          {showDropdown && !user?.role?.toLowerCase().includes('admin') && (
             <div style={S.profileDropdown}>
               <button
-                style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: "13px", color: "#374151", backgroundColor: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontWeight: "700" }}
+                style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: "13px", color: "#374151", backgroundColor: "transparent", borderTop: "none", borderRight: "none", borderBottom: "none", borderLeft: "none", textAlign: "left", cursor: "pointer", fontWeight: "700" }}
                 onClick={() => { navigate("/records/profile"); setShowDropdown(false); }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = "#eff6ff"; e.currentTarget.style.color = "#2563eb"; }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#374151"; }}

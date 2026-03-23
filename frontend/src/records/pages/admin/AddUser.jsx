@@ -308,22 +308,22 @@ const UserManagement = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[400px]">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User Number
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Department
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -331,12 +331,13 @@ const UserManagement = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users?.map((user) => (
                     <tr key={user.userId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
+                      <td className="px-6 py-4 whitespace-normal break-words text-left min-w-[200px]">
+                        <div className="flex items-center justify-start">
                           <img
-                            src={user.profileImage || '/uploads/default.jpg'}
+                            src={user.profileImage ? (user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:4000${user.profileImage}`) : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}
                             alt=""
-                            className="h-10 w-10 rounded-full"
+                            className="h-10 w-10 min-w-[2.5rem] rounded-full object-cover"
+                            onError={(e) => { e.target.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' }}
                           />
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
@@ -345,21 +346,21 @@ const UserManagement = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-500 text-left min-w-[350px]">
                         {user.userMail}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                         {user.userNumber}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-blue-800">
                           {user.role?.roleName || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                         {user.department?.departmentAcr || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'Active'
                             ? 'bg-green-100 text-green-800'
@@ -369,7 +370,7 @@ const UserManagement = () => {
                           {user.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                         <button
                           onClick={() => handleEditUser(user)}
                           className="text-indigo-600 hover:text-blue-900 mr-4"
