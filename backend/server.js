@@ -83,8 +83,6 @@ import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 
 
 import adminRoleRoutes from './routes/adminRoutes.js';
-import educationRoutes from './routes/staff/educationRoutes.js';
-
 import placementMainRoutes from './routes/placement/index.js';
 
 //Acadamic
@@ -254,7 +252,6 @@ app.use('/api/student', studentPdfRoutes);
 app.use('/api/education', educationRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api/auth', authRoutes);
-app.use('/api/education', educationRoutes);
 
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/book-chapters', bookChapterRoutes);
@@ -288,7 +285,6 @@ app.use('/api', studentPanelRoutes);
 app.use("/api/projects", projectRoutes);
 // Dummy routes to prevent dashboard and context 404s
 app.get('/api/appraisals', (req, res) => res.json([]));
-app.get('/api/events', (req, res) => res.json([]));
 app.get('/api/industry', (req, res) => res.json([]));
 app.get('/api/other/events-organized', (req, res) => res.json([]));
 app.get('/api/nptel/admin/courses', (req, res) => res.json([]));

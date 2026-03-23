@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { Mail, Info, Check, X, Send, Bell } from "lucide-react";
+import { Mail, Info, Check, X, Send, Bell, Download, RefreshCw } from "lucide-react";
+import { useAuth } from '../auth/AuthContext';
+import { getStaffResumeData } from '../../services/api';
+import { generateStaffResumePDF } from '../../utils/generateStaffResume';
+import API from '../../../api';
 import { useDashboardContext } from "../../contexts/DashboardContext.jsx";
 import { toast } from "react-toastify";
 
@@ -31,6 +35,49 @@ const Dashboard = () => {
     addNotification,
     removeNotification
   } = useDashboardContext();
+
+  const { user } = useAuth();
+  const [downloadingResume, setDownloadingResume] = useState(false);
+
+  const handleDownloadResume = async () => {
+    try {
+      setDownloadingResume(true);
+      const effectiveUserId = user?.Userid || user?.userId;
+      if (!effectiveUserId) {
+        toast.error('User ID not found');
+        return;
+      }
+
+      const response = await getStaffResumeData(effectiveUserId);
+      if (response.data.success) {
+        // Fetch profile image if exists
+        let profileImageData = null;
+        try {
+          const imageResponse = await API.get(`/resume-staff/profile-image/${effectiveUserId}`);
+          if (imageResponse.data.success) {
+            profileImageData = {
+              data: imageResponse.data.imageData,
+              format: imageResponse.data.format
+            };
+          }
+        } catch (imageErr) {
+          console.warn('Could not fetch profile image:', imageErr);
+        }
+
+        await generateStaffResumePDF(response.data.data, profileImageData);
+        toast.success('Resume downloaded successfully!');
+      } else {
+        throw new Error(response.data.error || 'Failed to fetch resume data');
+      }
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      const data = error.response?.data;
+      const errorMsg = data?.details || data?.error || data?.message || error.message || 'Unknown error';
+      toast.error(`Failed to download resume: ${errorMsg}`);
+    } finally {
+      setDownloadingResume(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState("internships");
   const backendUrl = "http://localhost:4000";
@@ -474,7 +521,20 @@ const Dashboard = () => {
     <div className="flex flex-col h-screen p-6 space-y-6 bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Approval Dashboard</h1>
-        <div className="flex space-x-4">
+        <div className="flex items-center space-x-4">
+          <button
+            type="button"
+            onClick={handleDownloadResume}
+            disabled={downloadingResume}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-50 transition-all text-sm shadow-md"
+          >
+            {downloadingResume ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Download Resume
+          </button>
           <div className="relative">
             <Bell
               onClick={() => addNotification(`You have ${currentTabData.length} pending ${activeTab} to approve/reject.`)}

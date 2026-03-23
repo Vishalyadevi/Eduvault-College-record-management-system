@@ -2,7 +2,8 @@ import express from 'express';
 import { pool } from '../../db/db.js';
 import fs from 'fs';
 import path from 'path';
-import { authenticate, authenticate as authenticateToken } from '../../middlewares/auth.js';
+import { authenticate } from '../../middlewares/requireauth.js';
+const authenticateToken = authenticate;
 
 const router = express.Router();
 
@@ -11,20 +12,25 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
   const { userId } = req.params;
 
   try {
+    let query = 'Query not started';
     console.log('Authenticated user from token/database:', req.user);
     console.log('Requested userId parameter:', userId);
 
     const authenticatedUserId = req.user.userId || req.user.Userid || req.user.id;
     const userRole = req.user.roleName || req.user.role || '';
 
+    console.log(`[RESUME_API] AuthID: ${authenticatedUserId}, ParamID: ${userId}, Role: ${userRole}`);
+
     if (!authenticatedUserId) {
         return res.status(401).json({ error: 'Unauthorized. User ID missing.', success: false });
     }
 
-    if (authenticatedUserId !== parseInt(userId) && 
-        !['Admin', 'SuperAdmin'].includes(userRole) && 
-        userRole.toLowerCase() !== 'admin') {
-      console.log('Access denied - User ID mismatch or insufficient role');
+    // Security check - allowing self or admins
+    const isSelf = String(authenticatedUserId) === String(userId);
+    const isAdmin = ['Admin', 'SuperAdmin'].includes(userRole) || userRole.toLowerCase() === 'admin';
+
+    if (!isSelf && !isAdmin) {
+      console.log(`[RESUME_API] Access denied - User ID mismatch (${authenticatedUserId} vs ${userId}) and not admin`);
       return res.status(403).json({ error: 'Access denied.', success: false });
     }
 
@@ -48,13 +54,13 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
         const table = await findTable(tables);
         if (!table) return [];
         
-        // Replace PLACEHOLDER with the actual found table name
+        // Replace {{TABLE}} with the actual found table name
         const sql = sqlTemplate.replace('{{TABLE}}', `\`${table}\``);
         try {
           const [rows] = await connection.query(sql, params);
           return rows;
-        } catch (err) {
-          console.warn(`safeQuery failed for ${table}:`, err.message);
+        } catch (queryErr) {
+          console.error(`[SAFE_QUERY] Error querying table ${table}:`, queryErr.message);
           return [];
         }
       };
@@ -66,35 +72,42 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       const hasStaffDetailsTable = await findTable('staff_details');
       const hasDepartmentsTable = await findTable('departments');
 
+      // Safe column getter - returns list of column names for a table
+      const getColumns = async (tableName) => {
+        if (!tableName) return [];
+        try {
+          const [cols] = await connection.query(`DESCRIBE \`${tableName}\``);
+          // MySQL returns 'Field' but sometimes drivers/modes might change case
+          return cols.map(c => (c.Field || c.field || '').toString());
+        } catch (e) { 
+          console.error(`Error describing table ${tableName}:`, e.message);
+          return []; 
+        }
+      };
+
       let personalInfo = [];
-      if (hasPersonalInfoTable) {
-        [personalInfo] = await connection.query(`
-          SELECT 
-            u.userId, u.userName AS username, u.userMail AS email, u.userNumber, u.profileImage,
-            COALESCE(pi.full_name, CONCAT(COALESCE(sd.salutation, ''), ' ', COALESCE(sd.firstName, ''), ' ', COALESCE(sd.middleName, ''), ' ', COALESCE(sd.lastName, ''))) AS full_name,
-            COALESCE(pi.mobile_number, sd.mobileNumber) AS phone,
-            COALESCE(pi.communication_address, CONCAT_WS(' ', sd.currentAddressLine1, sd.currentAddressLine2, sd.currentCity, sd.currentState, sd.currentPincode)) AS address,
-            pi.post AS designation, pi.h_index AS pi_h_index, pi.citation_index AS pi_citation_index,
-            d.departmentName AS department, sd.staffNumber, sd.gender, sd.bloodGroup, sd.DOB AS dob, sd.DOJ AS date_of_joining
+      if (hasPersonalInfoTable || hasStaffDetailsTable) {
+        query = `
+          SELECT u.userId, u.userName, u.userMail, u.userNumber, u.profileImage,
+                 pi.*, sd.*, d.departmentName AS department
           FROM users u
-          LEFT JOIN personal_information pi ON u.userId = pi.Userid
-          ${hasStaffDetailsTable ? 'LEFT JOIN staff_details sd ON u.userNumber = sd.staffNumber' : ''}
-          ${hasDepartmentsTable ? 'LEFT JOIN departments d ON u.departmentId = d.departmentId' : ''}
+          ${hasPersonalInfoTable ? `LEFT JOIN \`${hasPersonalInfoTable}\` pi ON u.userId = pi.Userid` : ''}
+          ${hasStaffDetailsTable ? `LEFT JOIN \`${hasStaffDetailsTable}\` sd ON u.userNumber = sd.staffNumber` : ''}
+          ${hasDepartmentsTable ? `LEFT JOIN \`${hasDepartmentsTable}\` d ON u.departmentId = d.departmentId` : ''}
           WHERE u.userId = ?
-        `, [userId]);
+        `;
+
+        try {
+          [personalInfo] = await connection.query(query, [userId]);
+        } catch (sqlErr) {
+          console.error('[RESUME_API] Join query failed, falling back to minimal:', sqlErr.message);
+          // Fallback if joined query fails (e.g. column ambiguity or schema issues)
+          query = `SELECT * FROM users WHERE userId = ?`;
+          [personalInfo] = await connection.query(query, [userId]);
+        }
       } else {
-        // Fallback if personal_information table is missing
-        [personalInfo] = await connection.query(`
-          SELECT 
-            u.userId, u.userName AS username, u.userMail AS email, u.userNumber, u.profileImage,
-            u.userName AS full_name,
-            ${hasStaffDetailsTable ? 'sd.mobileNumber AS phone, sd.staffNumber, sd.gender, sd.bloodGroup, sd.DOB AS dob, sd.DOJ AS date_of_joining' : '\'\' AS phone, u.userNumber AS staffNumber, \'\' AS gender, \'\' AS bloodGroup, NULL AS dob, NULL AS date_of_joining'}
-            ${hasDepartmentsTable ? ', d.departmentName AS department' : ', \'\' AS department'}
-          FROM users u
-          ${hasStaffDetailsTable ? 'LEFT JOIN staff_details sd ON u.userNumber = sd.staffNumber' : ''}
-          ${hasDepartmentsTable ? 'LEFT JOIN departments d ON u.departmentId = d.departmentId' : ''}
-          WHERE u.userId = ?
-        `, [userId]);
+        query = `SELECT * FROM users WHERE userId = ?`;
+        [personalInfo] = await connection.query(query, [userId]);
       }
 
       if (!personalInfo || personalInfo.length === 0) {
@@ -104,34 +117,24 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
       const rawData = personalInfo[0];
       const staffInfo = {
         userid: parseInt(userId),
-        full_name: rawData.full_name || rawData.username || 'N/A',
-        username: rawData.username || 'N/A',
-        email: rawData.email || 'N/A',
+        full_name: rawData.full_name || rawData.userName || 'N/A',
+        username: rawData.userName || 'N/A',
+        email: rawData.userMail || 'N/A',
         userNumber: rawData.userNumber || 'N/A',
         staffNumber: rawData.staffNumber || rawData.userNumber || 'N/A',
-        phone: rawData.phone || 'N/A',
-        mobile_number: rawData.phone || 'N/A', // alias for frontend compatibility
-        address: rawData.address || 'N/A',
-        designation: rawData.designation || 'N/A',
-        post: rawData.designation || 'N/A', // alias for compatibility with frontend
+        phone: rawData.mobile_number || rawData.mobileNumber || 'N/A',
+        mobile_number: rawData.mobile_number || rawData.mobileNumber || 'N/A',
+        address: rawData.communication_address || 'N/A',
+        designation: rawData.post || 'N/A',
+        post: rawData.post || 'N/A',
         department: rawData.department || 'N/A',
-        date_of_joining: rawData.date_of_joining || 'N/A',
+        date_of_joining: rawData.DOJ || rawData.date_of_joining || 'N/A',
         gender: rawData.gender || 'N/A',
         bloodGroup: rawData.bloodGroup || 'N/A',
-        dob: rawData.dob || 'N/A',
-        date_of_birth: rawData.dob || 'N/A', // alias for frontend compatibility
-        panNumber: rawData.panNumber || 'N/A',
-        aadharNumber: rawData.aadharNumber || 'N/A',
-        emergencyContact: rawData.emergencyContact || 'N/A',
-        // Academic identifiers - prefer personal_information, fall back to staff_details
-        anna_university_faculty_id: rawData.anna_university_faculty_id || rawData.sd_anna_univ_id || 'N/A',
-        aicte_faculty_id: rawData.aicte_faculty_id || rawData.sd_aicte_id || 'N/A',
-        orcid: rawData.orcid || rawData.sd_orcid || 'N/A',
-        researcher_id: rawData.researcher_id || 'N/A',
-        google_scholar_id: rawData.google_scholar_id || 'N/A',
-        scopus_profile: rawData.scopus_profile || 'N/A',
-        vidwan_profile: rawData.vidwan_profile || 'N/A',
-        supervisor_id: rawData.supervisor_id || 'N/A',
+        dob: rawData.DOB || rawData.dob || 'N/A',
+        date_of_birth: rawData.DOB || rawData.dob || 'N/A',
+        pi_h_index: rawData.h_index || 0,
+        pi_citation_index: rawData.citation_index || 0,
         profileImage: rawData.profileImage || null,
       };
 
@@ -418,6 +421,8 @@ router.get('/staff-data/:userId', authenticate, async (req, res) => {
     return res.status(500).json({
       error: 'Failed to fetch staff resume data',
       details: error.message,
+      query: (typeof query !== 'undefined') ? query : 'Query not generated',
+      stack: error.stack,
       success: false,
     });
   }
@@ -508,9 +513,10 @@ router.get('/profile-image/:userId', authenticateToken, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const authenticatedUserId = req.user.userId || req.user.Userid;
+    const authenticatedUserId = req.user.userId || req.user.Userid || req.user.id;
+    const userRole = req.user.roleName || req.user.role || '';
 
-    if (authenticatedUserId !== parseInt(userId) && req.user.roleName !== 'Admin' && req.user.roleName !== 'SuperAdmin') {
+    if (String(authenticatedUserId) !== String(userId) && !['Admin', 'SuperAdmin'].includes(userRole) && userRole.toLowerCase() !== 'admin') {
       return res.status(403).json({ error: 'Access denied.', success: false });
     }
 
