@@ -55,9 +55,16 @@ import ResourcePerson from "./staff/ResourcePerson.js";
 import SeedMoney from "./staff/SeedMoney.js";
 import Scholar from "./staff/Scholar.js";
 import StaffEventAttended from "./staff/StaffEventAttended.js";
+import StaffEventsAttendedModel from "./staff/EventsAttended.js";
+import StaffEventsOrganizedModel from "./staff/EventsOrganized.js";
+import IndustryKnowhow from "./staff/IndustryKnowhow.js";
+import MOU from "./staff/MOU.js";
+import MOUActivity from "./staff/MOUActivity.js";
 
 import PlacementCompany from "./placement/Company.js";
 import FeedbackRound from "./placement/FeedbackRound.js";
+import EducationModel from "./staff/Education.js";
+const Education = EducationModel(sequelize);
 
 // Include and initialize Academic project models
 // import acadamicModels from "./acadamic/index.js";
@@ -92,17 +99,19 @@ const applyAssociations = () => {
   StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "studentUser" });
   StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "user" }); // Also used as 'user' in some controllers
   StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "userAccount" }); // Used in NPTEL controllers
-
   User.hasMany(StudentDetails, { foreignKey: "staffId", as: "staffStudents" });
   StudentDetails.belongsTo(User, { foreignKey: "staffId", as: "staffAdvisor" });
-
-  // Add audit user associations for StudentDetails
+// Add audit user associations for StudentDetails
   StudentDetails.belongsTo(User, { foreignKey: "Created_by", as: "oldCreator" });
   StudentDetails.belongsTo(User, { foreignKey: "Updated_by", as: "oldUpdater" });
   StudentDetails.belongsTo(User, { foreignKey: "Approved_by", as: "oldApprover" });
   StudentDetails.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
   StudentDetails.belongsTo(User, { foreignKey: "updatedBy", as: "updater" });
   StudentDetails.belongsTo(User, { foreignKey: "approvedBy", as: "approver" });
+
+   
+
+
 
   User.hasOne(StaffDetails, { foreignKey: "Userid", as: "staffPersonalInfo" });
   StaffDetails.belongsTo(User, { foreignKey: "Userid", as: "staffUser" });
@@ -555,7 +564,27 @@ SkillRack.belongsTo(User, {
 User.hasMany(ProjectMentor, { foreignKey: "Userid", as: "projectMentors" });
 ProjectMentor.belongsTo(User, { foreignKey: "Userid", as: "user" });
 
+// StaffEventsAttended Associations
+User.hasMany(StaffEventsAttendedModel, { foreignKey: "Userid", as: "staffEventsAttendedList" });
+StaffEventsAttendedModel.belongsTo(User, { foreignKey: "Userid", as: "user" });
 
+// StaffEventsOrganized Associations
+User.hasMany(StaffEventsOrganizedModel, { foreignKey: "Userid", as: "staffEventsOrganizedList" });
+StaffEventsOrganizedModel.belongsTo(User, { foreignKey: "Userid", as: "user" });
+
+// IndustryKnowhow Associations
+User.hasMany(IndustryKnowhow, { foreignKey: "Userid", as: "industryKnowhowList" });
+IndustryKnowhow.belongsTo(User, { foreignKey: "Userid", as: "user" });
+
+// MOU Associations
+User.hasMany(MOU, { foreignKey: "Userid", as: "mous" });
+MOU.belongsTo(User, { foreignKey: "Userid", as: "user" });
+
+User.hasMany(MOUActivity, { foreignKey: "Userid", as: "mouActivities" });
+MOUActivity.belongsTo(User, { foreignKey: "Userid", as: "user" });
+
+MOU.hasMany(MOUActivity, { foreignKey: "mou_id", as: "activities" });
+MOUActivity.belongsTo(MOU, { foreignKey: "mou_id", as: "mou" });
 
 // 💼 PLACEMENT ASSOCIATIONS
 // ========================
@@ -598,6 +627,7 @@ const db = {
   Company,
   StaffDetails,
   SkillRack,
+  Education,
   OnlineCourses,
   StudentDetails,
   NPTELCourse,
@@ -642,6 +672,11 @@ const db = {
   SeedMoney,
   Scholar,
   StaffEventAttended,
+  StaffEventsAttendedModel,
+  StaffEventsOrganizedModel,
+  IndustryKnowhow,
+  MOU,
+  MOUActivity,
   Certificate,
   HIndex,
   BookChapter,
@@ -712,6 +747,11 @@ export {
   SeedMoney,
   Scholar,
   StaffEventAttended,
+  StaffEventsAttendedModel,
+  StaffEventsOrganizedModel,
+  IndustryKnowhow,
+  MOU,
+  MOUActivity,
   Certificate,
   HIndex,
   BookChapter,

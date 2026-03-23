@@ -207,8 +207,8 @@ export const NPTELProvider = ({ children }) => {
     const isRecordsPath = path.startsWith("/records");
     if (!isRecordsPath || !UserId) return;
 
-    fetchAllCourses();
-    fetchStudentEnrollments();
+    // fetchAllCourses();
+    // fetchStudentEnrollments();
   }, [UserId, fetchAllCourses, fetchStudentEnrollments]);
 
   return (

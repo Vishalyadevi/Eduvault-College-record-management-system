@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Navigate } from "react-router-dom";
 import classNames from "classnames";
 import "./FeePaymentGuide.css";
 import { FaFilePdf, FaLink } from 'react-icons/fa';
@@ -685,7 +686,7 @@ const safetyData: SafetyEntry[] = [
   },
 ];
 
-const navItems = ["Home", "Faculty", "Courses", "Facilities", "Gallery"];
+const navItems = ["Home", "Faculty", "Courses", "Facilities", "Gallery","TLP"];
 
 const CSEDepartment = () => {
   const [active, setActive] = useState("Home");
@@ -1368,6 +1369,8 @@ const CSEDepartment = () => {
           {active === "Gallery" && <div>
             
             </div>}
+          {active === "TLP" && <Navigate to="/departments/cse/itlp" replace />}
+           
         </main>
       </div>
     </div>
