@@ -13,7 +13,7 @@ const Education = (sequelize) => {
     unique: true,
     references: {
       model: 'users',
-      key: 'Userid',
+      key: 'userId',
     },
     onDelete: 'CASCADE',
   },

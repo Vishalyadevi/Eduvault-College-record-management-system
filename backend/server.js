@@ -216,7 +216,6 @@ app.use(helmet({
 
 // Global Rate Limiting for all API requests
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // Limit each IP to 300 requests per `window` (production scale)
   standardHeaders: true, 
   legacyHeaders: false, 

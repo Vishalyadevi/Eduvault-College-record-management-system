@@ -33,14 +33,20 @@ export const submitActivity = async (req, res) => {
     const Userid = req.user?.Userid;
     const reportFile = req.file ? `/uploads/activity/${req.file.filename}` : null;
 
-    // Validation - check user ID
-    if (!Userid) {
-      return res.status(401).json({ message: 'User not authenticated. Please log in again.' });
-    }
+    console.log('--- Submit Activity Debug ---');
+    console.log('Userid:', Userid);
+    console.log('req.body:', req.body);
+    console.log('from_date:', from_date, 'to_date:', to_date);
+    console.log('participant_count:', participant_count, 'participantCountInt:', participantCountInt);
+    console.log('level:', level, 'normalizedLevel:', normalizedLevel);
 
     // Validation - check required fields
-    if (!from_date || !to_date || !student_coordinators || !participantCountInt || !normalizedLevel) {
-      return res.status(400).json({ message: 'All required fields must be provided' });
+    if (!from_date || !to_date || !student_coordinators || participantCountInt === null || !normalizedLevel) {
+      console.warn('❌ Activity submission failed validation - missing fields');
+      return res.status(400).json({ 
+        message: 'All required fields must be provided', 
+        received: { from_date: !!from_date, to_date: !!to_date, student_coordinators: !!student_coordinators, participantCountInt: participantCountInt !== null, normalizedLevel: !!normalizedLevel } 
+      });
     }
 
     if (new Date(from_date) > new Date(to_date)) {
@@ -68,12 +74,13 @@ export const submitActivity = async (req, res) => {
       Created_by: Userid,
     });
 
+    console.log('✅ Activity created successfully. ID:', activity.id);
     res.status(201).json({
       message: 'Activity submitted successfully',
       activity,
     });
   } catch (error) {
-    console.error('Error submitting activity:', error);
+    console.error('❌ Error submitting activity Exception:', error);
 
     // Provide clearer error for DB enum/validation failures
     const dbEnumMsg = (error.original && (error.original.sqlMessage || error.original.message)) || error.message;
