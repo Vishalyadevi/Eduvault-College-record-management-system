@@ -194,7 +194,7 @@ const StudentBioData = ({ userId: propUserId }) => {
       }
     };
 
-    if (userId || authUser) {
+    if (propUserId || urlUserId || authUser) {
       fetchAllData();
     }
 
@@ -278,7 +278,7 @@ const StudentBioData = ({ userId: propUserId }) => {
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Department</p>
-              <p className="font-semibold break-words">{student?.Department?.departmentName || 'N/A'}</p>
+              <p className="font-semibold break-words">{student?.department?.departmentName || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Course</p>

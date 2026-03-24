@@ -285,7 +285,7 @@ const StaffBioData = ({ userId: propUserId }) => {
                     </div>
                     <div className="bg-gray-50 p-3 rounded">
                         <p className="text-sm font-medium text-gray-500">Post</p>
-                        <p className="font-semibold">{personalInfo?.post || 'N/A'}</p>
+                        <p className="font-semibold">{personalInfo?.designation || personalInfo?.post || 'N/A'}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded">
                         <p className="text-sm font-medium text-gray-500">H-Index</p>

@@ -72,29 +72,27 @@ const DataTable = ({
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="overflow-x-auto" style={{
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#4f46e5 #e5e7eb'
-      }}>
-        <style jsx>{`
-          div::-webkit-scrollbar {
-            height: 8px;
-            width: 8px;
-          }
-          div::-webkit-scrollbar-track {
-            background: #f3f4f6;
-            border-radius: 10px;
-          }
-          div::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
-            border-radius: 10px;
-          }
-          div::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-          }
-        `}</style>
-        
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 8px;
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f3f4f6;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+      `}</style>
+
+      <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full table-auto">
+
           <thead className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wide">

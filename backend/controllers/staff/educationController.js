@@ -41,10 +41,10 @@ export const validateEducationInfo = (req, res, next) => {
 
   const phdIntFields = ['phd_publications_during', 'phd_publications_post', 'phd_post_experience'];
   for (const field of phdIntFields) {
-    if (data[field]) {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
       const value = Number.parseInt(data[field], 10);
-      if (Number.isNaN(value) || value < 1 || value > 20) {
-        return res.status(400).json({ message: `${field} must be an integer between 1 and 20` });
+      if (Number.isNaN(value) || value < 0 || value > 20) {
+        return res.status(400).json({ message: `${field} must be an integer between 0 and 20` });
       }
     }
   }
@@ -91,9 +91,9 @@ const cleanEducationData = (data) => {
     }
   });
   integerFields.forEach(field => {
-    if (data[field] && data[field].toString().trim() !== '') {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
       const value = Number.parseInt(data[field], 10);
-      if (!Number.isNaN(value) && value >= 1 && value <= 20) cleaned[field] = value;
+      if (!Number.isNaN(value) && value >= 0 && value <= 20) cleaned[field] = value;
     }
   });
 
@@ -152,19 +152,39 @@ export const getCurrentUserEducation = async (req, res) => {
 
 export const createEducation = async (req, res) => {
   try {
+    console.log('--- Create Education Debug ---');
+    console.log('Authenticated User ID (req.user):', req.user?.Userid || req.user?.userId);
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+
     const userId = req.user?.userId || req.user?.Userid;
-    if (!userId) return res.status(401).json({ message: 'User not authenticated properly' });
+    if (!userId) {
+      console.error('❌ Authentication failed: No user ID attached to request');
+      return res.status(401).json({ message: 'User not authenticated properly' });
+    }
 
     const cleanData = cleanEducationData(req.body);
+    console.log('Cleaned Data for DB:', JSON.stringify(cleanData, null, 2));
+
     const existing = await Education.findOne({ where: { Userid: userId } });
     if (existing) {
-      return res.status(409).json({ success: false, message: 'Education information already exists for this user. Use update instead.', existingRecordId: existing.id });
+      console.warn(`⚠️ Conflict: Record already exists for user ${userId}. ID: ${existing.id}`);
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Education information already exists for this user. Use update instead.', 
+        existingRecordId: existing.id 
+      });
     }
 
     const newRecord = await Education.create({ Userid: userId, ...cleanData });
-    res.status(201).json({ success: true, message: 'Education information created successfully', data: newRecord, id: newRecord.id });
+    console.log('✅ Education record created successfully. ID:', newRecord.id);
+    res.status(201).json({ 
+      success: true, 
+      message: 'Education information created successfully', 
+      data: newRecord, 
+      id: newRecord.id 
+    });
   } catch (error) {
-    console.error('Error creating education record:', error);
+    console.error('❌ Error creating education record Exception:', error);
     res.status(500).json({ success: false, message: 'Server error while creating record', error: error.message });
   }
 };

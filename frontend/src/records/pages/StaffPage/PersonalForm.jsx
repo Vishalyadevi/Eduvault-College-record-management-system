@@ -49,6 +49,7 @@ const PersonalInfoPage = () => {
     staffNumber: '',
     biometricNumber: '',
     designationId: '', // Ideally mapped to designation Name, using input for now
+    designation: '', // Staff typed designation
     dateOfJoining: '',
     confirmationDate: '',
     probationPeriod: '',
@@ -269,6 +270,7 @@ const PersonalInfoPage = () => {
       fields: [
         { name: 'staffNumber', label: 'Staff Number', type: 'text' },
         { name: 'biometricNumber', label: 'Biometric Number', type: 'text' },
+        { name: 'designation', label: 'Designation / Post', type: 'text', required: true },
         { name: 'dateOfJoining', label: 'Date of Joining', type: 'date', required: true },
         { name: 'confirmationDate', label: 'Confirmation Date', type: 'date' },
         { name: 'probationPeriod', label: 'Probation (Months)', type: 'number' },

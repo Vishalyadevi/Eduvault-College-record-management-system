@@ -117,10 +117,10 @@ const MyWard = () => {
   const displayedStudents = filteredStudents.filter(
     (student) => {
       const username = student.username || '';
-      const registerNumber = student.registerNumber || registerNumberent.registerNumber || '';
+      const regNo = student.registerNumber || '';
 
       return username.toLowerCase().includes(searchTerm) ||
-        registerNumber.toLowerCase().includes(searchTerm);
+        regNo.toLowerCase().includes(searchTerm);
     }
   );
 
@@ -261,7 +261,7 @@ const MyWard = () => {
                           <div className="h-10 w-10 relative">
                             <img
                               className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100"
-                              src={student.image || student.profileImage ? `${backendUrl}${student.image || student.profileImage}` : '/default-avatar.png'}
+                              src={student.image || student.profileImage ? (student.image?.startsWith('/') || student.profileImage?.startsWith('/') ? `${backendUrl}${student.image || student.profileImage}` : student.image || student.profileImage) : '/default-avatar.png'}
                               alt=""
                               onError={(e) => { e.target.src = '/default-avatar.png'; }}
                             />
@@ -282,7 +282,7 @@ const MyWard = () => {
                         {student.batch || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
-                        {student.registerNumber || student.registerNumber || 'N/A'}
+                        {student.registerNumber || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button
