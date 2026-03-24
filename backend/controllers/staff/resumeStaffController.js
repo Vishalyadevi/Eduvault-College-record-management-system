@@ -1,17 +1,17 @@
-import db from '../../models/index.js';
-const { 
+import {
   User, StaffDetails, Education, StaffEventsAttendedModel, StaffEventsOrganizedModel,
   ConsultancyProposal, FundedProject, IndustryKnowhow, StaffCertificationCourse,
   HIndex, ResourcePerson, Scholar, SeedMoney, Recognition, PatentProduct,
   ProjectMentor, Activity, TlpActivity, BookChapter, StudentPublication, sequelize
-} = db;
-
-import { Op } from 'sequelize';
+} from '../../models/index.js';
+import { QueryTypes, Op } from 'sequelize';
 
 // Helper function to handle field mapping (handles both Userid and userid columns)
 const safeQuery = async (model, internalPkId, externalUserId, modelName, tableName) => {
-  if (!model) return [];
   try {
+    // 1. Core checks
+    if (!model && !tableName) return [];
+    
     const candidates = [
       { Userid: internalPkId },
       { userid: internalPkId },
@@ -27,37 +27,47 @@ const safeQuery = async (model, internalPkId, externalUserId, modelName, tableNa
     }
 
     // Optimization: find all blob/large columns to exclude them (reduce payload size from 40MB+ to <1MB)
-    const excludeAttributes = Object.keys(model.rawAttributes).filter(attr => {
-      const typeStr = String(model.rawAttributes[attr].type).toUpperCase();
-      // Exclude true BLOBs and very long TEXT fields
-      return typeStr.includes('BLOB') || 
-             (typeStr.includes('TEXT') && model.rawAttributes[attr].type.options?.length > 2000);
-    });
+    let excludeAttributes = [];
+    if (model && model.rawAttributes) {
+      excludeAttributes = Object.keys(model.rawAttributes).filter(attr => {
+        const typeObj = model.rawAttributes[attr].type;
+        if (!typeObj) return false;
+        const typeStr = String(typeObj).toUpperCase();
+        // Exclude true BLOBs and very long TEXT fields
+        return typeStr.includes('BLOB') ||
+          (typeStr.includes('TEXT') && typeObj.options?.length > 2000);
+      });
+    }
 
-    for (const condition of candidates) {
-      try {
-        const results = await model.findAll({ 
-          where: condition, 
-          attributes: { exclude: excludeAttributes },
-          raw: false 
-        });
-        if (results && results.length > 0) {
-          console.log(`✓ Found ${results.length} ${modelName} records using`, condition);
-          return results;
+    // 2. Try using Sequelize findAll first (safest way)
+    if (model && typeof model.findAll === 'function') {
+      for (const condition of candidates) {
+        try {
+          const results = await model.findAll({
+            where: condition,
+            attributes: excludeAttributes.length > 0 ? { exclude: excludeAttributes } : undefined,
+            raw: true
+          });
+          if (results && results.length > 0) {
+            console.log(`✓ Found ${results.length} ${modelName} records using`, condition);
+            return results;
+          }
+        } catch (innerErr) {
+          // Skip and try next condition
         }
-      } catch (innerErr) {
-        // Skip
       }
     }
 
-    // Raw query fallback with both IDs
+    // 3. Raw query fallback if findAll failed or model was not provided but tableName was
     if (tableName) {
       const rawWhere = [];
       const replacements = [];
+      
       if (internalPkId !== undefined && internalPkId !== null) {
         rawWhere.push('Userid = ? OR userid = ? OR userId = ? OR user_id = ?');
         replacements.push(internalPkId, internalPkId, internalPkId, internalPkId);
       }
+      
       if (externalUserId && externalUserId !== internalPkId) {
         rawWhere.push('Userid = ? OR userid = ? OR userId = ? OR user_id = ?');
         replacements.push(externalUserId, externalUserId, externalUserId, externalUserId);
@@ -66,13 +76,18 @@ const safeQuery = async (model, internalPkId, externalUserId, modelName, tableNa
       if (replacements.length > 0) {
         const rawQuery = `SELECT * FROM ${tableName} WHERE ${rawWhere.join(' OR ')}`;
         try {
-          const rawResults = await sequelize.query(rawQuery, {
-            replacements,
-            type: sequelize.QueryTypes.SELECT
-          });
-          if (rawResults.length > 0) {
-            console.log(`✓ Raw query found ${rawResults.length} records in ${tableName} for user ${internalPkId}/${externalUserId}`);
-            return rawResults;
+          // Use the sequelize instance from the model if it exists, otherwise use the one from our import
+          const queryInterface = (model && model.sequelize) || sequelize;
+          
+          if (queryInterface && typeof queryInterface.query === 'function') {
+            const rawResults = await queryInterface.query(rawQuery, {
+              replacements,
+              type: QueryTypes.SELECT
+            });
+            if (rawResults && rawResults.length > 0) {
+              console.log(`✓ Raw query found ${rawResults.length} records in ${tableName} for user ${internalPkId}/${externalUserId}`);
+              return rawResults;
+            }
           }
         } catch (rawErr) {
           console.warn(`Raw query fallback failed for ${tableName}:`, rawErr.message);
@@ -99,7 +114,7 @@ export const getStaffResumeData = async (req, res) => {
 
     // 1. Fetch User Info dynamically by primary key OR user string number
     const user = await User.findOne({
-      where: isNumeric 
+      where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
         : { userNumber: rawId },
       attributes: ['userId', 'userName', 'userMail', 'userNumber', 'profileImage'],
@@ -118,6 +133,7 @@ export const getStaffResumeData = async (req, res) => {
 
     // Now securely extract the actual internal Primary Key mapped to all other tables
     const internalPkId = user.userId;
+    const externalUserId = user.userNumber;
     console.log(`Fetching resume for user: ${user.userNumber} (ID: ${internalPkId})`);
 
     // Prepare userInfo object
@@ -215,7 +231,7 @@ export const getStaffResumeData = async (req, res) => {
       "Recognition & Appreciation": recognitions,
       "Patents & Products": patents,
       "Project Mentors": projectMentors,
-      "Sponsored Research": fundedProjects, 
+      "Sponsored Research": fundedProjects,
       "Activities": activities,
       "TLP Activities": tlpActivities,
     };
@@ -234,7 +250,7 @@ export const getProfileImage = async (req, res) => {
     const isNumeric = !isNaN(rawId) && String(rawId).trim() !== '';
 
     const user = await User.findOne({
-      where: isNumeric 
+      where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
         : { userNumber: rawId },
       attributes: ['profileImage']
@@ -245,10 +261,10 @@ export const getProfileImage = async (req, res) => {
     }
 
     // We assume it's stored as base64 or buff. Just send it back directly mapping to frontend requirements.
-    res.status(200).json({ 
-        success: true, 
-        imageData: user.profileImage, // Modify here if it's stored differently (e.g file path)
-        format: "PNG" // Defaulting to PNG or parse from data URI if necessary
+    res.status(200).json({
+      success: true,
+      imageData: user.profileImage, // Modify here if it's stored differently (e.g file path)
+      format: "PNG" // Defaulting to PNG or parse from data URI if necessary
     });
 
   } catch (error) {
@@ -303,7 +319,7 @@ const safeCount = async (model, internalPkId, externalUserId, modelName, tableNa
         try {
           const [results] = await sequelize.query(
             `SELECT COUNT(*) as total FROM ${tableName} WHERE ${rawWhere.join(' OR ')}`,
-            { replacements, type: sequelize.QueryTypes.SELECT }
+            { replacements, type: QueryTypes.SELECT }
           );
           const total = results?.total || 0;
           if (total > 0) {
@@ -334,7 +350,7 @@ export const getStaffResumeStatistics = async (req, res) => {
     const isNumeric = !isNaN(rawId) && String(rawId).trim() !== '';
 
     const user = await User.findOne({
-      where: isNumeric 
+      where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
         : { userNumber: rawId },
       attributes: ['userId'],
@@ -415,7 +431,7 @@ export const debugResumeData = async (req, res) => {
     const isNumeric = !isNaN(rawId) && String(rawId).trim() !== '';
 
     const user = await User.findOne({
-      where: isNumeric 
+      where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
         : { userNumber: rawId },
       attributes: ['userId', 'userName', 'userNumber']
@@ -455,13 +471,13 @@ export const debugResumeData = async (req, res) => {
         const model = eval(table.name);
         const userid_count = await model.count({ where: { userid: internalPkId } });
         const Userid_count = await model.count({ where: { Userid: internalPkId } });
-        
+
         // Raw SQL query
         let rawCount = 0;
         try {
           const [results] = await sequelize.query(
             `SELECT COUNT(*) as total FROM ${table.tableName} WHERE userid = ? OR Userid = ?`,
-            { replacements: [internalPkId, internalPkId], type: sequelize.QueryTypes.SELECT }
+            { replacements: [internalPkId, internalPkId], type: QueryTypes.SELECT }
           );
           rawCount = results[0]?.total || 0;
         } catch (e) {
@@ -507,7 +523,7 @@ export const getRawDatabaseData = async (req, res) => {
     const isNumeric = !isNaN(rawId) && String(rawId).trim() !== '';
 
     const user = await User.findOne({
-      where: isNumeric 
+      where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
         : { userNumber: rawId },
       attributes: ['userId', 'userName', 'userNumber']
@@ -553,7 +569,7 @@ export const getRawDatabaseData = async (req, res) => {
       try {
         const results = await sequelize.query(
           `SELECT * FROM ${tableName} WHERE userid = ? OR Userid = ? LIMIT 10`,
-          { replacements: [internalPkId, internalPkId], type: sequelize.QueryTypes.SELECT }
+          { replacements: [internalPkId, internalPkId], type: QueryTypes.SELECT }
         );
 
         if (results.length > 0) {

@@ -285,7 +285,6 @@ app.use('/api/scholars', ScholarRoutes);
 app.use('/api/project-proposal', projectProposalRoutes); // also handles /api/project-proposal/payment/*
 app.use("/api/skillrack", skillrackRoutes);
 app.use("/api/student-education", StudentEducationRoutes);
-// app.use("/api/skillrack", skillrackRoutes);
 app.use("/api/extracurricular", extracurricularRoutes);
 app.use("/api/publications", publicationRoutes);
 app.use("/api/noncgpa-category", nonCGPACategoryRoutes);
@@ -307,8 +306,8 @@ app.get('/api/appraisals', (req, res) => res.json([]));
 app.get('/api/industry', (req, res) => res.json([]));
 app.get('/api/other/events-organized', (req, res) => res.json([]));
 app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
-app.get('/api/skillrack/my-record', (req, res) => res.json([]));
-app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
+// app.get('/api/skillrack/my-record', (req, res) => res.json([]));
+// app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
 app.get('/api/nptel/student/my-courses', (req, res) => res.json([]));
 app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
 app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));

@@ -38,7 +38,7 @@ router.get('/:departmentAcr', async (req, res) => {
         {
           model: StaffDetails,
           as: 'staffPersonalInfo',
-          attributes: ['designationId', 'vidwanProfile', 'googleScholarId', 'researcherId', 'scopusProfile']
+          attributes: ['designationId', 'designation', 'vidwanProfile', 'googleScholarId', 'researcherId', 'scopusProfile']
         }
       ]
     });
@@ -52,13 +52,16 @@ router.get('/:departmentAcr', async (req, res) => {
     const formattedData = faculties.map(f => {
       const personalInfo = f.staffPersonalInfo || {};
 
-      // Convert designationId to a string designation if possible, or just default to 'Faculty' if not known
-      let designation = "Faculty";
-      if (personalInfo.designationId === 1) designation = "Professor & Head";
-      else if (personalInfo.designationId === 2) designation = "Professor";
-      else if (personalInfo.designationId === 3) designation = "Associate Professor";
-      else if (personalInfo.designationId === 4) designation = "Assistant Professor";
-      else if (personalInfo.designationId === 5) designation = "Assistant Professor (SG)";
+      // Prioritize the typed designation string, fallback to ID mapping
+      let designation = personalInfo.designation || "";
+      if (!designation) {
+        if (personalInfo.designationId === 1) designation = "Professor & Head";
+        else if (personalInfo.designationId === 2) designation = "Professor";
+        else if (personalInfo.designationId === 3) designation = "Associate Professor";
+        else if (personalInfo.designationId === 4) designation = "Assistant Professor";
+        else if (personalInfo.designationId === 5) designation = "Assistant Professor (SG)";
+        else designation = "Faculty";
+      }
 
       return {
         userId: f.userId,

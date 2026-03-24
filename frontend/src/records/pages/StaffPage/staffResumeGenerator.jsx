@@ -712,10 +712,7 @@ const EnhancedStaffResumeGenerator = () => {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-600 bg-clip-text text-transparent mb-3">
             Staff Resume Generator
           </h1>
-          <p className="text-gray-600 text-lg">
-            Create your professional academic resume with advanced filtering.
-            [DEBUG: PersonalInfo={staffData["Personal Information"]?.length ?? "NULL"} // ID={effectiveUserId}]
-          </p>
+          
         </div>
 
         {/* Filter Section */}

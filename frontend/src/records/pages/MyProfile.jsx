@@ -216,16 +216,8 @@ const MyProfile = () => {
           >
             <FaUser className="text-white" />
             <span>
-              {showBioData ? "Hide Details" : (isStudent ? "Student BIO data" : "Staff BIO data")}
+              {showBioData ? "Hide Details" : (isStudent ? "Student BIO data" : "Go to dashboard")}
             </span>
-          </button>
-
-          <button
-            className="flex items-center justify-center space-x-2 bg-indigo-600 text-white px-6 py-3.5 rounded-xl hover:bg-indigo-700 transition-all w-full font-bold shadow-md transform active:scale-95"
-            onClick={() => setEditPassword(!editPassword)}
-          >
-            <FaKey className="text-white" />
-            <span>{editPassword ? "Cancel Change" : "Update Password"}</span>
           </button>
         </div>
 
