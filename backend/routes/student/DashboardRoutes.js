@@ -15,7 +15,8 @@ import {
   tutorApproveExtracurricular,
   tutorApprovePublication,
   tutorApproveCompetencyCoding,
-  tutorApproveNonCGPA
+  tutorApproveNonCGPA,
+  getTutorWardStats
 } from "../../controllers/student/DashboardController.js";
 
 const router = express.Router();
@@ -42,5 +43,10 @@ router.put("/noncgpa/:id/approve", authenticate, tutorApproveNonCGPA);
 // ========================
 router.post("/messages/send", authenticate, sendMessageToStudent);
 router.get("/internships/:id/messages", authenticate, getMessagesForStudent);
+
+// ========================
+// TUTOR WARD DASHBOARD STATS
+// ========================
+router.get("/staff-dashboard/tutor-ward-stats", authenticate, getTutorWardStats);
 
 export default router;

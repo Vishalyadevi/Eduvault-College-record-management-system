@@ -114,7 +114,6 @@ const StaffUpcomingDrives = () => {
         {[
           { value: "all", label: "All Drives", count: counts.all },
           { value: "upcoming", label: "Upcoming", count: counts.upcoming },
-          { value: "registered", label: "My Registrations", count: counts.registered },
         ].map((tab) => (
           <button
             key={tab.value}

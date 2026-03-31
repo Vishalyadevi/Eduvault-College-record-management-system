@@ -134,8 +134,8 @@ const StudentBioData = ({ userId: propUserId }) => {
         setCertifications(Array.isArray(certRes.data?.certificates) ? certRes.data.certificates : (Array.isArray(certRes.data) ? certRes.data : []));
 
         // Fetch hackathons
-        const hackRes = await API.get(`/student-hackathons/my-registrations`, { params: { UserId: effectiveUserId } });
-        setHackathons(Array.isArray(hackRes.data?.records) ? hackRes.data.records : (Array.isArray(hackRes.data) ? hackRes.data : []));
+        const hackRes = await API.get(`/placement/student-hackathons`, { params: { UserId: effectiveUserId } });
+        setHackathons(Array.isArray(hackRes.data?.data) ? hackRes.data.data : (Array.isArray(hackRes.data?.records) ? hackRes.data.records : (Array.isArray(hackRes.data) ? hackRes.data : [])));
 
         // Fetch extracurricular records
         const extraRes = await API.get(`/extracurricular/my-records`, { params: { UserId: effectiveUserId } });

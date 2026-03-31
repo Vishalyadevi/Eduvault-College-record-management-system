@@ -1,4 +1,4 @@
-import { User, Achievement, StudentDetails, StudentLeave, Internship, Message, Scholarship, EventOrganized, EventAttended, OnlineCourses, StudentNonCGPA, SkillRack, NPTELCourse, Project, HackathonEvent, Extracurricular, StudentPublication, CompetencyCoding } from "../../models/index.js";
+import { User, Achievement, StudentDetails, StudentLeave, Internship, Message, Scholarship, EventOrganized, EventAttended, OnlineCourses, StudentNonCGPA, SkillRack, NPTELCourse, Project, HackathonEvent, Extracurricular, StudentPublication, CompetencyCoding, RegisteredStudentPlacement, ProjectMentor } from "../../models/index.js";
 import { sendEmail } from "../../utils/emailService.js";
 
 // === EXISTING APPROVAL FUNCTIONS (Keep as is) ===
@@ -646,5 +646,101 @@ export const tutorApproveNonCGPA = async (req, res) => {
   } catch (error) {
     console.error("❌ Error verifying non-CGPA record:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getTutorWardStats = async (req, res) => {
+  try {
+    const currentTutorId = req.user?.userId || req.user?.Userid;
+    if (!currentTutorId) {
+      return res.status(401).json({ message: "Unauthorized: Tutor ID missing." });
+    }
+
+    // 1. Get total students under this tutor
+    const tutorStudents = await StudentDetails.findAll({
+      where: { staffId: currentTutorId },
+      include: [
+        { model: User, as: "studentUser", attributes: ["userId", "userName", "userMail"] }
+      ]
+    });
+
+    const studentUserIds = tutorStudents.map(s => s.studentUser?.userId).filter(id => id);
+    const registerNumbers = tutorStudents.map(s => s.registerNumber).filter(rn => rn);
+
+    // 2. Count of students placed
+    let studentsPlacedCount = 0;
+    if (studentUserIds.length > 0) {
+      const placedStudents = await RegisteredStudentPlacement.count({
+        where: {
+          user_id: studentUserIds,
+          placed: true
+        }
+      });
+      studentsPlacedCount = placedStudents;
+    }
+
+    // 3. Hackathon winning students
+    let hackathonWinnersCount = 0;
+    if (studentUserIds.length > 0) {
+      const winningHackathons = await HackathonEvent.count({
+        where: {
+          Userid: studentUserIds,
+          status: 'achievement' // assuming 'achievement' means they won/placed
+        }
+      });
+      hackathonWinnersCount = winningHackathons;
+    }
+
+    // 4. Skillrack stats
+    let totalMedals = 0;
+    let highestMedalUser = null;
+    let maxMedals = -1;
+    let skillrackToppersCount = 0;
+
+    if (studentUserIds.length > 0) {
+      const skillrackRecords = await SkillRack.findAll({
+        where: { Userid: studentUserIds }
+      });
+
+      skillrackRecords.forEach(record => {
+        // total skillrack medals
+        const medals = record.bronze_medals || 0;
+        totalMedals += medals;
+
+        // highest medal
+        if (medals > maxMedals) {
+          maxMedals = medals;
+          highestMedalUser = record;
+        }
+
+        // arbitrary logic for topper: solved > 500 programs or rank <= 100
+        if (record.total_programs_solved > 500) {
+          skillrackToppersCount++;
+        }
+      });
+    }
+
+    // 5. Total project mentors
+    const projectsCount = await ProjectMentor.count({
+      where: { Userid: currentTutorId }
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        tutorWardCount: tutorStudents.length,
+        studentsPlaced: studentsPlacedCount,
+        hackathonWinners: hackathonWinnersCount,
+        skillrackToppers: skillrackToppersCount,
+        highestSkillrackMedals: maxMedals === -1 ? 0 : maxMedals,
+        totalSkillrackMedals: totalMedals,
+        projectMentors: projectsCount
+      },
+      students: tutorStudents
+    });
+
+  } catch (error) {
+    console.error("Error fetching tutor ward stats:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };

@@ -410,11 +410,11 @@ export const getDashboardStats = async () => {
       api.get('/scholars').catch(() => ({ data: [] })),
       api.get('/proposals').catch(() => ({ data: [] })),
       api.get('/project-proposal').catch(() => ({ data: [] })),
-      api.get('/events').catch(() => ({ data: [] })),
+      api.get('/events').catch(() => ({ data: [] })), // fixed endpoint
       api.get('/industry').catch(() => ({ data: [] })),
       api.get('/certifications').catch(() => ({ data: [] })),
       api.get('/book-chapters').catch(() => ({ data: [] })),
-      api.get('/other/events-organized').catch(() => ({ data: [] })),
+      api.get('/events-organized').catch(() => ({ data: [] })), // fixed endpoint
       api.get('/h-index').catch(() => ({ data: [] })),
       api.get('/resource-person').catch(() => ({ data: [] })),
       api.get('/recognition').catch(() => ({ data: [] })),
@@ -422,28 +422,40 @@ export const getDashboardStats = async () => {
       api.get('/project-mentors').catch(() => ({ data: [] }))
     ]);
 
+    const getCount = (res) => {
+      if (Array.isArray(res?.data)) return res.data.length;
+      if (Array.isArray(res?.data?.data)) return res.data.data.length;
+      if (res?.data?.count !== undefined) return res.data.count;
+      return 0;
+    };
+
     return {
       data: {
-        seedmoney: Array.isArray(seedMoneyResponse.data) ? seedMoneyResponse.data.length : 0,
-        scholars: Array.isArray(scholarsResponse.data) ? scholarsResponse.data.length : 0,
-        proposals: Array.isArray(proposalsResponse.data) ? proposalsResponse.data.length : 0,
-        projectProposals: Array.isArray(projectProposalsResponse.data) ? projectProposalsResponse.data.length : 0,
-        events: Array.isArray(eventsResponse.data) ? eventsResponse.data.length : 0,
-        industry: Array.isArray(industryResponse.data) ? industryResponse.data.length : 0,
-        certifications: Array.isArray(certificationsResponse.data) ? certificationsResponse.data.length : 0,
-        publications: Array.isArray(publicationsResponse.data) ? publicationsResponse.data.length : 0,
-        eventsOrganized: Array.isArray(eventsOrganizedResponse.data) ? eventsOrganizedResponse.data.length : 0,
-        hIndex: Array.isArray(hIndexResponse.data) ? hIndexResponse.data.length : 0,
-        resourcePerson: Array.isArray(resourcePersonResponse.data) ? resourcePersonResponse.data.length : 0,
-        recognition: Array.isArray(recognitionResponse.data) ? recognitionResponse.data.length : 0,
-        patents: Array.isArray(patentsResponse.data) ? patentsResponse.data.length : 0,
-        projectMentors: Array.isArray(projectMentorsResponse.data) ? projectMentorsResponse.data.length : 0
+        seedmoney: getCount(seedMoneyResponse),
+        scholars: getCount(scholarsResponse),
+        proposals: getCount(proposalsResponse),
+        projectProposals: getCount(projectProposalsResponse),
+        events: getCount(eventsResponse),
+        industry: getCount(industryResponse),
+        certifications: getCount(certificationsResponse),
+        publications: getCount(publicationsResponse),
+        eventsOrganized: getCount(eventsOrganizedResponse),
+        hIndex: getCount(hIndexResponse),
+        resourcePerson: getCount(resourcePersonResponse),
+        recognition: getCount(recognitionResponse),
+        patents: getCount(patentsResponse),
+        projectMentors: getCount(projectMentorsResponse)
       }
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
     throw error;
   }
+};
+
+// Staff Dashboard - Tutor WardStats
+export const getTutorWardDashboardStats = async () => {
+  return api.get('/staff-dashboard/tutor-ward-stats');
 };
 
 export default api;
