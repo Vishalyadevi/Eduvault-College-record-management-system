@@ -29,7 +29,6 @@ const StudentBioData = ({ userId: propUserId }) => {
   const [projects, setProjects] = useState([]);
   const [competencyCoding, setCompetencyCoding] = useState([]);
   const [skillrackStats, setSkillrackStats] = useState(null);
-  const [nptelCourses, setNptelCourses] = useState([]);
   const [nonCgpaRecords, setNonCgpaRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -48,7 +47,6 @@ const StudentBioData = ({ userId: propUserId }) => {
     projects: false,
     competency: false,
     skillrack: false,
-    nptel: false,
     noncgpa: false,
   });
 
@@ -167,7 +165,7 @@ const StudentBioData = ({ userId: propUserId }) => {
         setHackathons(extractArray(hackRes.data));
 
         // Fetch extracurricular records
-        const extraRes = await safeFetch(API.get(`/extracurricular/my-records`, { params: { userId: effectiveUserId } }), "extracurricular");
+        const extraRes = await safeFetch(API.get(`/extracurricular/my-activities`, { params: { userId: effectiveUserId } }), "extracurricular");
         setExtracurricular(extractArray(extraRes.data));
 
         // Fetch projects
@@ -175,7 +173,7 @@ const StudentBioData = ({ userId: propUserId }) => {
         setProjects(extractArray(projRes.data));
 
         // Fetch competency & coding
-        const compRes = await safeFetch(API.get(`/competency-coding/my-records`, { params: { userId: effectiveUserId } }), "competency");
+        const compRes = await safeFetch(API.get(`/competency-coding/my-record`, { params: { userId: effectiveUserId } }), "competency");
         setCompetencyCoding(extractArray(compRes.data));
 
         // Fetch skillrack stats
@@ -201,10 +199,6 @@ const StudentBioData = ({ userId: propUserId }) => {
             setSkillrackStats(null);
           }
         }
-
-        // Fetch NPTEL courses
-        const nptelRes = await safeFetch(API.get(`/nptel/student/my-courses`, { params: { userId: effectiveUserId } }), "nptel");
-        setNptelCourses(extractArray(nptelRes.data));
 
         // Fetch Non-CGPA records
         const noncgpaRes = await safeFetch(API.get(`/noncgpa/my-records`, { params: { userId: effectiveUserId } }), "noncgpa");
@@ -904,37 +898,6 @@ const StudentBioData = ({ userId: propUserId }) => {
         </div>
       </CollapsibleSection>
 
-      {/* NPTEL Courses */}
-      <CollapsibleSection
-        title="NPTEL Courses"
-        icon={GraduationCap}
-        count={nptelCourses.length}
-        isExpanded={expandedSections.nptel}
-        onToggle={() => toggleSection('nptel')}
-      >
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="w-2/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exam Date</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {nptelCourses.map((c, idx) => (
-                <tr key={c.id || idx} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 break-words text-sm">{c.courseTitle || c.course_name || c.title}</td>
-                  <td className="px-4 py-3 break-words text-sm">{c.studentStatus || c.status || '-'}</td>
-                  <td className="px-4 py-3 break-words text-sm">{c.credits || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{c.exam_date ? c.exam_date.split('T')[0] : (c.examDate ? c.examDate.split('T')[0] : '-')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CollapsibleSection>
 
       {/* Non-CGPA */}
       <CollapsibleSection

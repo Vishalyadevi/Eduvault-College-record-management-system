@@ -112,7 +112,7 @@ export const getStaffResumeData = async (req, res) => {
 
     const isNumeric = !isNaN(rawId) && String(rawId).trim() !== '';
 
-    // 1. Fetch User Info dynamically by primary key OR user string number
+  // 1. Fetch User Info dynamically by primary key OR user string number
     const user = await User.findOne({
       where: isNumeric
         ? { [Op.or]: [{ userId: Number(rawId) }, { userNumber: rawId }] }
@@ -123,6 +123,11 @@ export const getStaffResumeData = async (req, res) => {
           model: StaffDetails,
           as: 'staffPersonalInfo',
           attributes: { exclude: ['photo', 'profilePhoto', 'resume_file', 'proof_file'] }
+        },
+        {
+          model: sequelize.models.Department, // or Department if imported
+          as: 'department',
+          attributes: ['departmentName']
         }
       ]
     });
@@ -142,6 +147,7 @@ export const getStaffResumeData = async (req, res) => {
       email: user.userMail,
       staffId: user.userNumber,
       profileImage: user.profileImage,
+      department: user.department?.departmentName || 'N/A',
       ...(user.staffPersonalInfo ? user.staffPersonalInfo.toJSON() : {})
     };
 

@@ -296,7 +296,6 @@ app.use("/api/noncgpa", Noncgpa);
 app.use('/api/industry', staffIndustryRoutes);
 app.use('/api/events', staffEventsRoutes);
 app.use('/api/events-organized', staffEventsOrganizedRoutes);
-
 app.use('/api/student/certificates', certificateRoutes);
 app.use('/api/student/marksheets', marksheetRoutes);
 

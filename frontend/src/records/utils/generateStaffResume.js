@@ -142,6 +142,14 @@ export const generateStaffResumePDF = async (data, profileImageData = null) => {
       }
 
       if (sectionKey === "Education") {
+        const eduItems = [];
+        if (item.phd_status) eduItems.push(`Ph.D (${item.phd_status}) in ${item.phd_title || 'N/A'}, ${item.phd_university || 'N/A'}, ${item.phd_completion_year || item.phd_registration_year || 'N/A'}`);
+        if (item.pg_degree) eduItems.push(`P.G: ${item.pg_degree} in ${item.pg_specialization || 'N/A'}, ${item.pg_institution || 'N/A'}, ${item.pg_year || 'N/A'}`);
+        if (item.ug_degree) eduItems.push(`U.G: ${item.ug_degree} in ${item.ug_specialization || 'N/A'}, ${item.ug_institution || 'N/A'}, ${item.ug_year || 'N/A'}`);
+        if (item.twelfth_institution) eduItems.push(`HSC: ${item.twelfth_institution}, ${item.twelfth_year || 'N/A'}`);
+        if (item.tenth_institution) eduItems.push(`SSLC: ${item.tenth_institution}, ${item.tenth_year || 'N/A'}`);
+        
+        if (eduItems.length > 0) return eduItems.join("\n");
         return `${item.degree || item.course || 'N/A'} in ${item.specialization || item.field_status || 'N/A'}, ${item.institution || 'N/A'}, ${item.year_of_passing || item.completion_year || 'N/A'}`;
       }
 
@@ -229,8 +237,7 @@ export const generateStaffResumePDF = async (data, profileImageData = null) => {
         "Patents & Products",
         "Project Mentors",
         "Sponsored Research",
-        "Activities",
-        "TLP Activities",
+       
     ];
 
     sections.forEach((sectionKey) => {

@@ -220,7 +220,7 @@ export const getApprovedLeaves = async (req, res) => {
 
     const approvedLeaves = await StudentLeave.findAll({
       where: { Userid: userId },
-      order: [["from_date", "DESC"]],
+      order: [["start_date", "DESC"]],
     });
 
     return res.status(200).json(approvedLeaves || []);

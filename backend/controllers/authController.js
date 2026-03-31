@@ -13,9 +13,9 @@ const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 const ACCESS_COOKIE = "access_token";
 const REFRESH_COOKIE = "refresh_token";
-const ACCESS_EXPIRY = process.env.ACCESS_TOKEN_EXPIRES || "15m";
+const ACCESS_EXPIRY = process.env.ACCESS_TOKEN_EXPIRES || "1h";
 const REFRESH_EXPIRY = process.env.REFRESH_TOKEN_EXPIRES || "7d";
-const ACCESS_COOKIE_MS = parseInt(process.env.ACCESS_COOKIE_MAX_AGE_MS || `${15 * 60 * 1000}`, 10);
+const ACCESS_COOKIE_MS = parseInt(process.env.ACCESS_COOKIE_MAX_AGE_MS || `${60 * 60 * 1000}`, 10);
 const REFRESH_COOKIE_MS = parseInt(process.env.REFRESH_COOKIE_MAX_AGE_MS || `${7 * 24 * 60 * 60 * 1000}`, 10);
 const JWT_ISSUER = process.env.JWT_ISSUER || "acadcore";
 
