@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, RotateCcw, FileText, Download, Eye, Filter, ChevronDown, Calendar, X } from "lucide-react";
+import { Search, RotateCcw, FileText, Download, Eye, Filter, ChevronDown, Calendar, X, Check } from "lucide-react";
 import { useUser } from "../../contexts/UserContext";
 import { useAuth } from "../auth/AuthContext";
 import axios from "axios";
@@ -314,51 +314,54 @@ const EnhancedResumeGenerator = () => {
       leftY += 5;
 
       // SKILLS
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.text("CORE SKILLS", margin, leftY);
-      doc.line(margin, leftY + 1.5, margin + 12, leftY + 1.5);
-      leftY += 8;
+      if (selectedSections["Competency Coding Details"]) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.text("CORE SKILLS", margin, leftY);
+        doc.line(margin, leftY + 1.5, margin + 12, leftY + 1.5);
+        leftY += 8;
 
-      const competencyData = studentData["Competency Coding Details"] || studentData["competencyCoding"] || [];
-      doc.setFontSize(8);
-      doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+        const competencyData = studentData["Competency Coding Details"] || studentData["competencyCoding"] || [];
+        doc.setFontSize(8);
+        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
 
-      const skillsToShow = [];
-      const presentCompetency = competencyData[0]?.present_competency;
-      if (presentCompetency) {
-        if (typeof presentCompetency === 'string') {
-          skillsToShow.push(...presentCompetency.split(',').map(s => s.trim()));
-        } else if (Array.isArray(presentCompetency)) {
-          skillsToShow.push(...presentCompetency.map(s => String(s).trim()));
-        }
-      }
-
-      const otherPlatforms = competencyData[0]?.other_platforms;
-      if (otherPlatforms) {
-        if (typeof otherPlatforms === 'string') {
-          skillsToShow.push(...otherPlatforms.split(',').map(s => s.trim()));
-        } else if (Array.isArray(otherPlatforms)) {
-          skillsToShow.push(...otherPlatforms.map(s => String(s).trim()));
-        } else if (typeof otherPlatforms === 'object') {
-          // If it's an object (like from a JSON column), try to get values or keys
-          skillsToShow.push(...Object.values(otherPlatforms).map(v => String(v).trim()));
-        }
-      }
-
-      if (skillsToShow.length > 0) {
-        skillsToShow.slice(0, 15).forEach(skill => {
-          if (leftY < pageHeight - 10) {
-            doc.text(`• ${skill}`, margin, leftY);
-            leftY += 4;
+        const skillsToShow = [];
+        const presentCompetency = competencyData[0]?.present_competency;
+        if (presentCompetency) {
+          if (typeof presentCompetency === 'string') {
+            skillsToShow.push(...presentCompetency.split(',').map(s => s.trim()));
+          } else if (Array.isArray(presentCompetency)) {
+            skillsToShow.push(...presentCompetency.map(s => String(s).trim()));
           }
-        });
-      } else if (competencyData[0]?.skillrack_rank) {
-        doc.text(`• Skillrack Rank: ${competencyData[0].skillrack_rank}`, margin, leftY);
-        leftY += 4;
-        doc.text(`• Medals: ${competencyData[0].skillrack_gold_medal_count || 0} Gold`, margin, leftY);
-        leftY += 4;
+        }
+
+        const otherPlatforms = competencyData[0]?.other_platforms;
+        if (otherPlatforms) {
+          if (typeof otherPlatforms === 'string') {
+            skillsToShow.push(...otherPlatforms.split(',').map(s => s.trim()));
+          } else if (Array.isArray(otherPlatforms)) {
+            skillsToShow.push(...otherPlatforms.map(s => String(s).trim()));
+          } else if (typeof otherPlatforms === 'object') {
+            // If it's an object (like from a JSON column), try to get values or keys
+            skillsToShow.push(...Object.values(otherPlatforms).map(v => String(v).trim()));
+          }
+        }
+
+        if (skillsToShow.length > 0) {
+          skillsToShow.slice(0, 15).forEach(skill => {
+            if (leftY < pageHeight - 10) {
+              doc.text(`• ${skill}`, margin, leftY);
+              leftY += 4;
+            }
+          });
+        } else if (competencyData[0]?.skillrack_rank) {
+          doc.text(`• Skillrack Rank: ${competencyData[0].skillrack_rank}`, margin, leftY);
+          leftY += 4;
+          doc.text(`• Medals: ${competencyData[0].skillrack_gold_medal_count || 0} Gold`, margin, leftY);
+          leftY += 4;
+        }
+        leftY += 5;
       }
 
       // ===== RIGHT COLUMN =====
@@ -515,27 +518,31 @@ const EnhancedResumeGenerator = () => {
                 {activityList.map((section) => {
                   const itemCount = Array.isArray(studentData[section.name]) ? studentData[section.name].length : 0;
                   return (
-                    <button
+                    <div
                       key={section.name}
-                      onClick={() => toggleSection(section.name)}
-                      disabled={["Student Details", "Education"].includes(section.name)}
-                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all group ${selectedSections[section.name]
+                      onClick={() => !["Student Details", "Education"].includes(section.name) && toggleSection(section.name)}
+                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${selectedSections[section.name]
                         ? "border-indigo-600 bg-indigo-50/50"
                         : "border-slate-100 bg-white hover:border-slate-200"
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <span className="text-2xl group-hover:scale-110 transition-transform">{section.icon}</span>
-                        <div>
-                          <p className={`font-bold ${selectedSections[section.name] ? "text-blue-900" : "text-slate-600"}`}>{section.name}</p>
+                        <span className="text-2xl">{section.icon}</span>
+                        <div className="text-left">
+                          <p className={`font-bold ${selectedSections[section.name] ? "text-indigo-900" : "text-slate-700"}`}>{section.name}</p>
                           <p className="text-xs text-slate-400 font-medium">{itemCount} items available</p>
                         </div>
                       </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedSections[section.name] ? "bg-indigo-600 border-indigo-600" : "border-slate-200"
-                        }`}>
-                        {selectedSections[section.name] && <X className="w-4 h-4 text-white" />}
+                      <div className="flex items-center justify-center p-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedSections[section.name] || false}
+                          onChange={() => toggleSection(section.name)}
+                          disabled={["Student Details", "Education"].includes(section.name)}
+                          className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-indigo-600"
+                        />
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

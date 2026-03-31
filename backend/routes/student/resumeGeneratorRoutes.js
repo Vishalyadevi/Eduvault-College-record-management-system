@@ -41,6 +41,7 @@ router.get('/student-data/:userId', requireAuth, async (req, res) => {
           sd.*,
           u.userName as username,
           u.userMail as email,
+          u.profileImage as profileImage,
           pi.mobile_number as phone,
           u.userNumber as registerNumber,
           d.departmentName as department,
@@ -59,6 +60,7 @@ router.get('/student-data/:userId', requireAuth, async (req, res) => {
           SELECT
             u.userName as username,
             u.userMail as email,
+            u.profileImage as profileImage,
             pi.mobile_number as phone,
             u.userNumber as registerNumber,
             d.departmentName as department,
@@ -90,7 +92,8 @@ router.get('/student-data/:userId', requireAuth, async (req, res) => {
           city: 'N/A',
           state: 'N/A',
           blood_group: 'N/A',
-          dob: null
+          dob: null,
+          profileImage: userInfo[0].profileImage || null
         };
 
         const responseData = {
@@ -105,6 +108,7 @@ router.get('/student-data/:userId', requireAuth, async (req, res) => {
             address: 'N/A',
             blood_group: basicStudent.blood_group,
             dob: basicStudent.dob,
+            profileImage: basicStudent.profileImage,
           },
           "Student Details": [basicStudent],
           "Events Attended": [],
@@ -300,6 +304,7 @@ router.get('/student-data/:userId', requireAuth, async (req, res) => {
           address: cleanedAddress,
           blood_group: studentInfo.blood_group || 'N/A',
           dob: studentInfo.dob || null,
+          profileImage: studentInfo.profileImage || null,
         },
         "Student Details": studentDetails || [],
         "Events Attended": eventsAttended || [],

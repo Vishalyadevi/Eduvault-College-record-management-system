@@ -17,7 +17,7 @@ const {
 } = db;
 
 // Helper to safely get current user ID (handles both 'id' from JWT and 'userId' naming)
-const getCurrentUserId = (req) => req.user?.id || req.user?.userId;
+const getCurrentUserId = (req) => req.query.userId || req.user?.id || req.user?.userId;
 
 /**
  * Utility: Get Student Registration Number from User Session
@@ -27,7 +27,7 @@ const getRegNo = async (req) => {
   if (!userId) return null;
 
   let regno = req.user?.userNumber;
-  if (!regno) {
+  if (!regno || req.query.userId) { // If userId provided in query, look up that user specifically
     const currentUser = await User.findByPk(userId, {
       attributes: ["userNumber"],
     });

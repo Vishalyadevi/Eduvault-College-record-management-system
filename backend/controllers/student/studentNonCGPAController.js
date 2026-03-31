@@ -341,7 +341,7 @@ export const updateStudentNonCGPA = async (req, res) => {
 // Get student's non-CGPA records
 export const getStudentNonCGPARecords = async (req, res) => {
   try {
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.query.userId || req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
@@ -421,7 +421,7 @@ export const getPendingNonCGPARecords = async (req, res) => {
 // Get verified non-CGPA records
 export const getVerifiedNonCGPARecords = async (req, res) => {
   try {
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.query.userId || req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
@@ -578,7 +578,7 @@ export const deleteNonCGPARecord = async (req, res) => {
 // Get non-CGPA statistics
 export const getNonCGPAStatistics = async (req, res) => {
   try {
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.query.userId || req.user?.userId || req.user?.Userid || req.query.UserId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }

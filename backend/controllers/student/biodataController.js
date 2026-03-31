@@ -16,7 +16,9 @@ import { sequelize } from "../../config/mysql.js"; // Import Sequelize instance
 export const getStudentBiodata = async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log("[BIODATA] Fetching base student details for:", userId);
 
+    // 1. Get base student details
     const student = await StudentDetails.findOne({
       where: { Userid: userId },
       include: [
@@ -24,42 +26,74 @@ export const getStudentBiodata = async (req, res) => {
           model: Department,
           as: "department",
           attributes: [["departmentId", "departmentId"], ["departmentName", "departmentName"]]
-        },
-        {
-          model: User,
-          as: "studentUser",
-          attributes: [["userId", "Userid"], ["userName", "username"], ["userMail", "email"], "status"],
-          include: [
-            {
-              model: BankDetails,
-              as: "bankDetails",
-              attributes: ["bank_name", "branch_name", "address", "account_type", "account_no", "ifsc_code", "micr_code"]
-            },
-            {
-              model: RelationDetails,
-              as: "relationDetails",
-              attributes: ["relationship", "relation_name", "relation_age", "relation_qualification", "relation_occupation", "relation_phone", "relation_email", "relation_photo", "relation_income"],
-              order: [['id', 'ASC']],
-              separate: true
-            }
-          ]
-        },
-        {
-          model: User,
-          as: "staffAdvisor",
-          attributes: [["userName", "username"]]
         }
       ]
     });
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+      console.warn("[BIODATA] StudentDetails record not found for userId:", userId);
+      // Fallback: try to get user info at least
+      const user = await User.findByPk(userId, {
+        attributes: [["userId", "Userid"], ["userName", "username"], ["userMail", "email"], "status"]
+      });
+      
+      if (!user) {
+        return res.status(404).json({ message: "Student not found in any table" });
+      }
+
+      return res.json({ 
+        studentUser: user, 
+        message: "Only basic user data available (StudentDetails record missing)" 
+      });
     }
 
-    res.json(student);
+    // Convert to plain object to attach more data safely
+    const studentData = student.get({ plain: true });
+
+    // 2. Safely attach Staff Advisor
+    try {
+      const advisor = await User.findByPk(student.staffId, { attributes: ["userName"] });
+      studentData.staffAdvisor = advisor ? { username: advisor.userName } : null;
+    } catch (e) {
+      console.error("[BIODATA] StaffAdvisor fetch error:", e.message);
+    }
+
+    // 3. Safely attach User + Bank + Relation
+    try {
+      const userRecord = await User.findOne({
+        where: { userId: userId },
+        attributes: [["userId", "Userid"], ["userName", "username"], ["userMail", "email"], "status"],
+        include: [
+          {
+            model: BankDetails,
+            as: "bankDetails",
+            attributes: ["bank_name", "branch_name", "address", "account_type", "account_no", "ifsc_code", "micr_code"]
+          },
+          {
+            model: RelationDetails,
+            as: "relationDetails",
+            attributes: ["relationship", "relation_name", "relation_age", "relation_qualification", "relation_occupation", "relation_phone", "relation_email", "relation_photo", "relation_income"],
+          }
+        ]
+      });
+      studentData.studentUser = userRecord ? userRecord.get({ plain: true }) : null;
+    } catch (e) {
+      console.error("[BIODATA] UserRecord/Bank/Relation fetch error:", e.message);
+      // Absolute fallback for User basic info
+      const basicUser = await User.findByPk(userId, {
+        attributes: [["userId", "Userid"], ["userName", "username"], ["userMail", "email"]]
+      });
+      studentData.studentUser = basicUser ? basicUser.get({ plain: true }) : null;
+    }
+
+    console.log("[BIODATA] Successfully constructed student data");
+    res.json(studentData);
   } catch (error) {
-    console.error("Error fetching student biodata:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("CRITICAL error fetching student biodata:", error);
+    res.status(500).json({ 
+        message: "Internal server error during biodata fetch",
+        details: error.message 
+    });
   }
 };
 
@@ -73,7 +107,7 @@ export const getUserOnlineCourses = async (req, res) => {
     }
 
     const userCourses = await OnlineCourses.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
+      where: { Userid: userId },
       include: [
         {
           model: User,
@@ -84,7 +118,6 @@ export const getUserOnlineCourses = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Return 200 with empty array if nothing found
     res.status(200).json({ success: true, courses: userCourses || [] });
   } catch (error) {
     console.error("Error fetching user online courses:", error);
@@ -92,7 +125,7 @@ export const getUserOnlineCourses = async (req, res) => {
   }
 };
 
-// ✅ Get Approved Events Attended
+// ✅ Get Events Attended
 export const getApprovedEventsAttended = async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -102,18 +135,18 @@ export const getApprovedEventsAttended = async (req, res) => {
     }
 
     const approvedEvents = await EventAttended.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["from_date", "DESC"]],
     });
 
     res.status(200).json(approvedEvents || []);
   } catch (error) {
-    console.error("Error fetching approved events:", error);
+    console.error("Error fetching events:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ✅ Get Approved Events Organized
+// ✅ Get Events Organized
 export const getApprovedEventsOrganized = async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -123,18 +156,18 @@ export const getApprovedEventsOrganized = async (req, res) => {
     }
 
     const approvedEvents = await EventOrganized.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["start_date", "DESC"]],
     });
 
     res.status(200).json(approvedEvents || []);
   } catch (error) {
-    console.error("Error fetching approved events:", error);
+    console.error("Error fetching events:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ✅ Get Approved Internships
+// ✅ Get Internships
 export const getApprovedInternships = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -144,18 +177,18 @@ export const getApprovedInternships = async (req, res) => {
     }
 
     const approvedInternships = await Internship.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["start_date", "DESC"]],
     });
 
     res.status(200).json(approvedInternships || []);
   } catch (error) {
-    console.error("Error fetching approved internships:", error);
+    console.error("Error fetching internships:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ✅ Get Approved Scholarships
+// ✅ Get Scholarships
 export const getApprovedScholarships = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -165,18 +198,18 @@ export const getApprovedScholarships = async (req, res) => {
     }
 
     const approvedScholarships = await Scholarship.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["year", "DESC"]],
     });
 
     return res.status(200).json(approvedScholarships || []);
   } catch (error) {
-    console.error("Error fetching approved scholarships:", error);
+    console.error("Error fetching scholarships:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ✅ Get Approved Leaves
+// ✅ Get Student Leaves
 export const getApprovedLeaves = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -186,18 +219,18 @@ export const getApprovedLeaves = async (req, res) => {
     }
 
     const approvedLeaves = await StudentLeave.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["from_date", "DESC"]],
     });
 
     return res.status(200).json(approvedLeaves || []);
   } catch (error) {
-    console.error("Error fetching approved leaves:", error);
+    console.error("Error fetching leaves:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ✅ Get Approved Achievements
+// ✅ Get Student Achievements
 export const getApprovedAchievements = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -207,13 +240,13 @@ export const getApprovedAchievements = async (req, res) => {
     }
 
     const approvedAchievements = await Achievement.findAll({
-      where: { tutor_approval_status: true, Userid: userId },
-      order: [["approved_at", "DESC"]],
+      where: { Userid: userId },
+      order: [["date_awarded", "DESC"]],
     });
 
     return res.status(200).json(approvedAchievements || []);
   } catch (error) {
-    console.error("Error fetching approved achievements:", error);
+    console.error("Error fetching achievements:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
