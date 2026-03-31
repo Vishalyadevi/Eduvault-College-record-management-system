@@ -19,7 +19,16 @@ redisClient.on('connect', () => {
 });
 
 redisClient.on('error', (err) => {
-  console.error('❌ Redis connection error. Please ensure Redis is running.', err.message);
+  // Silent warning instead of loud error to prevent log spamming if Redis is not used
+  if (err.code === 'ECONNREFUSED') {
+    // only log once per minute to avoid spam
+    if (!global.lastRedisError || Date.now() - global.lastRedisError > 60000) {
+      console.warn('⚠️ Redis not available on 127.0.0.1:6379 (using in-memory/direct DB fallback)');
+      global.lastRedisError = Date.now();
+    }
+  } else {
+    console.error('❌ Redis error:', err.message);
+  }
 });
 
 export default redisClient;

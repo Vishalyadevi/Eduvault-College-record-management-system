@@ -62,8 +62,7 @@ export const getAllCertifications = async (req, res) => {
 // GET /certifications/my-certificates (optional query for other user)
 export const getMyCertificates = async (req, res) => {
   try {
-    const { UserId } = req.query;
-    const userId = UserId || req.user?.Userid;
+    const userId = req.query.UserId || req.query.userId || req.user?.Userid || req.user?.userId;
     if (!userId) {
       return res.status(400).json({ message: 'UserId is required' });
     }
