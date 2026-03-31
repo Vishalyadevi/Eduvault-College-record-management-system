@@ -69,7 +69,7 @@ import Meeting from './components/meeting';
 import ApprovalLetters from './components/Approval1';
 import RegulationList from './components/RegulationList';
 import ACADEMICCALENDER from './components/ACADEMICCALENDER';
-import CSEDepartment from './components/CSEDepartment ';
+import CSEDepartment from './components/CSEDepartment.tsx';
 import AcademicDeanSection from './components/AcademicDeanSection';
 import ACADEMICCOUNCIL from './components/ACADEMICCOUNCIL';
 import GreenEnery from './components/GreenEnergy';

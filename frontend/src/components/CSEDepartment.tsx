@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 // import classNames from "classnames";
 import "./FeePaymentGuide.css";
 import { FaFilePdf, FaLink } from 'react-icons/fa';
 import './ScrollableTable.css'; // Import custom scrollbar CSS
+import { getStaffResumeData } from '../records/services/api';
+import { generateStaffResumePDF } from '../records/utils/generateStaffResume';
+import API from '../api';
+
+
 const data2 = [
   {
     id: 1,
@@ -519,43 +524,77 @@ const CSEDepartment = () => {
   }, []);
 
   const [downloadingResume, setDownloadingResume] = useState<number | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: string } | null>(null);
 
-  const handleDownloadResume = async (facultyId: number, facultyName: string) => {
+  const showNotification = (message: string, type: string = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+
+  const handleDownloadResume = async (facultyId: number) => {
     try {
       setDownloadingResume(facultyId);
-      const res = await fetch(`http://localhost:4000/api/resume-staff/staff-data/${facultyId}`);
-      const result = await res.json();
 
-      if (result.success) {
-        let profileImageData = null;
-        try {
-          const imageResponse = await fetch(`http://localhost:4000/api/resume-staff/profile-image/${facultyId}`);
-          if (imageResponse.ok) {
-            const imageResult = await imageResponse.json();
-            if (imageResult.success) {
-              profileImageData = {
-                data: imageResult.imageData,
-                format: imageResult.format
-              };
-            }
+      // 1. Fetch the complete resume data bundle from the specialized endpoint
+      const response = await getStaffResumeData(facultyId);
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to fetch resume data');
+      }
+
+      const resumeData = response.data.data;
+      const userInfo = resumeData.userInfo;
+
+      let profileImageData = null;
+      try {
+        const backendUrl = (API.defaults.baseURL || 'http://localhost:4000/api').replace('/api', '');
+        
+        // Try getting profile image info from the specialized endpoint
+        const imageInfoResponse = await fetch(`${backendUrl}/api/resume-staff/profile-image/${facultyId}`);
+        let imagePath = userInfo?.profileImage; // Fallback to userInfo path
+        
+        if (imageInfoResponse.ok) {
+          const imageInfo = await imageInfoResponse.json();
+          if (imageInfo.success && imageInfo.imageData) {
+            imagePath = imageInfo.imageData;
           }
-        } catch (imageErr) {
-          console.warn('Could not fetch profile image:', imageErr);
         }
 
-        // Use the exact style and logic as the Staff Dashboard
-        const { generateStaffResumePDF } = await import('../records/utils/generateStaffResume');
-        await generateStaffResumePDF(result.data, profileImageData);
-      } else {
-        alert("Failed to load detailed profile data from server.");
+        if (imagePath) {
+           // Normalize backslashes to forward slashes and ensure leading slash if relative
+           const normalizedPath = imagePath.replace(/\\/g, '/');
+           const absoluteUrl = normalizedPath.startsWith('http') ? normalizedPath : `${backendUrl}${normalizedPath.startsWith('/') ? '' : '/'}${normalizedPath}`;
+           
+           console.log('Fetching photo from:', absoluteUrl);
+           const imgBlob = await fetch(absoluteUrl).then(r => r.blob());
+           const reader = new FileReader();
+           reader.readAsDataURL(imgBlob);
+           const base64data = await new Promise(resolve => {
+               reader.onloadend = () => resolve(reader.result);
+           });
+           
+           profileImageData = {
+             data: base64data as string,
+             format: normalizedPath.toLowerCase().endsWith('.png') ? 'PNG' : 'JPEG'
+           };
+        }
+      } catch (imageErr) {
+        console.warn('Could not fetch profile image for PDF:', imageErr);
       }
-    } catch (e) {
-      console.error('Error downloading resume:', e);
-      alert("An error occurred while generating the PDF.");
+
+      await generateStaffResumePDF(resumeData, profileImageData as any);
+      showNotification('Resume downloaded successfully!');
+    } catch (error: any) {
+      console.error('Error downloading resume:', error);
+      const data = error.response?.data;
+      const errorMsg = data?.details || data?.error || data?.message || error.message || 'Unknown error';
+      showNotification(`Failed to download resume: ${errorMsg}`, 'error');
     } finally {
       setDownloadingResume(null);
     }
   };
+
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -565,6 +604,12 @@ const CSEDepartment = () => {
   const currentData = dbFacultyData.slice(start, start + itemsPerPage);
   return (
     <div className="min-h-screen bg-white text-blue-900 flex flex-col">
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl transition-all ${notification.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-rose-600'} text-white font-semibold flex items-center gap-3 animate-slide-in-right`}>
+          <span>{notification.message}</span>
+        </div>
+      )}
+
       {/* Header with background image */}
       <div className="fee-banner">
         <h1 className="fee-title">Department of Computer Science Engineering</h1>
@@ -579,8 +624,8 @@ const CSEDepartment = () => {
               key={item}
               onClick={() => setActive(item)}
               className={`w-full text-center text-white font-bold py-3 px-4 mb-2 rounded-none font-serif Georgia, Times  ${active === item
-                  ? "bg-[#7b231c]" // Dark maroon for selected
-                  : "bg-[#00008B] hover:bg-[#d4af37]" // Navy blue for others
+                ? "bg-[#7b231c]" // Dark maroon for selected
+                : "bg-[#00008B] hover:bg-[#d4af37]" // Navy blue for others
                 }`}
             >
               {item}
@@ -976,12 +1021,21 @@ const CSEDepartment = () => {
                     className="bg-[#d5dbe4] shadow-md rounded-sm p-8 flex flex-col items-center text-center transition-all duration-300 hover:shadow-lg w-[280px] h-[360px]"
                   >
                     <div className="w-36 h-36 rounded-full overflow-hidden mb-6 bg-white shrink-0 mt-2">
-                      <img
-                        src={faculty.imageUrl}
-                        alt={faculty.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.src = '/uploads/default.jpg'; }}
-                      />
+                       {(() => {
+                        const backendUrl = (API.defaults.baseURL || 'http://localhost:4000/api').replace('/api', '');
+                        const imgPath = faculty.imageUrl || '/uploads/default.jpg';
+                        const normalizedPath = imgPath.replace(/\\/g, '/');
+                        const fullImageUrl = normalizedPath.startsWith('http') ? normalizedPath : `${backendUrl}${normalizedPath.startsWith('/') ? '' : '/'}${normalizedPath}`;
+                        
+                        return (
+                          <img
+                            src={fullImageUrl}
+                            alt={faculty.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.src = '/uploads/default.jpg'; }}
+                          />
+                        );
+                      })()}
                     </div>
 
                     <h3 className="text-black text-2xl font-normal leading-tight mx-auto px-2" style={{ fontFamily: 'Georgia, serif' }}>
@@ -998,7 +1052,7 @@ const CSEDepartment = () => {
                           onClick={(e) => {
                             e.preventDefault();
                             if (faculty.userId) {
-                              handleDownloadResume(faculty.userId, faculty.name);
+                              handleDownloadResume(faculty.userId);
                             } else {
                               alert("User ID not mapped. Cannot download PDF profile.");
                             }
