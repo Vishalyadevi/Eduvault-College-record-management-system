@@ -107,13 +107,13 @@ export const getStaffActivities = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['Userid', 'username', 'email'],
+          attributes: ['userId', 'userName', 'userMail'],
           as: 'creator',
           foreignKey: 'Created_by',
         },
         {
           model: User,
-          attributes: ['Userid', 'username'],
+          attributes: ['userId', 'userName'],
           as: 'tutor',
           foreignKey: 'Approved_by',
         },
@@ -140,13 +140,13 @@ export const getActivityById = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['Userid', 'username', 'email'],
+          attributes: ['userId', 'userName', 'userMail'],
           as: 'creator',
           foreignKey: 'Created_by',
         },
         {
           model: User,
-          attributes: ['Userid', 'username'],
+          attributes: ['userId', 'userName'],
           as: 'tutor',
           foreignKey: 'Approved_by',
         },

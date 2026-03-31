@@ -189,10 +189,10 @@ app.use(cors({
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
     const isLocalhost = /^http:\/\/localhost:517[3-9]$/.test(origin);
-    
+
     if (isLocalhost || allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     } else {
@@ -219,8 +219,8 @@ app.use(helmet({
 // Global Rate Limiting for all API requests
 const apiLimiter = rateLimit({
   max: 300, // Limit each IP to 300 requests per `window` (production scale)
-  standardHeaders: true, 
-  legacyHeaders: false, 
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 app.use('/api', apiLimiter);
@@ -304,26 +304,26 @@ app.use('/api/student/marksheets', marksheetRoutes);
 app.use('/api', adminPanelRoutes);
 app.use('/api', studentPanelRoutes);
 app.use("/api/projects", projectRoutes);
-// Dummy routes to prevent dashboard and context 404s
-app.get('/api/appraisals', (req, res) => res.json([]));
-app.get('/api/industry', (req, res) => res.json([]));
-app.get('/api/other/events-organized', (req, res) => res.json([]));
-app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
-// app.get('/api/skillrack/my-record', (req, res) => res.json([]));
-// app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
-app.get('/api/nptel/student/my-courses', authenticate, getStudentNptelEnrollments);
-app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
-app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));
-app.get('/api/event-organized/pending', (req, res) => res.json({ events: [] }));
-app.get('/api/event-attended/pending', (req, res) => res.json({ events: [] }));
-app.get('/api/all/pending-leaves', (req, res) => res.json({ leaves: [] }));
-app.get('/api/pending-achievements', (req, res) => res.json({ achievements: [] }));
-app.get('/api/publications/pending', (req, res) => res.json({ publications: [] }));
-app.get('/api/competency-coding/pending', (req, res) => res.json({ competencyRecords: [] }));
-app.get('/api/projects/pending', (req, res) => res.json({ projects: [] }));
-app.get('/api/hackathon/pending', (req, res) => res.json({ events: [] }));
-app.get('/api/extracurricular/pending', (req, res) => res.json({ activities: [] }));
-app.get('/api/noncgpa/pending', (req, res) => res.json({ records: [] }));
+// // Dummy routes to prevent dashboard and context 404s
+// app.get('/api/appraisals', (req, res) => res.json([]));
+// app.get('/api/industry', (req, res) => res.json([]));
+// app.get('/api/other/events-organized', (req, res) => res.json([]));
+// app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
+// // app.get('/api/skillrack/my-record', (req, res) => res.json([]));
+// // app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
+// app.get('/api/nptel/student/my-courses', (req, res) => res.json([]));
+// app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
+// app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));
+// app.get('/api/event-organized/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/event-attended/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/all/pending-leaves', (req, res) => res.json({ leaves: [] }));
+// app.get('/api/pending-achievements', (req, res) => res.json({ achievements: [] }));
+// app.get('/api/publications/pending', (req, res) => res.json({ publications: [] }));
+// app.get('/api/competency-coding/pending', (req, res) => res.json({ competencyRecords: [] }));
+// app.get('/api/projects/pending', (req, res) => res.json({ projects: [] }));
+// app.get('/api/hackathon/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/extracurricular/pending', (req, res) => res.json({ activities: [] }));
+// app.get('/api/noncgpa/pending', (req, res) => res.json({ records: [] }));
 
 app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);

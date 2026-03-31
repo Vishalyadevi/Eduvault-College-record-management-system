@@ -17,5 +17,5 @@ if (container) {
     <React.StrictMode>
       <App />
     </React.StrictMode>
-  );
+  ); 
 }
