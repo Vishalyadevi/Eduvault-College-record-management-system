@@ -81,7 +81,7 @@ export const testSkillRackSetup = async (req, res) => {
 export const getMySkillRackRecord = async (req, res) => {
   try {
     console.log("🔍 Getting my record...");
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId || req.query.userId;
 
     if (!userId) {
       return res.status(400).json({
@@ -136,7 +136,7 @@ export const getMySkillRackRecord = async (req, res) => {
 export const getSkillRackStats = async (req, res) => {
   try {
     console.log("📊 Getting stats...");
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId || req.query.userId;
 
     if (!userId) {
       return res.status(400).json({

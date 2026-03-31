@@ -141,26 +141,100 @@ const Dashboard = () => {
         return;
       }
 
+      // Fetch userInfo using getStaffResumeData to get core info
       const response = await getStaffResumeData(effectiveUserId);
-      if (response.data.success) {
-        let profileImageData = null;
-        try {
-          const imageResponse = await API.get(`/resume-staff/profile-image/${effectiveUserId}`);
-          if (imageResponse.data.success) {
-            profileImageData = {
-              data: imageResponse.data.imageData,
-              format: imageResponse.data.format
-            };
-          }
-        } catch (imageErr) {
-          console.warn('Could not fetch profile image:', imageErr);
-        }
-
-        await generateStaffResumePDF(response.data.data, profileImageData);
-        showNotification('Resume downloaded successfully!');
-      } else {
-        throw new Error(response.data.error || 'Failed to fetch resume data');
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to fetch resume user info');
       }
+      
+      const userInfo = response.data.data.userInfo;
+
+      // Fetch all array data using individual endpoints
+      const [
+        education,
+        events,
+        proposals,
+        projectProposals,
+        industry,
+        certifications,
+        bookChapters,
+        eventsOrganized,
+        hIndex,
+        resourcePerson,
+        recognition,
+        patents,
+        scholars,
+        seedMoney,
+        projectMentors
+      ] = await Promise.all([
+        API.get('/education').catch(() => ({ data: [] })),
+        API.get('/events').catch(() => ({ data: [] })),
+        API.get('/proposals').catch(() => ({ data: [] })),
+        API.get('/project-proposal').catch(() => ({ data: [] })),
+        API.get('/industry').catch(() => ({ data: [] })),
+        API.get('/certifications').catch(() => ({ data: [] })),
+        API.get('/book-chapters').catch(() => ({ data: [] })),
+        API.get('/events-organized').catch(() => ({ data: [] })),
+        API.get('/h-index').catch(() => ({ data: [] })),
+        API.get('/resource-person').catch(() => ({ data: [] })),
+        API.get('/recognition').catch(() => ({ data: [] })),
+        API.get('/patent-product').catch(() => ({ data: [] })),
+        API.get('/scholars').catch(() => ({ data: [] })),
+        API.get('/seed-money').catch(() => ({ data: [] })),
+        API.get('/project-mentors').catch(() => ({ data: [] }))
+      ]);
+
+      const formatResponse = (res) => {
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.data?.data)) return res.data.data;
+        return [];
+      };
+
+      const resumeData = {
+        userInfo: userInfo,
+        "Education": formatResponse(education),
+        "Events Attended": formatResponse(events),
+        "Consultancy Projects": formatResponse(proposals),
+        "Research Projects": formatResponse(projectProposals),
+        "Industry Knowhow": formatResponse(industry),
+        "Certification Courses": formatResponse(certifications),
+        "Publications": formatResponse(bookChapters),
+        "Events Organized": formatResponse(eventsOrganized),
+        "H-Index": formatResponse(hIndex),
+        "Resource Person": formatResponse(resourcePerson),
+        "Recognition & Appreciation": formatResponse(recognition),
+        "Patents & Products": formatResponse(patents),
+        "Scholars": formatResponse(scholars),
+        "Seed Money": formatResponse(seedMoney),
+        "Project Mentors": formatResponse(projectMentors),
+      };
+
+      let profileImageData = null;
+      try {
+        // Just use the profileImage from userInfo which is the URL directly
+        const imagePath = userInfo?.profileImage;
+        if (imagePath) {
+           const backendUrl = API.defaults.baseURL.replace('/api', '');
+           const absoluteUrl = imagePath.startsWith('http') ? imagePath : `${backendUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+           
+           const imgBlob = await fetch(absoluteUrl).then(r => r.blob());
+           const reader = new FileReader();
+           reader.readAsDataURL(imgBlob);
+           const base64data = await new Promise(resolve => {
+               reader.onloadend = () => resolve(reader.result);
+           });
+           
+           profileImageData = {
+             data: base64data,
+             format: imagePath.toLowerCase().endsWith('.png') ? 'PNG' : 'JPEG'
+           };
+        }
+      } catch (imageErr) {
+        console.warn('Could not fetch profile image for PDF:', imageErr);
+      }
+
+      await generateStaffResumePDF(resumeData, profileImageData);
+      showNotification('Resume downloaded successfully!');
     } catch (error) {
       console.error('Error downloading resume:', error);
       const data = error.response?.data;

@@ -281,7 +281,7 @@ const Sidebar = () => {
           <SidebarLink to="/records/staff-mou" icon={<FaFileContract />} label="MOU" />
           <SidebarLink to="/records/tlp-management" icon={<FaClipboardList />} label="TLP Management" />
           <SidebarLink to="/records/activity" icon={<FaBriefcase />} label="Activity Management" />
-          <SidebarLink to="/records/staff-resume-generator" icon={<FaDownload />} label="Resume Generation" />
+          {/* <SidebarLink to="/records/staff-resume-generator" icon={<FaDownload />} label="Resume Generation" /> */}
           <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStaffAcadamicActive} label="Acadamic" icon={<FaSchool />} items={staffAcadamicItems} />
           <NavDropdown isOpen={showPlacementDropdown} setIsOpen={setShowPlacementDropdown} isActive={isStaffPlacementActive} label="Placement" icon={<FaNetworkWired />} items={staffPlacementItems} />
         </>);

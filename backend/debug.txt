@@ -1,6 +1,0 @@
-[
-  {
-    "userMail": "monishamjayakumar@gmail.com",
-    "userNumber": "ADMIN002"
-  }
-]
