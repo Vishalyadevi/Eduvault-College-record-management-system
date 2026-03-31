@@ -89,6 +89,8 @@ import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 
 import adminRoleRoutes from './routes/adminRoutes.js';
 import placementMainRoutes from './routes/placement/index.js';
+import { getStudentNptelEnrollments } from './controllers/acadamic/nptelStudentController.js';
+import { authenticate } from './middlewares/requireauth.js';
 
 //Acadamic
 import { initDatabase } from './models/acadamic/index.js';
@@ -256,6 +258,7 @@ app.use(AcadamicApp); // Mount academic app routes and middlewares to the main a
 app.use('/api/placement', placementMainRoutes);
 
 app.use('/api', dashboardRoutes);
+app.use("/api", biodataRoutes); // Moved up to prevent route collision
 app.use("/api/hackathon", hackathonRoutes);
 app.use('/api', authRoutes);
 app.use('/api', adminRoutes);
@@ -308,7 +311,7 @@ app.get('/api/other/events-organized', (req, res) => res.json([]));
 app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
 // app.get('/api/skillrack/my-record', (req, res) => res.json([]));
 // app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
-app.get('/api/nptel/student/my-courses', (req, res) => res.json([]));
+app.get('/api/nptel/student/my-courses', authenticate, getStudentNptelEnrollments);
 app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
 app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));
 app.get('/api/event-organized/pending', (req, res) => res.json({ events: [] }));
@@ -331,7 +334,7 @@ app.use('/api', leaveRoutes);
 app.use('/api/online-courses', OnlineCoursesRoutes);
 app.use('/api', achievementRoutes);
 app.use('/api', courseRoutes);
-app.use("/api", biodataRoutes);
+// app.use("/api", biodataRoutes); // Already moved up above
 app.use('/api/mou', mouRoutes);
 app.use("/api/student-certificate", certificateRoutes);
 app.use("/api/resume", resumeGeneratorRoutes);
