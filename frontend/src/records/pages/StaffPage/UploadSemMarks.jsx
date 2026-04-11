@@ -249,7 +249,7 @@ const StaffEducationPage = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-indigo-50 to-pink-50 min-h-screen ml-0 md:ml-64">
+    <div className="p-6 bg-gradient-to-r from-indigo-50 to-pink-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-pink-600 bg-clip-text text-transparent">
           Staff - Education Management

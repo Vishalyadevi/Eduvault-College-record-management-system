@@ -157,12 +157,6 @@ export const createUser = async (req, res) => {
     let tutor = null;
     if (role.roleName === 'Student') {
       const { tutorId } = req.body;
-      if (!tutorId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Student must be assigned to a valid staff tutor.',
-        });
-      }
 
       // Department is required for students as per StudentDetails model
       if (!departmentId) {
@@ -172,20 +166,22 @@ export const createUser = async (req, res) => {
         });
       }
 
-      // Verify tutor exists and has Staff role
-      tutor = await User.findByPk(tutorId, {
-        include: [{
-          model: Role,
-          as: 'role',
-          where: { roleName: 'Staff' }
-        }]
-      });
-
-      if (!tutor) {
-        return res.status(400).json({
-          success: false,
-          message: 'Student must be assigned to a valid staff tutor.',
+      // If tutorId is provided, verify tutor exists and has Staff role
+      if (tutorId) {
+        tutor = await User.findByPk(tutorId, {
+          include: [{
+            model: Role,
+            as: 'role',
+            where: { roleName: 'Staff' }
+          }]
         });
+
+        if (!tutor) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid staff tutor provided.',
+          });
+        }
       }
     }
 
@@ -216,8 +212,8 @@ export const createUser = async (req, res) => {
         // Deptid: departmentId,
         batch: batch || null,
         semester: semester || null,
-        staffId: tutor.userId,
-        tutorEmail: tutor.userMail,
+        staffId: tutor ? tutor.userId : null,
+        tutorEmail: tutor ? tutor.userMail : null,
         Created_by: req.user.userId,
         Updated_by: req.user.userId,
       });

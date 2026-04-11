@@ -8,7 +8,8 @@ const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
 
 export default function AdminAttendanceGenerator() {
-  const [selectedDate, setSelectedDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,8 +24,10 @@ export default function AdminAttendanceGenerator() {
   const [selectedSemester, setSelectedSemester] = useState("");
 
   useEffect(() => {
-    if (!selectedDate) setSelectedDate(new Date().toISOString().split("T")[0]);
-  }, [selectedDate]);
+    const today = new Date().toISOString().split("T")[0];
+    if (!startDate) setStartDate(today);
+    if (!endDate) setEndDate(today);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -87,6 +90,14 @@ export default function AdminAttendanceGenerator() {
       return toast.error("Please select Degree, Batch, Department and Semester");
     }
 
+    if (!startDate || !endDate) {
+      return toast.error("Please select both start and end dates");
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return toast.error("End date must be on or after start date");
+    }
+
     setLoading(true);
     setStudents([]);
 
@@ -131,6 +142,14 @@ export default function AdminAttendanceGenerator() {
     const selectedList = students.filter((s) => s.selected);
     if (selectedList.length === 0) return toast.error("Select students first");
 
+    if (!startDate || !endDate) {
+      return toast.error("Please select both start and end dates");
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return toast.error("End date must be on or after start date");
+    }
+
     setSaving(true);
     try {
       const bData = batches.find((b) => b.batchId === parseInt(selectedBatch, 10));
@@ -140,8 +159,8 @@ export default function AdminAttendanceGenerator() {
       }
 
       await axios.post(`${API_BASE_URL}/api/admin/attendance/mark-full-day-od`, {
-        startDate: selectedDate,
-        endDate: selectedDate,
+        startDate,
+        endDate,
         degree: selectedDegree,
         batch: bData.batch,
         departmentId: selectedDepartment,
@@ -149,7 +168,7 @@ export default function AdminAttendanceGenerator() {
         students: selectedList,
       });
 
-      toast.success("Full Day On-Duty marked successfully!");
+      toast.success("Full Day On-Duty marked successfully for the selected range!");
       setStudents((prev) => prev.map((s) => ({ ...s, selected: false })));
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to save OD");
@@ -171,7 +190,7 @@ export default function AdminAttendanceGenerator() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
             <FilterField label="Degree" value={selectedDegree} onChange={setSelectedDegree}>
               <option value="">Select</option>
               {degrees.map((d) => (
@@ -211,11 +230,21 @@ export default function AdminAttendanceGenerator() {
             </FilterField>
 
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Date</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">From</label>
               <input
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
               />
             </div>
@@ -281,7 +310,7 @@ export default function AdminAttendanceGenerator() {
             <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-2 text-xs text-slate-500">
                 <AlertCircle size={16} className="mt-0.5 text-slate-400" />
-                Selected students will be marked On-Duty for the chosen date.
+                Selected students will be marked On-Duty for every timetable day in the chosen date range.
               </div>
 
               <div className="flex items-center gap-4">

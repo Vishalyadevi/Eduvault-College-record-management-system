@@ -506,3 +506,117 @@ export const getCourseWiseAttendance = async (req, res) => {
   }
 };
 
+/**
+ * 6. STAFF SHORTAGE LIST (Attendance < min%)
+ */
+export async function getAttendanceShortageForStaff(req, res) {
+  try {
+    const { courseCode } = req.params;
+    const { min = 75, sections } = req.query;
+    const user = await getInternalUser(req.user);
+
+    const codes = String(courseCode || '')
+      .split('_')
+      .map(c => c.trim().toUpperCase())
+      .filter(Boolean);
+
+    if (!codes.length) {
+      return res.status(400).json({ status: 'error', message: 'courseCode is required' });
+    }
+
+    const sectionIdsFilter = String(sections || '')
+      .split('_')
+      .map(s => parseInt(s, 10))
+      .filter((n) => !Number.isNaN(n));
+
+    const staffCourses = await StaffCourse.findAll({
+      where: { Userid: user.userId },
+      attributes: ['courseId', 'sectionId'],
+      include: [{ model: Course, where: { courseCode: { [Op.in]: codes } }, attributes: ['courseId', 'courseCode', 'courseTitle'] }]
+    });
+
+    if (!staffCourses.length) {
+      return res.status(404).json({ status: 'error', message: 'Course not found or not assigned' });
+    }
+
+    const courseIds = [...new Set(staffCourses.map(sc => sc.courseId))];
+    let allowedSectionIds = staffCourses.map(sc => sc.sectionId).filter(Boolean);
+    if (sectionIdsFilter.length) {
+      allowedSectionIds = allowedSectionIds.filter(id => sectionIdsFilter.includes(id));
+    }
+
+    const studentCourses = await StudentCourse.findAll({
+      where: {
+        courseId: { [Op.in]: courseIds },
+        ...(allowedSectionIds.length ? { sectionId: { [Op.in]: allowedSectionIds } } : {})
+      },
+      include: [
+        { model: StudentDetails, attributes: ['registerNumber', 'studentName'] },
+        { model: Section, attributes: ['sectionName'] },
+        { model: Course, attributes: ['courseCode', 'courseTitle'] }
+      ],
+      attributes: ['regno', 'courseId', 'sectionId']
+    });
+
+    const regnos = studentCourses.map(s => s.regno);
+    if (!regnos.length) {
+      return res.json({ status: 'success', data: [] });
+    }
+
+    const attendanceRows = await PeriodAttendance.findAll({
+      attributes: [
+        'regno',
+        'courseId',
+        'sectionId',
+        [sequelize.fn('COUNT', sequelize.col('periodAttendanceId')), 'totalClasses'],
+        [sequelize.literal("SUM(CASE WHEN status IN ('P','OD') THEN 1 ELSE 0 END)"), 'presentClasses']
+      ],
+      where: {
+        regno: { [Op.in]: regnos },
+        courseId: { [Op.in]: courseIds },
+        ...(allowedSectionIds.length ? { sectionId: { [Op.in]: allowedSectionIds } } : {})
+      },
+      group: ['regno', 'courseId', 'sectionId'],
+      raw: true
+    });
+
+    const statsByKey = new Map();
+    attendanceRows.forEach((row) => {
+      const key = `${row.regno}_${row.courseId}_${row.sectionId}`;
+      statsByKey.set(key, {
+        totalClasses: Number(row.totalClasses || 0),
+        presentClasses: Number(row.presentClasses || 0)
+      });
+    });
+
+    const minPercentage = Number(min) || 75;
+
+    const data = studentCourses
+      .map((sc) => {
+        const key = `${sc.regno}_${sc.courseId}_${sc.sectionId}`;
+        const stats = statsByKey.get(key) || { totalClasses: 0, presentClasses: 0 };
+        const totalClasses = stats.totalClasses;
+        const presentClasses = stats.presentClasses;
+        const percentage = totalClasses > 0 ? Number(((presentClasses / totalClasses) * 100).toFixed(2)) : 0;
+        return {
+          regno: sc.regno,
+          name: sc.StudentDetail?.studentName || 'N/A',
+          sectionId: sc.sectionId,
+          sectionName: sc.Section?.sectionName || 'N/A',
+          courseId: sc.courseId,
+          courseCode: sc.Course?.courseCode || '',
+          courseTitle: sc.Course?.courseTitle || '',
+          totalClasses,
+          presentClasses,
+          percentage
+        };
+      })
+      .filter((row) => row.totalClasses > 0 && row.percentage < minPercentage)
+      .sort((a, b) => a.percentage - b.percentage);
+
+    res.json({ status: 'success', data });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+}
+

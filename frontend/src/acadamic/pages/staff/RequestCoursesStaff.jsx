@@ -47,16 +47,10 @@ const RequestCoursesStaff = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [semRes, deptRes, windowRes] = await Promise.allSettled([
-          api.get('/admin/semesters'),
+        const [deptRes, windowRes] = await Promise.allSettled([
           api.get('/departments'),
           api.get('/staff/request-window-status')
         ]);
-        if (semRes.status === 'fulfilled') {
-          setSemOptions(semRes.value.data.data || []);
-        } else {
-          console.error('Failed to fetch semesters', semRes.reason);
-        }
         if (deptRes.status === 'fulfilled') {
           setDepartments(deptRes.value.data.data || []);
         } else {
@@ -80,6 +74,15 @@ const RequestCoursesStaff = () => {
     fetchAvailableCourses();
   }, [filters.dept, filters.branch, filters.semester, filters.batch, filters.type]);
 
+  useEffect(() => {
+    const deptId = filters.dept || user?.departmentId || '';
+    if (!deptId) {
+      setSemOptions([]);
+      return;
+    }
+    fetchSemesterOptions(deptId);
+  }, [filters.dept, user?.departmentId]);
+
   const fetchAvailableCourses = async () => {
     try {
       const params = new URLSearchParams();
@@ -99,6 +102,36 @@ const RequestCoursesStaff = () => {
       setCourses(res.data.data || []);
     } catch (err) {
       console.error("Fetch error:", err);
+    }
+  };
+
+  const fetchSemesterOptions = async (deptId) => {
+    try {
+      const res = await api.get(`/staff/all-courses?dept=${encodeURIComponent(deptId)}`);
+      const data = res.data.data || [];
+      const uniqueMap = new Map();
+      data.forEach(course => {
+        const sem = course?.Semester;
+        const batchObj = sem?.Batch;
+        const semesterNumber = sem?.semesterNumber;
+        const batch = batchObj?.batch ?? sem?.batchYears ?? sem?.batch;
+        const branch = batchObj?.branch ?? sem?.branch;
+        if (semesterNumber || batch || branch) {
+          const key = `${batch || ''}-${branch || ''}-${semesterNumber || ''}`;
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, {
+              semesterNumber,
+              batch,
+              branch,
+              Batch: batchObj
+            });
+          }
+        }
+      });
+      setSemOptions([...uniqueMap.values()]);
+    } catch (err) {
+      console.error("Failed to fetch semester options", err);
+      setSemOptions([]);
     }
   };
 
@@ -178,7 +211,7 @@ const RequestCoursesStaff = () => {
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
       {/* Header */}
-      <header className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm z-30">
+      <div className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm z-30">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-all">
             <ArrowLeft size={20} className="text-slate-600" />
@@ -191,7 +224,7 @@ const RequestCoursesStaff = () => {
         <div className="bg-indigo-600 text-white px-6 py-2 rounded-2xl shadow-lg shadow-indigo-100">
           <span className="text-xs font-black uppercase tracking-widest">Total Active: {globalCounts.TOTAL} / 5</span>
         </div>
-      </header>
+      </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Discovery Panel */}

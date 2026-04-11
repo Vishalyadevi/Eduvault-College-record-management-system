@@ -240,7 +240,7 @@ export const addUser = async (req, res) => {
   }
 
   // Define which roles require department
-  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin"];
+  const rolesRequiringDept = ["Student", "Staff", "DeptAdmin", "AcademicAdmin", "AcadamicAdmin", "academicadmin", "acadamicadmin", "SuperAdmin"];
   const rolesWithoutDept = ["IrAdmin", "PgAdmin", "NewgenAdmin", "PlacementAdmin"];
 
   // Validate department requirement
@@ -485,7 +485,15 @@ export const getStaff = async (req, res) => {
 };
 export const getStudentDetails = async (req, res) => {
   try {
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = {};
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
     const students = await StudentDetails.findAll({
+      where: whereClause,
       include: [
         {
           model: User,
@@ -497,6 +505,11 @@ export const getStudentDetails = async (req, res) => {
           as: "staffAdvisor", // Fetch staff details using staffId (which is actually Userid of staff)
           attributes: ["userId", "userNumber", "userName"],
         },
+        {
+          model: Department,
+          as: "department",
+          attributes: ["departmentId", "departmentName", "departmentAcr"],
+        },
       ],
     });
     //  console.log(students)
@@ -504,10 +517,12 @@ export const getStudentDetails = async (req, res) => {
     const studentData = students.map(student => ({
       id: student.studentId,
       Userid: student.Userid,
+      userId: student.Userid, // Added for compatibility
       tutorName: student.staffAdvisor ? student.staffAdvisor.userName : "Unknown",
       tutorEmail: student.tutorEmail,
       course: student.course,
       departmentId: student.departmentId,
+      Deptid: student.departmentId, // Added for frontend compatibility
       batch: student.batch,
       registerNumber: student.registerNumber,
       assignedStaffUserid: student.staffId,
@@ -515,6 +530,13 @@ export const getStudentDetails = async (req, res) => {
       username: student.studentUser ? student.studentUser.userName : "Unknown",
       email: student.studentUser ? student.studentUser.userMail : "Unknown",
       image: student.studentUser ? student.studentUser.profileImage : "/uploads/default.jpg",
+      profileImage: student.studentUser ? student.studentUser.profileImage : "/uploads/default.jpg", // Added for compatibility
+      Deptacronym: student.department ? student.department.departmentAcr : "N/A", // Added for top-level access
+      department: student.department ? {
+        ...student.department.toJSON(),
+        Deptacronym: student.department.departmentAcr,
+        departmentAcr: student.department.departmentAcr
+      } : null,
     }));
 
 
@@ -530,19 +552,42 @@ export const getStaffDetails = async (req, res) => {
     const staffRole = await Role.findOne({ where: { roleName: 'Staff' } });
     const staffIds = staffRole ? staffRole.roleId : null;
 
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = { roleId: staffIds };
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
     const staffs = await User.findAll({
-      where: { roleId: staffIds },
+      where: whereClause,
       attributes: ["userId", "userName", "profileImage", "userNumber", "departmentId", "userMail"],
+      include: [
+        {
+          model: Department,
+          as: "department",
+          attributes: ["departmentId", "departmentName", "departmentAcr"],
+        },
+      ],
     });
 
     const staffData = staffs.map(staff => ({
       id: staff.userNumber,
       Userid: staff.userId,
+      userId: staff.userId, // Added for compatibility
       email: staff.userMail,
       departmentId: staff.departmentId,
+      Deptid: staff.departmentId, // Added for frontend compatibility
       staffId: staff.userNumber,
       username: staff.userName,
       image: staff.profileImage || "/uploads/default.jpg",
+      profileImage: staff.profileImage || "/uploads/default.jpg", // Added for compatibility
+      Deptacronym: staff.department ? staff.department.departmentAcr : "N/A", // Added for top-level access
+      department: staff.department ? {
+        ...staff.department.toJSON(),
+        Deptacronym: staff.department.departmentAcr,
+        departmentAcr: staff.department.departmentAcr
+      } : null,
     }));
 
     res.status(200).json(staffData);
@@ -554,11 +599,31 @@ export const getStaffDetails = async (req, res) => {
 
 
 export const getDepartments = async (req, res) => {
-
   try {
-    const departments = await Department.findAll();
 
-    res.status(200).json(departments);
+    const { roleName, departmentId } = req.user || {};
+    const whereClause = {};
+
+    if (roleName && roleName !== "SuperAdmin" && departmentId) {
+      whereClause.departmentId = departmentId;
+    }
+
+    const departments = await Department.findAll({
+      where: whereClause
+    });
+
+    const serializedRows = departments.map(dept => {
+      const plain = dept.toJSON();
+      return {
+        ...plain,
+        Deptid: plain.departmentId,
+        Deptacronym: plain.departmentAcr,
+        departmentId: plain.departmentId,
+        departmentAcr: plain.departmentAcr,
+      };
+    });
+
+    res.status(200).json(serializedRows);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching departments', error });
   }

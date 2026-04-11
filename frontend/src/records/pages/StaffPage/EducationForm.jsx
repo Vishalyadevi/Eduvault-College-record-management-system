@@ -589,7 +589,7 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
                 value={formData.phd_publications_during}
                 onChange={handleInputChange}
                 placeholder="Enter number (1-20)"
-                min="1"
+                min="0"
                 max="20"
               />
             </div>
@@ -600,8 +600,8 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
                 name="phd_publications_post"
                 value={formData.phd_publications_post}
                 onChange={handleInputChange}
-                placeholder="Enter number (1-20)"
-                min="1"
+                placeholder="Enter number (0-20)"
+                min="0"
                 max="20"
               />
             </div>
@@ -612,8 +612,8 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
                 name="phd_post_experience"
                 value={formData.phd_post_experience}
                 onChange={handleInputChange}
-                placeholder="Enter number (1-20)"
-                min="1"
+                placeholder="Enter number (0-20)"
+                min="0"
                 max="20"
               />
             </div>

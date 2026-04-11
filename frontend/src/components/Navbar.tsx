@@ -244,10 +244,10 @@ const Navbar: React.FC = () => {
         { title: "Fee Payment", link: "/fees-payment" },
         { title: "OPAC", link: "https://erp.nec.edu.in/opac/" },
         { title: "Results", link: "/result" },
-        { title: "Student Login", link: "/records/login" },
+        { title: "ERP Login", link: "/records/login" },
       ],
     },
-    {
+    { 
       title: "Alumni",
       submenu: [
         { title: "Alumni Official Website", link: "https://alumni.nec.edu.in/" },

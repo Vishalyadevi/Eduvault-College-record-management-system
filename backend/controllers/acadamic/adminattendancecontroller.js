@@ -707,7 +707,7 @@ export async function getStudentsBySemester(req, res) {
 export async function markFullDayOD(req, res) {
   const t = await sequelize.transaction();
   try {
-    const { startDate, students, departmentId, semesterId, batch } = req.body;
+    const { startDate, endDate, students, departmentId, semesterId, batch } = req.body;
     const adminUser = await getInternalAdminUser(req.user);
     const adminUserId = adminUser.userId;
 
@@ -716,73 +716,108 @@ export async function markFullDayOD(req, res) {
       return res.status(400).json({ status: "error", message: "No students selected" });
     }
 
-    const dayOfWeek = new Date(startDate)
-      .toLocaleDateString("en-US", { weekday: "short" })
-      .toUpperCase();
-
-    // Finding timetable slots for the specific group
-    const timetableSlots = await Timetable.findAll({
-      where: {
-        departmentId: departmentId,
-        dayOfWeek: dayOfWeek,
-        semesterId: semesterId,
-        isActive: 'YES',
-        courseId: { [Op.ne]: null }
-      },
-      include: [{
-        model: Course,
-        required: false,
-        attributes: ['courseId', 'category']
-      }]
-    });
-
-    if (timetableSlots.length === 0) {
+    if (!startDate || !endDate) {
       await t.rollback();
-      return res.status(404).json({
-        status: "error",
-        message: `No classes found in timetable for Batch ${batch}, Dept ${departmentId} on ${dayOfWeek}.`,
-      });
+      return res.status(400).json({ status: "error", message: "startDate and endDate are required" });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Invalid date range" });
+    }
+
+    if (start > end) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "End date must be on or after start date" });
     }
 
     const sectionCache = new Map();
+    let processedDates = 0;
+    let totalEntries = 0;
 
-    for (const student of students) {
-      for (const slot of timetableSlots) {
-        let resolvedSectionId = slot.sectionId || null;
-        if (!resolvedSectionId && student.section) {
-          const cacheKey = `${slot.courseId}::${student.section}`;
-          if (!sectionCache.has(cacheKey)) {
-            const sec = await Section.findOne({
-              where: { courseId: slot.courseId, sectionName: student.section },
-              attributes: ['sectionId']
-            });
-            sectionCache.set(cacheKey, sec?.sectionId || null);
-          }
-          resolvedSectionId = sectionCache.get(cacheKey);
-        }
+    for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+      const currentDate = current.toISOString().split("T")[0];
+      const dayOfWeek = current
+        .toLocaleDateString("en-US", { weekday: "short" })
+        .toUpperCase();
 
-        if (!resolvedSectionId) resolvedSectionId = 1;
-
-        await PeriodAttendance.upsert({
-          regno: student.rollnumber,
-          staffId: adminUserId,
-          courseId: slot.courseId,
-          sectionId: resolvedSectionId,
-          semesterNumber: semesterId,
-          dayOfWeek: dayOfWeek,
-          periodNumber: slot.periodNumber,
-          attendanceDate: startDate,
-          status: "OD",
-          departmentId: departmentId,
-          updatedBy: "admin"
-        }, { transaction: t });
+      if (dayOfWeek === "SUN") {
+        continue;
       }
+
+      // Finding timetable slots for the specific group and day
+      const timetableSlots = await Timetable.findAll({
+        where: {
+          departmentId: departmentId,
+          dayOfWeek: dayOfWeek,
+          semesterId: semesterId,
+          isActive: 'YES',
+          courseId: { [Op.ne]: null }
+        },
+        include: [{
+          model: Course,
+          required: false,
+          attributes: ['courseId', 'category']
+        }]
+      });
+
+      if (timetableSlots.length === 0) {
+        continue;
+      }
+
+      processedDates += 1;
+
+      for (const student of students) {
+        for (const slot of timetableSlots) {
+          let resolvedSectionId = slot.sectionId || null;
+          if (!resolvedSectionId && student.section) {
+            const cacheKey = `${slot.courseId}::${student.section}`;
+            if (!sectionCache.has(cacheKey)) {
+              const sec = await Section.findOne({
+                where: { courseId: slot.courseId, sectionName: student.section },
+                attributes: ['sectionId']
+              });
+              sectionCache.set(cacheKey, sec?.sectionId || null);
+            }
+            resolvedSectionId = sectionCache.get(cacheKey);
+          }
+
+          if (!resolvedSectionId) resolvedSectionId = 1;
+
+          await PeriodAttendance.upsert({
+            regno: student.rollnumber,
+            staffId: adminUserId,
+            courseId: slot.courseId,
+            sectionId: resolvedSectionId,
+            semesterNumber: semesterId,
+            dayOfWeek: dayOfWeek,
+            periodNumber: slot.periodNumber,
+            attendanceDate: currentDate,
+            status: "OD",
+            departmentId: departmentId,
+            updatedBy: "admin"
+          }, { transaction: t });
+          totalEntries += 1;
+        }
+      }
+    }
+
+    if (processedDates === 0) {
+      await t.rollback();
+      return res.status(404).json({
+        status: "error",
+        message: `No classes found in timetable for Batch ${batch}, Dept ${departmentId} in the selected date range.`,
+      });
     }
 
     await t.commit();
     res.json({
       status: "success",
-      message: `OD marked successfully for Batch ${batch}.`,
+      message: `OD marked successfully for Batch ${batch} across ${processedDates} day(s).`,
+      data: { processedDates, totalEntries }
     });
   } catch (err) {
     await t.rollback();
@@ -812,22 +847,31 @@ export async function getStudentsByDeptAndSem(req, res, next) {
         semester: semesterId
       },
       attributes: ['registerNumber', 'studentName'],
-      include: [
-        {
-          model: PeriodAttendance,
-          required: false,
-          where: {
-            attendanceDate: date,
-            periodNumber: periodNumber
-          }
-        }
-      ],
       order: [['registerNumber', 'ASC']]
     });
 
+    const registerNumbers = students.map((student) => student.registerNumber);
+    const attendanceRows = registerNumbers.length
+      ? await PeriodAttendance.findAll({
+          where: {
+            regno: registerNumbers,
+            attendanceDate: date,
+            dayOfWeek,
+            periodNumber: Number(periodNumber),
+          },
+          order: [['periodAttendanceId', 'DESC']],
+        })
+      : [];
+
+    const attendanceByRegno = new Map();
+    for (const row of attendanceRows) {
+      if (!attendanceByRegno.has(row.regno)) {
+        attendanceByRegno.set(row.regno, row);
+      }
+    }
+
     const formattedData = students.map(s => {
-      // Logic for determining markedCourseId from the hasMany relation PeriodAttendances
-      const attendance = s.PeriodAttendances?.[0];
+      const attendance = attendanceByRegno.get(s.registerNumber);
       return {
         rollnumber: s.registerNumber,
         name: s.studentName || 'Unknown',

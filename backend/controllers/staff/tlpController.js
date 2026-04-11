@@ -8,8 +8,14 @@ export const submitTlpActivity = async (req, res) => {
     const { course_code_and_name, activity_name, description } = req.body;
     const imageFile = req.file ? `/uploads/activity/${req.file.filename}` : null;
 
+    console.log('--- Submit TLP Debug ---');
+    console.log('Userid:', Userid);
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file ? 'File present' : 'No file');
+
     // Minimal validation
     if (!course_code_and_name || !activity_name) {
+      console.warn('❌ TLP submission failed - missing fields');
       return res.status(400).json({ message: 'course_code_and_name and activity_name are required' });
     }
 
@@ -23,9 +29,10 @@ export const submitTlpActivity = async (req, res) => {
       Created_by: Userid,
     });
 
+    console.log('✅ TLP activity created. ID:', record.id);
     res.status(201).json({ message: 'TLP activity submitted', activity: record });
   } catch (error) {
-    console.error('Error submitting TLP activity', error);
+    console.error('❌ Error submitting TLP activity Exception:', error);
     res.status(500).json({ message: 'Error submitting TLP activity', error: error.message });
   }
 };

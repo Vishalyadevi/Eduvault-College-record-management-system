@@ -86,7 +86,8 @@ const NavDropdown = ({ isOpen, setIsOpen, isActive, label, icon, items }) => (
         backgroundColor: isActive ? "#eff6ff" : "transparent",
         color: isActive ? "#2563eb" : "#374151",
         borderLeft: isActive ? "3px solid #2563eb" : "3px solid transparent",
-        border: "none", cursor: "pointer", transition: "all 0.15s",
+        borderTop: "none", borderRight: "none", borderBottom: "none",
+        cursor: "pointer", transition: "all 0.15s",
       }}
     >
       <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -193,8 +194,6 @@ const Sidebar = () => {
   const staffAcadamicItems = [
     { to: "/staff/dashboard", icon: <FaTachometerAlt />, label: "Dashboard" },
     { to: "/staff/attendance", icon: <FaClipboardCheck />, label: "Attendance" },
-    { to: "/staff/marks-allocation", icon: <FaMedal />, label: "Marks Allocation" },
-    { to: "/staff/request-courses", icon: <FaBook />, label: "Request Courses" },
   ];
 
   const studentAcadamicItems = [
@@ -215,7 +214,10 @@ const Sidebar = () => {
       case "admin":
         return (<>
           <SidebarLink to="/records/admin" icon={<FaTachometerAlt />} label="Dashboard" />
-          <SidebarLink to="/records/add-user" icon={<FaUserCog />} label="Add User" />
+          {role === "superadmin" && (
+            <SidebarLink to="/records/add-user" icon={<FaUserCog />} label="Add User" />
+          )}
+          {/* <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" /> */}
           <SidebarLink to="/records/department-management" icon={<FaSitemap />} label="Manage Departments" />
           <SidebarLink to="/records/role-management" icon={<FaUserShield />} label="Manage Roles" />
           <SidebarLink to="/records/student-list" icon={<FaGraduationCap />} label="Student List" />
@@ -233,12 +235,13 @@ const Sidebar = () => {
       case "deptadmin":
         return (<>
           <SidebarLink to="/records/admin" icon={<FaTachometerAlt />} label="Dashboard" />
+          <SidebarLink to="/records/tutor-allocation" icon={<FaUserPlus />} label="Assign Tutor" />
           <SidebarLink to="/records/student-list" icon={<FaGraduationCap />} label="Student List" />
           <SidebarLink to="/records/staff-list" icon={<FaChalkboardTeacher />} label="Staff List" />
           <SidebarLink to="/records/staff-activities" icon={<FaClipboardList />} label="Staff Activities" />
           <SidebarLink to="/records/student-activities" icon={<FaRunning />} label="Student Activities" />
           <SidebarLink to="/records/noncgpa-category" icon={<FaLayerGroup />} label="Add Non CGPA" />
-          <SidebarLink to="/records/nptel-course" icon={<FaGlobe />} label="NPTEL Course" />
+          {/* <SidebarLink to="/records/nptel-course" icon={<FaGlobe />} label="NPTEL Course" /> */}
           <SidebarLink to="/records/student-leave-approval" icon={<FaPlane />} label="Student Leave Approval" />
           <SidebarLink to="/records/bulk" icon={<FaFileUpload />} label="Bulk Import" />
           <SidebarLink to="/records/activity-approval" icon={<FaClipboardCheck />} label="Activity Approval" />
@@ -278,7 +281,7 @@ const Sidebar = () => {
           <SidebarLink to="/records/staff-mou" icon={<FaFileContract />} label="MOU" />
           <SidebarLink to="/records/tlp-management" icon={<FaClipboardList />} label="TLP Management" />
           <SidebarLink to="/records/activity" icon={<FaBriefcase />} label="Activity Management" />
-          <SidebarLink to="/records/staff-resume-generator" icon={<FaDownload />} label="Resume Generation" />
+          {/* <SidebarLink to="/records/staff-resume-generator" icon={<FaDownload />} label="Resume Generation" /> */}
           <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStaffAcadamicActive} label="Acadamic" icon={<FaSchool />} items={staffAcadamicItems} />
           <NavDropdown isOpen={showPlacementDropdown} setIsOpen={setShowPlacementDropdown} isActive={isStaffPlacementActive} label="Placement" icon={<FaNetworkWired />} items={staffPlacementItems} />
         </>);
@@ -301,9 +304,10 @@ const Sidebar = () => {
           <SidebarLink to="/records/student-competency" icon={<FaCode />} label="Competency & Coding" />
           <SidebarLink to="/records/student-skillrack" icon={<FaLaptopCode />} label="Skillrack" />
           <SidebarLink to="/records/student-publication" icon={<FaBookOpen />} label="Publications" />
-          <SidebarLink to="/records/nptel" icon={<FaRegNewspaper />} label="NPTEL Course" />
+          {/* <SidebarLink to="/records/nptel" icon={<FaRegNewspaper />} label="NPTEL Course" /> */}
           <SidebarLink to="/records/noncgpa" icon={<FaAward />} label="Non CGPA" />
           <SidebarLink to="/records/student-resume-generator" icon={<FaFileAlt />} label="Resume Generator" />
+          <SidebarLink to="/records/student-marksheets" icon={<FaClipboardList />} label="Marksheets" />
           <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStudentAcadamicActive} label="Acadamic" icon={<FaSchool />} items={studentAcadamicItems} />
           <NavDropdown isOpen={showPlacementDropdown} setIsOpen={setShowPlacementDropdown} isActive={isStudentPlacementActive} label="Placement" icon={<FaNetworkWired />} items={studentPlacementItems} />
         </>);
@@ -335,21 +339,23 @@ const Sidebar = () => {
 
       <div style={S.sidebar}>
         <div style={S.profileSection}>
-          <div style={S.avatarRing} onClick={() => setShowDropdown(!showDropdown)}>
+          <div style={S.avatarRing} onClick={() => { if (!user?.role?.toLowerCase().includes('admin')) setShowDropdown(!showDropdown); }}>
             <img src={profileImageSrc} alt="profile" style={S.avatar} />
-            <div style={S.chevronBadge}>
-              <svg style={{ width: "10px", height: "10px", color: "#2563eb", transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+            {!user?.role?.toLowerCase().includes('admin') && (
+              <div style={S.chevronBadge}>
+                <svg style={{ width: "10px", height: "10px", color: "#2563eb", transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            )}
           </div>
           <p style={S.username}>{user?.username}</p>
           <p style={S.roleTag}>{user?.role}</p>
-          {showDropdown && (
+          {showDropdown && !user?.role?.toLowerCase().includes('admin') && (
             <div style={S.profileDropdown}>
               <button
-                style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: "13px", color: "#374151", backgroundColor: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontWeight: "700" }}
+                style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: "13px", color: "#374151", backgroundColor: "transparent", borderTop: "none", borderRight: "none", borderBottom: "none", borderLeft: "none", textAlign: "left", cursor: "pointer", fontWeight: "700" }}
                 onClick={() => { navigate("/records/profile"); setShowDropdown(false); }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = "#eff6ff"; e.currentTarget.style.color = "#2563eb"; }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#374151"; }}

@@ -44,6 +44,7 @@ import Attendance from "./pages/staff/Attendance";
 import MarksAllocation from "./pages/staff/MarksAllocation";
 import Options from "./pages/staff/Options";
 import InternalMarks from "./pages/staff/InternalMarks";
+import AttendanceShortage from "./pages/staff/AttendanceShortage";
 import RequestCoursesStaff from './pages/staff/RequestCoursesStaff.jsx'
 
 // Student Pages
@@ -197,6 +198,7 @@ const routes = [
       { path: "marks-allocation/:courseId/:sectionId", element: <MarksAllocation /> },
       { path: "attendance", element: <Attendance /> },
       { path: "internal-marks/:courseId", element: <InternalMarks /> },
+      { path: "attendance-shortage/:courseId", element: <AttendanceShortage /> },
       { path: 'request-courses', element: <RequestCoursesStaff /> },
       { path: '*', element: <NotFound /> },
     ],

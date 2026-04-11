@@ -6,7 +6,7 @@ import withReactContent from 'sweetalert2-react-content';
 
 const MySwal = withReactContent(Swal);
 
-const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, refreshData }) => {
+const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, refreshData, isLocked = false }) => {
   const [editingCell, setEditingCell] = useState(null); // Track editing cell: { regno, coId }
   const [editValue, setEditValue] = useState(''); // Track input value during editing
   const [localMarks, setLocalMarks] = useState({}); // Store local marks for immediate UI updates
@@ -31,6 +31,10 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
   console.log('InternalMarksTable - courseOutcomes:', courseOutcomes);
 
   const handleClick = (regno, coId, currentMark) => {
+    if (isLocked) {
+      MySwal.fire('Locked', 'Marks are locked because consolidation has been generated for this semester.', 'warning');
+      return;
+    }
     setEditingCell({ regno, coId });
     setEditValue(currentMark?.toString() || '0');
   };

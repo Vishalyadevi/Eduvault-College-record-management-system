@@ -95,27 +95,32 @@ const AdminSidebar = () => {
 
       <div className={`
         fixed inset-y-0 left-0 z-50
-        w-64 bg-[#11101d] text-white
+        w-64 bg-white text-slate-700
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        flex flex-col shadow-2xl font-sans
+        flex flex-col shadow-xl border-r border-slate-200 font-sans
       `}>
         
-        <div className="flex items-center justify-between h-20 px-6 border-b border-[#1d1b31] shrink-0">
+        <div className="flex items-center justify-between h-20 px-6 border-b border-slate-200 shrink-0 bg-gradient-to-r from-indigo-50 via-white to-white">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-indigo-500" />
-            <span className="text-xl font-bold tracking-wide">Admin Panel</span>
+            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-md">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div className="leading-tight">
+              <span className="block text-sm font-semibold text-slate-500">Admin</span>
+              <span className="block text-lg font-bold text-slate-900">Control Panel</span>
+            </div>
           </div>
           <button 
             onClick={() => setIsOpen(false)}
-            className="lg:hidden p-2 text-gray-400 hover:text-white"
+            className="lg:hidden p-2 text-slate-400 hover:text-slate-700"
           >
             {/* This was causing the error because X wasn't imported */}
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto no-scrollbar py-4 px-3">
+        <div className="flex-1 overflow-y-auto no-scrollbar py-4 px-3 bg-white">
           <ul className="space-y-1.5">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon;
@@ -125,39 +130,50 @@ const AdminSidebar = () => {
                     to={item.to}
                     onClick={() => setIsOpen(false)}
                     className={({ isActive }) => `
-                      flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200
-                      text-sm font-medium leading-relaxed
+                      group flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all duration-200
+                      text-sm font-semibold leading-relaxed
                       ${isActive 
-                        ? 'bg-white text-[#11101d] shadow-md transform scale-[1.02]' 
-                        : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200/60' 
+                        : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
                       }
                     `}
                   >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span>{item.label}</span>
+                    {({ isActive }) => (
+                      <>
+                        <span className={`
+                          flex h-9 w-9 items-center justify-center rounded-lg transition-colors
+                          ${isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-700'}
+                        `}>
+                          <Icon className="w-5 h-5 shrink-0" />
+                        </span>
+                        <span>{item.label}</span>
+                      </>
+                    )}
                   </NavLink>
                 </li>
               );
             })}
             
-            <li className="pt-4 mt-2 border-t border-[#1d1b31]">
+            <li className="pt-4 mt-2 border-t border-slate-200">
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-4 px-4 py-3 rounded-xl w-full text-left 
-                           text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200"
+                className="group flex items-center gap-3.5 px-4 py-2.5 rounded-xl w-full text-left 
+                           text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200"
               >
                 {/* This was also missing from imports */}
-                <LogOut className="w-5 h-5 shrink-0" />
-                <span className="font-medium text-sm">Logout</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-rose-100 group-hover:text-rose-600">
+                  <LogOut className="w-5 h-5 shrink-0" />
+                </span>
+                <span className="font-semibold text-sm">Logout</span>
               </button>
             </li>
           </ul>
-        </nav>
+        </div>
       </div>
 
       {!isOpen && (
         <button
-          className="fixed top-4 left-4 z-50 lg:hidden p-2.5 rounded-lg bg-[#11101d] text-white shadow-lg"
+          className="fixed top-4 left-4 z-50 lg:hidden p-2.5 rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-200/60"
           onClick={() => setIsOpen(true)}
         >
           {/* This was also missing from imports */}

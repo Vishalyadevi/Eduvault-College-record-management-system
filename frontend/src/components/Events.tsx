@@ -1,15 +1,38 @@
-import React, { useState } from "react";
+import { useState, useRef } from "react";
 
-interface EventItem {
-  date: string;
-  month: string;
-  title: string;
-  eventDate: string;
-  imageUrl: string;
-  description: string;
-}
+/* ── DATA ── */
+const newsData = [
+  {
+    id: 1, category: "INNOVATION",
+    title: "Virtually inaugurated a Rs.4.97 crore initiative to foster startups in the Waste to Wealth sector",
+    date: "March 06, 2025",
+    image: "https://nec.edu.in/wp-content/uploads/2025/03/WhatsApp-Image-2025-03-06-at-11.19.48-AM.jpeg",
+    color: "#1e3a8a", accent: "#fb923c",
+  },
+  {
+    id: 2, category: "ACHIEVEMENT",
+    title: "NEC secures Provisional selection under the prestigious AICTE IDEA Lab Scheme worth ₹1.1 Crore",
+    date: "January 21, 2025",
+    image: "https://nec.edu.in/wp-content/uploads/2025/02/WhatsApp-Image-2025-01-21-at-10.02.44-AM.webp",
+    color: "#b91c1c", accent: "#fbbf24",
+  },
+  {
+    id: 3, category: "COMPETITION",
+    title: "10th State Level Quiz Competition — Congratulations to all Winners!",
+    date: "October 25, 2024",
+    image: "https://nec.edu.in/wp-content/uploads/2025/02/IMG-20241024-WA0001.webp",
+    color: "#065f46", accent: "#34d399",
+  },
+  {
+    id: 4, category: "AWARD",
+    title: "1st Prize in Drawing Competition at Puthaga Thiruvizha '24",
+    date: "October 18, 2024",
+    image: "https://nec.edu.in/wp-content/uploads/2025/02/DrawingCompititionNews836x836.webp",
+    color: "#4c1d95", accent: "#a78bfa",
+  },
+];
 
-const events: EventItem[] = [
+const eventsData = [
   {
     date: "12", month: "Apr",
     title: "41st Annual Day Celebrations",
@@ -40,8 +63,13 @@ const events: EventItem[] = [
   },
 ];
 
+/* ── Gear paths ── */
+const G1 = "M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z";
+const G2 = "M495.9 166.6c3.2 8.7.5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6.3-24.5-6.8-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6 4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2 5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8 8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80-80 35.8-80 80 35.8 80 80 80z";
+
+/* ── Calendar icon ── */
 const CalendarIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
@@ -49,352 +77,272 @@ const CalendarIcon = () => (
   </svg>
 );
 
-/* ── Gear SVG path (FontAwesome cog) ── */
-const GEAR_PATH = "M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z";
-const GEAR_PATH2 = "M495.9 166.6c3.2 8.7.5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6.3-24.5-6.8-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6 4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2 5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8 8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80-80 35.8-80 80 35.8 80 80 80z";
+/* ── Book page content ── */
+function PageContent({ news, isBack = false }) {
+  return (
+    <div style={{ width:"100%", height:"100%", display:"flex", flexDirection:"column", position:"relative", overflow:"hidden", transform: isBack ? "scaleX(-1)" : "none" }}>
+      <div style={{ position:"absolute", top:20, left:-8, padding:"5px 18px 5px 14px", background:news.color, zIndex:10, clipPath:"polygon(0 0,100% 0,93% 50%,100% 100%,0 100%)", boxShadow:"2px 2px 8px rgba(0,0,0,.2)" }}>
+        <span style={{ color:"#fff", fontSize:10, fontWeight:700, letterSpacing:"0.15em", fontFamily:"'DM Sans',sans-serif" }}>{news.category}</span>
+      </div>
+      <div style={{ width:"100%", height:240, position:"relative", overflow:"hidden", flexShrink:0 }}>
+        <img src={news.image} alt={news.title} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+          onError={e => { e.currentTarget.style.display="none"; if(e.currentTarget.parentElement) e.currentTarget.parentElement.style.background=news.color; }} />
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"50%", background:`linear-gradient(to top,${news.color}cc 0%,transparent 60%)` }}/>
+      </div>
+      <div style={{ padding:"1.25rem 1.5rem 0.75rem", display:"flex", flexDirection:"column", gap:"0.6rem", flex:1 }}>
+        <div style={{ height:3, width:50, borderRadius:2, background:`linear-gradient(90deg,${news.color},${news.accent})` }}/>
+        <h3 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:"1.05rem", fontWeight:700, color:"#111827", lineHeight:1.5, margin:0, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{news.title}</h3>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:13 }}>📅</span>
+          <span style={{ fontSize:"0.78rem", color:"#6b7280", fontWeight:600 }}>{news.date}</span>
+        </div>
+        <button style={{ marginTop:"auto", color:"#fff", border:"none", borderRadius:8, padding:"9px 16px", fontSize:"0.75rem", fontWeight:700, letterSpacing:"0.04em", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textTransform:"uppercase", width:"100%", background:`linear-gradient(135deg,${news.color},${news.accent})`, transition:"opacity .2s,transform .2s" }}
+          onMouseEnter={e=>{ e.currentTarget.style.opacity="0.9"; e.currentTarget.style.transform="translateY(-1px)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.transform="translateY(0)"; }}>
+          Know More →
+        </button>
+      </div>
+    </div>
+  );
+}
 
-const Events: React.FC = () => {
-  // ✅ Changed initial state from "rolled" to "open" — eliminates blank space
-  const [scrollState, setScrollState] = useState<"rolled"|"unrolling"|"open"|"rolling">("open");
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+/* ── NEWS BOOK ── */
+function NewsBook() {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [flipping, setFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState("forward");
+  const [flippingPage, setFlippingPage] = useState(null);
+  const total = newsData.length;
 
-  const handleScrollClick = () => {
-    if (scrollState === "rolled") {
-      setScrollState("unrolling");
-      setTimeout(() => setScrollState("open"), 1200);
-    } else if (scrollState === "open") {
-      setScrollState("rolling");
-      setTimeout(() => setScrollState("rolled"), 900);
-    }
+  const goToNext = () => {
+    if (flipping || currentPage >= total - 1) return;
+    setFlipDirection("forward"); setFlippingPage(currentPage); setFlipping(true);
+    setTimeout(() => { setCurrentPage(p => p + 1); setFlipping(false); setFlippingPage(null); }, 700);
+  };
+  const goToPrev = () => {
+    if (flipping || currentPage <= 0) return;
+    setFlipDirection("backward"); setFlippingPage(currentPage - 1); setFlipping(true);
+    setTimeout(() => { setCurrentPage(p => p - 1); setFlipping(false); setFlippingPage(null); }, 700);
+  };
+  const goToPage = (i) => {
+    if (flipping || i === currentPage) return;
+    setFlipDirection(i > currentPage ? "forward" : "backward");
+    setFlippingPage(i > currentPage ? currentPage : i); setFlipping(true);
+    setTimeout(() => { setCurrentPage(i); setFlipping(false); setFlippingPage(null); }, 700);
   };
 
+  const current = newsData[currentPage];
   return (
-    <div style={{
-      minHeight: "100vh",
-      fontFamily: "Georgia,serif",
-      position: "relative",
-      overflow: "hidden",
-      background: "linear-gradient(135deg, #d6eaff 0%, #e3f2fd 40%, #f0f7ff 70%, #ffffff 100%)",
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
-
-        /* ═══ GEAR ANIMATIONS ═══ */
-        @keyframes rotateGear1   { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
-        @keyframes rotateGear2   { from{transform:rotate(0deg)}   to{transform:rotate(-360deg)} }
-        @keyframes rotateGear3   { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
-
-        .evt-gear-1 {
-          position:absolute; top:-80px; right:-80px;
-          width:350px; height:350px; opacity:0.06; z-index:0; pointer-events:none;
-          animation: rotateGear1 25s linear infinite;
-        }
-        .evt-gear-2 {
-          position:absolute; bottom:-60px; left:-60px;
-          width:280px; height:280px; opacity:0.06; z-index:0; pointer-events:none;
-          animation: rotateGear2 30s linear infinite;
-        }
-        .evt-gear-3 {
-          position:absolute; top:40%; right:10%;
-          width:220px; height:220px; opacity:0.05; z-index:0; pointer-events:none;
-          animation: rotateGear3 35s linear infinite;
-        }
-        .evt-gear-4 {
-          position:absolute; top:12%; left:5%;
-          width:160px; height:160px; opacity:0.04; z-index:0; pointer-events:none;
-          animation: rotateGear2 20s linear infinite;
-        }
-
-        /* ═══ SCROLL STATES ═══ */
-        .scroll-wrapper.state-rolled .scroll-parchment   { max-height:0px; overflow:hidden; opacity:0; }
-        .scroll-wrapper.state-rolled .scroll-body-content { opacity:0; }
-        .scroll-wrapper.state-rolled .rod-bottom          { opacity:0; pointer-events:none; }
-        .scroll-wrapper.state-rolled .rolled-preview      { display:flex; }
-        .scroll-wrapper.state-rolled .open-hint           { display:block; }
-
-        .scroll-wrapper.state-unrolling .scroll-parchment   { animation:unrollParchment 1.0s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .scroll-wrapper.state-unrolling .rod-bottom          { animation:rodAppear 1.0s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .scroll-wrapper.state-unrolling .scroll-body-content { animation:contentReveal 0.5s ease 0.8s both; }
-        .scroll-wrapper.state-unrolling .rolled-preview      { display:none; }
-        .scroll-wrapper.state-unrolling .open-hint           { display:none; }
-
-        .scroll-wrapper.state-open .scroll-parchment    { max-height:2000px; overflow:visible; opacity:1; }
-        .scroll-wrapper.state-open .scroll-body-content { opacity:1; }
-        .scroll-wrapper.state-open .rod-bottom          { opacity:1; pointer-events:auto; }
-        .scroll-wrapper.state-open .rolled-preview      { display:none; }
-        .scroll-wrapper.state-open .open-hint           { display:none; }
-
-        .scroll-wrapper.state-rolling .scroll-parchment     { animation:rollParchment 0.8s cubic-bezier(0.64,0,0.78,0) forwards; }
-        .scroll-wrapper.state-rolling .rod-bottom            { animation:rodDisappear 0.8s ease forwards; }
-        .scroll-wrapper.state-rolling .scroll-body-content   { animation:contentHide 0.3s ease forwards; }
-        .scroll-wrapper.state-rolling .rolled-preview        { display:none; }
-
-        @keyframes unrollParchment {
-          0%   { max-height:0px; opacity:0; transform:scaleY(0.02) rotateX(60deg); }
-          30%  { opacity:1; transform:scaleY(0.3) rotateX(20deg); }
-          70%  { transform:scaleY(1.03) rotateX(-3deg); }
-          100% { max-height:2000px; opacity:1; transform:scaleY(1) rotateX(0deg); }
-        }
-        @keyframes rollParchment {
-          0%   { max-height:2000px; opacity:1; transform:scaleY(1); }
-          100% { max-height:0px; opacity:0; transform:scaleY(0.02) rotateX(60deg); }
-        }
-        @keyframes rodAppear    { from{opacity:0} to{opacity:1} }
-        @keyframes rodDisappear { from{opacity:1} to{opacity:0} }
-        @keyframes contentReveal { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes contentHide   { from{opacity:1} to{opacity:0} }
-
-        /* ═══ RODS ═══ */
-        .rod-top, .rod-bottom {
-          height:32px;
-          background:linear-gradient(180deg,#5c3010 0%,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010 100%);
-          border-radius:16px; position:relative; z-index:10;
-          box-shadow:0 6px 18px rgba(0,0,0,0.38),0 2px 6px rgba(0,0,0,0.25),inset 0 1px 3px rgba(255,255,255,0.28);
-        }
-        .rod-top { cursor:pointer; transition:filter 0.2s; }
-        .rod-top:hover { filter:brightness(1.1); }
-
-        .rod-knob {
-          position:absolute; top:50%; transform:translateY(-50%);
-          width:38px; height:38px; border-radius:50%;
-          background:radial-gradient(circle at 38% 35%,#f5c870 0%,#c98030 35%,#7a4010 70%,#4a2008 100%);
-          box-shadow:0 3px 10px rgba(0,0,0,0.45),inset 0 1px 3px rgba(255,255,255,0.22);
-        }
-        .rod-knob::after { content:''; position:absolute; top:20%;left:20%; width:25%;height:25%; border-radius:50%; background:rgba(255,255,255,0.32); }
-        .rod-knob.left  { left:-14px; }
-        .rod-knob.right { right:-14px; }
-        .rod-top::after {
-          content:''; position:absolute; bottom:-14px; left:10%; right:10%;
-          height:14px; background:radial-gradient(ellipse,rgba(0,0,0,0.3) 0%,transparent 70%);
-          filter:blur(4px);
-        }
-
-        /* ═══ PARCHMENT ═══ */
-        .scroll-parchment { position:relative; transform-origin:top center; overflow:hidden; }
-        .parchment-paper {
-          background:
-            repeating-linear-gradient(0deg,transparent,transparent 32px,rgba(160,120,60,0.06) 32px,rgba(160,120,60,0.06) 33px),
-            radial-gradient(ellipse 200px 140px at 90% 15%,rgba(170,110,40,0.12) 0%,transparent 70%),
-            radial-gradient(ellipse 180px 160px at 8% 80%,rgba(150,100,30,0.09) 0%,transparent 70%),
-            linear-gradient(158deg,#f9ead0 0%,#f2dda8 15%,#eeddb0 35%,#f3e4b8 55%,#eddaa5 75%,#f0dcaa 100%);
-          border-left:22px solid; border-right:22px solid;
-          border-image:linear-gradient(180deg,#7a5020,#c09050 25%,#e8c880 50%,#c09050 75%,#7a5020) 1;
-          padding:1.5rem 1.75rem 2rem; position:relative;
-        }
-        .parchment-paper::before { content:''; position:absolute; top:0;left:0;right:0; height:40px; background:linear-gradient(180deg,rgba(120,80,30,0.16) 0%,transparent 100%); pointer-events:none; }
-        .parchment-paper::after  { content:''; position:absolute; inset:16px; border:1.5px solid rgba(160,120,60,0.18); border-radius:1px; pointer-events:none; }
-
-        .rolled-preview {
-          display:none; align-items:center; justify-content:center; padding:0.6rem 0;
-          background:linear-gradient(158deg,#f5dfa0 0%,#e8c870 50%,#d4a840 100%);
-          border-left:22px solid; border-right:22px solid;
-          border-image:linear-gradient(180deg,#7a5020,#c09050 25%,#e8c880 50%,#c09050 75%,#7a5020) 1;
-          position:relative;
-        }
-        .rolled-preview::before,.rolled-preview::after { content:''; position:absolute; left:16px;right:16px; height:3px; border-radius:2px; background:rgba(120,80,30,0.18); }
-        .rolled-preview::before { top:8px; }
-        .rolled-preview::after  { bottom:8px; }
-
-        .open-hint {
-          display:none; position:absolute; bottom:-46px; left:50%; transform:translateX(-50%);
-          font-family:'EB Garamond',serif; font-size:0.85rem; font-style:italic;
-          color:#1e3a8a; white-space:nowrap; pointer-events:none;
-          animation:hintPulse 2s ease-in-out infinite;
-        }
-        @keyframes hintPulse {
-          0%,100%{opacity:0.7;transform:translateX(-50%) translateY(0)}
-          50%    {opacity:1;transform:translateX(-50%) translateY(-3px)}
-        }
-
-        /* ═══ SCROLL CONTENT ═══ */
-        .scroll-heading { text-align:center; padding:0.25rem 0 1rem; }
-        .scroll-heading h2 {
-          font-family:'Cinzel',Georgia,serif; font-size:clamp(1.2rem,4vw,1.8rem);
-          font-weight:700; color:#2c1608; margin:0 0 0.3rem;
-          letter-spacing:0.06em; text-shadow:1px 1px 0 rgba(255,255,255,0.5);
-        }
-        .scroll-sub { font-family:'EB Garamond',serif; font-size:0.95rem; color:#6b4226; font-style:italic; opacity:0.8; }
-        .scroll-divider { display:flex; align-items:center; gap:0.5rem; margin:0.5rem 0 1.25rem; }
-        .scroll-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,#a07848,transparent); }
-        .scroll-divider-gem  { width:7px; height:7px; background:#a07848; transform:rotate(45deg); flex-shrink:0; opacity:0.65; }
-
-        /* ═══ EVENT ROWS ═══ */
-        .scroll-event-row {
-          display:flex; align-items:center; gap:0.85rem; padding:0.75rem;
-          margin-bottom:0.6rem; border-radius:8px;
-          background:rgba(255,255,255,0.42);
-          border:1px solid rgba(160,120,60,0.2);
-          cursor:pointer; transition:background 0.25s,transform 0.25s,box-shadow 0.25s;
-        }
-        .scroll-event-row:hover { background:rgba(255,255,255,0.68); transform:translateX(4px); box-shadow:3px 4px 16px rgba(0,67,208,0.12); }
-        .scroll-event-row:last-child { margin-bottom:0; }
-
-        .scroll-event-thumb { width:72px; height:72px; border-radius:6px; overflow:hidden; flex-shrink:0; border:2px solid rgba(160,120,60,0.28); box-shadow:0 2px 6px rgba(0,0,0,0.15); }
-        .scroll-event-thumb img { width:100%; height:100%; object-fit:cover; filter:sepia(8%); transition:transform 0.4s; }
-        .scroll-event-row:hover .scroll-event-thumb img { transform:scale(1.08); }
-
-        .scroll-event-info { flex:1; min-width:0; }
-        .scroll-event-title { font-family:'EB Garamond',Georgia,serif; font-size:0.98rem; font-weight:500; color:#2c1608; margin:0 0 0.3rem; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .scroll-event-date  { display:flex; align-items:center; gap:5px; font-size:0.78rem; color:#7a5030; margin-bottom:0.5rem; font-family:'EB Garamond',serif; font-style:italic; }
-        .scroll-details-btn {
-          background:linear-gradient(135deg,#0043d0,#1e3a8a); color:#fff; border:none;
-          border-radius:5px; padding:5px 14px; font-size:0.72rem; font-weight:700;
-          font-family:'Cinzel',serif; letter-spacing:0.06em; cursor:pointer;
-          transition:all 0.2s; box-shadow:0 2px 8px rgba(0,67,208,0.28);
-        }
-        .scroll-details-btn:hover { background:linear-gradient(135deg,#fb923c,#f97316); transform:translateY(-1px); box-shadow:0 4px 12px rgba(249,115,22,0.35); }
-
-        .scroll-bottom-flourish { text-align:center; margin-top:1rem; font-size:0.9rem; color:#a07848; letter-spacing:1em; opacity:0.4; }
-
-        /* ═══ MODAL ═══ */
-        .modal-overlay { position:fixed; inset:0; background:rgba(10,5,0,0.78); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(6px); animation:modalIn 0.3s ease; }
-        @keyframes modalIn { from{opacity:0} to{opacity:1} }
-        .modal-parchment { width:100%; max-width:480px; animation:modalSlide 0.4s cubic-bezier(0.22,1,0.36,1); }
-        @keyframes modalSlide { from{opacity:0;transform:scale(0.88) translateY(24px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        .modal-rod {
-          height:26px;
-          background:linear-gradient(180deg,#5c3010 0%,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010 100%);
-          border-radius:13px; box-shadow:0 5px 14px rgba(0,0,0,0.45),inset 0 1px 3px rgba(255,255,255,0.22);
-          display:flex; align-items:center; justify-content:space-between; padding:0 8px; position:relative; z-index:2;
-        }
-        .modal-rod-knob { width:30px; height:30px; border-radius:50%; background:radial-gradient(circle at 38% 35%,#f5c870 0%,#c98030 35%,#7a4010 70%,#4a2008 100%); box-shadow:0 2px 8px rgba(0,0,0,0.4),inset 0 1px 2px rgba(255,255,255,0.22); }
-        .modal-body {
-          background:
-            repeating-linear-gradient(0deg,transparent,transparent 30px,rgba(160,120,60,0.06) 30px,rgba(160,120,60,0.06) 31px),
-            linear-gradient(158deg,#f9ead0 0%,#f2dda8 15%,#eeddb0 40%,#f3e4b8 65%,#eddaa5 85%,#f0dcaa 100%);
-          border-left:18px solid; border-right:18px solid;
-          border-image:linear-gradient(180deg,#7a5020,#c09050 25%,#e8c880 50%,#c09050 75%,#7a5020) 1;
-          padding:1.75rem 1.5rem 1.25rem; position:relative; margin:0 -1px;
-        }
-        .modal-body::before { content:''; position:absolute; top:0;left:0;right:0; height:35px; background:linear-gradient(180deg,rgba(120,80,30,0.14) 0%,transparent 100%); pointer-events:none; }
-        .modal-body::after  { content:''; position:absolute; inset:12px; border:1px solid rgba(160,120,60,0.16); border-radius:1px; pointer-events:none; }
-        .modal-close { position:absolute; top:10px;right:14px; background:none; border:none; font-size:1.2rem; color:#7a5030; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.2s; line-height:1; font-family:serif; z-index:10; }
-        .modal-close:hover { color:#8b1a1a; background:rgba(160,120,60,0.18); }
-        .modal-ornament { text-align:center; font-size:1rem; color:#a07848; letter-spacing:0.5em; opacity:0.6; margin-bottom:0.3rem; }
-        .modal-title { font-family:'Cinzel',Georgia,serif; font-size:clamp(0.95rem,3vw,1.25rem); font-weight:700; color:#2c1608; text-align:center; margin:0 0 0.15rem; line-height:1.3; letter-spacing:0.03em; text-shadow:1px 1px 0 rgba(255,255,255,0.5); }
-        .modal-divider { display:flex; align-items:center; gap:0.5rem; margin:0.6rem 0 0.9rem; }
-        .modal-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,#a07848,transparent); }
-        .modal-divider-gem  { width:6px; height:6px; background:#a07848; transform:rotate(45deg); flex-shrink:0; opacity:0.6; }
-        .modal-img { width:100%; height:170px; border-radius:4px; overflow:hidden; margin-bottom:0.9rem; border:2px solid rgba(160,120,60,0.26); box-shadow:0 4px 12px rgba(0,0,0,0.15); }
-        .modal-img img { width:100%; height:100%; object-fit:cover; filter:sepia(10%) contrast(105%); display:block; }
-        .modal-date-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(160,120,60,0.1); border:1px solid rgba(160,120,60,0.24); border-radius:4px; padding:3px 10px; font-family:'EB Garamond',serif; font-size:0.88rem; color:#4a2c1a; margin-bottom:0.8rem; font-style:italic; }
-        .modal-desc { font-family:'EB Garamond',serif; font-size:0.98rem; color:#4a2c1a; line-height:1.85; font-style:italic; text-align:justify; border-left:3px solid rgba(160,120,60,0.28); padding-left:0.7rem; margin:0 0 1rem; }
-        .modal-register-btn { width:100%; background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; border:none; border-radius:6px; padding:10px 24px; font-family:'Cinzel',serif; font-size:0.82rem; font-weight:700; letter-spacing:0.08em; cursor:pointer; transition:all 0.3s; box-shadow:0 4px 14px rgba(30,58,138,0.28); }
-        .modal-register-btn:hover { background:linear-gradient(135deg,#f97316,#ea580c); box-shadow:0 6px 20px rgba(249,115,22,0.38); transform:translateY(-1px); }
-        .modal-seal { display:flex; justify-content:flex-end; margin-top:0.8rem; }
-        .modal-seal-disc { width:46px; height:46px; border-radius:50%; background:radial-gradient(circle at 38% 38%,#c9373a 0%,#8b1a1a 55%,#5a0a0a 100%); border:2px solid rgba(201,168,38,0.42); box-shadow:0 4px 12px rgba(0,0,0,0.28); display:flex; align-items:center; justify-content:center; font-size:1.2rem; position:relative; }
-        .modal-seal-disc::after { content:''; position:absolute; inset:3px; border-radius:50%; border:1px solid rgba(201,168,38,0.32); }
-        .modal-flourish { text-align:center; margin-top:0.7rem; font-size:0.85rem; color:#a07848; letter-spacing:0.8em; opacity:0.4; }
-
-        /* ═══ RESPONSIVE ═══ */
-        @media(max-width:480px){
-          .evt-gear-1,.evt-gear-2,.evt-gear-3,.evt-gear-4 { display:none; }
-        }
-      `}</style>
-
-      {/* Gear 1 — Blue, Top Right */}
-      <svg className="evt-gear-1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#0043d0" d={GEAR_PATH}/>
-      </svg>
-      {/* Gear 2 — Orange, Bottom Left */}
-      <svg className="evt-gear-2" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#fb923c" d={GEAR_PATH2}/>
-      </svg>
-      {/* Gear 3 — Navy, Mid Right */}
-      <svg className="evt-gear-3" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#003087" d={GEAR_PATH}/>
-      </svg>
-      {/* Gear 4 — Blue, Top Left (small) */}
-      <svg className="evt-gear-4" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#0043d0" d={GEAR_PATH2}/>
-      </svg>
-
-      {/* ════ Page Header ════ */}
-      <div style={{ position:"relative", zIndex:1, width:"100%", background:"linear-gradient(135deg,#1a237e 0%,#283593 50%,#1a237e 100%)", padding:"1.5rem 1rem", textAlign:"center", boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
-        <div style={{ position:"absolute", inset:0, backgroundImage:"repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(255,255,255,0.03) 60px,rgba(255,255,255,0.03) 61px)", pointerEvents:"none" }}/>
-        <h2 style={{ position:"relative", fontFamily:"'Cinzel',Georgia,serif", fontSize:"clamp(1.4rem,4vw,2rem)", fontWeight:700, color:"#fff", letterSpacing:"0.15em", margin:0, textShadow:"0 2px 8px rgba(0,0,0,0.35)" }}>Our Events</h2>
-      </div>
-
-      {/* ════ Sub-title ════ */}
-      <div style={{ position:"relative", zIndex:1, textAlign:"center", padding:"2rem 1rem 0.5rem" }}>
-        <p style={{ fontFamily:"'Cinzel',serif", fontSize:"1.1rem", fontWeight:700, color:"#1e3a8a", letterSpacing:"0.06em", margin:"0 0 0.75rem", display:"inline-block" }}>
-          Our Upcoming Events
-        </p>
-        <div style={{ height:"4px", width:"160px", margin:"0 auto", background:"linear-gradient(90deg,#0043d0,#fb923c)", borderRadius:"2px" }}/>
-      </div>
-
-      {/* ════ Scroll Scene ════ */}
-      <div style={{ perspective:"1200px", display:"flex", alignItems:"center", justifyContent:"center", padding:"2.5rem 1rem 5rem", position:"relative", zIndex:1 }}>
-        <div className={`scroll-wrapper state-${scrollState}`} style={{ position:"relative", width:"520px", maxWidth:"95vw", transformStyle:"preserve-3d" }}>
-
-          {/* TOP ROD — click to toggle roll/unroll */}
-          <div className="rod-top" onClick={handleScrollClick} title={scrollState === "open" ? "Click to roll up" : "Click to unroll"}>
-            <div className="rod-knob left"/><div className="rod-knob right"/>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+      {/* Book scene */}
+      <div style={{ perspective:2000, display:"flex", justifyContent:"center", alignItems:"center", marginBottom:"1.5rem", position:"relative" }}>
+        <div style={{ position:"absolute", width:440, height:30, background:"radial-gradient(ellipse,rgba(0,67,208,.25) 0%,transparent 70%)", bottom:-8, left:"50%", transform:"translateX(-50%)", filter:"blur(12px)" }}/>
+        <div style={{ position:"relative", width:440, height:520, transformStyle:"preserve-3d", animation:"bookFloat 4s ease-in-out infinite" }}>
+          {/* Spine */}
+          <div style={{ position:"absolute", left:-46, top:0, width:44, height:"100%", background:"linear-gradient(180deg,#1e3a8a,#0043d0 50%,#1e3a8a)", borderRadius:"4px 0 0 4px", boxShadow:"-4px 0 16px rgba(0,0,0,.3)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow:"hidden", zIndex:20 }}>
+            <span style={{ color:"#fff", fontFamily:"'Playfair Display',serif", fontSize:10, fontWeight:700, letterSpacing:"0.2em", writingMode:"vertical-rl", textOrientation:"mixed", transform:"rotate(180deg)", opacity:.9 }}>NEC NEWS</span>
           </div>
-
-          {/* ROLLED PREVIEW */}
-          <div className="rolled-preview">
-            <span style={{ fontFamily:"'EB Garamond',serif", fontStyle:"italic", color:"#7a5030", fontSize:"0.9rem", opacity:0.75 }}>— click the rod to unroll —</span>
-          </div>
-
-          {/* PARCHMENT */}
-          <div className="scroll-parchment">
-            <div className="parchment-paper">
-              <div className="scroll-body-content">
-                <div className="scroll-divider" style={{marginTop:"0.5rem"}}>
-                  <div className="scroll-divider-line"/><div className="scroll-divider-gem"/><div className="scroll-divider-line"/>
-                </div>
-                {events.map((ev, i) => (
-                  <div key={i} className="scroll-event-row" onClick={() => setSelectedEvent(ev)}>
-                    <div className="scroll-event-thumb"><img src={ev.imageUrl} alt={ev.title}/></div>
-                    <div className="scroll-event-info">
-                      <h3 className="scroll-event-title">{ev.title}</h3>
-                      <div className="scroll-event-date"><CalendarIcon/> <span>{ev.eventDate}</span></div>
-                      <button className="scroll-details-btn" onClick={e => { e.stopPropagation(); setSelectedEvent(ev); }}>Details</button>
-                    </div>
-                  </div>
-                ))}
-                <div className="scroll-bottom-flourish">· · ·</div>
+          {/* Stack */}
+          {[4,3,2,1].map(offset => (
+            <div key={offset} style={{ position:"absolute", top:0, right:`${-offset*3}px`, top:`${offset*1.5}px`, width:"100%", height:"100%", borderRadius:"0 8px 8px 0", background:offset%2===0?"#e8eef8":"#f0f4fc", zIndex:offset, boxShadow:"2px 2px 4px rgba(0,0,0,.1)" }}/>
+          ))}
+          {/* Flipping */}
+          {flipping && flippingPage !== null && (
+            <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", transformStyle:"preserve-3d", zIndex:50,
+              animation:`${flipDirection==="forward"?"flipFwd":"flipBwd"} .7s cubic-bezier(.645,.045,.355,1) forwards` }}>
+              <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", background:"#fff", borderRadius:"0 8px 8px 0", overflow:"hidden", backfaceVisibility:"hidden", WebkitBackfaceVisibility:"hidden", boxShadow:"8px 8px 32px rgba(0,67,208,.18)" }}>
+                <PageContent news={newsData[flippingPage]}/>
+              </div>
+              <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", background:"#f8faff", borderRadius:"0 8px 8px 0", overflow:"hidden", backfaceVisibility:"hidden", WebkitBackfaceVisibility:"hidden", transform:"rotateY(180deg)", boxShadow:"-8px 8px 32px rgba(0,0,0,.15)" }}>
+                <PageContent news={newsData[flipDirection==="forward"?Math.min(flippingPage+1,total-1):Math.max(flippingPage-1,0)]} isBack/>
               </div>
             </div>
+          )}
+          {/* Static */}
+          {!flipping && (
+            <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", background:"#fff", borderRadius:"0 8px 8px 0", boxShadow:"8px 8px 32px rgba(0,67,208,.18),0 2px 8px rgba(0,0,0,.1)", overflow:"hidden", zIndex:10 }}>
+              <PageContent news={current}/>
+            </div>
+          )}
+          {/* Curl */}
+          <div style={{ position:"absolute", bottom:0, right:0, width:36, height:36, background:"linear-gradient(135deg,transparent 50%,rgba(0,67,208,.12) 50%)", zIndex:60, borderRadius:"0 0 8px 0", animation:"curlPulse 2s ease-in-out infinite", pointerEvents:"none" }}/>
+        </div>
+      </div>
+      {/* Controls */}
+      <div style={{ display:"flex", alignItems:"center", gap:"1.25rem", marginBottom:"0.75rem" }}>
+        <button onClick={goToPrev} disabled={currentPage===0||flipping} style={{ background:"linear-gradient(135deg,#1e3a8a,#0043d0)", color:"#fff", border:"none", borderRadius:8, padding:"9px 20px", fontWeight:700, fontSize:"0.8rem", fontFamily:"'DM Sans',sans-serif", cursor:"pointer", boxShadow:"0 4px 12px rgba(0,67,208,.25)", opacity:currentPage===0||flipping?.4:1, transition:"all .2s" }}>← Prev</button>
+        <div style={{ display:"flex", gap:8 }}>
+          {newsData.map((_,i) => (
+            <button key={i} onClick={()=>goToPage(i)} style={{ height:10, width:i===currentPage?28:10, border:"none", cursor:"pointer", padding:0, background:i===currentPage?"#0043d0":"#c7d7f5", borderRadius:i===currentPage?5:50, transition:"all .3s cubic-bezier(.34,1.56,.64,1)", transform:i===currentPage?"scale(1.4)":"scale(1)" }}/>
+          ))}
+        </div>
+        <button onClick={goToNext} disabled={currentPage===total-1||flipping} style={{ background:"linear-gradient(135deg,#1e3a8a,#0043d0)", color:"#fff", border:"none", borderRadius:8, padding:"9px 20px", fontWeight:700, fontSize:"0.8rem", fontFamily:"'DM Sans',sans-serif", cursor:"pointer", boxShadow:"0 4px 12px rgba(0,67,208,.25)", opacity:currentPage===total-1||flipping?.4:1, transition:"all .2s" }}>Next →</button>
+      </div>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", color:"#6b7280", fontWeight:600, letterSpacing:"0.05em" }}>Page {currentPage+1} of {total}</div>
+    </div>
+  );
+}
+
+/* ── EVENTS SCROLL ── */
+function EventsScroll() {
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+      <div style={{ width:"100%", maxWidth:480 }}>
+        {/* Top rod */}
+        <div style={{ height:28, background:"linear-gradient(180deg,#5c3010,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010)", borderRadius:14, boxShadow:"0 5px 14px rgba(0,0,0,.38),inset 0 1px 3px rgba(255,255,255,.28)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 6px", position:"relative", zIndex:2 }}>
+          {[0,1].map(i=><div key={i} style={{ width:32, height:32, borderRadius:"50%", background:"radial-gradient(circle at 38% 35%,#f5c870,#c98030 35%,#7a4010 70%,#4a2008)", boxShadow:"0 2px 8px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.22)" }}/>)}
+        </div>
+        {/* Parchment */}
+        <div style={{ background:"linear-gradient(158deg,#f9ead0,#f2dda8 15%,#eeddb0 35%,#f3e4b8 55%,#eddaa5 75%,#f0dcaa)", borderLeft:"18px solid", borderRight:"18px solid", borderImage:"linear-gradient(180deg,#7a5020,#c09050 25%,#e8c880 50%,#c09050 75%,#7a5020) 1", padding:"1.25rem 1.5rem 1.5rem", position:"relative" }}>
+          <div style={{ position:"absolute", inset:12, border:"1.5px solid rgba(160,120,60,.18)", borderRadius:1, pointerEvents:"none" }}/>
+          <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"1rem" }}>
+            <div style={{ flex:1, height:1, background:"linear-gradient(90deg,transparent,#a07848,transparent)" }}/>
+            <div style={{ width:7, height:7, background:"#a07848", transform:"rotate(45deg)", opacity:.65 }}/>
+            <div style={{ flex:1, height:1, background:"linear-gradient(90deg,transparent,#a07848,transparent)" }}/>
           </div>
-
-          {/* BOTTOM ROD */}
-          <div className="rod-bottom">
-            <div className="rod-knob left"/><div className="rod-knob right"/>
-          </div>
-
-          {/* Hint */}
-          <div className="open-hint">↑ click the rod to unroll the scroll ↑</div>
-
-          {/* Ground shadow */}
-          <div style={{ position:"absolute", bottom:"-22px", left:"10%", right:"10%", height:"22px", background:"radial-gradient(ellipse,rgba(0,67,208,0.2) 0%,transparent 70%)", filter:"blur(8px)", pointerEvents:"none" }}/>
+          {eventsData.map((ev,i) => (
+            <div key={i} onClick={()=>setSelectedEvent(ev)}
+              style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.65rem", marginBottom:"0.5rem", borderRadius:8, background:"rgba(255,255,255,.42)", border:"1px solid rgba(160,120,60,.2)", cursor:"pointer", transition:"background .25s,transform .25s,box-shadow .25s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,.68)"; e.currentTarget.style.transform="translateX(4px)"; e.currentTarget.style.boxShadow="3px 4px 16px rgba(0,67,208,.12)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,.42)"; e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
+              <div style={{ width:66, height:66, borderRadius:6, overflow:"hidden", flexShrink:0, border:"2px solid rgba(160,120,60,.28)", boxShadow:"0 2px 6px rgba(0,0,0,.15)" }}>
+                <img src={ev.imageUrl} alt={ev.title} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"sepia(8%)" }}/>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <h3 style={{ fontFamily:"'EB Garamond',Georgia,serif", fontSize:"0.93rem", fontWeight:500, color:"#2c1608", margin:"0 0 0.25rem", lineHeight:1.35, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{ev.title}</h3>
+                <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:"0.75rem", color:"#7a5030", marginBottom:"0.4rem", fontFamily:"'EB Garamond',serif", fontStyle:"italic" }}>
+                  <CalendarIcon/><span>{ev.eventDate}</span>
+                </div>
+                <button onClick={e=>{ e.stopPropagation(); setSelectedEvent(ev); }}
+                  style={{ background:"linear-gradient(135deg,#0043d0,#1e3a8a)", color:"#fff", border:"none", borderRadius:5, padding:"4px 12px", fontSize:"0.68rem", fontWeight:700, fontFamily:"'Cinzel',serif", letterSpacing:"0.06em", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,67,208,.28)", transition:"all .2s" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="linear-gradient(135deg,#fb923c,#f97316)"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.background="linear-gradient(135deg,#0043d0,#1e3a8a)"; }}>Details</button>
+              </div>
+            </div>
+          ))}
+          <div style={{ textAlign:"center", marginTop:"0.75rem", fontSize:"0.9rem", color:"#a07848", letterSpacing:"1em", opacity:.4 }}>· · ·</div>
+        </div>
+        {/* Bottom rod */}
+        <div style={{ height:28, background:"linear-gradient(180deg,#5c3010,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010)", borderRadius:14, boxShadow:"0 5px 14px rgba(0,0,0,.38),inset 0 1px 3px rgba(255,255,255,.28)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 6px", position:"relative", zIndex:2 }}>
+          {[0,1].map(i=><div key={i} style={{ width:32, height:32, borderRadius:"50%", background:"radial-gradient(circle at 38% 35%,#f5c870,#c98030 35%,#7a4010 70%,#4a2008)", boxShadow:"0 2px 8px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.22)" }}/>)}
         </div>
       </div>
 
-      {/* ════ Event Detail Modal ════ */}
+      {/* Modal */}
       {selectedEvent && (
-        <div className="modal-overlay" onClick={e => { if(e.target===e.currentTarget) setSelectedEvent(null); }}>
-          <div className="modal-parchment">
-            <div className="modal-rod"><div className="modal-rod-knob"/><div className="modal-rod-knob"/></div>
-            <div className="modal-body">
-              <button className="modal-close" onClick={() => setSelectedEvent(null)}>✕</button>
-              <div className="modal-ornament">✦ ✦ ✦</div>
-              <h2 className="modal-title">{selectedEvent.title}</h2>
-              <div className="modal-divider"><div className="modal-divider-line"/><div className="modal-divider-gem"/><div className="modal-divider-line"/></div>
-              <div className="modal-img"><img src={selectedEvent.imageUrl} alt={selectedEvent.title}/></div>
-              <div className="modal-date-badge"><CalendarIcon/> <span>{selectedEvent.eventDate}</span></div>
-              <p className="modal-desc">{selectedEvent.description}</p>
-              <button className="modal-register-btn">Register / Know More</button>
-              <div className="modal-seal"><div className="modal-seal-disc">🏛</div></div>
-              <div className="modal-flourish">· · ·</div>
+        <div onClick={e=>{ if(e.target===e.currentTarget) setSelectedEvent(null); }}
+          style={{ position:"fixed", inset:0, background:"rgba(10,5,0,.78)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem", backdropFilter:"blur(6px)", animation:"modalIn .3s ease" }}>
+          <div style={{ width:"100%", maxWidth:460, animation:"modalSlide .4s cubic-bezier(.22,1,.36,1)" }}>
+            <div style={{ height:24, background:"linear-gradient(180deg,#5c3010,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010)", borderRadius:12, boxShadow:"0 5px 14px rgba(0,0,0,.45)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 6px", position:"relative", zIndex:2 }}>
+              {[0,1].map(i=><div key={i} style={{ width:28, height:28, borderRadius:"50%", background:"radial-gradient(circle at 38% 35%,#f5c870,#c98030 35%,#7a4010 70%,#4a2008)", boxShadow:"0 2px 8px rgba(0,0,0,.4)" }}/>)}
             </div>
-            <div className="modal-rod"><div className="modal-rod-knob"/><div className="modal-rod-knob"/></div>
+            <div style={{ background:"linear-gradient(158deg,#f9ead0,#f2dda8 15%,#eeddb0 40%,#f3e4b8 65%,#eddaa5 85%,#f0dcaa)", borderLeft:"16px solid", borderRight:"16px solid", borderImage:"linear-gradient(180deg,#7a5020,#c09050 25%,#e8c880 50%,#c09050 75%,#7a5020) 1", padding:"1.5rem 1.25rem 1rem", position:"relative", margin:"0 -1px" }}>
+              <div style={{ position:"absolute", inset:10, border:"1px solid rgba(160,120,60,.16)", borderRadius:1, pointerEvents:"none" }}/>
+              <button onClick={()=>setSelectedEvent(null)} style={{ position:"absolute", top:10, right:12, background:"none", border:"none", fontSize:"1.1rem", color:"#7a5030", cursor:"pointer", padding:"4px 8px", borderRadius:4, lineHeight:1, zIndex:10 }}>✕</button>
+              <div style={{ textAlign:"center", fontSize:"0.9rem", color:"#a07848", letterSpacing:"0.5em", opacity:.6, marginBottom:"0.25rem" }}>✦ ✦ ✦</div>
+              <h2 style={{ fontFamily:"'Cinzel',Georgia,serif", fontSize:"clamp(.9rem,3vw,1.15rem)", fontWeight:700, color:"#2c1608", textAlign:"center", margin:"0 0 0.5rem", lineHeight:1.3, letterSpacing:"0.03em" }}>{selectedEvent.title}</h2>
+              <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", margin:"0.4rem 0 0.75rem" }}>
+                <div style={{ flex:1, height:1, background:"linear-gradient(90deg,transparent,#a07848,transparent)" }}/>
+                <div style={{ width:6, height:6, background:"#a07848", transform:"rotate(45deg)", opacity:.6 }}/>
+                <div style={{ flex:1, height:1, background:"linear-gradient(90deg,transparent,#a07848,transparent)" }}/>
+              </div>
+              <div style={{ width:"100%", height:160, borderRadius:4, overflow:"hidden", marginBottom:"0.75rem", border:"2px solid rgba(160,120,60,.26)", boxShadow:"0 4px 12px rgba(0,0,0,.15)" }}>
+                <img src={selectedEvent.imageUrl} alt={selectedEvent.title} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"sepia(10%) contrast(105%)", display:"block" }}/>
+              </div>
+              <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(160,120,60,.1)", border:"1px solid rgba(160,120,60,.24)", borderRadius:4, padding:"3px 10px", fontFamily:"'EB Garamond',serif", fontSize:"0.85rem", color:"#4a2c1a", marginBottom:"0.7rem", fontStyle:"italic" }}>
+                <CalendarIcon/><span>{selectedEvent.eventDate}</span>
+              </div>
+              <p style={{ fontFamily:"'EB Garamond',serif", fontSize:"0.93rem", color:"#4a2c1a", lineHeight:1.8, fontStyle:"italic", textAlign:"justify", borderLeft:"3px solid rgba(160,120,60,.28)", paddingLeft:"0.6rem", margin:"0 0 0.9rem" }}>{selectedEvent.description}</p>
+              <button style={{ width:"100%", background:"linear-gradient(135deg,#1e3a8a,#2563eb)", color:"#fff", border:"none", borderRadius:6, padding:"9px 24px", fontFamily:"'Cinzel',serif", fontSize:"0.78rem", fontWeight:700, letterSpacing:"0.08em", cursor:"pointer", boxShadow:"0 4px 14px rgba(30,58,138,.28)", transition:"all .3s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.background="linear-gradient(135deg,#f97316,#ea580c)"; }}
+                onMouseLeave={e=>{ e.currentTarget.style.background="linear-gradient(135deg,#1e3a8a,#2563eb)"; }}>Register / Know More</button>
+            </div>
+            <div style={{ height:24, background:"linear-gradient(180deg,#5c3010,#b06820 20%,#e8a84a 40%,#f5c870 50%,#e8a84a 60%,#b06820 80%,#5c3010)", borderRadius:12, boxShadow:"0 5px 14px rgba(0,0,0,.45)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 6px", zIndex:2 }}>
+              {[0,1].map(i=><div key={i} style={{ width:28, height:28, borderRadius:"50%", background:"radial-gradient(circle at 38% 35%,#f5c870,#c98030 35%,#7a4010 70%,#4a2008)", boxShadow:"0 2px 8px rgba(0,0,0,.4)" }}/>)}
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-};
+}
 
-export default Events;
+/* ── MAIN PAGE ── */
+export default function NewsAndEvents() {
+  return (
+    <div style={{ minHeight:"100vh", fontFamily:"'DM Sans',sans-serif", position:"relative", overflow:"hidden", background:"linear-gradient(135deg,#d6eaff 0%,#e3f2fd 40%,#f0f7ff 70%,#fff 100%)" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
+
+        @keyframes rotateGear1 { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes rotateGear2 { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+        @keyframes bookFloat { 0%,100%{transform:translateY(0) rotateX(2deg)} 50%{transform:translateY(-6px) rotateX(2deg)} }
+        @keyframes curlPulse { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:.6;transform:scale(1.1)} }
+        @keyframes flipFwd { 0%{transform:perspective(1200px) rotateY(0deg);transform-origin:left center} 100%{transform:perspective(1200px) rotateY(-180deg);transform-origin:left center} }
+        @keyframes flipBwd { 0%{transform:perspective(1200px) rotateY(-180deg);transform-origin:left center} 100%{transform:perspective(1200px) rotateY(0deg);transform-origin:left center} }
+        @keyframes modalIn { from{opacity:0} to{opacity:1} }
+        @keyframes modalSlide { from{opacity:0;transform:scale(.88) translateY(24px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes titleSlide { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+        .gear-bg { position:absolute; pointer-events:none; user-select:none; z-index:0; }
+        .gear-bg.g1 { width:350px;height:350px;top:-80px;right:-80px;opacity:.06;animation:rotateGear1 25s linear infinite; }
+        .gear-bg.g2 { width:280px;height:280px;bottom:-60px;left:-60px;opacity:.06;animation:rotateGear2 30s linear infinite; }
+        .gear-bg.g3 { width:220px;height:220px;top:40%;right:10%;opacity:.05;animation:rotateGear1 35s linear infinite; }
+        .gear-bg.g4 { width:160px;height:160px;top:12%;left:5%;opacity:.04;animation:rotateGear2 20s linear infinite; }
+
+        .section-col { flex:1; min-width:340px; max-width:520px; display:flex; flex-direction:column; align-items:center; }
+
+        .divider-vert { width:2px; background:linear-gradient(180deg,transparent,rgba(0,67,208,.15) 20%,rgba(0,67,208,.25) 50%,rgba(0,67,208,.15) 80%,transparent); flex-shrink:0; align-self:stretch; margin:0 1rem; }
+
+        @media(max-width:900px){
+          .two-col { flex-direction:column !important; align-items:center; }
+          .divider-vert { width:80%; height:2px; background:linear-gradient(90deg,transparent,rgba(0,67,208,.2) 20%,rgba(0,67,208,.3) 50%,rgba(0,67,208,.2) 80%,transparent); margin:1.5rem 0; align-self:auto; }
+          .section-col { max-width:95vw; min-width:0; width:100%; }
+        }
+        @media(max-width:600px){
+          .book-inner { width:300px !important; height:460px !important; }
+        }
+      `}</style>
+
+      {/* Background gears */}
+      <svg className="gear-bg g1" viewBox="0 0 512 512"><path fill="#0043d0" d={G1}/></svg>
+      <svg className="gear-bg g2" viewBox="0 0 512 512"><path fill="#fb923c" d={G2}/></svg>
+      <svg className="gear-bg g3" viewBox="0 0 512 512"><path fill="#003087" d={G1}/></svg>
+      <svg className="gear-bg g4" viewBox="0 0 512 512"><path fill="#0043d0" d={G2}/></svg>
+
+      {/* Page header */}
+      <div style={{ position:"relative", zIndex:1, background:"linear-gradient(135deg,#1a237e,#283593 50%,#1a237e)", padding:"1.25rem 1rem", textAlign:"center", boxShadow:"0 4px 20px rgba(0,0,0,.25)" }}>
+        <div style={{ position:"absolute", inset:0, backgroundImage:"repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(255,255,255,.03) 60px,rgba(255,255,255,.03) 61px)", pointerEvents:"none" }}/>
+        <h1 style={{ position:"relative", fontFamily:"'Cinzel',Georgia,serif", fontSize:"clamp(1.3rem,4vw,1.9rem)", fontWeight:700, color:"#fff", letterSpacing:"0.15em", margin:0, textShadow:"0 2px 8px rgba(0,0,0,.35)" }}>NEWS &amp; EVENTS</h1>
+      </div>
+
+      {/* Two-column layout */}
+      <div className="two-col" style={{ display:"flex", justifyContent:"center", alignItems:"flex-start", gap:0, padding:"2.5rem 2rem 4rem", position:"relative", zIndex:1, flexWrap:"wrap" }}>
+
+        {/* NEWS column */}
+        <div className="section-col">
+          <div style={{ textAlign:"center", marginBottom:"2rem", animation:"titleSlide .8s cubic-bezier(.16,1,.3,1)" }}>
+            <h2 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:"clamp(2rem,5vw,3rem)", fontWeight:900, color:"#1e3a8a", letterSpacing:"0.1em", margin:0, textShadow:"2px 2px 8px rgba(0,67,208,.1)" }}>NEWS</h2>
+            <div style={{ height:4, width:120, margin:"0.75rem auto 0", background:"linear-gradient(90deg,#0043d0,#fb923c)", borderRadius:2 }}/>
+          </div>
+          <NewsBook/>
+        </div>
+
+        {/* Vertical divider */}
+        <div className="divider-vert"/>
+
+        {/* EVENTS column */}
+        <div className="section-col">
+          <div style={{ textAlign:"center", marginBottom:"2rem", animation:"titleSlide .8s cubic-bezier(.16,1,.3,1) .15s both" }}>
+            <h2 style={{ fontFamily:"'Cinzel',Georgia,serif", fontSize:"clamp(1.8rem,4vw,2.6rem)", fontWeight:700, color:"#1e3a8a", letterSpacing:"0.12em", margin:0 }}>OUR EVENTS</h2>
+            <p style={{ fontFamily:"'Cinzel',serif", fontSize:"0.85rem", fontWeight:600, color:"#4b5563", letterSpacing:"0.06em", margin:"0.3rem 0 0" }}>Our Upcoming Events</p>
+            <div style={{ height:4, width:140, margin:"0.65rem auto 0", background:"linear-gradient(90deg,#0043d0,#fb923c)", borderRadius:2 }}/>
+          </div>
+          <EventsScroll/>
+        </div>
+      </div>
+    </div>
+  );
+}

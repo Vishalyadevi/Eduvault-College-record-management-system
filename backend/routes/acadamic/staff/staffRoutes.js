@@ -18,7 +18,8 @@ import {
   getMyCourses,
   getStudentsForSection,
   updateStudentCOMarkByCoId,
-  getStudentCOMarks
+  getStudentCOMarks,
+  getMarksLockStatusForStaff
 } from '../../../controllers/acadamic/markController.js';
 
 import {
@@ -66,6 +67,7 @@ router.get('/export/course/:courseCode', requireAuth, exportCourseWiseCsv);
 router.get('/students/:courseCode', requireAuth, getStudentsForCourse);
 router.get('/students/:courseCode/section/:sectionId', requireAuth, getStudentsForSection);
 router.get('/marks/co/:courseCode', requireAuth, getStudentCOMarks);
+router.get('/marks/lock-status/:courseCode', requireAuth, getMarksLockStatusForStaff);
 
 /* =========================
 📌 Course Requests & Staff Actions

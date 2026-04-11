@@ -34,8 +34,7 @@ export const StudentDataProvider = ({ children }) => {
         { url: `/approved-events-organized/${id}`, setter: setOrganizedEvents },
         { url: `/approved-events/${id}`, setter: setAttendedEvents },
         { url: `/fetch-scholarships/${id}`, setter: setScholarships },
-        { url: `/fetch-leaves/${id}`, setter: setLeaves },
-        { url: `/achievements/${id}`, setter: setAchievements }
+        { url: `/fetch-leaves/${id}`, setter: setLeaves }
       ];
 
       const requests = endpoints.map(async ({ url, setter }) => {

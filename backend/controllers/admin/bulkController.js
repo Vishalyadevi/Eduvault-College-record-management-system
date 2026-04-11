@@ -69,18 +69,23 @@ const bulkUpload = async (req, res) => {
 
       // Process each row in the CSV
       for (const row of data) {
+        // Map common fields from frontend/AddUser format
+        const userName = row.userName || row.username;
+        const userMail = row.userMail || row.email;
+        const userNumber = row.userNumber || row.registerNumber || row.staffId; // Flexible fallback
+        const roleName = row.role;
+
         // Validate required fields for User
-        if (!row.username || !row.email || !row.role || !row.staffId) {
-          throw new Error(`Missing required fields in row: ${JSON.stringify(row)}`);
+        if (!userName || !userMail || !roleName || !userNumber) {
+          throw new Error(`Missing required core fields (userName, userMail, role, userNumber) in row: ${JSON.stringify(row)}`);
         }
 
-        const roleName = row.role;
         const roleId = roleMap[roleName];
         if (!roleId) {
           throw new Error(`Invalid role '${roleName}' in row: ${JSON.stringify(row)}`);
         }
 
-        const email = row.email.toLowerCase().trim();
+        const email = userMail.toLowerCase().trim();
 
         // Check if email already exists in database
         if (existingEmails.has(email)) {
@@ -94,26 +99,21 @@ const bulkUpload = async (req, res) => {
 
         // Prepare User data
         const userData = {
-          username: row.username,
+          username: userName,
+          userName: userName, // Ensure both are set just in case models expect one
           email: email,
+          userMail: email,
           password: hashedPassword,
           roleId: roleId,
-          status: row.status || "active",
+          userNumber: userNumber,
+          status: row.status || "Active",
           departmentId: row.departmentId || null,
-          image: row.image || '/uploads/deafult.jpg',
+          image: row.image || '/uploads/default.jpg',
           Created_by: ADMIN_USER_ID,
           Updated_by: ADMIN_USER_ID,
           created_at: new Date(),
           updated_at: new Date(),
         };
-
-        // Add staffId only for staff members
-        if (row.role === "Staff") {
-          if (!row.staffId) {
-            throw new Error(`Missing staffId for staff member: ${JSON.stringify(row)}`);
-          }
-          userData.userNumber = row.staffId;
-        }
 
         users.push(userData);
         existingEmails.add(email); // Add to set to prevent duplicates in this batch
@@ -139,33 +139,39 @@ const bulkUpload = async (req, res) => {
         const user = createdUsers[i];
         const row = data[i];
 
-        if (user.role === "Student") {
+        if (row.role === "Student") {
+          const userNumber = row.userNumber || row.registerNumber;
+          const tutorNumber = row.tutorNumber || row.staffId; // Tutors userNumber
+          
           // Validate required fields for StudentDetails
-          if (!row.registerNumber || !row.departmentId || !row.batch || !row.staffId) {
-            throw new Error(`Missing required student fields in row: ${JSON.stringify(row)}`);
+          if (!userNumber || !row.departmentId || !row.batch || !tutorNumber) {
+            throw new Error(`Missing required student fields (departmentId, batch, tutorNumber) in row: ${JSON.stringify(row)}`);
           }
 
-          // Fetch tutor's email using staffId from the users table
+          // Fetch tutor's email using tutorNumber from the users table
           let tutorEmail = null;
           let tutorId = 0;
-          if (row.staffId) {
+          if (tutorNumber) {
             const tutor = await User.findOne({
-              where: { userNumber: row.staffId },
+              where: { userNumber: tutorNumber },
               attributes: ["userMail", "Userid"],
               transaction: t,
             });
             if (tutor) {
               tutorEmail = tutor.userMail;
               tutorId = tutor.Userid;
+            } else {
+              throw new Error(`Tutor with User Number ${tutorNumber} not found for student ${row.userName || row.username}. Make sure the tutor exists before assigning.`);
             }
           }
 
           // Prepare StudentDetails data
           students.push({
             Userid: user.UserId || user.Userid || user.userId,
-            registerNumber: row.registerNumber,
+            registerNumber: userNumber,
             departmentId: row.departmentId,
             batch: row.batch,
+            semester: row.semester || null,
             staffId: tutorId,
             tutorEmail: tutorEmail,
             Created_by: ADMIN_USER_ID,

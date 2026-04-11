@@ -21,9 +21,9 @@ const approvalTypes = {
   extracurricular: { endpoint: "extracurricular", stateKey: "extracurricular", name: "Extracurricular" }
 };
 
-// Helper function to safely access and filter arrays
-const safeFilter = (data, staffId) => {
+const safeFilter = (data, staffId, isAdmin) => {
   if (!Array.isArray(data)) return [];
+  if (isAdmin) return data;
   return data.filter(item => item && String(item?.staffId) === String(staffId));
 };
 
@@ -57,6 +57,7 @@ export const DashboardProvider = ({ children }) => {
 
   const { user } = useAuth();
   const staffId = user?.userId || user?.id || "";
+  const isAdmin = user?.role === 'Admin' || user?.roleName === 'Admin';
 
   const fetchPendingData = useCallback(async () => {
     if (!staffId) {
@@ -96,59 +97,61 @@ export const DashboardProvider = ({ children }) => {
       );
 
       setPendingData({
-        internships: safeFilter(responses[0]?.internships || [], staffId).map(item => ({
+        internships: safeFilter(responses[0]?.internships || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "internship"
         })),
-        scholarships: safeFilter(responses[1]?.scholarships || [], staffId).map(item => ({
+        scholarships: safeFilter(responses[1]?.scholarships || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "scholarship"
         })),
-        events: safeFilter(responses[2]?.events || [], staffId).map(item => ({
+        events: safeFilter(responses[2]?.events || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "event"
         })),
-        eventsAttended: safeFilter(responses[3]?.events || [], staffId).map(item => ({
+        eventsAttended: safeFilter(responses[3]?.events || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "event-attended"
         })),
-        leaves: safeFilter(responses[4]?.leaves || [], staffId).map(item => ({
+        leaves: safeFilter(responses[4]?.leaves || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "leave"
         })),
-        onlineCourses: safeFilter(responses[5]?.courses || [], staffId).map(item => ({
+        onlineCourses: safeFilter(responses[5]?.courses || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "online-course"
         })),
-        achievements: safeFilter(responses[6]?.achievements || [], staffId).map(item => ({
+        achievements: safeFilter(responses[6]?.achievements || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "achievement"
         })),
-        publications: safeFilter(responses[7]?.publications || [], staffId).map(item => ({
+        publications: safeFilter(responses[7]?.publications || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "publication"
         })),
-        competencyCoding: safeFilter(responses[8]?.competencyRecords || [], staffId).map(item => ({
+        competencyCoding: safeFilter(responses[8]?.competencyRecords || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "competency-coding"
         })),
-        nonCGPA: safeFilter(responses[9]?.records || [], staffId).map(item => ({
+        nonCGPA: safeFilter(responses[9]?.records || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "noncgpa"
         })),
-        projects: safeFilter(responses[10]?.projects || [], staffId).map(item => ({
+        projects: safeFilter(responses[10]?.projects || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "project"
         })),
-        hackathons: safeFilter(responses[11]?.events || [], staffId).map(item => ({
+        hackathons: safeFilter(responses[11]?.events || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "hackathon"
         })),
-        extracurricular: safeFilter(responses[12]?.activities || [], staffId).map(item => ({
+        extracurricular: safeFilter(responses[12]?.activities || [], staffId, isAdmin).map(item => ({
           ...item,
           approvetype: "extracurricular"
         }))
       });
+      console.log("DashboardContext Fetched Data! staffId:", staffId, "user:", user);
+      console.log("responses[0] (internships):", responses[0]);
     } catch (error) {
       console.error("Error in fetchPendingData:", error);
       setState(prev => ({ ...prev, error: error.message }));
@@ -156,7 +159,7 @@ export const DashboardProvider = ({ children }) => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [staffId]);
+  }, [staffId, isAdmin]);
 
   const handleSendMessage = useCallback(async (type) => {
     if (!state.email || !state.commonMessage) {

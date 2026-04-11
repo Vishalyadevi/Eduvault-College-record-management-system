@@ -61,7 +61,7 @@ async function fetchStudentData(userId) {
   try {
     // Fetch basic student info
     const basicInfo = await sequelize.query(`
-      SELECT u.username, u.email, u.staffId, u.image,
+      SELECT u.userName as username, u.userMail as email, u.staffId, u.profileImage as image,
              registerNumber, sd.batch, sd.gender, sd.date_of_birth as dob,
              CONCAT_WS(', ', sd.door_no, sd.street) as address,
              c.name as city, di.name as district, s.name as state,
@@ -69,12 +69,13 @@ async function fetchStudentData(userId) {
              sd.blood_group, sd.aadhar_card_no as aadhar_number,
              d.departmentName as department, d.departmentAcr as dept_code
       FROM users u
-      LEFT JOIN student_details sd ON u.Userid = sd.Userid
+      LEFT JOIN student_details sd ON u.userId = sd.Userid
       LEFT JOIN departments d ON u.departmentId = d.departmentId
       LEFT JOIN cities c ON sd.cityID = c.id
       LEFT JOIN districts di ON sd.districtID = di.id
       LEFT JOIN states s ON sd.stateID = s.id
-      WHERE u.Userid = ? AND u.role = 'Student'
+      JOIN roles r ON u.roleId = r.roleId
+      WHERE u.userId = ? AND r.roleName = 'Student'
     `, {
       replacements: [userId],
       type: QueryTypes.SELECT
@@ -89,7 +90,7 @@ async function fetchStudentData(userId) {
       SELECT course_name, type, provider_name, instructor_name, status,
              tutor_approval_status, created_at
       FROM online_courses
-      WHERE Userid = ?
+      WHERE userid = ?
       ORDER BY created_at DESC
     `, {
       replacements: [userId],
@@ -115,7 +116,7 @@ async function fetchStudentData(userId) {
       SELECT event_name, club_name, role, staff_incharge, start_date, end_date,
              number_of_participants, mode, funding_agency, funding_amount,
              tutor_approval_status, created_at
-      FROM events_organized
+      FROM events_organized_student
       WHERE Userid = ?
       ORDER BY start_date DESC
     `, {
@@ -130,7 +131,7 @@ async function fetchStudentData(userId) {
              from_date, to_date, participation_status, achievement_details,
              tutor_approval_status, created_at
       FROM event_attended
-      WHERE Userid = ?
+      WHERE userid = ?
       ORDER BY from_date DESC
     `, {
       replacements: [userId],

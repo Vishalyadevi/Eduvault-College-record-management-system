@@ -82,6 +82,12 @@ const StaffDetails = (sequelize) => {
             // references: { model: 'designations', key: 'designationId' },
         },
 
+        designation: {
+            type: DataTypes.STRING(150),
+            allowNull: true,
+            comment: 'Staff typed designation',
+        },
+
         employeeGradeId: {
             type: DataTypes.INTEGER,
             allowNull: true,

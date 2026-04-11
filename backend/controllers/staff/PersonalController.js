@@ -11,7 +11,7 @@ export const getStaffDetails = async (req, res) => {
         {
           model: User,
           as: "staffUser",
-          attributes: ["Userid", "username", "email", "role", "status"],
+          attributes: ["userId", "userName", "userMail", "roleId", "status"],
           include: [
             {
               model: BankDetails,
@@ -30,25 +30,14 @@ export const getStaffDetails = async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    // Map StaffDetails fields to compatibility names for frontend
+    // Map StaffDetails fields directly, including native fields
     const responseData = {
       ...staff.toJSON(),
-      full_name: `${staff.firstName} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName}`.trim(),
+      // Backward compatibility for components explicitly requesting these (Admin panel etc.)
+      full_name: `${staff.firstName || ''} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName || ''}`.trim(),
       email: staff.personalEmail,
       mobile_number: staff.mobileNumber,
       date_of_birth: staff.dateOfBirth,
-      anna_university_faculty_id: staff.annaUniversityFacultyId,
-      aicte_faculty_id: staff.aicteFacultyId,
-      researcher_id: staff.researcherId,
-      google_scholar_id: staff.googleScholarId,
-      scopus_profile: staff.scopusProfile,
-      vidwan_profile: staff.vidwanProfile,
-      supervisor_id: staff.supervisorId,
-      h_index: staff.hIndex,
-      citation_index: staff.citationIndex,
-      communication_address: staff.currentAddressLine1,
-      permanent_address: staff.permanentAddressLine1,
-      applied_date: staff.dateOfJoining,
     };
 
     res.json(responseData);
@@ -66,31 +55,17 @@ export const updateStaffDetails = async (req, res) => {
       return res.status(400).json({ message: "Missing Userid in token" });
     }
 
-    let { full_name, email, mobile_number, date_of_birth, relations = [], ...otherFields } = req.body;
+    let { relations = [], bankDetails, staffUser, full_name, email, mobile_number, date_of_birth, ...otherFields } = req.body;
 
-    // Map frontend names back to StaffDetails fields if provided
-    if (full_name) {
+    // Backward compatibility mappings
+    if (full_name && !otherFields.firstName) {
       const names = full_name.trim().split(' ');
       otherFields.firstName = names[0];
       otherFields.lastName = names.slice(1).join(' ') || '.';
     }
-    if (email) otherFields.personalEmail = email;
-    if (mobile_number) otherFields.mobileNumber = mobile_number;
-    if (date_of_birth) otherFields.dateOfBirth = date_of_birth;
-
-    // Academic & Profile Mappings
-    if (req.body.anna_university_faculty_id) otherFields.annaUniversityFacultyId = req.body.anna_university_faculty_id;
-    if (req.body.aicte_faculty_id) otherFields.aicteFacultyId = req.body.aicte_faculty_id;
-    if (req.body.researcher_id) otherFields.researcherId = req.body.researcher_id;
-    if (req.body.google_scholar_id) otherFields.googleScholarId = req.body.google_scholar_id;
-    if (req.body.scopus_profile) otherFields.scopusProfile = req.body.scopus_profile;
-    if (req.body.vidwan_profile) otherFields.vidwanProfile = req.body.vidwan_profile;
-    if (req.body.supervisor_id) otherFields.supervisorId = req.body.supervisor_id;
-    if (req.body.h_index) otherFields.hIndex = req.body.h_index;
-    if (req.body.citation_index) otherFields.citationIndex = req.body.citation_index;
-    if (req.body.communication_address) otherFields.currentAddressLine1 = req.body.communication_address;
-    if (req.body.permanent_address) otherFields.permanentAddressLine1 = req.body.permanent_address;
-    if (req.body.applied_date) otherFields.dateOfJoining = req.body.applied_date; // Using joining date as placeholder if needed
+    if (email && !otherFields.personalEmail) otherFields.personalEmail = email;
+    if (mobile_number && !otherFields.mobileNumber) otherFields.mobileNumber = mobile_number;
+    if (date_of_birth && !otherFields.dateOfBirth) otherFields.dateOfBirth = date_of_birth;
 
     // Clean empty strings to null
     Object.keys(otherFields).forEach((key) => {
@@ -99,7 +74,7 @@ export const updateStaffDetails = async (req, res) => {
       }
     });
 
-    const user = await User.findOne({ where: { Userid: userId }, transaction });
+    const user = await User.findOne({ where: { userId: userId }, transaction });
     if (!user) {
       await transaction.rollback();
       return res.status(404).json({ message: "User not found" });
@@ -110,15 +85,15 @@ export const updateStaffDetails = async (req, res) => {
       defaults: {
         ...otherFields,
         Userid: userId,
-        firstName: otherFields.firstName || user.username,
+        firstName: otherFields.firstName || user.userName || 'Unknown',
         lastName: otherFields.lastName || '.',
         gender: otherFields.gender || 'Other',
         dateOfBirth: otherFields.dateOfBirth || new Date().toISOString().split('T')[0],
         departmentId: user.departmentId || 1, // Fallback to a default dept if unknown
-        designationId: 1, // Fallback to a default designation
-        dateOfJoining: new Date().toISOString().split('T')[0],
-        personalEmail: email || user.email,
-        mobileNumber: mobile_number || '0000000000'
+        designationId: otherFields.designationId || 1, // Fallback to a default designation
+        dateOfJoining: otherFields.dateOfJoining || new Date().toISOString().split('T')[0],
+        personalEmail: otherFields.personalEmail || user.userMail,
+        mobileNumber: otherFields.mobileNumber || '0000000000'
       },
       transaction
     });
@@ -126,18 +101,23 @@ export const updateStaffDetails = async (req, res) => {
     if (!created) {
       await staff.update(otherFields, { transaction });
     }
-    await user.update({ username: full_name || user.username, email: email || user.email }, { transaction });
+
+    // Update the associated User record to keep email and naming in sync
+    await user.update({ 
+      userName: otherFields.firstName || user.userName, 
+      userMail: otherFields.personalEmail || user.userMail 
+    }, { transaction });
 
     // Bank Details
-    const bankDetails = req.body.staffUser?.bankDetails || req.body.bankDetails;
-    if (bankDetails) {
-      const [bank, created] = await BankDetails.findOrCreate({
+    const bankDetailsObj = req.body.staffUser?.bankDetails || req.body.bankDetails;
+    if (bankDetailsObj) {
+      const [bank, bankCreated] = await BankDetails.findOrCreate({
         where: { Userid: userId },
-        defaults: { ...bankDetails, Userid: userId },
+        defaults: { ...bankDetailsObj, Userid: userId },
         transaction
       });
-      if (!created) {
-        await bank.update(bankDetails, { transaction });
+      if (!bankCreated) {
+        await bank.update(bankDetailsObj, { transaction });
       }
     }
 
@@ -145,12 +125,12 @@ export const updateStaffDetails = async (req, res) => {
     if (relations && relations.length > 0) {
       for (const rel of relations) {
         if (rel.relationship) {
-          const [relation, created] = await RelationDetails.findOrCreate({
+          const [relation, relationCreated] = await RelationDetails.findOrCreate({
             where: { Userid: userId, relationship: rel.relationship },
             defaults: { ...rel, Userid: userId },
             transaction
           });
-          if (!created) {
+          if (!relationCreated) {
             await relation.update(rel, { transaction });
           }
         }

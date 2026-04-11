@@ -416,6 +416,14 @@ const StudentDashboard = () => {
     [subjectAttendance]
   );
 
+  const lowSubjectAttendance = useMemo(
+    () =>
+      normalizedSubjectAttendance
+        .filter((row) => row.total > 0 && row.percentage < 75)
+        .sort((a, b) => a.percentage - b.percentage),
+    [normalizedSubjectAttendance]
+  );
+
   const studentName =
     studentDetails?.userName ||
     studentDetails?.studentProfile?.studentName ||
@@ -628,26 +636,55 @@ const StudentDashboard = () => {
               {normalizedSubjectAttendance.length === 0 ? (
                 <p className="text-sm text-slate-500">No subject attendance data available for this semester.</p>
               ) : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={normalizedSubjectAttendance} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                      <Tooltip
-                        formatter={(value, key, item) =>
-                          key === 'percentage'
-                            ? [`${toNumber(value).toFixed(1)}%`, 'Attendance']
-                            : [value, key]
-                        }
-                        labelFormatter={(_, items) => items?.[0]?.payload?.fullTitle || 'Subject'}
-                        contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0' }}
-                      />
-                      <Legend />
-                      <Bar dataKey="percentage" name="Attendance %" radius={[6, 6, 0, 0]} fill="#0ea5e9" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={normalizedSubjectAttendance} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <Tooltip
+                          formatter={(value, key, item) =>
+                            key === 'percentage'
+                              ? [`${toNumber(value).toFixed(1)}%`, 'Attendance']
+                              : [value, key]
+                          }
+                          labelFormatter={(_, items) => items?.[0]?.payload?.fullTitle || 'Subject'}
+                          contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0' }}
+                        />
+                        <Legend />
+                        <Bar dataKey="percentage" name="Attendance %" radius={[6, 6, 0, 0]} fill="#0ea5e9" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="mt-6">
+                    <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      Subjects Below 75%
+                    </h4>
+                    {lowSubjectAttendance.length === 0 ? (
+                      <p className="text-sm text-slate-500 mt-2">No subjects are below 75% attendance.</p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {lowSubjectAttendance.map((row) => (
+                          <div key={row.name} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 bg-slate-50">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{row.fullTitle}</p>
+                              <p className="text-xs text-slate-500">{row.name}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-red-600">{row.percentage.toFixed(1)}%</p>
+                              <p className="text-xs text-slate-500">
+                                {row.present}/{row.total}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>

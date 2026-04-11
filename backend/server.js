@@ -10,7 +10,10 @@ import nodemailer from 'nodemailer';
 import bodyParser from 'body-parser';
 import { applyAssociations } from './models/index.js';
 import cookieParser from 'cookie-parser';
-
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import logger from './utils/logger.js';
+import redisClient from './config/redis.js';
 
 // Import Routes
 import leaveRoutes from './routes/student/leaveRoutes.js';
@@ -52,13 +55,21 @@ import patentProductRoutes from './routes/staff/patentProductRoutes.js';
 import projectMentorRoutes from './routes/staff/projectMentorRoutes.js';
 import ScholarRoutes from './routes/staff/scholarRoutes.js';
 import projectProposalRoutes from './routes/staff/fundedProjectRoutes.js';
-import mouRoutes from './routes/mou.js';
+import mouRoutes from './routes/staff/mouRoutes.js';
 import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
+import educationRoutes from './routes/staff/educationRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
+import staffIndustryRoutes from './routes/staff/industryRoutes.js';
+import staffEventsRoutes from './routes/staff/eventsRoutes.js';
+import staffEventsOrganizedRoutes from './routes/staff/eventsOrganizedRoutes.js';
+import studentPanelRoutes from './routes/admin/studentPanelRoutes.js';
 import certificateRoutes from "./routes/student/certificateRoutes.js";
+import marksheetRoutes from "./routes/student/marksheetRoutes.js";
+
+import facultyPublicRoutes from './routes/public/facultyRoutes.js';
 
 import PersonalInfo from './routes/staff/personalRoutes.js';
 
@@ -77,9 +88,9 @@ import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 
 
 import adminRoleRoutes from './routes/adminRoutes.js';
-
-
 import placementMainRoutes from './routes/placement/index.js';
+import { getStudentNptelEnrollments } from './controllers/acadamic/nptelStudentController.js';
+import { authenticate } from './middlewares/requireauth.js';
 
 //Acadamic
 import { initDatabase } from './models/acadamic/index.js';
@@ -100,12 +111,12 @@ const __dirname = path.dirname(__filename);
 
 // MySQL Connection Pool - EXPORTED for use in routes
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vishal2005#',
-  database: process.env.DB_NAME || 'record',
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 100, // Expanded for 5000+ concurrency
   queueLimit: 0,
 });
 
@@ -167,8 +178,28 @@ const startServer = async () => {
 startServer();
 
 // middlewares
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+    const isLocalhost = /^http:\/\/localhost:517[3-9]$/.test(origin);
+
+    if (isLocalhost || allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    } else {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+  },
   credentials: true
 }));
 app.use((req, res, next) => {
@@ -180,9 +211,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+// Security Headers (Helmet)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+
+// Global Rate Limiting for all API requests
+const apiLimiter = rateLimit({
+  max: 300, // Limit each IP to 300 requests per `window` (production scale)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
+});
+app.use('/api', apiLimiter);
+
 // Request logging middlewares
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  logger.info(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
@@ -213,6 +258,7 @@ app.use(AcadamicApp); // Mount academic app routes and middlewares to the main a
 app.use('/api/placement', placementMainRoutes);
 
 app.use('/api', dashboardRoutes);
+app.use("/api", biodataRoutes); // Moved up to prevent route collision
 app.use("/api/hackathon", hackathonRoutes);
 app.use('/api', authRoutes);
 app.use('/api', adminRoutes);
@@ -225,6 +271,7 @@ app.use("/api/bulk", bulkRoutes);
 app.use("/api", studentRoutes);
 
 app.use('/api/student', studentPdfRoutes);
+app.use('/api/education', educationRoutes);
 app.use("/api/staff", PersonalInfo);
 app.use('/api/auth', authRoutes);
 
@@ -241,16 +288,42 @@ app.use('/api/scholars', ScholarRoutes);
 app.use('/api/project-proposal', projectProposalRoutes); // also handles /api/project-proposal/payment/*
 app.use("/api/skillrack", skillrackRoutes);
 app.use("/api/student-education", StudentEducationRoutes);
-// app.use("/api/skillrack", skillrackRoutes);
 app.use("/api/extracurricular", extracurricularRoutes);
 app.use("/api/publications", publicationRoutes);
 app.use("/api/noncgpa-category", nonCGPACategoryRoutes);
 app.use("/api/competency-coding", CompetencyCoding);
 app.use("/api/noncgpa", Noncgpa);
+app.use('/api/industry', staffIndustryRoutes);
+app.use('/api/events', staffEventsRoutes);
+app.use('/api/events-organized', staffEventsOrganizedRoutes);
+app.use('/api/student/certificates', certificateRoutes);
+app.use('/api/student/marksheets', marksheetRoutes);
 
 // Admin Panel Routes
 app.use('/api', adminPanelRoutes);
+app.use('/api', studentPanelRoutes);
 app.use("/api/projects", projectRoutes);
+// // Dummy routes to prevent dashboard and context 404s
+// app.get('/api/appraisals', (req, res) => res.json([]));
+// app.get('/api/industry', (req, res) => res.json([]));
+// app.get('/api/other/events-organized', (req, res) => res.json([]));
+// app.get('/api/nptel/admin/courses', (req, res) => res.json([]));
+// // app.get('/api/skillrack/my-record', (req, res) => res.json([]));
+// // app.get('/api/skillrack/my-stats', (req, res) => res.json({}));
+// app.get('/api/nptel/student/my-courses', (req, res) => res.json([]));
+// app.get('/api/pending-internships', (req, res) => res.json({ internships: [] }));
+// app.get('/api/pending-scholarships', (req, res) => res.json({ scholarships: [] }));
+// app.get('/api/event-organized/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/event-attended/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/all/pending-leaves', (req, res) => res.json({ leaves: [] }));
+// app.get('/api/pending-achievements', (req, res) => res.json({ achievements: [] }));
+// app.get('/api/publications/pending', (req, res) => res.json({ publications: [] }));
+// app.get('/api/competency-coding/pending', (req, res) => res.json({ competencyRecords: [] }));
+// app.get('/api/projects/pending', (req, res) => res.json({ projects: [] }));
+// app.get('/api/hackathon/pending', (req, res) => res.json({ events: [] }));
+// app.get('/api/extracurricular/pending', (req, res) => res.json({ activities: [] }));
+// app.get('/api/noncgpa/pending', (req, res) => res.json({ records: [] }));
+
 app.use('/api', locationRoutes);
 app.use('/api', activityRoutes);
 app.use('/api', ScholarshipRoutes);
@@ -260,17 +333,13 @@ app.use('/api', leaveRoutes);
 app.use('/api/online-courses', OnlineCoursesRoutes);
 app.use('/api', achievementRoutes);
 app.use('/api', courseRoutes);
-app.use("/api", biodataRoutes);
+// app.use("/api", biodataRoutes); // Already moved up above
 app.use('/api/mou', mouRoutes);
-// Remove duplicate static serving
-
 app.use("/api/student-certificate", certificateRoutes);
 app.use("/api/resume", resumeGeneratorRoutes);
 app.use('/api/resume-staff', resumeStaffRoutes);
-
 app.use('/api/admin', adminRoleRoutes);
 app.use('/api', placementMainRoutes);
-
 
 // ============================================
 // Activity Module Routes
@@ -283,6 +352,7 @@ app.use('/api/staff/tlp', tlpRoutes);
 app.use('/api/admin/tlp', tlpApprovalRoutes);
 app.use('/api/public/tlp', tlpPublicRoutes);
 app.use('/api/public/tlp', tlpCommentRoutes);
+app.use('/api/public/faculty', facultyPublicRoutes);
 app.use('/api/admin/tlp/comments', tlpCommentAdminRoutes);
 
 // Health check
@@ -318,10 +388,19 @@ app.use((req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Database: ${process.env.DB_NAME || 'record2'}`);
+});
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please stop the process using this port or set a different PORT in backend/.env.`);
+    console.error('   Run: npx kill-port ' + PORT + '  OR  netstat -ano | findstr :' + PORT);
+    process.exit(1);
+  }
+  throw error;
 });
 
 export default app;

@@ -61,10 +61,7 @@ export const getDepartments = async (req, res) => {
       { ttlSeconds: ttl.medium, onStatus: markCache(res) }
     );
 
-    res.status(200).json({
-      status: 'success',
-      data: rows.map(serializeDepartment),
-    });
+    res.status(200).json(rows.map(serializeDepartment));
   } catch (error) {
     console.error('Error fetching departments:', error);
     res.status(500).json({ status: 'failure', message: error.message });

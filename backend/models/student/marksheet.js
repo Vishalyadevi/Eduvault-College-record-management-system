@@ -1,10 +1,10 @@
-import { DataTypes } from 'sequelize';
-import { sequelize } from '../../config/mysql.js';
+import { DataTypes } from "sequelize";
+import { sequelize } from "../../config/mysql.js";
 
 const Marksheet = sequelize.define(
-  'Marksheet',
+  "Marksheet",
   {
-    id: {
+    marksheetId: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
@@ -12,56 +12,32 @@ const Marksheet = sequelize.define(
     Userid: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: "users", key: 'Userid' }
+      references: { model: "users", key: "Userid" },
     },
-    semester: {
-      type: DataTypes.INTEGER,
+    category: {
+      type: DataTypes.ENUM("Semester", "Personal"),
       allowNull: false,
-      validate: {
-        min: 1,
-        max: 8
-      }
     },
-    file_name: {
-      type: DataTypes.STRING,
-      allowNull: false
+    marksheetName: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
     },
-    file_path: {
-      type: DataTypes.STRING,
-      allowNull: false
+    receivedStatus: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
-    file_type: {
-      type: DataTypes.STRING,
-      allowNull: false
+    issueDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     },
-    file_size: {
-      type: DataTypes.INTEGER,
-      allowNull: false
+    certificateNumber: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
     },
-    status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
-      defaultValue: 'pending'
-    },
-    approved_by: {
-      type: DataTypes.INTEGER,
-      references: { model: "users", key: 'Userid' },
-      allowNull: true
-    },
-    approved_at: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    rejection_reason: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    }
   },
   {
-    tableName: 'marksheets',
     timestamps: true,
-    underscored: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    tableName: "marksheet_statuses",
   }
 );
 

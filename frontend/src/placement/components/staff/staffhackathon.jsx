@@ -54,27 +54,6 @@ const StaffHackathon = () => {
     }
   };
 
-  const StatusBadge = ({ registered, attempted }) => {
-    if (attempted) {
-      return (
-        <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-          <FaCheck /> Attempted
-        </span>
-      );
-    }
-    if (registered) {
-      return (
-        <span className="inline-flex items-center gap-1 bg-indigo-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-          <FaCalendarAlt /> Registered
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
-        Not Registered
-      </span>
-    );
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -145,9 +124,7 @@ const StaffHackathon = () => {
                     </div>
                   </div>
 
-                  <div className="mb-4 pt-4 border-t border-gray-200">
-                    <StatusBadge registered={hackathon.registered} attempted={hackathon.attempted} />
-                  </div>
+                
 
 
                 </div>

@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Download, Search, Filter, User, Hash, AlertCircle } from 'lucide-react';
 import { ClipLoader } from 'react-spinners';
 import useInternalMarks from '../../hooks/useInternalMarks';
+import { getMarksLockStatus } from '../../services/staffService';
 import InternalMarksTable from '../../components/tables/InternalMarksTable';
 
 const InternalMarks = () => {
@@ -23,6 +24,7 @@ const InternalMarks = () => {
   } = useInternalMarks(courseCode, compositeSectionIds);
 
   const [minLoading, setMinLoading] = useState(true);
+  const [marksLocked, setMarksLocked] = useState(false);
   const [regNoTerm, setRegNoTerm] = useState('');
   const [nameTerm, setNameTerm] = useState('');
   const [filterOperator, setFilterOperator] = useState('');
@@ -46,6 +48,15 @@ const InternalMarks = () => {
       return () => clearTimeout(timer);
     }
   }, [loading]);
+
+  useEffect(() => {
+    const fetchLockStatus = async () => {
+      if (!courseCode) return;
+      const locked = await getMarksLockStatus(courseCode);
+      setMarksLocked(locked);
+    };
+    fetchLockStatus();
+  }, [courseCode]);
 
   const computeFinalAvg = (student) => {
     if (!student?.marks || !courseOutcomes?.length) return 0;
@@ -267,10 +278,16 @@ const InternalMarks = () => {
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {marksLocked && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-sm text-amber-800">
+                Marks are locked because consolidation has been generated for this semester. Editing is disabled.
+              </div>
+            )}
             <InternalMarksTable
               students={filteredStudents}
               courseOutcomes={courseOutcomes}
               calculateInternalMarks={calculateInternalMarks}
+              isLocked={marksLocked}
             />
           </div>
         )}

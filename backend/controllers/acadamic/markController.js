@@ -3,7 +3,7 @@ const {
   Course, StaffCourse, CoursePartitions, CourseOutcome,
   COType, COTool, ToolDetails, StudentCOTool,
   StudentDetails, User, StudentCoMarks, Section,
-  Department, Semester, Batch, StudentCourse, sequelize
+  Department, Semester, Batch, StudentCourse, AppSetting, sequelize
 } = models;
 
 import { Op } from 'sequelize';
@@ -23,6 +23,48 @@ const getStaffId = (req) => {
 };
 
 const getStaffNumber = (req) => req.user?.userNumber || 'Unknown';
+
+const CONSOLIDATION_LOCK_PREFIX = 'MARKS_LOCK_SEM_';
+
+const getMarksLockKey = (semesterId) => `${CONSOLIDATION_LOCK_PREFIX}${semesterId}`;
+
+const isMarksLockedForSemester = async (semesterId) => {
+  if (!semesterId) return false;
+  const row = await AppSetting.findByPk(getMarksLockKey(semesterId), {
+    attributes: ['value']
+  });
+  return row?.value === 'true';
+};
+
+const lockMarksForSemester = async (semesterId, actor = 'system') => {
+  if (!semesterId) return;
+  await AppSetting.upsert({
+    key: getMarksLockKey(semesterId),
+    value: 'true',
+    createdBy: String(actor),
+    updatedBy: String(actor)
+  });
+};
+
+const getSemesterIdByCoId = async (coId) => {
+  if (!coId) return null;
+  const co = await CourseOutcome.findByPk(coId, {
+    include: [{ model: Course, attributes: ['semesterId'] }]
+  });
+  return co?.Course?.semesterId ?? null;
+};
+
+const getSemesterIdByToolId = async (toolId) => {
+  if (!toolId) return null;
+  const tool = await COTool.findByPk(toolId, {
+    include: [{
+      model: CourseOutcome,
+      attributes: ['courseId'],
+      include: [{ model: Course, attributes: ['semesterId'] }]
+    }]
+  });
+  return tool?.CourseOutcome?.Course?.semesterId ?? null;
+};
 
 // 1. GET COURSE PARTITIONS
 export const getCoursePartitions = catchAsync(async (req, res) => {
@@ -259,6 +301,13 @@ export const saveStudentMarksForTool = catchAsync(async (req, res) => {
   const { marks } = req.body;
   const staffNumber = getStaffNumber(req);
   const tool = await COTool.findByPk(toolId, { include: [ToolDetails, CourseOutcome] });
+  const semesterId = await getSemesterIdByToolId(toolId);
+  if (await isMarksLockedForSemester(semesterId)) {
+    return res.status(423).json({
+      status: 'error',
+      message: 'Marks are locked because consolidation has been generated for this semester.'
+    });
+  }
   const t = await sequelize.transaction();
   try {
     const coTools = await COTool.findAll({ where: { coId: tool.coId }, include: [ToolDetails], transaction: t });
@@ -293,6 +342,13 @@ export const saveStudentMarksForTool = catchAsync(async (req, res) => {
 export const importMarksForTool = catchAsync(async (req, res) => {
   const { toolId } = req.params;
   const staffNumber = getStaffNumber(req);
+  const semesterId = await getSemesterIdByToolId(toolId);
+  if (await isMarksLockedForSemester(semesterId)) {
+    return res.status(423).json({
+      status: 'error',
+      message: 'Marks are locked because consolidation has been generated for this semester.'
+    });
+  }
   const results = [];
   const stream = Readable.from(req.file.buffer);
   await new Promise((resolve, reject) => { stream.pipe(csv()).on('data', d => results.push(d)).on('end', resolve).on('error', reject); });
@@ -473,7 +529,11 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
       });
     });
   });
-  res.json({ status: 'success', data: { students, courses, marks: map } });
+  const actor = req.user?.userNumber || req.user?.id || req.user?.userId || 'admin';
+  if (s?.semesterId) {
+    await lockMarksForSemester(s.semesterId, actor);
+  }
+  res.json({ status: 'success', data: { students, courses, marks: map, isLocked: true } });
 });
 
 export const getCOsForCourseAdmin = catchAsync(async (req, res) => {
@@ -501,6 +561,13 @@ export const getStudentCOMarksAdmin = catchAsync(async (req, res) => {
 export const updateStudentCOMarkAdmin = catchAsync(async (req, res) => {
   const { regno, coId } = req.params;
   const { consolidatedMark } = req.body;
+  const semesterId = await getSemesterIdByCoId(coId);
+  if (await isMarksLockedForSemester(semesterId)) {
+    return res.status(423).json({
+      status: 'error',
+      message: 'Marks are locked because consolidation has been generated for this semester.'
+    });
+  }
   await StudentCoMarks.upsert({ regno, coId, consolidatedMark, updatedBy: 'admin' });
   res.json({ status: 'success' });
 });
@@ -548,6 +615,13 @@ export const getStudentCOMarksBySection = catchAsync(async (req, res) => {
 export const updateStudentCOMarkByCoId = catchAsync(async (req, res) => {
   const { regno, coId } = req.params;
   const { consolidatedMark } = req.body;
+  const semesterId = await getSemesterIdByCoId(coId);
+  if (await isMarksLockedForSemester(semesterId)) {
+    return res.status(423).json({
+      status: 'error',
+      message: 'Marks are locked because consolidation has been generated for this semester.'
+    });
+  }
   await StudentCoMarks.upsert({ regno, coId, consolidatedMark, updatedBy: getStaffNumber(req) });
   res.json({ status: 'success' });
 });
@@ -747,20 +821,50 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
 
     resData.sort((a, b) => a.regno.localeCompare(b.regno));
 
-    res.json({
-      status: 'success',
-      data: {
-        students: resData,
-        partitions: {
-          theoryCount: primaryCOs.filter(c => c.COType?.coType === 'THEORY').length || 0,
-        },
+  res.json({
+    status: 'success',
+    data: {
+      students: resData,
+      partitions: {
+        theoryCount: primaryCOs.filter(c => c.COType?.coType === 'THEORY').length || 0,
       },
-    });
+    },
+  });
 
   } catch (err) {
     console.error('getStudentCOMarks error:', err);
     res.status(500).json({ status: 'error', message: err.message || 'Internal server error' });
   }
+});
+
+// 12. Marks Lock Status (Staff)
+export const getMarksLockStatusForStaff = catchAsync(async (req, res) => {
+  const { courseCode } = req.params;
+  const staffId = getStaffId(req);
+  const normalizedCode = String(courseCode || '').toUpperCase().trim();
+  if (!normalizedCode) {
+    return res.status(400).json({ status: 'error', message: 'courseCode is required' });
+  }
+
+  const courses = await Course.findAll({
+    where: { courseCode: normalizedCode },
+    include: [{ model: StaffCourse, where: { Userid: staffId }, required: true }],
+  });
+
+  if (!courses.length) {
+    return res.status(404).json({ status: 'error', message: 'Course not found or not assigned' });
+  }
+
+  const semesterIds = courses.map(c => c.semesterId).filter(Boolean);
+  let isLocked = false;
+  for (const semId of semesterIds) {
+    if (await isMarksLockedForSemester(semId)) {
+      isLocked = true;
+      break;
+    }
+  }
+
+  res.json({ status: 'success', data: { isLocked } });
 });
 
 

@@ -130,7 +130,7 @@ export const isAdmin = async (req, res, next) => {
  * SuperAdmin authorization middlewares
  */
 export const isSuperAdmin = (req, res, next) => {
-  if (req.user && req.user.roleName === 'SuperAdmin') {
+  if (req.user && req.user.roleName && req.user.roleName.toLowerCase() === 'superadmin') {
     next();
   } else {
     return res.status(403).json({ status: "failure", message: "SuperAdmin privileges required" });

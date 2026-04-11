@@ -1,36 +1,39 @@
 import React, { useState, useEffect } from "react";
 import { Search, RotateCcw, FileText, Download, Eye, Filter, ChevronDown, Calendar, X } from "lucide-react";
-import { useUser } from "../../contexts/UserContext";
+import { useAuth } from "../auth/AuthContext";
 import axios from "axios";
 import config from "../../../config";
 
 const EnhancedStaffResumeGenerator = () => {
-  const { user } = useUser();
-  // compute effective id (backend tokens and user object may use either property)
-  const effectiveUserId = user?.Userid || user?.userId;
+  const { user } = useAuth();
+  // Extra safeguard to fall back to valid staff IDs if standard internal ID maps are missing
+  const effectiveUserId = user?.userId || user?.id || user?.staffId || localStorage.getItem('userId');
+
+  console.log(`[StaffResume] AuthContext user:`, user);
+  console.log(`[StaffResume] Computed effectiveUserId:`, effectiveUserId);
 
   // State management
   const [selectedSections, setSelectedSections] = useState({
     "Personal Information": true,
-    "Education": false,
-    "Events Attended": false,
-    "Events Organized": false,
-    "Publications": false,
-    "Consultancy Projects": false,
-    "Research Projects": false,
-    "Industry Knowhow": false,
-    "Certification Courses": false,
-    "H-Index": false,
-    "Proposals Submitted": false,
-    "Resource Person": false,
-    "Scholars": false,
-    "Seed Money": false,
-    "Recognition & Appreciation": false,
-    "Patents & Products": false,
-    "Project Mentors": false,
-    "Sponsored Research": false,
-    "Activities": false,
-    "TLP Activities": false,
+    "Education": true,
+    "Events Attended": true,
+    "Events Organized": true,
+    "Publications": true,
+    "Consultancy Projects": true,
+    "Research Projects": true,
+    "Industry Knowhow": true,
+    "Certification Courses": true,
+    "H-Index": true,
+    "Proposals Submitted": true,
+    "Resource Person": true,
+    "Scholars": true,
+    "Seed Money": true,
+    "Recognition & Appreciation": true,
+    "Patents & Products": true,
+    "Project Mentors": true,
+    "Sponsored Research": true,
+    "Activities": true,
+    "TLP Activities": true,
   });
 
   const [dateFilters, setDateFilters] = useState({
@@ -106,21 +109,31 @@ const EnhancedStaffResumeGenerator = () => {
           return;
         }
 
-        console.log(`Fetching staff data for ID: ${effectiveUserId}`);
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error("No authentication token found"); // Added token check
-        const response = await axios.get(
-          `${backendUrl}/api/resume-staff/staff-data/${effectiveUserId}`, // Used backendUrl
-          {
-            withCredentials: true,
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
+          console.log(`Fetching staff data for ID: ${effectiveUserId}...`);
+          const response = await axios.get(
+            `${backendUrl}/api/resume-staff/staff-data/${effectiveUserId}`,
+            { withCredentials: true }
+          );
 
-        if (response.data.success) {
+          if (!response.data || !response.data.success) {
+            console.warn('API returned non-success response:', response.data);
+            throw new Error(response.data?.error || 'Failed to fetch data');
+          }
+
           const apiData = response.data.data;
+          console.log('%c=== API RESPONSE SUCCESS ===', 'background: #4CAF50; color: white; padding: 5px 10px;');
+          console.log('apiData keys:', Object.keys(apiData || {}));
+
+          console.log('%c=== RAW API DATA COUNTS ===', 'background: #FF9800; color: white; padding: 5px 10px;');
+          Object.keys(apiData).forEach(key => {
+            if (key !== 'userInfo') {
+              if (Array.isArray(apiData[key])) {
+                console.log(`  ${key}: ${apiData[key].length} items`);
+              } else {
+                console.log(`  ${key}: NOT AN ARRAY - ${typeof apiData[key]}`);
+              }
+            }
+          });
 
           // Clean phone and address to remove overlapping formulas
           const cleanPhone = (apiData.userInfo?.phone || "").replace(/Ø=ÜÞ/g, "").trim();
@@ -152,25 +165,74 @@ const EnhancedStaffResumeGenerator = () => {
               ...apiData.userInfo,
               phone: cleanPhone,
               address: cleanAddress,
-              name: apiData.userInfo?.name || user.username || 'N/A',
-              email: apiData.userInfo?.email || user.email || 'N/A',
-              staffId: apiData.userInfo?.staffId || user.staffId || 'N/A',
+              name: apiData.userInfo?.name || user.userName || 'N/A',
+              email: apiData.userInfo?.email || user.userMail || 'N/A',
+              staffId: apiData.userInfo?.staffId || user.staffId || user.userNumber || 'N/A',
               department: apiData.userInfo?.department || 'N/A',
               post: apiData.userInfo?.post || apiData.userInfo?.designation || 'N/A', // handle backend naming
             }
           };
 
+          // Log counts for debugging
+          console.log('%c=== TRANSFORMED DATA COUNTS ===', 'background: #2196F3; color: white; padding: 5px 10px;');
+          console.log('Resume sections count:', {
+            education: transformedData["Education"].length,
+            eventsAttended: transformedData["Events Attended"].length,
+            eventsOrganized: transformedData["Events Organized"].length,
+            publications: transformedData["Publications"].length,
+            consultancy: transformedData["Consultancy Projects"].length,
+            researchProjects: transformedData["Research Projects"].length,
+            industryKnowhow: transformedData["Industry Knowhow"].length,
+            certifications: transformedData["Certification Courses"].length,
+            hindex: transformedData["H-Index"].length,
+            proposals: transformedData["Proposals Submitted"].length,
+            resourcePerson: transformedData["Resource Person"].length,
+            scholars: transformedData["Scholars"].length,
+            seedMoney: transformedData["Seed Money"].length,
+            recognition: transformedData["Recognition & Appreciation"].length,
+            patents: transformedData["Patents & Products"].length,
+            projectMentors: transformedData["Project Mentors"].length,
+            sponsoredResearch: transformedData["Sponsored Research"].length,
+            activities: transformedData["Activities"].length,
+            tlpActivities: transformedData["TLP Activities"].length,
+          });
+
+          console.log('Setting staffData and filteredData...');
           setStaffData(transformedData);
           setFilteredData(transformedData);
+          console.log('%c✓ Data set successfully', 'background: #4CAF50; color: white; padding: 5px 10px;');
+
+          // Use a small delay for DOM-level reconciliation if needed (as requested by USER)
+          setTimeout(() => {
+            const counts = document.querySelectorAll('.data-count-display');
+            counts.forEach(c => {
+              if (c.textContent.includes('0 items')) {
+                // Potential force refresh logic here if we used data-attributes
+              }
+            });
+          }, 100);
+
+          // Only select 'Personal Information' by default (as requested by USER)
+          const autoSelection = {};
+          Object.keys(selectedSections).forEach((key) => {
+            autoSelection[key] = (key === 'Personal Information');
+          });
+          setSelectedSections(autoSelection);
+
+          // Verify state contents immediately  
+          console.log('%c=== VERIFICATION: What was set in state ===', 'background: #FF5722; color: white; padding: 5px 10px;', {
+            education: Array.isArray(transformedData["Education"]) ? transformedData["Education"].length : 'ERROR',
+            activities: Array.isArray(transformedData["Activities"]) ? transformedData["Activities"].length : 'ERROR',
+            tlpActivities: Array.isArray(transformedData["TLP Activities"]) ? transformedData["TLP Activities"].length : 'ERROR',
+            eventsAttended: Array.isArray(transformedData["Events Attended"]) ? transformedData["Events Attended"].length : 'ERROR'
+          });
 
           // Fetch profile image from user table
           const profileImage = transformedData.userInfo?.profileImage || transformedData.userInfo?.profile_image;
           if (profileImage) {
             try {
               const imageResponse = await axios.get(`${backendUrl}/api/resume-staff/profile-image/${effectiveUserId}`, {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem('token')}`
-                }
+                withCredentials: true
               });
               if (imageResponse.data.success) {
                 setProfileImageData({
@@ -182,9 +244,6 @@ const EnhancedStaffResumeGenerator = () => {
               console.warn('Could not fetch profile image:', imageErr);
             }
           }
-        } else {
-          throw new Error(response.data.error || 'Failed to fetch data');
-        }
       } catch (err) {
         console.error('Error fetching staff data:', err);
         // log server response body if available for easier debugging
@@ -216,10 +275,10 @@ const EnhancedStaffResumeGenerator = () => {
           "Activities": [],
           "TLP Activities": [],
           userInfo: {
-            name: user.username || 'N/A',
-            email: user.email || 'N/A',
+            name: user.userName || 'N/A',
+            email: user.userMail || 'N/A',
             phone: 'N/A',
-            staffId: user.staffId || 'N/A',
+            staffId: user.staffId || user.userNumber || 'N/A',
             department: 'N/A',
             post: 'N/A',
             address: 'N/A'
@@ -234,7 +293,19 @@ const EnhancedStaffResumeGenerator = () => {
     };
 
     fetchStaffData();
-  }, [user]);
+  }, [user, effectiveUserId]); // Re-run when explicit user contexts change
+
+  // Monitor filteredData state changes
+  useEffect(() => {
+    if (Object.keys(filteredData).length > 0 && filteredData.Education !== undefined) {
+      console.log('%c=== FILTEREDDATA STATE UPDATED ===', 'background: #673AB7; color: white; padding: 5px 10px;', {
+        education: Array.isArray(filteredData["Education"]) ? filteredData["Education"].length : 'NOT ARRAY',
+        activities: Array.isArray(filteredData["Activities"]) ? filteredData["Activities"].length : 'NOT ARRAY',
+        tlpActivities: Array.isArray(filteredData["TLP Activities"]) ? filteredData["TLP Activities"].length : 'NOT ARRAY',
+        totalSections: Object.keys(filteredData).filter(k => k !== 'userInfo').length,
+      });
+    }
+  }, [filteredData]);
 
   // Filter data by date
   const filterByDate = (data, dateField = 'created_at') => {
@@ -264,10 +335,15 @@ const EnhancedStaffResumeGenerator = () => {
     const filtered = {};
 
     Object.keys(staffData).forEach(key => {
-      if (key === 'userInfo') {
+      // Forcefully never filter the personal info arrays to prevent length 0.
+      if (key === 'userInfo' || key === 'Personal Information') {
         filtered[key] = staffData[key];
       } else if (Array.isArray(staffData[key])) {
-        filtered[key] = filterByDate(staffData[key]);
+        // Protect components without strict dates from completely vanishing
+        const filteredArray = filterByDate(staffData[key]);
+        filtered[key] = filteredArray.length > 0 ? filteredArray : (
+          (dateFilters.startDate || dateFilters.month || dateFilters.year) ? [] : staffData[key]
+        );
       } else {
         filtered[key] = staffData[key];
       }
@@ -275,6 +351,7 @@ const EnhancedStaffResumeGenerator = () => {
 
     setFilteredData(filtered);
   };
+
 
   const resetFilters = () => {
     setDateFilters({ startDate: "", endDate: "", month: "", year: "" });
@@ -314,12 +391,19 @@ const EnhancedStaffResumeGenerator = () => {
       const { jsPDF } = await import('jspdf');
 
       const doc = new jsPDF();
-      const { userInfo } = filteredData;
 
-      if (!userInfo) {
-        alert('User information not available. Please try again.');
-        return;
-      }
+      // Defend against any undefined userInfo state by explicitly resolving it
+      const userInfo = filteredData?.userInfo || staffData?.userInfo || {
+        name: user?.userName || 'N/A',
+        email: user?.userMail || 'N/A',
+        staffId: user?.staffId || user?.userNumber || 'N/A',
+        department: 'N/A',
+        phone: 'N/A',
+        post: 'N/A',
+        address: 'N/A'
+      };
+
+      console.log('User info resolved:', userInfo);
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -453,6 +537,14 @@ const EnhancedStaffResumeGenerator = () => {
         }
 
         if (sectionKey === "Education") {
+          const eduItems = [];
+          if (item.phd_status) eduItems.push(`Ph.D (${item.phd_status}) in ${item.phd_title || 'N/A'}, ${item.phd_university || 'N/A'}, ${item.phd_completion_year || item.phd_registration_year || 'N/A'}`);
+          if (item.pg_degree) eduItems.push(`P.G: ${item.pg_degree} in ${item.pg_specialization || 'N/A'}, ${item.pg_institution || 'N/A'}, ${item.pg_year || 'N/A'}`);
+          if (item.ug_degree) eduItems.push(`U.G: ${item.ug_degree} in ${item.ug_specialization || 'N/A'}, ${item.ug_institution || 'N/A'}, ${item.ug_year || 'N/A'}`);
+          if (item.twelfth_institution) eduItems.push(`HSC: ${item.twelfth_institution}, ${item.twelfth_year || 'N/A'}`);
+          if (item.tenth_institution) eduItems.push(`SSLC: ${item.tenth_institution}, ${item.tenth_year || 'N/A'}`);
+          
+          if (eduItems.length > 0) return eduItems.join("\n");
           return `${item.degree || item.course || 'N/A'} in ${item.specialization || item.field_status || 'N/A'}, ${item.institution || 'N/A'}, ${item.year_of_passing || item.completion_year || 'N/A'}`;
         }
 
@@ -620,7 +712,7 @@ const EnhancedStaffResumeGenerator = () => {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-600 bg-clip-text text-transparent mb-3">
             Staff Resume Generator
           </h1>
-          <p className="text-gray-600 text-lg">Create your professional academic resume with advanced filtering</p>
+          
         </div>
 
         {/* Filter Section */}
@@ -726,7 +818,19 @@ const EnhancedStaffResumeGenerator = () => {
             {activityList.map((activity) => {
               const isSelected = selectedSections[activity.name];
               const isRequired = activity.name === "Personal Information";
-              const dataCount = Array.isArray(filteredData[activity.name]) ? filteredData[activity.name].length : 0;
+              const sectionData = filteredData[activity.name] ?? staffData[activity.name] ?? [];
+              const dataCount = Array.isArray(sectionData) ? sectionData.length : 0;
+
+              // Debug logging - only log once per render and when count changes
+              if (activity.name === "Education" || activity.name === "Activities" || activity.name === "TLP Activities") {
+                console.log(`[${activity.name}]`, {
+                  useFilteredData: Array.isArray(filteredData[activity.name]) ? filteredData[activity.name].length : 'not-array',
+                  fallbackStaffData: Array.isArray(staffData[activity.name]) ? staffData[activity.name].length : 'not-array',
+                  effectiveUsing: dataCount,
+                  filteredDataKeys: Object.keys(filteredData),
+                  staffDataKeys: Object.keys(staffData)
+                });
+              }
 
               return (
                 <button
@@ -734,40 +838,49 @@ const EnhancedStaffResumeGenerator = () => {
                   onClick={() => toggleSection(activity.name)}
                   disabled={isRequired}
                   className={`
-                    relative p-4 rounded-xl border-2 transition-all duration-200 text-left
+                    relative p-5 rounded-2xl border-2 transition-all duration-300 text-left group
                     ${isSelected
-                      ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-indigo-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                      ? 'border-indigo-600 bg-indigo-50 shadow-indigo-100 shadow-lg scale-[1.02]'
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-white hover:border-indigo-300 hover:shadow-md'
                     }
-                    ${isRequired ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}
+                    ${isRequired ? 'opacity-80 cursor-not-allowed border-indigo-200 bg-indigo-50/30' : 'cursor-pointer'}
                   `}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`
+                        w-10 h-10 rounded-xl flex items-center justify-center transition-colors
+                        ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-gray-400 group-hover:text-indigo-500 shadow-sm'}
+                      `}>
+                        {isSelected ? (
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-current opacity-30" />
+                        )}
+                      </div>
                       <div>
-                        <p className={`font-semibold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
+                        <p className={`font-bold text-lg leading-tight ${isSelected ? 'text-indigo-900' : 'text-gray-700'}`}>
                           {activity.name}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {dataCount} item{dataCount !== 1 ? 's' : ''}
+                        <p className={`text-sm mt-1 flex items-center gap-1.5 ${isSelected ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}>
+                          {dataCount > 0 ? (
+                            <>
+                              <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-500' : 'bg-green-500'}`} />
+                              {dataCount} item{dataCount !== 1 ? 's' : ''}
+                            </>
+                          ) : (
+                            <span className="opacity-60 italic">0 items</span>
+                          )}
                         </p>
                       </div>
                     </div>
-                    <div className={`
-                      w-6 h-6 rounded-full border-2 flex items-center justify-center
-                      ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}
-                    `}>
-                      {isSelected && (
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
                   </div>
                   {isRequired && (
-                    <span className="absolute top-2 right-2 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">
+                    <div className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md font-black shadow-sm">
                       Required
-                    </span>
+                    </div>
                   )}
                 </button>
               );

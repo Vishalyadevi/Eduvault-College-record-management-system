@@ -81,7 +81,7 @@ export const testSkillRackSetup = async (req, res) => {
 export const getMySkillRackRecord = async (req, res) => {
   try {
     console.log("🔍 Getting my record...");
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId || req.query.userId;
 
     if (!userId) {
       return res.status(400).json({
@@ -101,9 +101,10 @@ export const getMySkillRackRecord = async (req, res) => {
 
     if (!studentDetails || !studentDetails.registerNumber) {
       console.log("⚠️ No student details found for userId:", userId);
-      return res.status(404).json({
-        success: false,
-        message: "Student registration number not found"
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: "No SkillRack data available (Student profile not found or user is not a student)."
       });
     }
 
@@ -135,7 +136,7 @@ export const getMySkillRackRecord = async (req, res) => {
 export const getSkillRackStats = async (req, res) => {
   try {
     console.log("📊 Getting stats...");
-    const userId = req.user?.userId || req.user?.Userid || req.query.UserId;
+    const userId = req.user?.userId || req.user?.Userid || req.query.UserId || req.query.userId;
 
     if (!userId) {
       return res.status(400).json({
@@ -150,9 +151,20 @@ export const getSkillRackStats = async (req, res) => {
     });
 
     if (!studentDetails) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found"
+      return res.status(200).json({
+        success: true,
+        stats: {
+          totalPrograms: 0,
+          levelProgress: { level_1: 0, level_2: 0, level_3: 0, level_4: 0, level_5: 0, level_6: 0 },
+          languageDistribution: { c: 0, cpp: 0, java: 0, python: 0, sql: 0 },
+          companyProgress: { mnc: 0, product: 0, dream: 0 },
+          testsAndTracks: { codeTests: 0, codeTracks: 0, codeTutorial: 0, dailyChallenge: 0, dailyTest: 0 },
+          medals: 0,
+          rank: null,
+          aptitudeScore: 0,
+          dataStructurePrograms: 0,
+        },
+        message: "Student profile not found"
       });
     }
 

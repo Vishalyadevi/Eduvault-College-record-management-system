@@ -69,7 +69,7 @@ import Meeting from './components/meeting';
 import ApprovalLetters from './components/Approval1';
 import RegulationList from './components/RegulationList';
 import ACADEMICCALENDER from './components/ACADEMICCALENDER';
-import CSEDepartment from './components/CSEDepartment ';
+import CSEDepartment from './components/CSEDepartment.tsx';
 import AcademicDeanSection from './components/AcademicDeanSection';
 import ACADEMICCOUNCIL from './components/ACADEMICCOUNCIL';
 import GreenEnery from './components/GreenEnergy';
@@ -138,6 +138,7 @@ import StudentSkillRackPage from './records/pages/Student/SkillrackPage.jsx';
 
 import DepartmentManagement from './records/pages/admin/DepartmentManagement.jsx';
 import RoleManagement from './records/pages/admin/RoleManagement.jsx';
+import TutorAllocation from './records/pages/admin/TutorAllocation.jsx';
 
 import ActivityPage from './records/pages/StaffPage/ActivityPage.jsx';
 import ActivityApprovalPage from './records/pages/admin/ActivityApprovalPage.clean.jsx';
@@ -159,6 +160,7 @@ import ResetPassword from './records/pages/ResetPassword';
 import StudentBioData from './records/pages/Student/StudentBioData';
 import StaffBioData from './records/pages/StaffPage/StaffBioData';
 import StudentActivity from './records/pages/Student/StudentActivity';
+import StudentMarksheets from './records/pages/Student/StudentMarksheets';
 
 // New Staff Pages for Records
 import DashboardPage from './records/pages/StaffPage/DashboardPage';
@@ -644,6 +646,11 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><StudentLeaveApproval /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/tutor-allocation" element={
+        <ProtectedRoute allowedRoles={['Superadmin', 'Deptadmin', 'acadamicadmin', 'Admin']}>
+          <RecordsLayoutWithLocation><TutorAllocation /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
 
       {/* Staff Routes */}
       {/* <Route path="/records/staff" element={
@@ -918,7 +925,7 @@ const AppRoutes: React.FC = () => {
         </ProtectedRoute>
       } />
       <Route path="/records/staff-biodata/:userId" element={
-        <ProtectedRoute allowedRoles={['Staff', 'Superadmin', 'Deptadmin', 'acadamicadmin']}>
+        <ProtectedRoute allowedRoles={['Staff', 'Admin', 'Superadmin', 'Deptadmin', 'acadamicadmin']}>
           <RecordsLayoutWithLocation>
             <StaffBioData />
           </RecordsLayoutWithLocation>
@@ -951,6 +958,14 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute allowedRoles={['Student']}>
           <RecordsLayoutWithLocation includeStudentProvider={true}>
             <Publication />
+          </RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/records/student-marksheets" element={
+        <ProtectedRoute allowedRoles={['Student']}>
+          <RecordsLayoutWithLocation includeStudentProvider={true}>
+            <StudentMarksheets />
           </RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />

@@ -8,9 +8,17 @@ import catchAsync from '../../utils/catchAsync.js';
 
 const COURSE_REQUEST_WINDOW_KEY = 'COURSE_REQUEST_WINDOW_OPEN';
 
-const isAdminRole = (role) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'admin' || normalized === 'super admin' || normalized === 'superadmin';
+const isAdminRole = (roleName) => {
+  const normalized = String(roleName || '').trim().toLowerCase();
+  return (
+    normalized === 'admin' ||
+    normalized === 'super admin' ||
+    normalized === 'superadmin' ||
+    normalized === 'acadamicadmin' ||
+    normalized === 'academicadmin' ||
+    normalized === 'academic admin' ||
+    normalized === 'acadamic admin'
+  );
 };
 
 const getCourseRequestWindowState = async () => {
@@ -301,27 +309,60 @@ export const resendRejectedRequest = catchAsync(async (req, res) => {
 export const getPendingRequestsForAdmin = catchAsync(async (req, res) => {
   const { semester, branch, dept, batch, type } = req.query;
 
+  const semesterNumber = semester ? parseInt(semester, 10) : null;
+  const departmentId = dept ? parseInt(dept, 10) : null;
+
+  const courseWhere = {};
+  if (type) courseWhere.type = type;
+
+  const semesterWhere = {};
+  if (semesterNumber) semesterWhere.semesterNumber = semesterNumber;
+
+  const batchWhere = {};
+  if (branch) batchWhere.branch = branch;
+  if (batch) batchWhere.batch = batch;
+
+  const regulationWhere = {};
+  if (departmentId) regulationWhere.departmentId = departmentId;
+
+  const courseRequired =
+    Object.keys(courseWhere).length > 0 ||
+    Object.keys(semesterWhere).length > 0 ||
+    Object.keys(batchWhere).length > 0 ||
+    Object.keys(regulationWhere).length > 0;
+
+  const semesterRequired =
+    Object.keys(semesterWhere).length > 0 ||
+    Object.keys(batchWhere).length > 0 ||
+    Object.keys(regulationWhere).length > 0;
+
+  const batchRequired =
+    Object.keys(batchWhere).length > 0 ||
+    Object.keys(regulationWhere).length > 0;
+
+  const regulationRequired = Object.keys(regulationWhere).length > 0;
+
   const requests = await CourseRequest.findAll({
     where: { status: 'PENDING' },
     include: [
-      { model: User, attributes: ['userId', 'userName', 'userMail', 'userNumber'] },
+      { model: User, attributes: ['userId', 'userName', 'userMail', 'userNumber'], required: false },
       {
         model: Course,
-        where: type ? { type } : {},
+        required: courseRequired,
+        where: courseWhere,
         include: [{
           model: Semester,
-          where: semester ? { semesterNumber: semester } : {},
+          required: semesterRequired,
+          where: semesterWhere,
           include: [{
             model: Batch,
-            where: {
-              ...(branch && { branch }),
-              ...(batch && { batch })
-            },
+            required: batchRequired,
+            where: batchWhere,
             include: [{
               model: Regulation,
-              // Filter by Department ID if provided
-              where: dept ? { departmentId: dept } : {},
-              include: [Department]
+              required: regulationRequired,
+              where: regulationWhere,
+              include: [{ model: Department, required: false }]
             }]
           }]
         }]
@@ -526,7 +567,8 @@ export const getCourseRequestWindowStatus = catchAsync(async (req, res) => {
 
 // 14. Admin toggles course request window
 export const setCourseRequestWindowStatus = catchAsync(async (req, res) => {
-  if (!isAdminRole(req.user?.role)) {
+  const roleName = req.user?.roleName || req.user?.role;
+  if (!isAdminRole(roleName)) {
     return res.status(403).json({ status: 'error', message: 'Only admin can change request lock status' });
   }
 
@@ -535,7 +577,7 @@ export const setCourseRequestWindowStatus = catchAsync(async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'isOpen (boolean) is required' });
   }
 
-  const actor = req.user?.userNumber || req.user?.id || req.user?.userId || 'admin';
+  const actor = req.user?.userNumber || req.user?.id || req.user?.userId || 'admin' || 'acadamicadmin';
   await AppSetting.upsert({
     key: COURSE_REQUEST_WINDOW_KEY,
     value: isOpen ? 'true' : 'false',

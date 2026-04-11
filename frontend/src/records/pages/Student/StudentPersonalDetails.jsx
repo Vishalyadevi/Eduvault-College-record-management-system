@@ -81,10 +81,22 @@ const StudentPersonalDetails = () => {
         account_no: student?.studentUser?.bankDetails?.account_no || "",
         ifsc_code: student?.studentUser?.bankDetails?.ifsc_code || "",
         micr_code: student?.studentUser?.bankDetails?.micr_code || "",
+        umis_number: student?.umis_number || "",
+        parents_phone: student?.parents_phone || "",
+        lateral_entry: student?.lateral_entry || "No",
+        admission_quota: student?.admission_quota || "",
+        student_district: student?.student_district || "",
+        student_state: student?.student_state || "",
+        address: student?.address || "",
+        present_address: student?.present_address || "",
+        permanent_address: student?.permanent_address || "",
+        sixteen_digit_reg_no: student?.sixteen_digit_reg_no || "",
+        nationality: student?.nationality || "Indian",
         relations: student?.studentUser?.relationDetails?.map((relation) => ({
           relationship: relation?.relationship,
           name: relation?.relation_name,
           age: relation?.relation_age,
+          qualification: relation?.relation_qualification,
           occupation: relation?.relation_occupation,
           income: relation?.relation_income,
           phone: relation?.relation_phone,
@@ -158,6 +170,7 @@ const StudentPersonalDetails = () => {
           relationship: "",
           name: "",
           age: "",
+          qualification: "",
           occupation: "",
           income: "",
           phone: "",
@@ -227,10 +240,20 @@ const StudentPersonalDetails = () => {
       {[
         { label: "Personal Email", name: "personal_email" },
         { label: "Phone", name: "personal_phone" },
+        { label: "Parents Phone", name: "parents_phone" },
+        { label: "16-Digit Reg No", name: "sixteen_digit_reg_no" },
+        { label: "UMIS Number", name: "umis_number" },
         { label: "Aadhar Card No", name: "aadhar_card_no" },
+        { label: "Nationality", name: "nationality" },
         { label: "Mother Tongue", name: "mother_tongue" },
         { label: "Caste", name: "caste" },
+        { label: "Admission Quota", name: "admission_quota" },
+        { label: "Address", name: "address" },
+        { label: "Present Address", name: "present_address" },
+        { label: "Permanent Address", name: "permanent_address" },
         { label: "City", name: "city" },
+        { label: "District", name: "student_district" },
+        { label: "State", name: "student_state" },
         { label: "Pincode", name: "pincode" },
       ].map((field, index) => (
         <div key={index} className="flex flex-col">
@@ -252,6 +275,7 @@ const StudentPersonalDetails = () => {
 
       {[
         { label: "First Graduate", name: "first_graduate", options: ["Yes", "No"] },
+        { label: "Lateral Entry", name: "lateral_entry", options: ["Yes", "No"] },
         { label: "Blood Group", name: "blood_group", options: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"] },
         { label: "Student Type", name: "student_type", options: ["Day-Scholar", "Hosteller"] },
         { label: "Religion", name: "religion", options: ["Hindu", "Muslim", "Christian", "Others"] },
@@ -292,6 +316,7 @@ const StudentPersonalDetails = () => {
             <th className="border border-gray-300 p-3 text-left">Relationship</th>
             <th className="border border-gray-300 p-3 text-left">Name</th>
             <th className="border border-gray-300 p-3 text-left">Age</th>
+            <th className="border border-gray-300 p-3 text-left">Qualification</th>
             <th className="border border-gray-300 p-3 text-left">Occupation</th>
             <th className="border border-gray-300 p-3 text-left">Income</th>
             <th className="border border-gray-300 p-3 text-left">Phone</th>
@@ -318,7 +343,7 @@ const StudentPersonalDetails = () => {
                   <option value="Sibling">Sibling</option>
                 </select>
               </td>
-              {["name", "age", "occupation", "income", "phone", "email"].map((field, idx) => (
+              {["name", "age", "qualification", "occupation", "income", "phone", "email"].map((field, idx) => (
                 <td key={idx} className="border border-gray-300 p-3">
                   <input
                     type="text"

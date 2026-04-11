@@ -7,8 +7,8 @@ import API from "../../services/api";
 import config from "../../../config";
 
 
-const StudentBioData = () => {
-  const { userId } = useParams();
+const StudentBioData = ({ userId: propUserId }) => {
+  const { userId: urlUserId } = useParams();
   const [user, setUser] = useState({
     username: "",
     email: "",
@@ -29,7 +29,6 @@ const StudentBioData = () => {
   const [projects, setProjects] = useState([]);
   const [competencyCoding, setCompetencyCoding] = useState([]);
   const [skillrackStats, setSkillrackStats] = useState(null);
-  const [nptelCourses, setNptelCourses] = useState([]);
   const [nonCgpaRecords, setNonCgpaRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -48,7 +47,6 @@ const StudentBioData = () => {
     projects: false,
     competency: false,
     skillrack: false,
-    nptel: false,
     noncgpa: false,
   });
 
@@ -80,21 +78,50 @@ const StudentBioData = () => {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        const effectiveUserId = userId || authUser?.userId || authUser?.id;
-
+        const effectiveUserId = propUserId || urlUserId || authUser?.userId || authUser?.id;
+        console.log("-----------------------------------------");
+        console.log("BIO DATA FETCH STARTING FOR USER ID:", effectiveUserId);
+        console.log("-----------------------------------------");
 
         if (!effectiveUserId) {
           setError("User ID not found.");
+          setLoading(false);
           return;
         }
 
+        // Helper to safely fetch data
+        const safeFetch = (request, name = "unknown") =>
+          request.then(res => {
+            console.log(`[DEBUG] ${name} response:`, res.data); // Log the actual data received
+            return res;
+          }).catch(err => {
+            console.error(`API error for ${name}:`, err.response?.config?.url, err.message);
+            return { data: null };
+          });
+
+        // Helper to SAFELY extract an array from various typical API response structures
+        const extractArray = (responseData) => {
+          if (!responseData) return [];
+          if (Array.isArray(responseData)) return responseData;
+
+          if (typeof responseData === 'object') {
+            const possibleKeys = ['data', 'events', 'records', 'certificates', 'projects', 'activities', 'enrollments', 'courses'];
+            for (let key of possibleKeys) {
+              if (Array.isArray(responseData[key])) {
+                return responseData[key];
+              }
+            }
+          }
+          return [];
+        };
+
         // Fetch student biodata
-        const studentRes = await API.get(`/biodata/${effectiveUserId}`);
+        const studentRes = await safeFetch(API.get(`/biodata/${effectiveUserId}`), "biodata");
         setStudent(studentRes.data);
 
         // Fetch user details
-        const userRes = await API.get(`/auth/get-user/${effectiveUserId}`);
-        if (userRes.data.success) {
+        const userRes = await safeFetch(API.get(`/auth/get-user/${effectiveUserId}`), "user_details");
+        if (userRes.data && userRes.data.success) {
           setUser({
             username: userRes.data.user.username,
             email: userRes.data.user.email,
@@ -106,57 +133,57 @@ const StudentBioData = () => {
         }
 
         // Fetch events attended
-        const eventsRes = await API.get(`/approved-events/${effectiveUserId}`);
-        setEvents(eventsRes.data || []);
+        const eventsRes = await safeFetch(API.get(`/approved-events/${effectiveUserId}`), "events_attended");
+        setEvents(extractArray(eventsRes.data));
 
         // Fetch courses
-        const coursesRes = await API.get(`/user-courses/${effectiveUserId}`);
-        setCourses(coursesRes.data.courses || []);
+        const coursesRes = await safeFetch(API.get(`/user-courses/${effectiveUserId}`), "online_courses");
+        setCourses(extractArray(coursesRes.data));
 
         // Fetch organized events
-        const organizedRes = await API.get(`/approved-events-organized/${effectiveUserId}`);
-        setOrganizedEvents(organizedRes.data || []);
+        const organizedRes = await safeFetch(API.get(`/approved-events-organized/${effectiveUserId}`), "events_organized");
+        setOrganizedEvents(extractArray(organizedRes.data));
 
         // Fetch internships
-        const internshipsRes = await API.get(`/approved-internships/${effectiveUserId}`);
-        setInternships(internshipsRes.data || []);
+        const internshipsRes = await safeFetch(API.get(`/approved-internships/${effectiveUserId}`), "internships");
+        setInternships(extractArray(internshipsRes.data));
 
         // Fetch scholarships
-        const scholarshipsRes = await API.get(`/fetch-scholarships/${effectiveUserId}`);
-        setScholarships(scholarshipsRes.data || []);
+        const scholarshipsRes = await safeFetch(API.get(`/fetch-scholarships/${effectiveUserId}`), "scholarships");
+        setScholarships(extractArray(scholarshipsRes.data));
 
         // Fetch leaves
-        const leavesRes = await API.get(`/fetch-leaves/${effectiveUserId}`);
-        setApprovedLeaves(leavesRes.data || []);
+        const leavesRes = await safeFetch(API.get(`/fetch-leaves/${effectiveUserId}`), "leaves");
+        setApprovedLeaves(extractArray(leavesRes.data));
 
         // Fetch certifications (approved)
-        const certRes = await API.get(`/certifications/my-certificates`, { params: { UserId: effectiveUserId } });
-        setCertifications(Array.isArray(certRes.data?.certificates) ? certRes.data.certificates : (Array.isArray(certRes.data) ? certRes.data : []));
+        const certRes = await safeFetch(API.get(`/certifications/my-certificates`, { params: { userId: effectiveUserId } }), "certifications");
+        setCertifications(extractArray(certRes.data));
 
         // Fetch hackathons
-        const hackRes = await API.get(`/student-hackathons/my-registrations`, { params: { UserId: effectiveUserId } });
-        setHackathons(Array.isArray(hackRes.data?.records) ? hackRes.data.records : (Array.isArray(hackRes.data) ? hackRes.data : []));
+        const hackRes = await safeFetch(API.get(`/hackathon/my-events`, { params: { userId: effectiveUserId } }), "hackathons");
+        setHackathons(extractArray(hackRes.data));
 
         // Fetch extracurricular records
-        const extraRes = await API.get(`/extracurricular/my-records`, { params: { UserId: effectiveUserId } });
-        setExtracurricular(Array.isArray(extraRes.data?.records) ? extraRes.data.records : (Array.isArray(extraRes.data) ? extraRes.data : []));
+        const extraRes = await safeFetch(API.get(`/extracurricular/my-activities`, { params: { userId: effectiveUserId } }), "extracurricular");
+        setExtracurricular(extractArray(extraRes.data));
 
         // Fetch projects
-        const projRes = await API.get(`/projects/my-projects`, { params: { UserId: effectiveUserId } });
-        setProjects(Array.isArray(projRes.data?.projects) ? projRes.data.projects : (Array.isArray(projRes.data) ? projRes.data : []));
+        const projRes = await safeFetch(API.get(`/projects/my-projects`, { params: { userId: effectiveUserId } }), "projects");
+        setProjects(extractArray(projRes.data));
 
         // Fetch competency & coding
-        const compRes = await API.get(`/competency-coding/my-records`, { params: { UserId: effectiveUserId } });
-        setCompetencyCoding(Array.isArray(compRes.data?.records) ? compRes.data.records : (Array.isArray(compRes.data) ? compRes.data : []));
+        const compRes = await safeFetch(API.get(`/competency-coding/my-record`, { params: { userId: effectiveUserId } }), "competency");
+        setCompetencyCoding(extractArray(compRes.data));
 
         // Fetch skillrack stats
-        const srRes = await API.get(`/skillrack/my-stats`, { params: { UserId: effectiveUserId } });
+        const srRes = await safeFetch(API.get(`/skillrack/my-stats`, { params: { userId: effectiveUserId } }), "skillrack_stats");
         const stats = srRes.data?.stats || null;
         if (stats && (stats.rank !== null || (stats.medals ?? 0) > 0 || (stats.totalPrograms ?? 0) > 0)) {
           setSkillrackStats(stats);
         } else {
           try {
-            const srRecRes = await API.get(`/skillrack/my-record`, { params: { UserId: effectiveUserId } });
+            const srRecRes = await safeFetch(API.get(`/skillrack/my-record`, { params: { userId: effectiveUserId } }), "skillrack_record");
             const rec = srRecRes.data?.data || null;
             if (rec) {
               setSkillrackStats({
@@ -173,16 +200,12 @@ const StudentBioData = () => {
           }
         }
 
-        // Fetch NPTEL courses
-        const nptelRes = await API.get(`/nptel/student/my-courses`);
-        setNptelCourses(Array.isArray(nptelRes.data?.enrollments) ? nptelRes.data.enrollments : (Array.isArray(nptelRes.data) ? nptelRes.data : []));
-
         // Fetch Non-CGPA records
-        const noncgpaRes = await API.get(`/noncgpa/my-records`);
-        setNonCgpaRecords(Array.isArray(noncgpaRes.data?.records) ? noncgpaRes.data.records : (Array.isArray(noncgpaRes.data) ? noncgpaRes.data : []));
+        const noncgpaRes = await safeFetch(API.get(`/noncgpa/my-records`, { params: { userId: effectiveUserId } }), "noncgpa");
+        setNonCgpaRecords(extractArray(noncgpaRes.data));
 
         // Fetch education summary
-        const eduRes = await API.get(`/student-education/my-record`, { params: { UserId: effectiveUserId } });
+        const eduRes = await safeFetch(API.get(`/student-education/my-record`, { params: { userId: effectiveUserId } }), "education");
         setEducation(eduRes.data?.education || null);
 
         setError(null);
@@ -194,11 +217,11 @@ const StudentBioData = () => {
       }
     };
 
-    if (userId || authUser) {
+    if (propUserId || urlUserId || authUser) {
       fetchAllData();
     }
 
-  }, [userId]);
+  }, [urlUserId, propUserId, authUser, backendUrl]);
 
   const CollapsibleSection = ({ title, icon: Icon, count, isExpanded, onToggle, children }) => (
     <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
@@ -278,7 +301,7 @@ const StudentBioData = () => {
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Department</p>
-              <p className="font-semibold break-words">{student?.Department?.departmentName || 'N/A'}</p>
+              <p className="font-semibold break-words">{student?.department?.departmentName || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-sm font-medium text-gray-500">Course</p>
@@ -875,37 +898,6 @@ const StudentBioData = () => {
         </div>
       </CollapsibleSection>
 
-      {/* NPTEL Courses */}
-      <CollapsibleSection
-        title="NPTEL Courses"
-        icon={GraduationCap}
-        count={nptelCourses.length}
-        isExpanded={expandedSections.nptel}
-        onToggle={() => toggleSection('nptel')}
-      >
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="w-2/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                <th className="w-1/5 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exam Date</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {nptelCourses.map((c, idx) => (
-                <tr key={c.id || idx} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 break-words text-sm">{c.course_name || c.title}</td>
-                  <td className="px-4 py-3 break-words text-sm">{c.status || '-'}</td>
-                  <td className="px-4 py-3 break-words text-sm">{c.credits || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{c.exam_date ? c.exam_date.split('T')[0] : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CollapsibleSection>
 
       {/* Non-CGPA */}
       <CollapsibleSection
@@ -927,9 +919,9 @@ const StudentBioData = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {nonCgpaRecords.map((r, idx) => (
                 <tr key={r.id || idx} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 break-words text-sm">{r.category || '-'}</td>
-                  <td className="px-4 py-3 break-words text-sm">{r.title || '-'}</td>
-                  <td className="px-4 py-3 break-words text-sm">{r.tutor_approval_status === true ? 'Approved' : (r.tutor_approval_status === false ? 'Rejected' : 'Pending')}</td>
+                  <td className="px-4 py-3 break-words text-sm">{r.category?.course_name || r.course_name || r.category || '-'}</td>
+                  <td className="px-4 py-3 break-words text-sm">{r.course_code || r.title || '-'}</td>
+                  <td className="px-4 py-3 break-words text-sm">{r.tutor_verification_status === true ? 'Approved' : (r.tutor_verification_status === false ? 'Rejected' : 'Pending')}</td>
                 </tr>
               ))}
             </tbody>
