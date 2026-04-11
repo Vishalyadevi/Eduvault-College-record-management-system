@@ -12,7 +12,7 @@ const CourseStaffSelection = () => {
   const [openDropdown, setOpenDropdown] = useState(null);
 
   const { regno, batchId, departmentId, semesterId } = useParams();
-  const API_URL = `http://localhost:4000/api/cbcs/student?regno=${regno}&batchId=${batchId}&departmentId=${departmentId}&semesterId=${semesterId}`;
+  const API_URL = `http://localhost:4000/api/cbcs/student?regno=${regno}&batchId=${batchId}&deptId=${departmentId}&semesterId=${semesterId}`;
 
   useEffect(() => {
     fetchData();

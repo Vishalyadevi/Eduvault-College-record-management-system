@@ -179,9 +179,9 @@ const StudentDashboard = () => {
         const ids = await fetchStudentAcademicIds();
         if (!ids) return;
         setAcademicIds({
-          regno: ids.regno,
+          regno,
           batchId: ids.batchId || '',
-          departmentId: ids.departmentId || '',
+          departmentId: ids.departmentId || ids.deptId || '',
           semesterId: ids.semesterId || selectedSemester
         });
       } catch {

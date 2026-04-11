@@ -102,9 +102,9 @@ const CreateCBCS = () => {
         const data = response.data;
         if (data.success || data.status === 'success') {
           const deptList = (data.departments || data.data || []).map(d => ({
-            id: d.departmentId.id,
-            name: d.Deptname || d.name,
-            acronym: d.Deptacronym // Backend needs acronym (e.g. "CSE") for branch
+            id: d.departmentId ?? d.id,
+            name: d.departmentName || d.Deptname || d.name,
+            acronym: d.departmentAcr || d.Deptacronym || d.deptCode
           }));
           setDepartments(deptList);
         } else {
@@ -134,7 +134,7 @@ const CreateCBCS = () => {
       try {
         // Map IDs back to string names for the backend logic
         const selectedBatchObj = batches.find(b => (b.batchId || b.id).toString() === filters.batchId.toString());
-        const selectedDeptObj = departments.find(d => d.id.toString() === filters.departmentId.toString());
+        const selectedDeptObj = departments.find(d => d.id?.toString() === filters.departmentId.toString());
 
         if (!selectedBatchObj || !selectedDeptObj) {
           setError('Invalid batch or department selection');
@@ -204,18 +204,23 @@ const CreateCBCS = () => {
       
       if (data.success || data.status === 'success') {
         const courseData = data.courses || data.data;
-        setCourses(courseData);
-        const initialExpanded = {};
-        Object.keys(courseData).forEach(group => {
-          initialExpanded[group] = true;
-        });
-        setExpandedGroups(initialExpanded);
+        if (!courseData || typeof courseData !== 'object') {
+          setError('No courses returned');
+          setCourses(null);
+        } else {
+          setCourses(courseData);
+          const initialExpanded = {};
+          Object.keys(courseData).forEach(group => {
+            initialExpanded[group] = true;
+          });
+          setExpandedGroups(initialExpanded);
+        }
       } else {
         setError('Failed to fetch courses');
         setCourses(null);
       }
     } catch (err) {
-      setError('Error fetching courses');
+      setError(err.response?.data?.message || 'Error fetching courses');
       setCourses(null);
     } finally {
       setFetching(false);
@@ -370,7 +375,7 @@ const CreateCBCS = () => {
         setError(data.message || 'Failed to create CBCS');
       }
     } catch (err) {
-      setError('Error creating CBCS: ' + (err.response?.data?.messagerr.message));
+      setError('Error creating CBCS: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -475,7 +480,7 @@ const CreateCBCS = () => {
                 <option value="">{loadingBatches ? 'Loading...' : 'Select Batch'}</option>
                 {filteredBatches.map(batch => (
                   <option key={batch.batchId || batch.id} value={batch.batchId || batch.id}>
-                    {`${batch.batch.name} - ${batch.branch || ''} (${batch.batchYears || ''})`}
+                    {`${batch.batch || ''} - ${batch.branch || ''} (${batch.batchYears || ''})`}
                   </option>
                 ))}
               </select>
@@ -489,7 +494,7 @@ const CreateCBCS = () => {
               </label>
               <select
                 value={filters.departmentId}
-                onChange={(e) => setFilters({ ...filters, departmentId: e.target.value, batchId: '', semesterId: '' })}
+                onChange={(e) => setFilters({ ...filters, departmentId: e.target.value, semesterId: '' })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
                 disabled={loadingDepts}
               >

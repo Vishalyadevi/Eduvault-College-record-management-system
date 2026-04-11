@@ -241,7 +241,15 @@ export const getCbcsById = async (req, res) => {
  */
 export const getStudentCbcsSelection = async (req, res) => {
   try {
-    const { regno, batchId, deptId, semesterId } = req.query;
+    const { regno, batchId, semesterId } = req.query;
+    const deptId = req.query.deptId || req.query.departmentId;
+
+    if (!regno || !batchId || !deptId || !semesterId) {
+      return res.status(400).json({
+        success: false,
+        error: "regno, batchId, deptId/departmentId, and semesterId are required"
+      });
+    }
 
     const cbcs = await CBCS.findOne({
       where: { batchId, departmentId: deptId, semesterId },

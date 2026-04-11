@@ -147,7 +147,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
       <div className="hidden lg:flex w-1/2 bg-indigo-600 items-center justify-center p-12">
-        <img src="/4583.jpg" alt="National Engineering College Illustration" className="max-w-md rounded-2xl shadow-2xl" />
+        <img src="/images/4583.jpg" alt="National Engineering College Illustration" className="max-w-md rounded-2xl shadow-2xl" />
       </div>
 
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
