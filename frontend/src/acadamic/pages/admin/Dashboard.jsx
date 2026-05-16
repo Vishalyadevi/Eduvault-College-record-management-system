@@ -48,15 +48,16 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log(user);
       if (!user) {
-        console.log('No user found, redirecting to login');
         navigate('/records/login');
         return;
       }
 
       try {
-        const semestersResponse = await api.get('/admin/semesters');
+        const [semestersResponse, coursesResponse] = await Promise.all([
+          api.get('/admin/semesters'),
+          api.get('/admin/courses')
+        ]);
         const semesters = semestersResponse.data.data || [];
 
         const sortedSemesters = [...semesters].sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
@@ -86,7 +87,6 @@ const AdminDashboard = () => {
           };
         });
 
-        const coursesResponse = await api.get('/admin/courses');
         const courses = coursesResponse.data.data || [];
 
         const recentCourses = courses.slice(-3).map(course => ({
@@ -105,7 +105,6 @@ const AdminDashboard = () => {
       } catch (error) {
         console.error('Error fetching dashboard data:', error.response?.data || error.message);
         if (error.response?.status === 401) {
-          console.log('Unauthorized, redirecting to login');
           navigate('/records/login');
         }
       }
@@ -131,7 +130,6 @@ const AdminDashboard = () => {
   }, [isScrolling, allActions.length]);
 
   const navigateTo = (page) => {
-    console.log(`Navigating to: ${page}`);
     navigate(`/admin/${page}`);
   };
 

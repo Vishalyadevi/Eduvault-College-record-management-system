@@ -2,6 +2,7 @@
 import db from '../../models/acadamic/index.js';
 import catchAsync from '../../utils/catchAsync.js';
 import { Op } from 'sequelize';
+import { autoGenerateTimetableForSemester } from '../../services/timetableAutoGenerationService.js';
 
 // Destructure models from db object
 const { 
@@ -17,6 +18,51 @@ const {
   StaffCourse, 
   User 
 } = db;
+
+const toStaffAcronym = (name = '') => {
+  const salutations = new Set([
+    'mr',
+    'mrs',
+    'ms',
+    'miss',
+    'dr',
+    'prof',
+    'sir',
+    'madam',
+  ]);
+
+  const parts = String(name)
+    .replace(/\./g, ' ')
+    .split(' ')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .filter((p) => !salutations.has(p.toLowerCase()));
+
+  if (parts.length === 0) return '';
+
+  return parts
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
+};
+
+const pickStaffAssignments = (timetableEntry) => {
+  const assignments = Array.isArray(timetableEntry?.teachingAssignments)
+    ? timetableEntry.teachingAssignments
+    : [];
+
+  if (assignments.length === 0) return [];
+
+  const sectionId = timetableEntry.sectionId;
+
+  const matched =
+    sectionId != null
+      ? assignments.filter((a) => a.sectionId === sectionId)
+      : assignments;
+
+  return matched.length > 0 ? matched : assignments;
+};
 
 async function findStaffConflictForSlot({
   courseIds,
@@ -135,6 +181,19 @@ export const getTimetable = catchAsync(async (req, res) => {
         model: Section, 
         attributes: ['sectionId', 'sectionName'],
         required: false 
+      },
+      {
+        model: StaffCourse,
+        as: 'teachingAssignments',
+        attributes: ['Userid', 'sectionId', 'departmentId'],
+        required: false,
+        include: [
+          {
+            model: User,
+            attributes: ['userName'],
+            required: false
+          }
+        ]
       }
     ]
   });
@@ -147,7 +206,13 @@ export const getTimetable = catchAsync(async (req, res) => {
     dayOfWeek: t.dayOfWeek?.toUpperCase(),
     periodNumber: t.periodNumber,
     courseTitle: t.Course?.courseTitle || t.courseId, // Fallback if course join fails
-    sectionName: t.Section?.sectionName || 'No Section'
+    courseCode: t.Course?.courseCode || null,
+    sectionName: t.Section?.sectionName || 'No Section',
+    staffs: pickStaffAssignments(t).map((a) => ({
+      staffId: a.Userid,
+      staffName: a.User?.userName || null,
+      staffAcronym: toStaffAcronym(a.User?.userName || '')
+    }))
   }));
 
   res.status(200).json({
@@ -188,6 +253,19 @@ export const getTimetableByFilters = catchAsync(async (req, res) => {
         model: Section, 
         attributes: ['sectionId', 'sectionName'], 
         required: false 
+      },
+      {
+        model: StaffCourse,
+        as: 'teachingAssignments',
+        attributes: ['Userid', 'sectionId', 'departmentId'],
+        required: false,
+        include: [
+          {
+            model: User,
+            attributes: ['userName'],
+            required: false
+          }
+        ]
       }
     ]
   });
@@ -199,7 +277,12 @@ export const getTimetableByFilters = catchAsync(async (req, res) => {
     dayOfWeek: t.dayOfWeek?.toUpperCase(),
     periodNumber: t.periodNumber,
     courseTitle: t.Course?.courseTitle || t.courseId,
-    sectionName: t.Section?.sectionName || 'No Section'
+    sectionName: t.Section?.sectionName || 'No Section',
+    staffs: pickStaffAssignments(t).map((a) => ({
+      staffId: a.Userid,
+      staffName: a.User?.userName || null,
+      staffAcronym: toStaffAcronym(a.User?.userName || '')
+    }))
   }));
 
   res.status(200).json({ status: 'success', data: formattedData });
@@ -349,6 +432,38 @@ export const deleteTimetableEntry = catchAsync(async (req, res) => {
   });
 
   res.status(200).json({ status: 'success', message: 'Timetable entry deleted' });
+});
+
+export const autoGenerateTimetable = catchAsync(async (req, res) => {
+  const semesterNumber = req.body?.semesterNumber ?? req.query?.semesterNumber ?? null;
+  const batch = req.body?.batch ?? req.query?.batch ?? null;
+  const branch = req.body?.branch ?? req.query?.branch ?? null;
+  const semesterId = req.body?.semesterId ?? req.query?.semesterId ?? null;
+  const departmentId = req.body?.departmentId ?? req.query?.departmentId ?? null;
+  const replaceExisting = req.body?.replaceExisting ?? true;
+
+  const actor =
+    req.user?.userName ||
+    req.user?.userNumber ||
+    req.user?.email ||
+    req.user?.userId ||
+    'academic-admin';
+
+  const result = await autoGenerateTimetableForSemester({
+    semesterNumber,
+    batch,
+    branch,
+    semesterId,
+    departmentId,
+    replaceExisting,
+    actor: String(actor),
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Timetable generated successfully',
+    data: result,
+  });
 });
 
 /* =========================

@@ -46,7 +46,13 @@ const StudentCourseMapping = () => {
           api.get("/departments"),
           api.get("/admin/batches"),
         ]);
-        setDepartments(deptRes.data?.data || []);
+        setDepartments(
+          Array.isArray(deptRes.data)
+            ? deptRes.data
+            : Array.isArray(deptRes.data?.data)
+              ? deptRes.data.data
+              : []
+        );
         setBatches(batchRes.data?.data || []);
       } catch (err) {
         console.error("Failed to load filters", err);
@@ -177,7 +183,8 @@ const StudentCourseMapping = () => {
     }))
   ];
 
-  const getDeptName = () => departments.find(d => d.departmentId === selectedDept)?.Deptacronym || selectedDept;
+  const getDeptName = () =>
+    departments.find((d) => String(d.departmentId) === String(selectedDept))?.Deptacronym || selectedDept;
   const getBatchName = () => selectedBatch;
 
   const exportToExcel = () => {

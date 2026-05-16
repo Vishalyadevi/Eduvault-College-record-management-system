@@ -3,6 +3,7 @@ import API from "../../../api";
 import { setCurrentUser } from "../../services/authService";
 
 const AuthContext = createContext(null);
+const AUTH_CACHE_KEY = "acadamic_auth_user";
 
 const sanitizeUser = (user = {}) => ({
   userId: user.userId ?? user.id ?? null,
@@ -17,6 +18,16 @@ const sanitizeUser = (user = {}) => ({
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const persistUser = (nextUser) => {
+    if (nextUser) {
+      sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(nextUser));
+    } else {
+      sessionStorage.removeItem(AUTH_CACHE_KEY);
+    }
+    setUser(nextUser);
+    setCurrentUser(nextUser);
+  };
 
   const refresh = async () => {
     try {
@@ -34,13 +45,11 @@ export function AuthProvider({ children }) {
       };
       const safeUser = sanitizeUser(merged);
 
-      setUser(safeUser);
-      setCurrentUser(safeUser);
+      persistUser(safeUser);
       return safeUser;
     } catch (error) {
       console.error("Auth Refresh Error:", error);
-      setUser(null);
-      setCurrentUser(null);
+      persistUser(null);
       return null;
     } finally {
       setLoading(false);
@@ -57,6 +66,16 @@ export function AuthProvider({ children }) {
       path.startsWith("/records/reset-password");
 
     if (!isPublicAuthPath) {
+      const cachedUser = sessionStorage.getItem(AUTH_CACHE_KEY);
+      if (cachedUser) {
+        try {
+          const parsed = sanitizeUser(JSON.parse(cachedUser));
+          setUser(parsed);
+          setCurrentUser(parsed);
+        } catch {
+          sessionStorage.removeItem(AUTH_CACHE_KEY);
+        }
+      }
       refresh();
     } else {
       setLoading(false);
@@ -64,7 +83,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, refresh, setUser }}>
+    <AuthContext.Provider value={{ user, loading, refresh, setUser: persistUser }}>
       {children}
     </AuthContext.Provider>
   );

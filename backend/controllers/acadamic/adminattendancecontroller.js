@@ -15,8 +15,20 @@ const {
   StudentCourse, 
   StudentDetails, 
   User, 
+  DayAttendance,
   PeriodAttendance 
 } = db;
+
+async function resolveSemesterNumber(input) {
+  const parsed = Number.parseInt(input, 10);
+  if (Number.isNaN(parsed)) return null;
+
+  const semester = await Semester.findByPk(parsed, {
+    attributes: ['semesterNumber']
+  });
+
+  return semester?.semesterNumber || parsed;
+}
 
 // Helper to generate dates between two dates (inclusive)
 function generateDates(start, end) {
@@ -56,6 +68,32 @@ async function getInternalAdminUser(authUser) {
   }
 
   throw new Error("Admin user not found");
+}
+
+async function upsertDayAttendanceSummary({ regno, semesterNumber, attendanceDate, transaction }) {
+  if (!regno || !semesterNumber || !attendanceDate) return;
+
+  const rows = await PeriodAttendance.findAll({
+    where: { regno, semesterNumber, attendanceDate },
+    attributes: ['status'],
+    transaction
+  });
+
+  if (!rows.length) return;
+
+  const hasPresent = rows.some((row) => ['P', 'OD'].includes(row.status));
+  const dailyStatus = hasPresent ? 'P' : 'A';
+  const existing = await DayAttendance.findOne({
+    where: { regno, semesterNumber, attendanceDate },
+    transaction
+  });
+
+  if (existing) {
+    await existing.update({ status: dailyStatus }, { transaction });
+    return;
+  }
+
+  await DayAttendance.create({ regno, semesterNumber, attendanceDate, status: dailyStatus }, { transaction });
 }
 
 /**
@@ -183,6 +221,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
     const requestedCourseId = parseInt(courseId, 10);
     const effectiveDeptId = Number.isNaN(normalizedDeptId) ? authDeptId : normalizedDeptId;
     const effectiveSemesterId = Number.isNaN(normalizedSemesterId) ? course.semesterId : normalizedSemesterId;
+    const effectiveSemesterNumber = await resolveSemesterNumber(effectiveSemesterId);
     let targetCourseIds = [requestedCourseId];
 
     if (isElective) {
@@ -239,11 +278,11 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
             model: StudentDetails,
             required: true,
             on: { regno: sequelize.where(sequelize.col('StudentCourse.regno'), '=', sequelize.col('StudentDetail.registerNumber')) },
-            where: {
-              ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
-              ...(effectiveSemesterId ? { semester: effectiveSemesterId } : {}),
-              ...(queryBatch ? { batch: queryBatch } : {})
-            },
+              where: {
+                ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
+                ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
+                ...(queryBatch ? { batch: queryBatch } : {})
+              },
             attributes: ['registerNumber', 'studentName']
           },
           {
@@ -289,11 +328,11 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
             model: StudentDetails,
             required: true,
             on: { regno: sequelize.where(sequelize.col('StudentCourse.regno'), '=', sequelize.col('StudentDetail.registerNumber')) },
-            where: {
-              ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
-              ...(effectiveSemesterId ? { semester: effectiveSemesterId } : {}),
-              ...(queryBatch ? { batch: queryBatch } : {})
-            },
+              where: {
+                ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
+                ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
+                ...(queryBatch ? { batch: queryBatch } : {})
+              },
             attributes: ["registerNumber", "studentName", "section"]
           },
           {
@@ -523,6 +562,13 @@ export async function markAttendanceAdmin(req, res, next) {
           continue;
         }
 
+        await upsertDayAttendanceSummary({
+          regno: att.rollnumber,
+          semesterNumber: requestedCourseInfo.Semester.semesterNumber,
+          attendanceDate: date,
+          transaction: t
+        });
+
         processedStudents.push({ rollnumber: att.rollnumber, status: att.status, periodsUpdated: upsertedCount });
       } else {
         const studentCourse = await StudentCourse.findOne({
@@ -616,6 +662,13 @@ export async function markAttendanceAdmin(req, res, next) {
           updatedBy: "admin"
         }, { transaction: t });
 
+        await upsertDayAttendanceSummary({
+          regno: att.rollnumber,
+          semesterNumber: semesterNumberByCourseId.get(effectiveCourseId) || requestedCourseInfo.Semester.semesterNumber,
+          attendanceDate: date,
+          transaction: t
+        });
+
         if (att.status === "A") {
           absentEntries.push({
             rollnumber: att.rollnumber,
@@ -670,11 +723,13 @@ export async function getStudentsBySemester(req, res) {
   const { batch, semesterId, departmentId } = req.query;
 
   try {
+    const semesterNumber = await resolveSemesterNumber(semesterId);
+
     const students = await StudentDetails.findAll({
       where: {
         departmentId: departmentId,
         batch: batch,
-        semester: semesterId
+        ...(semesterNumber ? { semester: String(semesterNumber) } : {})
       },
       attributes: [
         ['registerNumber', 'rollnumber'],
@@ -710,6 +765,7 @@ export async function markFullDayOD(req, res) {
     const { startDate, endDate, students, departmentId, semesterId, batch } = req.body;
     const adminUser = await getInternalAdminUser(req.user);
     const adminUserId = adminUser.userId;
+    const semesterNumber = await resolveSemesterNumber(semesterId);
 
     if (!students || students.length === 0) {
       await t.rollback();
@@ -792,7 +848,7 @@ export async function markFullDayOD(req, res) {
             staffId: adminUserId,
             courseId: slot.courseId,
             sectionId: resolvedSectionId,
-            semesterNumber: semesterId,
+            semesterNumber: semesterNumber || semesterId,
             dayOfWeek: dayOfWeek,
             periodNumber: slot.periodNumber,
             attendanceDate: currentDate,
@@ -802,6 +858,13 @@ export async function markFullDayOD(req, res) {
           }, { transaction: t });
           totalEntries += 1;
         }
+
+        await upsertDayAttendanceSummary({
+          regno: student.rollnumber,
+          semesterNumber: semesterNumber || semesterId,
+          attendanceDate: currentDate,
+          transaction: t
+        });
       }
     }
 
@@ -841,10 +904,12 @@ export async function getStudentsByDeptAndSem(req, res, next) {
       });
     }
 
+    const semesterNumber = await resolveSemesterNumber(semesterId);
+
     const students = await StudentDetails.findAll({
       where: {
         departmentId: departmentId,
-        semester: semesterId
+        ...(semesterNumber ? { semester: String(semesterNumber) } : {})
       },
       attributes: ['registerNumber', 'studentName'],
       order: [['registerNumber', 'ASC']]

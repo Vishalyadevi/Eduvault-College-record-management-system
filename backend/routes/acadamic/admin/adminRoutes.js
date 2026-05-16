@@ -34,6 +34,7 @@ import {
   updateStudentBatch,
   getAvailableCoursesForBatch,
   unenrollStudentFromCourse,
+  autoAllocateSemesterCourses,
 } from "../../../controllers/acadamic/studentAllocationController.js";
 import {
   getSectionsForCourse,
@@ -69,6 +70,7 @@ import {
   getAllTimetableDepartments,
   getTimetable,
   createTimetableEntry,
+  autoGenerateTimetable,
   updateTimetableEntry,
   deleteTimetableEntry,
   getTimetableByFilters,
@@ -111,8 +113,7 @@ import { getStudentCourseMatrix } from "../../../controllers/acadamic/studentCou
 import { getElectiveSelections } from "../../../controllers/acadamic/studentpageController.js";
 import { getCOsForCourseAdmin, getStudentCOMarksAdmin, updateStudentCOMarkAdmin } from "../../../controllers/acadamic/markController.js";
 import multer from 'multer';
-import { uploadGrades, viewGPA, viewCGPA } from '../../../controllers/acadamic/gradeController.js';
-import { getStudentsForGrade } from '../../../controllers/acadamic/gradeController.js';
+import { uploadGrades, viewGPA, viewCGPA, getStudentsForGrade, recalculateAllGrades } from '../../../controllers/acadamic/gradeController.js';
 
 import {
   addNptelCourse,
@@ -165,6 +166,7 @@ router.get("/staff/:Userid/courses-enhanced", requireAuth, restrictToAcademicAdm
 router.get("/students/search", requireAuth, restrictToAcademicAdmin, searchStudents);
 router.get("/courses/available/:semesterNumber", requireAuth, restrictToAcademicAdmin, getAvailableCourses);
 router.post("/students/enroll", requireAuth, restrictToAcademicAdmin, enrollStudentInCourse);
+router.post("/students/auto-allocate", requireAuth, restrictToAcademicAdmin, autoAllocateSemesterCourses);
 router.put("/students/:rollNumber/batch", requireAuth, restrictToAcademicAdmin, updateStudentBatch);
 router.get("/courses/available/:batchId/:semesterNumber", requireAuth, restrictToAcademicAdmin, getAvailableCoursesForBatch);
 router.delete("/students/unenroll", requireAuth, restrictToAcademicAdmin, unenrollStudentFromCourse);
@@ -207,6 +209,7 @@ router.get("/timetable/by-filters", requireAuth, restrictToAcademicAdmin, getTim
 router.get("/timetable/semester/:semesterId", requireAuth, restrictToAcademicAdmin, getTimetable);
 router.get("/timetable-periods", requireAuth, restrictToAcademicAdmin, getTimetablePeriods);
 router.post("/timetable-periods", requireAuth, restrictToAcademicAdmin, saveTimetablePeriods);
+router.post("/timetable/auto-generate", requireAuth, restrictToAcademicAdmin, autoGenerateTimetable);
 router.post("/timetable/entry", requireAuth, restrictToAcademicAdmin, createTimetableEntry);
 router.put("/timetable/entry/:timetableId", requireAuth, restrictToAcademicAdmin, updateTimetableEntry);
 router.delete("/timetable/entry/:timetableId", requireAuth, restrictToAcademicAdmin, deleteTimetableEntry);
@@ -257,6 +260,7 @@ router.post('/grades/import', requireAuth, restrictToAcademicAdmin, upload.singl
 router.get('/grades/gpa', requireAuth, restrictToAcademicAdmin, viewGPA);
 router.get('/grades/cgpa', requireAuth, restrictToAcademicAdmin, viewCGPA);
 router.get('/grades/students-grade', requireAuth, restrictToAcademicAdmin, getStudentsForGrade);
+router.post('/grades/recalculate-all', requireAuth, restrictToAcademicAdmin, recalculateAllGrades);
 
 /* =========================
 📌 NPTEL Course Routes

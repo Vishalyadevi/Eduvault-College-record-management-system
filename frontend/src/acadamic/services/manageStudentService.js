@@ -2,6 +2,7 @@ import { showErrorToast } from '../utils/swalConfig.js';
 import { api } from '../services/authService.js';
 
 const API_BASE = 'http://localhost:4000/api/admin';
+const DEBUG_ACADAMIC = import.meta.env.VITE_DEBUG_ACADAMIC === 'true';
 
 const manageStudentsService = {
   fetchFilterOptions: async (branch) => {
@@ -15,12 +16,6 @@ const manageStudentsService = {
       if (branchesRes.status !== 200) throw new Error('Failed to load branches.');
       if (semestersRes.status !== 200) throw new Error('Failed to load semesters.');
       if (batchesRes.status !== 200) throw new Error('Failed to load batches.');
-
-      console.log('Fetched filter options:', { 
-        branches: branchesRes.data.data, 
-        semesters: semestersRes.data.data, 
-        batches: batchesRes.data.data 
-      });
 
       return {
         branches: branchesRes.data.data || [],
@@ -41,15 +36,12 @@ const manageStudentsService = {
         ? semester.replace('Semester ', '')
         : '';
 
-      console.log('fetchStudentsAndCourses - Filters:', { degree, branch, batch, semester, semesterNumber });
-
       const studentsRes = await api.get(`${API_BASE}/students/search`, {
         params: {
           degree,
           branch,
           batch,
           semesterNumber,
-          _t: Date.now(), // cache-busting
         },
       });
 
@@ -59,9 +51,6 @@ const manageStudentsService = {
 
       let studentsData = studentsRes.data.studentsData || [];
       let coursesData = studentsRes.data.coursesData || [];
-
-      console.log('Raw studentsData:', studentsData);
-      console.log('Raw coursesData:', coursesData);
 
       const cleanedStudents = Array.isArray(studentsData)
         ? studentsData.map((student) => ({
@@ -101,8 +90,10 @@ const manageStudentsService = {
           }))
         : [];
 
-      console.log('Cleaned Students Data:', cleanedStudents);
-      console.log('Courses Data:', coursesData);
+      if (DEBUG_ACADAMIC) {
+        console.log('Students Data:', cleanedStudents);
+        console.log('Courses Data:', coursesData);
+      }
 
       return { studentsData: cleanedStudents, coursesData };
     } catch (err) {
@@ -193,6 +184,31 @@ const manageStudentsService = {
     } catch (err) {
       console.error('Error in saveAssignments:', err);
       showErrorToast(err.message || 'Failed to save course assignments');
+      throw err;
+    }
+  },
+
+  autoAllocateSemester: async ({ branch, batch, semester }) => {
+    try {
+      const semesterNumber =
+        typeof semester === 'string' && semester.startsWith('Semester ')
+          ? Number(semester.replace('Semester ', ''))
+          : Number(semester);
+
+      const res = await api.post(`${API_BASE}/students/auto-allocate`, {
+        branch,
+        batch,
+        semesterNumber,
+      });
+
+      if (res.status !== 200 || res.data.status !== 'success') {
+        throw new Error(res.data.message || 'Failed to auto allocate semester data');
+      }
+
+      return res.data;
+    } catch (err) {
+      console.error('Error in autoAllocateSemester:', err);
+      showErrorToast(err.response?.data?.message || err.message || 'Failed to auto allocate semester data');
       throw err;
     }
   },

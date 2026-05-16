@@ -5,11 +5,14 @@ import { sequelize } from '../../config/mysql.js';
 const Company = sequelize.define('Company', {
     companyId: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     companyName: { type: DataTypes.STRING(150), allowNull: false },
-    companyAcr: { type: DataTypes.STRING(20), allowNull: false, unique: true }, // Simple unique here
+    // NOTE: Avoid inline UNIQUE here to prevent repeated ALTER ... UNIQUE
+    // creating duplicate indexes during sequelize.sync({ alter: true }).
+    // Use named indexes (below) for stable constraint management.
+    companyAcr: { type: DataTypes.STRING(20), allowNull: false },
     logo: { type: DataTypes.STRING(500), allowNull: true },
-    registrationNumber: { type: DataTypes.STRING(50), allowNull: true, unique: true },
-    pan: { type: DataTypes.STRING(10), allowNull: true, unique: true },
-    gst: { type: DataTypes.STRING(15), allowNull: true, unique: true },
+    registrationNumber: { type: DataTypes.STRING(50), allowNull: true },
+    pan: { type: DataTypes.STRING(10), allowNull: true },
+    gst: { type: DataTypes.STRING(15), allowNull: true },
     tin: { type: DataTypes.STRING(20), allowNull: true },
     phone: { type: DataTypes.STRING(15), allowNull: true },
     email: { type: DataTypes.STRING(150), allowNull: true, validate: { isEmail: true } },
@@ -27,8 +30,13 @@ const Company = sequelize.define('Company', {
   }, {
     tableName: 'companies',
     timestamps: true,
-    paranoid: true
-    // DO NOT ADD AN INDEXES: [] BLOCK HERE
+    paranoid: true,
+    indexes: [
+      { name: 'uq_companies_companyAcr', unique: true, fields: ['companyAcr'] },
+      { name: 'uq_companies_registrationNumber', unique: true, fields: ['registrationNumber'] },
+      { name: 'uq_companies_pan', unique: true, fields: ['pan'] },
+      { name: 'uq_companies_gst', unique: true, fields: ['gst'] },
+    ]
   });
 
   Company.associate = (models) => {

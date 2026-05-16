@@ -20,32 +20,30 @@ const useManageStudentsData = (filters) => {
   const [batches, setBatches] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     const fetchFilterOptions = async () => {
       setError(null);
       try {
-        const [branchesRes, semestersRes, batchesRes] = await Promise.all([
+        const [baseOptions, branchOptions] = await Promise.all([
           manageStudentsService.fetchFilterOptions(''),
-          manageStudentsService.fetchFilterOptions(''),
-          manageStudentsService.fetchFilterOptions(filters.branch || ''),
+          filters.branch ? manageStudentsService.fetchFilterOptions(filters.branch) : Promise.resolve(null),
         ]);
-        console.log('Filter Options:', { branches: branchesRes.branches, semesters: semestersRes.semesters, batches: batchesRes.batches });
-        setBranches(branchesRes.branches || Object.keys(branchMap));
-        setSemesters(semestersRes.semesters);
-        setBatches(batchesRes.batches || []);
+        setBranches(baseOptions?.branches || Object.keys(branchMap));
+        setSemesters(baseOptions?.semesters || []);
+        setBatches((branchOptions?.batches || baseOptions?.batches) || []);
       } catch (err) {
         console.error('Error fetching filter options:', err);
         setError(err.message || 'Network error: Unable to fetch filter options.');
       }
     };
     fetchFilterOptions();
-  }, [filters.branch]);
+  }, [filters.branch, reloadToken]);
 
   useEffect(() => {
     const areRequiredFiltersSelected = filters.branch !== '' && filters.semester !== '' && filters.batch !== '';
     if (!areRequiredFiltersSelected) {
-      console.log('Required filters (branch, semester, batch) not all selected, skipping data fetch:', filters);
       setStudents([]);
       setAvailableCourses([]);
       setIsLoading(false);
@@ -56,13 +54,10 @@ const useManageStudentsData = (filters) => {
       setIsLoading(true);
       setError(null);
       try {
-        console.log('Fetching with filters:', filters);
         const { studentsData, coursesData } = await manageStudentsService.fetchStudentsAndCourses(
           filters,
           batches
         );
-        console.log('Received studentsData:', studentsData);
-        console.log('Received coursesData:', coursesData);
         setStudents(studentsData || []);
         setAvailableCourses(coursesData || []);
       } catch (err) {
@@ -75,7 +70,11 @@ const useManageStudentsData = (filters) => {
       }
     };
     fetchData();
-  }, [filters.degree, filters.branch, filters.semester, filters.batch]);
+  }, [filters.degree, filters.branch, filters.semester, filters.batch, reloadToken]);
+
+  const reloadData = () => {
+    setReloadToken((prev) => prev + 1);
+  };
 
   return {
     students,
@@ -89,6 +88,7 @@ const useManageStudentsData = (filters) => {
     isLoading,
     error,
     setError,
+    reloadData,
   };
 };
 

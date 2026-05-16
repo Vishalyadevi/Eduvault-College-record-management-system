@@ -152,11 +152,6 @@ const StudentDashboard = () => {
           [...sortedBySem].reverse().find((s) => toNumber(s.semesterNumber) <= studentCurrentSem) ||
           sortedBySem[sortedBySem.length - 1];
         if (current) setSelectedSemester(String(current.semesterId));
-
-        await Promise.all([
-          loadGpaHistory(),
-          fetchOecPecProgress().then(setProgress).catch(() => setProgress(null))
-        ]);
       } catch (err) {
         setError(err?.message || 'Failed to load dashboard');
       } finally {
@@ -166,6 +161,12 @@ const StudentDashboard = () => {
 
     loadInitial();
   }, [authLoading, navigate, user?.role]);
+
+  useEffect(() => {
+    if (loading || !studentDetails) return;
+    loadGpaHistory();
+    fetchOecPecProgress().then(setProgress).catch(() => setProgress(null));
+  }, [loading, studentDetails]);
 
   useEffect(() => {
     const loadAcademicIds = async () => {
@@ -201,10 +202,11 @@ const StudentDashboard = () => {
           fetchEnrolledCourses(selectedSemester),
           fetchAttendanceSummary(selectedSemester).catch(() => ({}))
         ]);
-        const subjectRes = await fetchSubjectwiseAttendance(selectedSemester).catch(() => []);
         setCourses(Array.isArray(coursesRes) ? coursesRes : []);
         setAttendanceSummary(attendanceRes || {});
-        setSubjectAttendance(Array.isArray(subjectRes) ? subjectRes : []);
+        fetchSubjectwiseAttendance(selectedSemester)
+          .then((subjectRes) => setSubjectAttendance(Array.isArray(subjectRes) ? subjectRes : []))
+          .catch(() => setSubjectAttendance([]));
       } catch {
         setCourses([]);
         setAttendanceSummary({});

@@ -76,6 +76,26 @@ const isPlaceholderCourseHeader = (header) => {
   return /^course\d+$/.test(h) || /^subject\d+$/.test(h) || /^c\d+$/.test(h);
 };
 
+const resolveDepartmentByBranch = async (branch) => {
+  const raw = String(branch ?? '').trim();
+  if (!raw) return null;
+
+  const numericId = Number.parseInt(raw, 10);
+  if (!Number.isNaN(numericId) && String(numericId) === raw) {
+    const byId = await Department.findByPk(numericId);
+    if (byId) return byId;
+  }
+
+  return Department.findOne({
+    where: {
+      [Op.or]: [
+        sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentAcr')), raw.toUpperCase()),
+        sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentName')), raw.toUpperCase())
+      ]
+    }
+  });
+};
+
 let gradeSchemaReady = false;
 let semesterAnalyticsSchemaReady = false;
 const ensureGradeSchemaReady = async (transaction) => {
@@ -452,6 +472,50 @@ const getCurrentCgpa = async (regno, semesterId) => {
   return row?.cgpa === null || row?.cgpa === undefined ? null : roundToTwo(row.cgpa);
 };
 
+const getGradeStudentsByFilters = async ({ branch, batch }) => {
+  const department = await resolveDepartmentByBranch(branch);
+
+  if (branch && !department) {
+    return { error: 'Department not found for selected branch' };
+  }
+
+  const rows = await StudentDetails.findAll({
+    where: {
+      ...(batch ? { batch } : {}),
+      ...(department ? { departmentId: department.departmentId } : {})
+    },
+    include: [
+      {
+        model: User,
+        as: 'user',
+        required: false,
+        attributes: ['userName', 'status', 'roleId']
+      }
+    ],
+    attributes: ['registerNumber', 'studentName'],
+    order: [['registerNumber', 'ASC']]
+  });
+
+  const students = rows.map((row) => ({
+    regno: row.registerNumber,
+    name: row.user?.userName || row.studentName
+  }));
+
+  return { students };
+};
+
+const decorateStudentsWithSemesterScores = async (students, semesterId) => Promise.all(
+  students.map(async (student) => {
+    const gpa = semesterId ? await getCurrentGpa(student.regno, semesterId) : null;
+    const cgpa = semesterId ? await getCurrentCgpa(student.regno, semesterId) : null;
+    return {
+      ...student,
+      gpa: gpa === null ? '-' : gpa.toFixed(2),
+      cgpa: cgpa === null ? '-' : cgpa.toFixed(2)
+    };
+  })
+);
+
 export const uploadGrades = catchAsync(async (req, res) => {
   const { file } = req;
   const { semesterId, isNptel: isNptelRaw, uploadType: uploadTypeRaw } = req.body;
@@ -641,34 +705,50 @@ export const viewCGPA = catchAsync(async (req, res) => {
 });
 
 export const getStudentsForGrade = catchAsync(async (req, res) => {
-  const { branch, batch } = req.query;
+  const { branch, batch, semesterId } = req.query;
+  const { students, error } = await getGradeStudentsByFilters({ branch, batch });
+  if (error) {
+    return res.status(404).json({ status: 'error', message: error });
+  }
 
-  const rows = await StudentDetails.findAll({
-    where: { batch },
-    include: [
-      {
-        model: User,
-        as: 'user',
-        where: { roleId: { [Op.in]: [3, 4] }, status: 'Active' },
-        attributes: ['userName']
-      },
-      {
-        model: Department,
-        as: 'department',
-        where: { departmentAcr: branch },
-        attributes: []
-      }
-    ],
-    attributes: ['registerNumber', 'studentName'],
-    order: [['registerNumber', 'ASC']]
+  for (const student of students) {
+    await recalculateStudentAcademicRows(student.regno, null);
+  }
+
+  let responseData = students;
+  if (semesterId) {
+    responseData = await decorateStudentsWithSemesterScores(students, semesterId);
+  }
+
+  res.json({ status: 'success', data: responseData });
+});
+
+export const recalculateAllGrades = catchAsync(async (req, res) => {
+  const { branch, batch, semesterId } = req.body;
+
+  if (!branch || !batch || !semesterId) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'branch, batch and semesterId are required'
+    });
+  }
+
+  const { students, error } = await getGradeStudentsByFilters({ branch, batch });
+  if (error) {
+    return res.status(404).json({ status: 'error', message: error });
+  }
+
+  for (const student of students) {
+    await recalculateStudentAcademicRows(student.regno, null);
+  }
+
+  const data = await decorateStudentsWithSemesterScores(students, semesterId);
+
+  res.json({
+    status: 'success',
+    message: `Recalculated academic rows for ${students.length} students`,
+    data
   });
-
-  const data = rows.map((row) => ({
-    regno: row.registerNumber,
-    name: row.user?.userName || row.studentName
-  }));
-
-  res.json({ status: 'success', data });
 });
 
 export const getStudentGpaHistory = catchAsync(async (req, res) => {

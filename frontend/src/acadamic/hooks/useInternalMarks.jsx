@@ -3,7 +3,7 @@ import {
   getCOsForCourse,
   getStudentCOMarks,
   exportCourseWiseCsv,
-  getStudentsForSection,          // ← added this import
+  getStudentsForSection,
 } from '../services/staffService';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -29,7 +29,6 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
         setError('');
         setLoading(true);
 
-        // 1. Fetch COs (same across all sections of the same course)
         const cos = await getCOsForCourse(courseCode);
         if (!Array.isArray(cos)) {
           setError('No course outcomes found for this course');
@@ -39,64 +38,40 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
         }
         setCourseOutcomes(cos);
 
-        // ────────────────────────────────────────────────────────────────
-        // 2. Handle composite section IDs → fetch students from ALL sections
-        // ────────────────────────────────────────────────────────────────
-        const sectionIds = compositeSectionIds && compositeSectionIds.includes('_')
-          ? compositeSectionIds.split('_').map(id => id.trim()).filter(Boolean)
-          : (compositeSectionIds ? [compositeSectionIds] : []);
-
-        const studentMap = new Map(); // deduplicate by regno
-
-        // If no composite IDs provided → fallback to course-level students (if your backend supports it)
-        if (sectionIds.length === 0) {
-          console.warn('No section IDs provided → trying course-level student fetch if available');
-          // You can add fallback logic here if your backend has a course-level student list endpoint
-        }
-
-        for (const sid of sectionIds) {
-          if (!sid) continue;
-
+        let allStudents = [];
+        if (!compositeSectionIds) {
+          console.warn('No section IDs provided; trying course-level student fetch if available');
+        } else {
           try {
-            const studentsData = await getStudentsForSection(courseCode, sid);
+            const studentsData = await getStudentsForSection(courseCode, compositeSectionIds);
             if (Array.isArray(studentsData)) {
-              studentsData.forEach(student => {
-                if (!studentMap.has(student.regno)) {
-                  studentMap.set(student.regno, { ...student });
-                }
-              });
+              allStudents = studentsData.map((student) => ({ ...student }));
             }
           } catch (secErr) {
-            console.warn(`Failed to fetch students for section ${sid}:`, secErr);
+            console.warn(`Failed to fetch students for section(s) ${compositeSectionIds}:`, secErr);
           }
         }
 
-        let allStudents = Array.from(studentMap.values());
-
         if (allStudents.length === 0) {
-          console.warn('No students found in any of the sections');
+          console.warn('No students found in the selected sections');
         }
 
-        // 3. Fetch consolidated CO marks (course-level – should cover students from all sections)
         const marksData = await getStudentCOMarks(courseCode);
 
         if (!marksData || !Array.isArray(marksData.students)) {
           console.warn('No consolidated marks found for course:', courseCode);
-          // Still show students even without marks
-          setStudents(allStudents.map(s => ({ ...s, marks: {} })));
+          setStudents(allStudents.map((student) => ({ ...student, marks: {} })));
           setLoading(false);
           return;
         }
 
-        // 4. Normalize marks to use CO IDs (same logic as before)
-        const processedStudents = allStudents.map(student => {
+        const processedStudents = allStudents.map((student) => {
           const marksByCoId = {};
+          const studentMarks = marksData.students.find((mark) => mark.regno === student.regno);
 
-          const studentMarks = marksData.students.find(m => m.regno === student.regno);
-
-          if (studentMarks && studentMarks.marks) {
+          if (studentMarks?.marks) {
             Object.entries(studentMarks.marks).forEach(([coNum, markData]) => {
-              const primaryCO = cos.find(c => c.coNumber === coNum);
+              const primaryCO = cos.find((co) => co.coNumber === coNum);
               if (primaryCO) {
                 marksByCoId[primaryCO.coId] = Number(markData.consolidatedMark || 0);
               }
@@ -113,7 +88,6 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
 
         setStudents(processedStudents);
         setLoading(false);
-
       } catch (err) {
         console.error('Error fetching data in useInternalMarks:', err);
         setError(err.message || 'Failed to fetch course data');
@@ -126,16 +100,19 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
 
   const calculateInternalMarks = (regno) => {
     const student = students.find((s) => s.regno === regno);
-    
+
     const defaultResult = { avgTheory: '0.00', avgPractical: '0.00', avgExperiential: '0.00', finalAvg: '0.00' };
-    
+
     if (!student || !student.marks || !courseOutcomes.length) {
       return defaultResult;
     }
 
-    let theorySum = 0, theoryCount = 0;
-    let pracSum = 0, pracCount = 0;
-    let expSum = 0, expCount = 0;
+    let theorySum = 0;
+    let theoryCount = 0;
+    let pracSum = 0;
+    let pracCount = 0;
+    let expSum = 0;
+    let expCount = 0;
 
     courseOutcomes.forEach((co) => {
       const mark = parseFloat(student.marks[co.coId]);
@@ -163,8 +140,8 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
     if (pracCount > 0) activeAverages.push(parseFloat(avgPractical));
     if (expCount > 0) activeAverages.push(parseFloat(avgExperiential));
 
-    const finalAvg = activeAverages.length > 0 
-      ? (activeAverages.reduce((a, b) => a + b, 0) / activeAverages.length).toFixed(2) 
+    const finalAvg = activeAverages.length > 0
+      ? (activeAverages.reduce((a, b) => a + b, 0) / activeAverages.length).toFixed(2)
       : '0.00';
 
     return { avgTheory, avgPractical, avgExperiential, finalAvg };

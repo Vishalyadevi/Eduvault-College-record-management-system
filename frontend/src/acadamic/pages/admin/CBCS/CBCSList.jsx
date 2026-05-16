@@ -55,20 +55,16 @@ const CBCSList = () => {
     setLoadingDepts(true);
     try {
       const response = await api.get('/departments');
-      const data = response.data;
-      
-      if (data.success || data.status === 'success') {
-        // Handle both possible API response structures
-        const deptData = data.departments || data.data || [];
-        const formattedDepartments = deptData.map(dept => ({
-          id: dept.departmentIdept.id,
-          name: dept.Deptname || dept.name,
-          acronym: dept.Deptacronym || dept.acronym
-        }));
-        setDepartments(formattedDepartments);
-      } else {
-        setError('Failed to fetch departments');
-      }
+      const payload = response.data;
+      const deptData = Array.isArray(payload)
+        ? payload
+        : (payload.departments || payload.data || []);
+      const formattedDepartments = deptData.map((dept) => ({
+        id: dept.departmentId ?? dept.id,
+        name: dept.departmentName || dept.Deptname || dept.name,
+        acronym: dept.departmentAcr || dept.Deptacronym || dept.deptCode || dept.acronym
+      }));
+      setDepartments(formattedDepartments);
     } catch (err) {
       console.error('Error fetching departments:', err);
       // Don't set error for departments if it fails, just use empty array
@@ -93,7 +89,7 @@ const CBCSList = () => {
         setError('Failed to fetch CBCS data');
       }
     } catch (err) {
-      setError('Error fetching CBCS data: ' + (err.response?.data?.messagerr.message));
+      setError('Error fetching CBCS data: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }

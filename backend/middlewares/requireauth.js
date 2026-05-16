@@ -1,6 +1,26 @@
 import jwt from "jsonwebtoken";
 import { pool } from "../db/db.js";
 
+const AUTH_CACHE_TTL_MS = Number(process.env.AUTH_CACHE_TTL_MS || 60000);
+const authUserCache = new Map();
+
+const getCachedAuthUser = (userId) => {
+  const entry = authUserCache.get(String(userId));
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    authUserCache.delete(String(userId));
+    return null;
+  }
+  return entry.user;
+};
+
+const setCachedAuthUser = (userId, user) => {
+  authUserCache.set(String(userId), {
+    user,
+    expiresAt: Date.now() + AUTH_CACHE_TTL_MS,
+  });
+};
+
 /**
  * Authentication middlewares
  * Checks for token in cookies or Authorization header
@@ -31,27 +51,36 @@ export const requireAuth = async (req, res, next) => {
       return res.status(401).json({ status: "failure", message: "Invalid token payload" });
     }
 
-    const [users] = await pool.query(
-      `SELECT 
-        u.*,
-        r.roleId,
-        r.roleName,
-        r.status as roleStatus,
-        d.departmentId,
-        d.departmentName,
-        d.departmentAcr
-      FROM users u
-      LEFT JOIN roles r ON u.roleId = r.roleId
-      LEFT JOIN departments d ON u.departmentId = d.departmentId
-      WHERE u.userId = ? LIMIT 1`,
-      [userId]
-    );
+    let user = getCachedAuthUser(userId);
+    if (!user) {
+      const [users] = await pool.query(
+        `SELECT 
+          u.userId,
+          u.userName,
+          u.userMail,
+          u.userNumber,
+          u.roleId,
+          u.departmentId,
+          u.status,
+          u.profileImage,
+          u.companyId,
+          r.roleName,
+          d.departmentName,
+          d.departmentAcr
+        FROM users u
+        LEFT JOIN roles r ON u.roleId = r.roleId
+        LEFT JOIN departments d ON u.departmentId = d.departmentId
+        WHERE u.userId = ? LIMIT 1`,
+        [userId]
+      );
 
-    if (!users || users.length === 0) {
-      return res.status(401).json({ status: "failure", message: "User not found" });
+      if (!users || users.length === 0) {
+        return res.status(401).json({ status: "failure", message: "User not found" });
+      }
+
+      user = users[0];
+      setCachedAuthUser(userId, user);
     }
-
-    const user = users[0];
 
     if (user.status && user.status !== 'Active') {
       return res.status(403).json({ status: "failure", message: "Account is inactive" });

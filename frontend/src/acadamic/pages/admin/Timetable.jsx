@@ -290,6 +290,16 @@ const Timetable = () => {
     const entries = timetableData.filter(
       (e) => e.dayOfWeek === day && e.periodNumber === period.periodNumber,
     );
+    const uniqueCourseIds = [...new Set(entries.map((e) => e.courseId).filter(Boolean))];
+    const isParallelSectionClass = entries.length > 1 && uniqueCourseIds.length === 1;
+    const uniqueSectionNames = [...new Set(entries.map((e) => e.sectionName).filter(Boolean))];
+    const mergedStaffs = [
+      ...new Map(
+        entries
+          .flatMap((entry) => (Array.isArray(entry.staffs) ? entry.staffs : []))
+          .map((staff) => [staff.staffId || staff.staffAcronym, staff]),
+      ).values(),
+    ];
 
     const selected =
       selectedCell?.day === day && selectedCell?.periodNumber === period.periodNumber;
@@ -305,7 +315,7 @@ const Timetable = () => {
       >
         {entries.length > 0 ? (
           <div className="h-full flex flex-col justify-between">
-            {entries.length === 1 ? (
+            {entries.length === 1 || isParallelSectionClass ? (
               // Single course (regular or manual)
               <>
                 <div className="font-semibold text-xs text-gray-900 truncate">
@@ -314,6 +324,24 @@ const Timetable = () => {
                 <div className="text-xs text-gray-600 truncate">
                   {entries[0].courseCode || "Regular Course"}
                 </div>
+                {isParallelSectionClass && (
+                  <div className="text-[10px] text-blue-600 font-semibold truncate">
+                    {uniqueSectionNames.length} batches: {uniqueSectionNames.join(", ")}
+                  </div>
+                )}
+                {mergedStaffs.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {mergedStaffs.slice(0, 3).map((s) => (
+                      <span
+                        key={s.staffId || s.staffAcronym}
+                        title={s.staffName || ""}
+                        className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-100"
+                      >
+                        {s.staffAcronym || "STAFF"}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               // Multiple courses → likely from a bucket

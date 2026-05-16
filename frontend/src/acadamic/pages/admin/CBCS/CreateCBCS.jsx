@@ -99,18 +99,17 @@ const CreateCBCS = () => {
       setLoadingDepts(true);
       try {
         const response = await api.get('/departments');
-        const data = response.data;
-        if (data.success || data.status === 'success') {
-          const deptList = (data.departments || data.data || []).map(d => ({
-            id: d.departmentId ?? d.id,
-            name: d.departmentName || d.Deptname || d.name,
-            acronym: d.departmentAcr || d.Deptacronym || d.deptCode
-          }));
-          setDepartments(deptList);
-        } else {
-          setError('Failed to fetch departments');
-          setDepartments([]);
-        }
+        const payload = response.data;
+        const deptRows = Array.isArray(payload)
+          ? payload
+          : (payload.departments || payload.data || []);
+        const deptList = deptRows.map(d => ({
+          id: d.departmentId ?? d.id,
+          name: d.departmentName || d.Deptname || d.name,
+          acronym: d.departmentAcr || d.Deptacronym || d.deptCode || d.acronym
+        }));
+        setDepartments(deptList);
+        setError('');
       } catch (err) {
         setError('Error fetching departments');
         setDepartments([]);

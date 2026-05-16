@@ -14,6 +14,7 @@ const {
   Semester, 
   StudentCourse, 
   StudentDetails, 
+  DayAttendance,
   PeriodAttendance 
 } = db;
 
@@ -61,6 +62,32 @@ async function getInternalUser(authUser) {
   }
 
   throw new Error("Staff user not found");
+}
+
+async function upsertDayAttendanceSummary({ regno, semesterNumber, attendanceDate, transaction }) {
+  if (!regno || !semesterNumber || !attendanceDate) return;
+
+  const rows = await PeriodAttendance.findAll({
+    where: { regno, semesterNumber, attendanceDate },
+    attributes: ['status'],
+    transaction
+  });
+
+  if (!rows.length) return;
+
+  const hasPresent = rows.some((row) => ['P', 'OD'].includes(row.status));
+  const dailyStatus = hasPresent ? 'P' : 'A';
+  const existing = await DayAttendance.findOne({
+    where: { regno, semesterNumber, attendanceDate },
+    transaction
+  });
+
+  if (existing) {
+    await existing.update({ status: dailyStatus }, { transaction });
+    return;
+  }
+
+  await DayAttendance.create({ regno, semesterNumber, attendanceDate, status: dailyStatus }, { transaction });
 }
 
 // ==========================================
@@ -450,6 +477,13 @@ export async function markAttendance(req, res, next) {
         departmentId: deptId,
         updatedBy: 'staff'
       }, { transaction: t });
+
+      await upsertDayAttendanceSummary({
+        regno: att.rollnumber,
+        semesterNumber: semByCourseId.get(effectiveCourseId) || baseSemNum,
+        attendanceDate: date,
+        transaction: t
+      });
 
       processed.push(att.rollnumber);
       if (att.status === "A") {

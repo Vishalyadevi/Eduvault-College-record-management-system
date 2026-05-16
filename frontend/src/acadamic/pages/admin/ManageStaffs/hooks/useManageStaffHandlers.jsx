@@ -62,15 +62,17 @@ const useManageStaffHandlers = ({
     }
   };
 
-  const handleAllocateCourse = async () => {
+  const handleAllocateCourse = async (sectionIdOverride = null) => {
+    const effectiveSectionId = sectionIdOverride ?? selectedSectionId;
     // 1. Basic Validation
-    if (!selectedStaff || !selectedCourse || !selectedSectionId) {
+    if (!selectedStaff || !selectedCourse || !effectiveSectionId) {
       showErrorToast('Validation Error', 'Missing staff, course, or section information');
       return;
     }
 
     setOperationLoading(true);
     const isUpdate = selectedCourse?.isAllocated ?? false;
+    const normalizedSectionId = Number(effectiveSectionId);
 
     try {
       // 2. Prepare Optimistic UI Update
@@ -82,8 +84,8 @@ const useManageStaffHandlers = ({
         id: staffCourseId,
         courseCode: selectedCourse.code,
         name: selectedCourse.name,
-        sectionId: selectedSectionId,
-        batch: selectedCourse.sections?.find(s => s.sectionId === selectedSectionId)?.sectionName || 'N/A',
+        sectionId: normalizedSectionId,
+        batch: selectedCourse.sections?.find(s => String(s.sectionId) === String(selectedSectionId))?.sectionName || 'N/A',
         semester: selectedCourse.semester || 'N/A',
         year: selectedCourse.batchYears || 'N/A',
       };
@@ -102,7 +104,7 @@ const useManageStaffHandlers = ({
       let res;
       if (isUpdate) {
         // UPDATE LOGIC
-        const payload = { sectionId: selectedSectionId };
+        const payload = { sectionId: normalizedSectionId };
         res = await manageStaffService.updateCourseAllocation(staffCourseId, payload);
       } else {
         // ALLOCATION LOGIC - FIXED HERE
@@ -118,14 +120,14 @@ const useManageStaffHandlers = ({
         const payload = {
           Userid: userDbId, 
           courseId: selectedCourse.courseId,
-          sectionId: selectedSectionId,
+          sectionId: normalizedSectionId,
           departmentId: selectedStaff.departmentId,
         };
 
         res = await manageStaffService.allocateCourse(
           userDbId, // Passed the numeric ID
           selectedCourse.courseId,
-          selectedSectionId,
+          normalizedSectionId,
           selectedStaff.departmentId
         );
       }

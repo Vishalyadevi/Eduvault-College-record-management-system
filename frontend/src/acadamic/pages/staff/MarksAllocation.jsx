@@ -260,10 +260,10 @@ const calculateConsolidated = useCallback((student, co) => {
 
         // 3. Update State Safely
         // Verify that the response structure exists before mapping to avoid crashes
-        if (updatedCoMarks?.data?.students) {
+        if (updatedCoMarks?.students) {
           setStudents((prev) =>
             prev.map((student) => {
-              const coMark = updatedCoMarks.data.students.find((m) => m.regno === student.regno);
+              const coMark = updatedCoMarks.students.find((m) => m.regno === student.regno);
               
               // Only update if coMark exists and has the 'marks' property
               if (coMark && coMark.marks) {
@@ -282,7 +282,7 @@ const calculateConsolidated = useCallback((student, co) => {
             })
           );
         } else {
-          console.warn("API success, but 'updatedCoMarks.data.students' is missing or undefined.", updatedCoMarks);
+          console.warn("API success, but 'updatedCoMarks.students' is missing or undefined.", updatedCoMarks);
         }
       } catch (refetchErr) {
         console.error('Error refetching CO marks:', refetchErr);

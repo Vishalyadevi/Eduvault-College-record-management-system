@@ -37,7 +37,11 @@ const OverallConsolidatedMarks = () => {
           api.get('/departments'),
         ]);
         const batchData = batchRes.data.data || [];
-        const deptData = deptRes.data.data || [];
+        const deptData = Array.isArray(deptRes.data)
+          ? deptRes.data
+          : Array.isArray(deptRes.data?.data)
+            ? deptRes.data.data
+            : [];
         setBatches(batchData);
         setDepartments(deptData);
         if (batchData.length === 0) {

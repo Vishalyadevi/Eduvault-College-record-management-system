@@ -218,9 +218,13 @@ app.use(helmet({
 
 // Global Rate Limiting for all API requests
 const apiLimiter = rateLimit({
-  max: 300, // Limit each IP to 300 requests per `window` (production scale)
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 300 : 20000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) =>
+    process.env.NODE_ENV !== 'production' &&
+    ['::1', '127.0.0.1', '::ffff:127.0.0.1'].includes(req.ip),
   message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 app.use('/api', apiLimiter);

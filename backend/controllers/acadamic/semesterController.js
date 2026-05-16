@@ -107,17 +107,25 @@ export const getSemester = catchAsync(async (req, res) => {
   const key = makeCacheKey("semesters:search", { batch, branch, degree, semesterNumber });
   const semester = await getOrSetCache(
     key,
-    () =>
-      Semester.findOne({
-        where: { semesterNumber, isActive: "YES" },
-        include: [
-          {
-            model: Batch,
-            where: { batch, branch, degree, isActive: "YES" },
-            required: true,
-          },
-        ],
-      }),
+    async () => {
+      const batchRecord = await Batch.findOne({
+        where: { batch, branch, degree, isActive: "YES" },
+        attributes: ["batchId"],
+        raw: true
+      });
+
+      if (!batchRecord) return null;
+
+      return Semester.findOne({
+        where: {
+          batchId: batchRecord.batchId,
+          semesterNumber,
+          isActive: "YES"
+        },
+        attributes: ["semesterId", "batchId", "semesterNumber", "startDate", "endDate", "isActive"],
+        raw: true
+      });
+    },
     { ttlSeconds: ttl.medium, onStatus: markCache(res) }
   );
 
@@ -129,19 +137,19 @@ export const getSemester = catchAsync(async (req, res) => {
 });
 
 export const getAllSemesters = catchAsync(async (req, res) => {
+  const { batchId } = req.query;
+  const where = { isActive: "YES" };
+  if (batchId) where.batchId = Number(batchId);
+
   const key = makeCacheKey("semesters:all", { query: req.query || {} });
   const semesters = await getOrSetCache(
     key,
     () =>
       Semester.findAll({
-        where: { isActive: "YES" },
-        include: [
-          {
-            model: Batch,
-            where: { isActive: "YES" },
-            required: true,
-          },
-        ],
+        where,
+        attributes: ["semesterId", "batchId", "semesterNumber", "startDate", "endDate", "isActive"],
+        order: [["batchId", "ASC"], ["semesterNumber", "ASC"]],
+        raw: true
       }),
     { ttlSeconds: ttl.medium, onStatus: markCache(res) }
   );
@@ -149,27 +157,35 @@ export const getAllSemesters = catchAsync(async (req, res) => {
 });
 
 export const getSemestersByBatchBranch = catchAsync(async (req, res) => {
-  const { batch, branch, degree } = req.query;
+  const { batch, branch, degree, semesterNumber } = req.query;
 
   if (!batch || !branch || !degree) {
     return res.status(400).json({ status: "failure", message: "batch, branch, and degree are required" });
   }
 
-  const key = makeCacheKey("semesters:byBatchBranch", { batch, branch, degree });
+  const key = makeCacheKey("semesters:byBatchBranch", { batch, branch, degree, semesterNumber });
   const semesters = await getOrSetCache(
     key,
-    () =>
-      Semester.findAll({
-        where: { isActive: "YES" },
-        include: [
-          {
-            model: Batch,
-            where: { batch, branch, degree, isActive: "YES" },
-            required: true,
-          },
-        ],
+    async () => {
+      const batchRecord = await Batch.findOne({
+        where: { batch, branch, degree, isActive: "YES" },
+        attributes: ["batchId"],
+        raw: true
+      });
+
+      if (!batchRecord) return [];
+
+      return Semester.findAll({
+        where: {
+          batchId: batchRecord.batchId,
+          isActive: "YES",
+          ...(semesterNumber ? { semesterNumber: Number(semesterNumber) } : {})
+        },
+        attributes: ["semesterId", "batchId", "semesterNumber", "startDate", "endDate", "isActive"],
         order: [["semesterNumber", "ASC"]],
-      }),
+        raw: true
+      });
+    },
     { ttlSeconds: ttl.medium, onStatus: markCache(res) }
   );
 

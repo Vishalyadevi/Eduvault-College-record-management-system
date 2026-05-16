@@ -79,10 +79,11 @@ const AllocateCourseModal = React.memo(({
   courseRefreshKey,
 }) => {
   const [loadingSectionsForCourseId, setLoadingSectionsForCourseId] = useState(null);
+  const [localSelectedSectionId, setLocalSelectedSectionId] = useState('');
 
   const normalizeSections = (sections) =>
     (sections || []).map((section) => ({
-      sectionId: section.sectionId || 0,
+      sectionId: String(section.sectionId || ''),
       sectionName: section.sectionName
         ? (section.sectionName.startsWith('Batch') ? section.sectionName : `Batch${section.sectionName}`)
         : 'N/A',
@@ -107,21 +108,34 @@ const AllocateCourseModal = React.memo(({
   const batchOptions = [...new Set(semesters.map(sem => sem.batchYears))].filter(batch => batch).sort();
 
   useEffect(() => {
-    if (selectedCourse) {
+    if (selectedCourse?.courseId) {
       const updatedCourse = getFilteredCourses.find(c => c.courseId === selectedCourse.courseId);
       if (updatedCourse) {
         const preservedSections =
           Array.isArray(selectedCourse.sections) && selectedCourse.sections.length > 0
             ? selectedCourse.sections
             : updatedCourse.sections;
-        setSelectedCourse({ ...updatedCourse, sections: preservedSections || [] });
-        setSelectedSectionId(updatedCourse.isAllocated ? selectedStaff.allocatedCourses.find(c => c.courseCode === updatedCourse.code)?.sectionId || '' : '');
+        const nextSections = preservedSections || [];
+
+        setSelectedCourse({ ...updatedCourse, sections: nextSections });
+
+        if (updatedCourse.isAllocated) {
+          const allocatedSectionId = String(
+            selectedStaff.allocatedCourses.find(c => c.courseCode === updatedCourse.code)?.sectionId || ''
+          );
+          setLocalSelectedSectionId(allocatedSectionId);
+          setSelectedSectionId(allocatedSectionId);
+        } else {
+          setLocalSelectedSectionId('');
+          setSelectedSectionId('');
+        }
       } else {
         setSelectedCourse(null);
+        setLocalSelectedSectionId('');
         setSelectedSectionId('');
       }
     }
-  }, [selectedStaff.allocatedCourses, getFilteredCourses, selectedCourse, setSelectedCourse, setSelectedSectionId, courseRefreshKey]);
+  }, [selectedCourse?.courseId, selectedStaff.allocatedCourses, getFilteredCourses, setSelectedCourse, setSelectedSectionId, courseRefreshKey]);
 
   const courseListKey = useMemo(() => {
     return `${selectedStaff.staffId}-${selectedStaff.allocatedCourses.map(c => `${c.courseCode}-${c.sectionId}`).join('-')}-${getFilteredCourses.map(c => c.courseId).join('-')}-${courseRefreshKey}`;
@@ -130,6 +144,7 @@ const AllocateCourseModal = React.memo(({
   const handleClose = () => {
     setShowAllocateCourseModal(false);
     setSelectedCourse(null);
+    setLocalSelectedSectionId('');
     setSelectedSectionId('');
     setCourseSearch('');
     setCourseFilters({ dept: '', semester: '', batch: '' });
@@ -137,7 +152,7 @@ const AllocateCourseModal = React.memo(({
   };
 
   const handleSave = () => {
-    handleAllocateCourse();
+    handleAllocateCourse(localSelectedSectionId);
   };
 
   return (
@@ -146,7 +161,7 @@ const AllocateCourseModal = React.memo(({
       onClose={handleClose}
       onSave={handleSave}
       saveText={operationLoading ? 'Processing...' : (selectedCourse?.isAllocated ? 'Update Allocation' : 'Allocate Course')}
-      saveDisabled={!selectedCourse || !selectedSectionId || operationLoading}
+      saveDisabled={!selectedCourse || !localSelectedSectionId || operationLoading}
       width="max-w-3xl"
     >
       <div className="space-y-6">
@@ -242,11 +257,11 @@ const AllocateCourseModal = React.memo(({
                     if (!operationLoading) {
                       loadSectionsForCourse(course).then((sections) => {
                         setSelectedCourse({ ...course, sections });
-                        setSelectedSectionId(
-                          course.isAllocated
-                            ? selectedStaff.allocatedCourses.find(c => c.courseCode === course.code)?.sectionId || ''
-                            : ''
-                        );
+                        const nextSectionId = course.isAllocated
+                          ? String(selectedStaff.allocatedCourses.find(c => c.courseCode === course.code)?.sectionId || '')
+                          : '';
+                        setLocalSelectedSectionId(nextSectionId);
+                        setSelectedSectionId(nextSectionId);
                       });
                     }
                   }}
@@ -320,11 +335,15 @@ const AllocateCourseModal = React.memo(({
             <div className="flex flex-wrap gap-2">
               {selectedCourse.sections.length > 0 ? (
                 selectedCourse.sections.map(section => {
-                  const isSecSelected = selectedSectionId === section.sectionId;
+                  const isSecSelected = String(localSelectedSectionId) === String(section.sectionId);
                   return (
                     <button
                       key={section.sectionId}
-                      onClick={() => setSelectedSectionId(section.sectionId)}
+                      onClick={() => {
+                        const nextSectionId = String(section.sectionId);
+                        setLocalSelectedSectionId(nextSectionId);
+                        setSelectedSectionId(nextSectionId);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border
                         ${isSecSelected 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 

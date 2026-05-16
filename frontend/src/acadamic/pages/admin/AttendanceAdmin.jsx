@@ -28,8 +28,10 @@ const PortalDropdown = ({ isOpen, onClose, rect, children }) => {
 const CourseSlot = ({ courses, date, periodNumber, selectedCourse, onSelect }) => {
   const [isOpen, setOpen] = useState(false);
   const buttonRef = useRef(null);
+  const uniqueCourseIds = [...new Set(courses.map((c) => c.courseId).filter(Boolean))];
+  const isParallelSectionClass = courses.length > 1 && uniqueCourseIds.length === 1;
 
-  if (!courses.length === 0) {
+  if (courses.length === 0) {
     return <div className="flex h-full items-center justify-center text-slate-300">-</div>;
   }
 
@@ -41,8 +43,10 @@ const CourseSlot = ({ courses, date, periodNumber, selectedCourse, onSelect }) =
       selectedCourse?.sectionId === (c.sectionId || "all")
   );
 
-  if (courses.length === 1) {
-    const course = courses[0];
+  if (courses.length === 1 || isParallelSectionClass) {
+    const course = isParallelSectionClass
+      ? { ...courses[0], sectionId: "all", sectionName: "All Batches" }
+      : courses[0];
     const selected =
       selectedCourse?.courseId === course.courseId &&
       selectedCourse?.date === date &&
@@ -60,6 +64,11 @@ const CourseSlot = ({ courses, date, periodNumber, selectedCourse, onSelect }) =
       >
         <div className="truncate text-[11px] font-bold">{course.courseCode}</div>
         <div className={`truncate text-[10px] ${selected ? "text-slate-300" : "text-slate-400"}`}>{course.courseTitle}</div>
+        {isParallelSectionClass && (
+          <div className={`truncate text-[10px] ${selected ? "text-slate-300" : "text-sky-600"}`}>
+            {courses.length} batches
+          </div>
+        )}
       </button>
     );
   }

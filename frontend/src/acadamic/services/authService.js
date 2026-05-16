@@ -86,18 +86,24 @@ export const getCurrentUser = () => {
 
 export const getDepartments = async () => {
   const response = await api.get('/departments');
-  if (response.data.status === 'success') {
-    return response.data.data.map(dept => ({
-      departmentId: dept.departmentId,
-      departmentName: dept.departmentName || dept.Deptname,
-      departmentAcr: dept.departmentAcr || dept.Deptacronym,
-      deptCode: dept.departmentAcr || dept.Deptacronym,
-      Deptname: dept.departmentName || dept.Deptname,
-      Deptacronym: dept.departmentAcr || dept.Deptacronym,
-    }));
-  } else {
-    throw new Error(response.data.message || 'Failed to fetch departments');
+  const payload = Array.isArray(response.data)
+    ? response.data
+    : Array.isArray(response.data?.data)
+      ? response.data.data
+      : null;
+
+  if (!payload) {
+    throw new Error(response.data?.message || 'Failed to fetch departments');
   }
+
+  return payload.map(dept => ({
+    departmentId: dept.departmentId,
+    departmentName: dept.departmentName || dept.Deptname,
+    departmentAcr: dept.departmentAcr || dept.Deptacronym,
+    deptCode: dept.departmentAcr || dept.Deptacronym,
+    Deptname: dept.departmentName || dept.Deptname,
+    Deptacronym: dept.departmentAcr || dept.Deptacronym,
+  }));
 };
 
 export { api };

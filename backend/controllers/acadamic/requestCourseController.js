@@ -14,6 +14,7 @@ const isAdminRole = (roleName) => {
     normalized === 'admin' ||
     normalized === 'super admin' ||
     normalized === 'superadmin' ||
+    
     normalized === 'acadamicadmin' ||
     normalized === 'academicadmin' ||
     normalized === 'academic admin' ||

@@ -42,7 +42,7 @@ const useManageStaffFilters = (staffList, courses, selectedStaff) => {
         return (
           (!dept || course.department.toLowerCase() === dept.toLowerCase()) &&
           (!semester || course.semester === semester) &&
-          (!batch || course.batchYears.toLowerCase() === batch.toLowerCase()) &&
+          (!batch || String(course.batchYears || '').toLowerCase() === batch.toLowerCase()) &&
           (course.name.toLowerCase().includes(courseSearch.toLowerCase()) ||
            course.code.toLowerCase().includes(courseSearch.toLowerCase()))
         );

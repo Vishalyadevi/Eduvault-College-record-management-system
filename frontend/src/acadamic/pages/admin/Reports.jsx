@@ -63,7 +63,10 @@ const Report = () => {
           api.get('/departments'),
         ]);
         const batchData = batchRes.data.data || [];
-        const deptData = deptRes.data.data || [];
+        const deptPayload = deptRes.data;
+        const deptData = Array.isArray(deptPayload)
+          ? deptPayload
+          : (deptPayload.data || deptPayload.departments || []);
         setBatches(batchData);
         setDepartments(deptData);
         if (batchData.length === 0 || deptData.length === 0) {
@@ -359,7 +362,7 @@ const Report = () => {
       MySwal.fire('Success', 'Mark updated successfully', 'success');
       await fetchData();
     } catch (err) {
-      MySwal.fire('Error', `Failed to update mark: ${err.response?.data?.messagerr.message}`, 'error');
+      MySwal.fire('Error', `Failed to update mark: ${err.response?.data?.message || err.message}`, 'error');
     }
     setEditingCell(null);
   };

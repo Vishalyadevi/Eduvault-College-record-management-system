@@ -26,11 +26,12 @@ export const getAllUsers = async (req, res) => {
   try {
     const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
     const users = await User.findAll({
+      attributes: ['userId', 'userName', 'userMail', 'userNumber', 'departmentId', 'roleId', 'companyId', 'status', 'createdAt', 'updatedAt'],
       where: includeInactive ? {} : { status: 'Active' },
       include: [
-        { model: db.Company, as: 'company' },
-        { model: db.Department, as: 'department' },
-        { model: db.Role, as: 'role' },
+        { model: db.Company, as: 'company', attributes: ['companyId', 'companyName', 'companyAcr'] },
+        { model: db.Department, as: 'department', attributes: ['departmentId', 'departmentName', 'departmentAcr'] },
+        { model: db.Role, as: 'role', attributes: ['roleId', 'roleName'] },
 
       ]
     });
@@ -44,10 +45,11 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id, {
+      attributes: ['userId', 'userName', 'userMail', 'userNumber', 'departmentId', 'roleId', 'companyId', 'status', 'createdAt', 'updatedAt'],
       include: [
         // { model: db.Company, as: 'company' },
-        { model: db.Department, as: 'department' },
-        { model: db.Role, as: 'role' },
+        { model: db.Department, as: 'department', attributes: ['departmentId', 'departmentName', 'departmentAcr'] },
+        { model: db.Role, as: 'role', attributes: ['roleId', 'roleName'] },
 
       ]
     });

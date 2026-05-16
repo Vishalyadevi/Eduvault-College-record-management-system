@@ -4,9 +4,12 @@ import StudentFilters from './StudentFilters';
 import useManageStudentsData from './hooks/useManageStudentsData';
 import useManageStudentsFilters from './hooks/useManageStudentsFilters';
 import useManageStudentsHandlers from './hooks/useManageStudentsHandlers';
+import manageStudentsService from '../../../services/manageStudentService.js';
+import { MySwal, showErrorToast, showSuccessToast } from '../../../utils/swalConfig.js';
 
 const ManageStudents = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAutoAllocating, setIsAutoAllocating] = useState(false);
   const [filters, setFilters] = useState({
     degree: '',
     branch: '',
@@ -16,7 +19,7 @@ const ManageStudents = () => {
   const [pendingAssignments, setPendingAssignments] = useState({});
   const searchInputRef = useRef(null);
 
-  const { students, setStudents, availableCourses, degrees, branches, semesters, batches, isLoading, error, setError } =
+  const { students, setStudents, availableCourses, degrees, branches, semesters, batches, isLoading, error, setError, reloadData } =
     useManageStudentsData(filters);
 
   const { filteredStudents } = useManageStudentsFilters(students, searchTerm);
@@ -62,6 +65,46 @@ const ManageStudents = () => {
   }, [filters, availableCourses, students]);
 
   const areRequiredFiltersSelected = filters.branch !== '' && filters.semester !== '' && filters.batch !== '';
+
+  const handleAutoAllocate = async () => {
+    if (!areRequiredFiltersSelected || isAutoAllocating) {
+      return;
+    }
+
+    const result = await MySwal.fire({
+      title: 'Run Auto Allocation?',
+      text: `This will rebuild staff and student allocations for ${filters.branch}, ${filters.batch}, ${filters.semester}.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Allocate Now',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    setIsAutoAllocating(true);
+    setError(null);
+
+    try {
+      const response = await manageStudentsService.autoAllocateSemester(filters);
+      setPendingAssignments({});
+      reloadData();
+      showSuccessToast(
+        response?.message ||
+          `Auto allocation completed for ${filters.branch} ${filters.semester}`
+      );
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Failed to auto allocate semester data';
+      setError(message);
+      showErrorToast('Auto Allocation Failed', message);
+    } finally {
+      setIsAutoAllocating(false);
+    }
+  };
 
   if (!areRequiredFiltersSelected) {
     return (
@@ -142,6 +185,16 @@ const ManageStudents = () => {
         batches={batches}
         searchInputRef={searchInputRef}
       />
+
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={handleAutoAllocate}
+          disabled={!areRequiredFiltersSelected || isAutoAllocating || isLoading}
+          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        >
+          {isAutoAllocating ? 'Auto Allocating...' : 'Auto Allocate Semester'}
+        </button>
+      </div>
 
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {(filteredStudents.length > 0 || availableCourses.length > 0) ? (

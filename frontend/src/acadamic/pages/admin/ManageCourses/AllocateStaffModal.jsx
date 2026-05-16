@@ -105,11 +105,11 @@ const AllocateStaffModal = ({
       });
 
       toast.success('Staff allocated successfully');
-      handleAllocateStaff(staffId); // Refresh parent state
+      await handleAllocateStaff(staffId); // Refresh parent state
       handleClose(); // Close this modal and return to details
 
     } catch (err) {
-      const message = err.response?.data?.messagerr.message || 'Error allocating staff';
+      const message = err.response?.data?.message || err.message || 'Error allocating staff';
       if (err.response?.status === 400 && message.includes('already allocated')) {
           toast.warning(`Staff member is already allocated to this section.`);
       } else {

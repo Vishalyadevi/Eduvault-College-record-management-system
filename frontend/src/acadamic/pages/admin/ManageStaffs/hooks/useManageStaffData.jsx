@@ -93,9 +93,9 @@ const useManageStaffData = () => {
               courseId: course.courseId || 0,
               name: course.courseTitle || '',
               code: course.courseCode || '',
-              department: batch.branch || '',
+              department: course.branch || batch.branch || semester.Batch?.branch || '',
               semester: semester.semesterNumber ? String(semester.semesterNumber) : '',
-              batchYears: semester.batchYears || '',
+              batchYears: batch.batchYears || semester.Batch?.batchYears || '',
               batch: batch.batch || '',
               sections: [],
             };

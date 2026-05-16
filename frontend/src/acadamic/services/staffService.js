@@ -258,20 +258,22 @@ export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
       return res.data.data || [];
     }
 
-    let allMarks = [];
-    for (const code of codes) {
-      const coRes = await api.get(`/cos/${code}`);
-      const co = (coRes.data.data || []).find(c => c.coNumber === primaryCoNum);
-      if (co) {
+    const marksSets = await Promise.all(
+      codes.map(async (code) => {
+        const coRes = await api.get(`/cos/${code}`);
+        const co = (coRes.data.data || []).find(c => c.coNumber === primaryCoNum);
+        if (!co) return [];
+
         const tRes = await api.get(`/tools/${co.coId}`);
         const tool = (tRes.data.data || []).find(t => t.toolName === primaryToolName);
-        if (tool) {
-          const mRes = await api.get(`/marks/${tool.toolId}`);
-          if (mRes.data.data) allMarks = [...allMarks, ...mRes.data.data];
-        }
-      }
-    }
-    return allMarks;
+        if (!tool) return [];
+
+        const mRes = await api.get(`/marks/${tool.toolId}`);
+        return mRes.data.data || [];
+      })
+    );
+
+    return marksSets.flat();
 
   } catch (error) {
     console.error('Error in getStudentMarksForTool:', error);

@@ -251,12 +251,26 @@ export const getStudentCbcsSelection = async (req, res) => {
       });
     }
 
-    const cbcs = await CBCS.findOne({
+    let cbcs = await CBCS.findOne({
       where: { batchId, departmentId: deptId, semesterId },
       include: [{ model: Department }, { model: Batch }, { model: Semester }]
     });
 
-    if (!cbcs) return res.status(404).json({ success: false, error: "No active CBCS found" });
+    if (!cbcs) {
+      cbcs = await CBCS.findOne({
+        where: { batchId, departmentId: deptId },
+        include: [{ model: Department }, { model: Batch }, { model: Semester }],
+        order: [['semesterId', 'DESC']]
+      });
+    }
+
+    if (!cbcs) {
+      return res.json({
+        success: true,
+        cbcs: null,
+        message: "No active CBCS found for this student yet"
+      });
+    }
 
     // Logic to only show Core or Electives specifically selected by this student
     const subjects = await CBCSSubject.findAll({
@@ -293,7 +307,11 @@ export const getStudentCbcsSelection = async (req, res) => {
       });
     }
 
-    res.json({ success: true, cbcs: { ...cbcs.get({ plain: true }), subjects: finalSubjects } });
+    res.json({
+      success: true,
+      cbcs: { ...cbcs.get({ plain: true }), subjects: finalSubjects },
+      message: finalSubjects.length ? null : "CBCS is available, but no course selections are mapped for this student yet"
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

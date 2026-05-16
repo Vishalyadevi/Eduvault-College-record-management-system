@@ -10,12 +10,35 @@ const markCache = (res) => (status) => res.set("X-Cache", status);
  * GET ALL ACTIVE BATCHES
  */
 export const getAllBatches = catchAsync(async (req, res) => {
+  const { branch, degree, batch, batchId } = req.query;
+  const where = { isActive: "YES" };
+
+  if (branch) where.branch = String(branch).trim();
+  if (degree) where.degree = String(degree).trim();
+  if (batch) where.batch = String(batch).trim();
+  if (batchId) where.batchId = Number(batchId);
+
   const key = makeCacheKey("batches:all", { query: req.query || {} });
   const rows = await getOrSetCache(
     key,
     () =>
       Batch.findAll({
-        where: { isActive: "YES" },
+        where,
+        attributes: [
+          "batchId",
+          "degree",
+          "branch",
+          "batch",
+          "batchYears",
+          "regulationId",
+          "isActive"
+        ],
+        order: [
+          ["batch", "DESC"],
+          ["branch", "ASC"],
+          ["degree", "ASC"]
+        ],
+        raw: true
       }),
     { ttlSeconds: ttl.medium, onStatus: markCache(res) }
   );

@@ -126,15 +126,16 @@ const CgpaAllocation = () => {
           params: {
             branch: filters.branch,
             batch: filters.batch,
-            degree: filters.degree
+            degree: filters.degree,
+            ...(currentSemesterId ? { semesterId: currentSemesterId } : {})
           }
         });
         setStudents(
           (res.data.data || []).map((s) => ({
             regno: s.regno,
             name: s.name,
-            gpa: '-',
-            cgpa: isFirstSemester ? '-' : '-'
+            gpa: s.gpa ?? '-',
+            cgpa: isFirstSemester ? '-' : s.cgpa ?? '-'
           }))
         );
       } catch {
@@ -144,13 +145,13 @@ const CgpaAllocation = () => {
       }
     };
     fetchStudents();
-  }, [filters.branch, filters.batch, filters.degree, isFirstSemester]);
+  }, [filters.branch, filters.batch, filters.degree, isFirstSemester, currentSemesterId]);
 
   useEffect(() => {
-    if (currentSemesterId && students.length > 0) {
+    if (currentSemesterId && students.length > 0 && students.every((s) => s.gpa === '-' && s.cgpa === '-')) {
       refreshStudentsAndCalculateAll();
     }
-  }, [currentSemesterId]);
+  }, [currentSemesterId, students.length]);
 
   const refreshStudentsAndCalculateAll = async () => {
     if (!currentSemesterId) {
@@ -160,46 +161,24 @@ const CgpaAllocation = () => {
 
     setCalculating(true);
     try {
-      const gpaPromises = students.map((s) =>
-        api
-          .get('/admin/grades/gpa', {
-            params: { regno: s.regno, semesterId: currentSemesterId }
-          })
-          .then((r) => ({ regno: s.regno, gpa: r.data.gpa }))
-          .catch(() => ({ regno: s.regno, gpa: '-' }))
-      );
+      const res = await api.post('/admin/grades/recalculate-all', {
+        branch: filters.branch,
+        batch: filters.batch,
+        semesterId: currentSemesterId
+      });
 
-      const cgpaPromises = isFirstSemester
-        ? []
-        : students.map((s) =>
-            api
-              .get('/admin/grades/cgpa', {
-                params: { regno: s.regno, upToSemesterId: currentSemesterId }
-              })
-              .then((r) => ({ regno: s.regno, cgpa: r.data.cgpa }))
-              .catch(() => ({ regno: s.regno, cgpa: '-' }))
-          );
-
-      const [gpaResults, cgpaResults] = await Promise.all([
-        Promise.all(gpaPromises),
-        cgpaPromises.length > 0 ? Promise.all(cgpaPromises) : Promise.resolve([])
-      ]);
-
-      const gpaMap = Object.fromEntries(gpaResults.map((r) => [r.regno, r.gpa]));
-      const cgpaMap =
-        cgpaResults.length > 0 ? Object.fromEntries(cgpaResults.map((r) => [r.regno, r.cgpa])) : {};
-
-      setStudents((prev) =>
-        prev.map((s) => ({
-          ...s,
-          gpa: gpaMap[s.regno] ?? '-',
-          cgpa: isFirstSemester ? '-' : cgpaMap[s.regno] ?? '-'
+      setStudents(
+        (res.data.data || []).map((s) => ({
+          regno: s.regno,
+          name: s.name,
+          gpa: s.gpa ?? '-',
+          cgpa: isFirstSemester ? '-' : s.cgpa ?? '-'
         }))
       );
 
-      toast.success(`GPA and CGPA recalculated for ${students.length} students`);
-    } catch {
-      toast.error('Failed to calculate grades');
+      toast.success(res.data.message || `GPA and CGPA recalculated for ${students.length} students`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to calculate grades');
     } finally {
       setCalculating(false);
     }

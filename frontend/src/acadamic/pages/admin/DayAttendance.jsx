@@ -8,7 +8,10 @@ const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
 
 const PeriodCell = ({ date, periodNumber, courses, selectedSlot, onSelect }) => {
-  if (!courses.length === 0) {
+  const uniqueCourseIds = [...new Set(courses.map((c) => c.courseId).filter(Boolean))];
+  const isParallelSectionClass = courses.length > 1 && uniqueCourseIds.length === 1;
+
+  if (courses.length === 0) {
     return <div className="flex h-full w-full items-center justify-center text-slate-300">-</div>;
   }
 
@@ -23,8 +26,12 @@ const PeriodCell = ({ date, periodNumber, courses, selectedSlot, onSelect }) => 
           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
       }`}
     >
-      <div>P{periodNumber}</div>
-      {courses.length > 1 && <div className={`mt-1 text-[10px] ${isSelected ? "text-slate-300" : "text-amber-500"}`}>Multi</div>}
+      <div>{isParallelSectionClass ? (courses[0]?.courseCode || `P${periodNumber}`) : `P${periodNumber}`}</div>
+      {courses.length > 1 && (
+        <div className={`mt-1 text-[10px] ${isSelected ? "text-slate-300" : isParallelSectionClass ? "text-sky-600" : "text-amber-500"}`}>
+          {isParallelSectionClass ? `${courses.length} batches` : "Multi"}
+        </div>
+      )}
     </button>
   );
 };
@@ -167,7 +174,7 @@ export default function DayAttendance() {
   };
 
   const handlePeriodSelect = async (courses, date, periodNumber) => {
-    if (!courses.length === 0) return;
+    if (courses.length === 0) return;
     if (!selectedDepartment || !selectedSemester) {
       toast.error("Please select department and semester");
       return;

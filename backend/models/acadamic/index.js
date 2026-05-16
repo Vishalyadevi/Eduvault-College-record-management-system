@@ -47,6 +47,70 @@ Object.keys(db).forEach(modelName => {
 db.sequelize = sequelize;
 db.Sequelize = sequelize.constructor;
 
+async function cleanupCompanyUniqueIndexes(sequelizeInstance) {
+  try {
+    const [tables] = await sequelizeInstance.query("SHOW TABLES LIKE 'companies'");
+    if (!tables || tables.length === 0) return;
+
+    const [rows] = await sequelizeInstance.query('SHOW INDEX FROM companies');
+    if (!rows || rows.length === 0) return;
+
+    const targets = {
+      companyAcr: 'uq_companies_companyAcr',
+      registrationNumber: 'uq_companies_registrationNumber',
+      pan: 'uq_companies_pan',
+      gst: 'uq_companies_gst',
+    };
+
+    const indexMap = new Map();
+    for (const row of rows) {
+      const name = row.Key_name;
+      if (name === 'PRIMARY') continue;
+      if (!indexMap.has(name)) {
+        indexMap.set(name, { name, nonUnique: row.Non_unique, columns: [] });
+      }
+      indexMap.get(name).columns.push(row.Column_name);
+    }
+
+    const dropNames = new Set();
+    const keepByColumn = new Map();
+
+    for (const idx of indexMap.values()) {
+      if (idx.nonUnique !== 0) continue;
+      if (idx.columns.length !== 1) continue;
+      const column = idx.columns[0];
+      if (!targets[column]) continue;
+
+      const desiredName = targets[column];
+      const isDesired = idx.name === desiredName;
+      const currentKeep = keepByColumn.get(column);
+
+      if (!currentKeep) {
+        keepByColumn.set(column, idx.name);
+        continue;
+      }
+
+      if (currentKeep === desiredName) {
+        if (idx.name !== currentKeep) dropNames.add(idx.name);
+        continue;
+      }
+
+      if (isDesired) {
+        dropNames.add(currentKeep);
+        keepByColumn.set(column, idx.name);
+      } else {
+        dropNames.add(idx.name);
+      }
+    }
+
+    for (const name of dropNames) {
+      await sequelizeInstance.query(`ALTER TABLE companies DROP INDEX \`${name}\``);
+    }
+  } catch (err) {
+    console.warn('Index cleanup skipped:', err.message);
+  }
+}
+
 export const initDatabase = async () => {
   const syncMode = (process.env.DB_SYNC_MODE || 'none').toLowerCase();
   const shouldSync = syncMode === 'alter' || syncMode === 'force';
@@ -55,6 +119,13 @@ export const initDatabase = async () => {
     if (shouldSync) {
       console.log(`Checking database structure using sync mode: ${syncMode}`);
       await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
+
+      // Prevent MySQL "Too many keys specified" errors caused by repeated
+      // Sequelize alter runs creating duplicate UNIQUE indexes.
+      if (syncMode === 'alter') {
+        await cleanupCompanyUniqueIndexes(sequelize);
+      }
+
       await sequelize.sync(syncMode === 'force' ? { force: true } : { alter: true });
       console.log('Database structure verified');
     } else {

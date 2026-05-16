@@ -54,10 +54,6 @@ const useMarkAllocation = (courseCode, sectionId) => {
         // ────────────────────────────────────────────────────────────────
         // Handle composite section IDs (e.g. "8_9" → ["8", "9"])
         // ────────────────────────────────────────────────────────────────
-        const sectionIds = sectionId.includes('_')
-          ? sectionId.split('_').map(id => id.trim()).filter(Boolean)
-          : [sectionId];
-
         // Fetch partitions (usually same for the course)
         const parts = await getCoursePartitions(courseCode);
         console.log('getCoursePartitions response:', parts);
@@ -91,30 +87,16 @@ const useMarkAllocation = (courseCode, sectionId) => {
         // ────────────────────────────────────────────────────────────────
         // Fetch students from ALL sections → merge / deduplicate by regno
         // ────────────────────────────────────────────────────────────────
-        const studentMap = new Map(); // key = regno, value = student object
+        const studentsData = await getStudentsForSection(courseCode, sectionId);
+        console.log(`getStudentsForSection(${sectionId}) response:`, studentsData);
 
-        for (const sid of sectionIds) {
-          try {
-            const studentsData = await getStudentsForSection(courseCode, sid);
-            console.log(`getStudentsForSection(${sid}) response:`, studentsData);
-
-            if (Array.isArray(studentsData)) {
-              studentsData.forEach(student => {
-                if (!studentMap.has(student.regno)) {
-                  studentMap.set(student.regno, {
-                    ...student,
-                    marks: {},
-                    consolidatedMarks: {}
-                  });
-                }
-              });
-            }
-          } catch (secErr) {
-            console.warn(`Failed to fetch students for section ${sid}:`, secErr);
-          }
-        }
-
-        let allStudents = Array.from(studentMap.values());
+        const allStudents = Array.isArray(studentsData)
+          ? studentsData.map(student => ({
+              ...student,
+              marks: {},
+              consolidatedMarks: {}
+            }))
+          : [];
 
         if (allStudents.length === 0) {
           setError('No students found in any of the selected sections');
@@ -123,21 +105,23 @@ const useMarkAllocation = (courseCode, sectionId) => {
         // Fetch CO marks from StudentCOMarks (course-level)
         const coMarksResponse = await getStudentCOMarks(courseCode);
         console.log('getStudentCOMarks response:', coMarksResponse);
-        const coMarks = coMarksResponse?.data?.students || [];
+        const coMarks = coMarksResponse?.students || [];
 
         // Fetch all tool marks once per tool (course-level)
         const allToolMarks = {};
-        for (const co of cosWithTools) {
-          for (const tool of co.tools || []) {
-            try {
-              const marksData = await getStudentMarksForTool(tool.toolId, courseCode);
-              allToolMarks[tool.toolId] = marksData || [];
-            } catch (markErr) {
-              console.warn(`Error fetching marks for tool ${tool.toolId}:`, markErr);
-              allToolMarks[tool.toolId] = [];
-            }
-          }
-        }
+        await Promise.all(
+          cosWithTools.flatMap((co) =>
+            (co.tools || []).map(async (tool) => {
+              try {
+                const marksData = await getStudentMarksForTool(tool.toolId, courseCode);
+                allToolMarks[tool.toolId] = marksData || [];
+              } catch (markErr) {
+                console.warn(`Error fetching marks for tool ${tool.toolId}:`, markErr);
+                allToolMarks[tool.toolId] = [];
+              }
+            })
+          )
+        );
 
         // Combine everything
         const studentsWithMarks = allStudents.map((student) => {

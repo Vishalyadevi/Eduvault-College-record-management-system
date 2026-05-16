@@ -1,5 +1,7 @@
 import axios from "axios";
 
+const DEBUG_API = import.meta.env.VITE_DEBUG_API === "true";
+
 const API = axios.create({
   baseURL: "http://localhost:4000/api", // Ensure this matches your backend port (4000)
   withCredentials: true,
@@ -11,7 +13,9 @@ API.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || "");
+  if (DEBUG_API) {
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || "");
+  }
   return config;
 });
 
@@ -27,11 +31,15 @@ const isAuthPath = (url = "") =>
 
 API.interceptors.response.use(
   (response) => {
-    console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
+    if (DEBUG_API) {
+      console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
+    }
     return response;
   },
   async (error) => {
-    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.message, error.response?.data);
+    if (DEBUG_API) {
+      console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.message, error.response?.data);
+    }
     const originalRequest = error.config || {};
     const status = error.response?.status;
 

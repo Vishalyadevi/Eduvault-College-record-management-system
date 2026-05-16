@@ -84,7 +84,7 @@ const EditBatchModal = ({
         const rows = await manageStaffService.getCourseSections(course.courseId);
         setSections(
           (rows || []).map((section) => ({
-            sectionId: section.sectionId || 0,
+            sectionId: String(section.sectionId || ''),
             sectionName: section.sectionName
               ? (section.sectionName.startsWith('Batch') ? section.sectionName : `Batch${section.sectionName}`)
               : 'N/A',
@@ -157,11 +157,11 @@ const EditBatchModal = ({
           <div className="grid grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-1">
             {!loadingSections && sections.length > 0 ? (
               sections.map(section => {
-                const isSelected = selectedSectionId === section.sectionId;
+                const isSelected = String(selectedSectionId) === String(section.sectionId);
                 return (
                   <button
                     key={section.sectionId}
-                    onClick={() => setSelectedSectionId(section.sectionId)}
+                    onClick={() => setSelectedSectionId(String(section.sectionId))}
                     disabled={operationLoading}
                     className={`relative px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 border flex items-center justify-center gap-2
                       ${isSelected 

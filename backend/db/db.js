@@ -16,10 +16,10 @@ const dbConfig = {
     database: process.env.DB_NAME,
     // Connection pool settings
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 100,
     queueLimit: 0,
     // Timeout settings
-    connectTimeout: 30000,
+    connectTimeout: 10000,
     // Retry settings
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,

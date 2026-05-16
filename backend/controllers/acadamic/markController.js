@@ -25,6 +25,7 @@ const getStaffId = (req) => {
 const getStaffNumber = (req) => req.user?.userNumber || 'Unknown';
 
 const CONSOLIDATION_LOCK_PREFIX = 'MARKS_LOCK_SEM_';
+const FINALIZED_MARKS_LOCK_VALUE = 'finalized';
 
 const getMarksLockKey = (semesterId) => `${CONSOLIDATION_LOCK_PREFIX}${semesterId}`;
 
@@ -33,17 +34,82 @@ const isMarksLockedForSemester = async (semesterId) => {
   const row = await AppSetting.findByPk(getMarksLockKey(semesterId), {
     attributes: ['value']
   });
-  return row?.value === 'true';
+  return row?.value === FINALIZED_MARKS_LOCK_VALUE;
 };
 
 const lockMarksForSemester = async (semesterId, actor = 'system') => {
   if (!semesterId) return;
   await AppSetting.upsert({
     key: getMarksLockKey(semesterId),
-    value: 'true',
+    value: FINALIZED_MARKS_LOCK_VALUE,
     createdBy: String(actor),
     updatedBy: String(actor)
   });
+};
+
+const resolveDepartmentFilter = async (dept) => {
+  if (!dept && dept !== 0) return null;
+
+  const raw = String(dept).trim();
+  if (!raw) return null;
+
+  const numericId = Number.parseInt(raw, 10);
+  if (!Number.isNaN(numericId) && String(numericId) === raw) {
+    const byId = await Department.findByPk(numericId);
+    if (byId) return byId;
+  }
+
+  return Department.findOne({
+    where: {
+      [Op.or]: [
+        sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentAcr')), raw.toUpperCase()),
+        sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentName')), raw.toUpperCase())
+      ]
+    }
+  });
+};
+
+const resolveBatchFilter = async (batch, department) => {
+  if (!batch && batch !== 0) return null;
+
+  const raw = String(batch).trim();
+  if (!raw) return null;
+
+  const numericId = Number.parseInt(raw, 10);
+  if (!Number.isNaN(numericId) && String(numericId) === raw) {
+    const byId = await Batch.findByPk(numericId);
+    if (byId) return byId;
+  }
+
+  const where = { batch: raw };
+  if (department?.departmentAcr) {
+    where.branch = department.departmentAcr;
+  }
+
+  let record = await Batch.findOne({ where });
+  if (!record) {
+    record = await Batch.findOne({ where: { batch: raw } });
+  }
+  return record;
+};
+
+const resolveSemesterFilter = async (sem, batchRecord) => {
+  if (!sem && sem !== 0) return null;
+
+  const raw = String(sem).trim();
+  if (!raw) return null;
+
+  const numeric = Number.parseInt(raw, 10);
+  if (Number.isNaN(numeric)) return null;
+
+  if (batchRecord) {
+    const byNumber = await Semester.findOne({
+      where: { batchId: batchRecord.batchId, semesterNumber: numeric }
+    });
+    if (byNumber) return byNumber;
+  }
+
+  return Semester.findByPk(numeric);
 };
 
 const getSemesterIdByCoId = async (coId) => {
@@ -493,11 +559,85 @@ export const getMyCourses = catchAsync(async (req, res) => {
 // 10. ADMIN FUNCTIONS
 export const getConsolidatedMarks = catchAsync(async (req, res) => {
   const { batch, dept, sem } = req.query;
-  const d = await Department.findOne({ where: { departmentAcr: dept } });
-  const b = await Batch.findOne({ where: { batch, branch: dept } });
-  const s = await Semester.findOne({ where: { batchId: b.batchId, semesterNumber: sem } });
-  const students = await StudentDetails.findAll({ where: { departmentId: d.departmentId, batch, semester: sem } });
-  const courses = await Course.findAll({ where: { semesterId: s.semesterId }, include: [CoursePartitions] });
+  const department = await resolveDepartmentFilter(dept);
+  const batchRecord = await resolveBatchFilter(batch, department);
+  const semesterRecord = await resolveSemesterFilter(sem, batchRecord);
+
+  if (!department) {
+    return res.status(404).json({ status: 'error', message: 'Department not found' });
+  }
+  if (!batchRecord) {
+    return res.status(404).json({ status: 'error', message: 'Batch not found' });
+  }
+  if (!semesterRecord) {
+    return res.status(404).json({ status: 'error', message: 'Semester not found' });
+  }
+
+  const courses = await Course.findAll({
+    where: { semesterId: semesterRecord.semesterId },
+    include: [CoursePartitions]
+  });
+  if (!courses.length) {
+    return res.json({
+      status: 'success',
+      data: { students: [], courses: [], marks: {}, message: 'No courses found for the selected semester.' }
+    });
+  }
+
+  const semesterCourseIds = courses.map((course) => course.courseId);
+  const enrollments = await StudentCourse.findAll({
+    where: { courseId: { [Op.in]: semesterCourseIds } },
+    include: [{
+      model: StudentDetails,
+      required: true,
+      where: {
+        departmentId: department.departmentId,
+        batch: batchRecord.batch,
+        semester: String(semesterRecord.semesterNumber)
+      },
+      attributes: ['registerNumber', 'studentName', 'batch', 'semester']
+    }],
+    order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
+  });
+
+  const studentsMap = new Map();
+  for (const enrollment of enrollments) {
+    const student = enrollment.StudentDetail;
+    if (!student?.registerNumber || studentsMap.has(student.registerNumber)) continue;
+    studentsMap.set(student.registerNumber, {
+      regno: student.registerNumber,
+      registerNumber: student.registerNumber,
+      name: student.studentName,
+      studentName: student.studentName,
+      batch: student.batch,
+      semester: student.semester
+    });
+  }
+
+  if (studentsMap.size === 0) {
+    const studentRows = await StudentDetails.findAll({
+      where: {
+        departmentId: department.departmentId,
+        batch: batchRecord.batch,
+        semester: String(semesterRecord.semesterNumber)
+      },
+      attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
+      order: [['registerNumber', 'ASC']]
+    });
+
+    for (const student of studentRows) {
+      studentsMap.set(student.registerNumber, {
+        regno: student.registerNumber,
+        registerNumber: student.registerNumber,
+        name: student.studentName,
+        studentName: student.studentName,
+        batch: student.batch,
+        semester: student.semester
+      });
+    }
+  }
+
+  const students = Array.from(studentsMap.values());
   const courseCodes = [...new Set(courses.map(c => c.courseCode))];
   const relatedCourses = await Course.findAll({
     where: { courseCode: courseCodes },
@@ -510,12 +650,17 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
   }, {});
   const relatedCourseIds = relatedCourses.map(c => c.courseId);
   const cos = await CourseOutcome.findAll({ where: { courseId: relatedCourseIds }, include: [COType] });
-  const marks = await StudentCoMarks.findAll({ where: { regno: students.map(st => st.registerNumber), coId: cos.map(c => c.coId) } });
+  const marks = await StudentCoMarks.findAll({
+    where: {
+      regno: students.map(st => st.regno),
+      coId: cos.map(c => c.coId)
+    }
+  });
   const map = {};
   students.forEach(st => {
-    map[st.registerNumber] = {};
+    map[st.regno] = {};
     courses.forEach(c => {
-      map[st.registerNumber][c.courseCode] = { theory: '0.00', practical: '0.00', experiential: '0.00' };
+      map[st.regno][c.courseCode] = { theory: '0.00', practical: '0.00', experiential: '0.00' };
       ['THEORY', 'PRACTICAL', 'EXPERIENTIAL'].forEach(t => {
         let tc = cos.filter(co => co.courseId === c.courseId && co.COType?.coType === t);
         if (!tc.length) {
@@ -523,17 +668,16 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
           tc = cos.filter(co => fallbackIds.includes(co.courseId) && co.COType?.coType === t);
         }
         if (tc.length) {
-          const sum = tc.reduce((acc, co) => acc + parseFloat(marks.find(m => m.regno === st.registerNumber && m.coId === co.coId)?.consolidatedMark || 0), 0);
-          map[st.registerNumber][c.courseCode][t.toLowerCase()] = (sum / tc.length).toFixed(2);
+          const sum = tc.reduce((acc, co) => acc + parseFloat(marks.find(m => m.regno === st.regno && m.coId === co.coId)?.consolidatedMark || 0), 0);
+          map[st.regno][c.courseCode][t.toLowerCase()] = (sum / tc.length).toFixed(2);
         }
       });
     });
   });
-  const actor = req.user?.userNumber || req.user?.id || req.user?.userId || 'admin';
-  if (s?.semesterId) {
-    await lockMarksForSemester(s.semesterId, actor);
-  }
-  res.json({ status: 'success', data: { students, courses, marks: map, isLocked: true } });
+  const isLocked = semesterRecord?.semesterId
+    ? await isMarksLockedForSemester(semesterRecord.semesterId)
+    : false;
+  res.json({ status: 'success', data: { students, courses, marks: map, isLocked } });
 });
 
 export const getCOsForCourseAdmin = catchAsync(async (req, res) => {

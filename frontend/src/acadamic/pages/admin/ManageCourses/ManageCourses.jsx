@@ -87,11 +87,11 @@ const ManageCourses = () => {
       // Sections/staff allocations are fetched lazily when a course card is opened.
       setSections({});
 
-      const usersRes = await api.get(`${API_BASE}/users`);
-      let staffData = usersRes.data.data.filter(user => user.departmentId);
+      const usersRes = await api.get(`${API_BASE}/staff-users`);
+      let staffData = (usersRes.data.data || []).filter(user => user.departmentId);
       staffData = staffData.map(user => ({
-        id: user.id || user.Userid,
-        name: user.name || 'Unknown',
+        id: user.id || user.userId || user.Userid,
+        name: user.name || user.userName || 'Unknown',
         departmentId: user.departmentId,
         departmentName: user.departmentName || deptNameMap[user.departmentId] || 'Unknown',
       }));
@@ -156,13 +156,13 @@ const ManageCourses = () => {
           const normalizedName = alloc.sectionName.replace('BatchBatch', 'Batch');
           if (batches[normalizedName]) {
             batches[normalizedName].push({
-              staffId: alloc.Userid,
+              staffId: alloc.Userid || alloc.staffId,
               staffName: alloc.staffName,
               staffCourseId: alloc.staffCourseId,
               sectionId: alloc.sectionId,
               sectionName: normalizedName,
               departmentId: alloc.departmentId,
-              departmentName: alloc.departmentName || deptNameMap[alloc.departmentId] || 'Unknown',
+              departmentName: alloc.departmentName || alloc.department || deptNameMap[alloc.departmentId] || 'Unknown',
             });
           }
         });
@@ -185,7 +185,7 @@ const ManageCourses = () => {
 
       toast.success('Course batches & staff refreshed');
     } catch (err) {
-      const message = err.response?.data?.messagerr.message || 'Error fetching course staff';
+      const message = err.response?.data?.message || err.message || 'Error fetching course staff';
       toast.error(message);
       if (err.response?.status === 404) {
         toast.error(`Course with ID ${courseId} not found`);

@@ -1,5 +1,7 @@
 import { api } from './authService';
 
+const DEBUG_ACADAMIC = import.meta.env.VITE_DEBUG_ACADAMIC === 'true';
+
 // Optional: Add a helper to handle common response checks
 const handleResponse = (response) => {
   if (response.data?.status === 'success') {
@@ -11,8 +13,6 @@ const handleResponse = (response) => {
 export const fetchStudentDetails = async () => {
   try {
     const response = await api.get("/student/details");
-    console.log('fetchStudentDetails full response:', response);
-
     return handleResponse(response);
   } catch (error) {
     console.error("fetchStudentDetails error:", error);
@@ -24,12 +24,9 @@ export const fetchStudentDetails = async () => {
 
 export const fetchSemesters = async (batchYear) => {
   try {
-    console.log('Fetching semesters for batchYear:', batchYear);
     const response = await api.get('/student/semesters', {
       params: { batchYear }
     });
-    console.log('Semesters response:', response.data);
-
     return handleResponse(response);
   } catch (error) {
     console.error("fetchSemesters error:", error);
@@ -93,11 +90,12 @@ export const allocateElectives = async (semesterId, selections) => {
 
 export const fetchEnrolledCourses = async (semesterId) => {
   try {
-    console.log('Fetching enrolled courses for semesterId:', semesterId);
     const response = await api.get('/student/enrolled-courses', {
       params: { semesterId }
     });
-    console.log('Enrolled courses response:', response.data);
+    if (DEBUG_ACADAMIC) {
+      console.log('Enrolled courses response:', response.data);
+    }
     return handleResponse(response);
   } catch (error) {
     console.error("fetchEnrolledCourses error:", error);
@@ -109,7 +107,6 @@ export const fetchEnrolledCourses = async (semesterId) => {
 
 export const fetchAttendanceSummary = async (semesterId) => {
   try {
-    console.log('Fetching attendance summary for semesterId:', semesterId);
     const response = await api.get('/student/attendance-summary', {
       params: { semesterId }
     });
@@ -216,7 +213,9 @@ export const fetchOecPecProgress = async () => {
 export const fetchStudentAcademicIds = async () => {
   try {
     const response = await api.get("/student/academic-ids");
-    console.log("Academic IDs response:", response);
+    if (DEBUG_ACADAMIC) {
+      console.log("Academic IDs response:", response);
+    }
 
     return handleResponse(response); // returns { departmentId, batchId, semesterId }
   } catch (error) {

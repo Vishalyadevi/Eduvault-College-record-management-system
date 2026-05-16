@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ChevronDownIcon, CheckIcon } from "@heroicons/react/24/solid";
 import { useParams } from "react-router-dom";
+import { api } from "../../services/authService";
 // import collegeImg from "./assets/maxresdefault.jpg";
 
 
@@ -8,26 +9,36 @@ const CourseStaffSelection = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState({});
   const [openDropdown, setOpenDropdown] = useState(null);
 
   const { regno, batchId, departmentId, semesterId } = useParams();
-  const API_URL = `http://localhost:4000/api/cbcs/student?regno=${regno}&batchId=${batchId}&deptId=${departmentId}&semesterId=${semesterId}`;
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [regno, batchId, departmentId, semesterId]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      setError(null);
+      setInfoMessage("");
 
-      const result = await response.json();
+      const response = await api.get("/cbcs/student", {
+        params: {
+          regno,
+          batchId,
+          deptId: departmentId,
+          semesterId
+        }
+      });
+
+      const result = response.data;
 
       if (result?.cbcs?.subjects) {
         setData(result.cbcs);
+        setInfoMessage(result.message || "");
 
         const initialSelections = {};
         result.cbcs.subjects.forEach((sub) => {
@@ -36,6 +47,10 @@ const CourseStaffSelection = () => {
           }
         });
         setSelectedStaffs(initialSelections);
+      } else if (result?.cbcs === null) {
+        setData(null);
+        setSelectedStaffs({});
+        setInfoMessage(result.message || "No CBCS is available right now.");
       } else {
         throw new Error("Invalid API response");
       }
@@ -83,21 +98,12 @@ const CourseStaffSelection = () => {
         selections
       };
 
-      const response = await fetch(
-        "http://localhost:4000/api/cbcs/submission",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Submission failed");
+      const response = await api.post("/cbcs/submission", payload);
+      const result = response.data;
 
       alert(result.message || "Selection submitted successfully");
     } catch (err) {
-      alert(err.message);
+      alert(err.response?.data?.error || err.message);
     }
   };
 
@@ -119,6 +125,17 @@ const CourseStaffSelection = () => {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600">
         {error}
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-xl w-full bg-white border rounded shadow p-8 text-center">
+          <h2 className="text-2xl font-semibold text-gray-800">CBCS</h2>
+          <p className="mt-4 text-gray-600">{infoMessage || "No CBCS is available for this student."}</p>
+        </div>
       </div>
     );
   }
