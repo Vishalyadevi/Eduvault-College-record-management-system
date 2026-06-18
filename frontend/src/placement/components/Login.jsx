@@ -7,6 +7,12 @@ import { useAuth } from "../../records/pages/auth/AuthContext";
 import API from "../../api";
 import "../styles/Login.css";
 
+const getAuthErrorMessage = (err, fallback) =>
+    err.response?.data?.msg ||
+    err.response?.data?.message ||
+    err.message ||
+    fallback;
+
 const InputField = ({ label, type = "text", icon: Icon, value, onChange, placeholder, showPassword, setShowPassword }) => (
     <div className="space-y-2">
         <label className="text-sm font-semibold text-gray-700">{label}</label>
@@ -87,12 +93,14 @@ const Login = () => {
             });
 
             if (data?.message || data?.user || data?.role || data?.token) {
-                await refresh();           // This updates the user in context
+                const refreshedUser = await refresh(); // This updates the user in context
                 toast.success("Login Successful");
-                // No need to call handleRedirect here; useEffect will handle it
+                if (refreshedUser?.role) {
+                    handleRedirect(refreshedUser.role);
+                }
             }
         } catch (err) {
-            toast.error(err.response?.data?.msg || "Login failed. Please check your credentials.");
+            toast.error(getAuthErrorMessage(err, "Login failed. Please check your credentials."));
         } finally {
             setIsLoading(false);
         }
@@ -104,11 +112,13 @@ const Login = () => {
             if (!data?.message && !data?.user && !data?.role && !data?.token) {
                 throw new Error("Google login failed");
             }
-            await refresh();
+            const refreshedUser = await refresh();
             toast.success("Google Login Successful");
-            // Again; useEffect will redirect based on role
+            if (refreshedUser?.role) {
+                handleRedirect(refreshedUser.role);
+            }
         } catch (err) {
-            toast.error(err.response?.data?.msg || "Google Login Failed");
+            toast.error(getAuthErrorMessage(err, "Google Login Failed"));
         }
     };
 

@@ -12,6 +12,8 @@ const CourseStaffSelection = () => {
   const [infoMessage, setInfoMessage] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState({});
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const { regno, batchId, departmentId, semesterId } = useParams();
 
@@ -30,7 +32,8 @@ const CourseStaffSelection = () => {
           regno,
           batchId,
           deptId: departmentId,
-          semesterId
+          semesterId,
+          _ts: Date.now()
         }
       });
 
@@ -38,11 +41,20 @@ const CourseStaffSelection = () => {
 
       if (result?.cbcs?.subjects) {
         setData(result.cbcs);
+        setIsSubmitted(!!result.cbcs.isSubmitted);
         setInfoMessage(result.message || "");
 
         const initialSelections = {};
         result.cbcs.subjects.forEach((sub) => {
-          if (sub.staffs?.length) {
+          const submittedStaff = sub.staffs?.find(
+            (staff) =>
+              Number(staff.sectionId) === Number(sub.selectedChoice?.preferred_sectionId) &&
+              Number(staff.staffId) === Number(sub.selectedChoice?.preferred_staffId)
+          );
+
+          if (submittedStaff) {
+            initialSelections[sub.cbcs_subject_id] = submittedStaff;
+          } else if (sub.staffs?.length) {
             initialSelections[sub.cbcs_subject_id] = sub.staffs[0];
           }
         });
@@ -50,6 +62,7 @@ const CourseStaffSelection = () => {
       } else if (result?.cbcs === null) {
         setData(null);
         setSelectedStaffs({});
+        setIsSubmitted(false);
         setInfoMessage(result.message || "No CBCS is available right now.");
       } else {
         throw new Error("Invalid API response");
@@ -76,8 +89,12 @@ const CourseStaffSelection = () => {
 
   const handleSubmit = async () => {
     try {
+      setSubmitting(true);
       if (!data?.cbcs_id) return alert("CBCS not loaded");
       if (!regno) return alert("Regno missing");
+      if (data?.complete === "YES") {
+        return alert("CBCS allocation is finalized. Choices cannot be changed now.");
+      }
 
       const selections = data.subjects.map((subject) => {
         const staff = selectedStaffs[subject.cbcs_subject_id];
@@ -102,8 +119,11 @@ const CourseStaffSelection = () => {
       const result = response.data;
 
       alert(result.message || "Selection submitted successfully");
+      await fetchData();
     } catch (err) {
       alert(err.response?.data?.error || err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -244,9 +264,10 @@ const CourseStaffSelection = () => {
         <div className="flex justify-center mt-6">
           <button
             onClick={handleSubmit}
-            className="px-8 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
+            disabled={submitting || data?.complete === "YES"}
+            className="px-8 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Submit
+            {submitting ? "Submitting..." : isSubmitted ? "Update Selection" : "Submit"}
           </button>
         </div>
 

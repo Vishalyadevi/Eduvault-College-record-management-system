@@ -141,15 +141,23 @@ export const getAllSemesters = catchAsync(async (req, res) => {
   const where = { isActive: "YES" };
   if (batchId) where.batchId = Number(batchId);
 
-  const key = makeCacheKey("semesters:all", { query: req.query || {} });
+  const key = makeCacheKey("semesters:all:v2", { query: req.query || {} });
   const semesters = await getOrSetCache(
     key,
     () =>
       Semester.findAll({
         where,
         attributes: ["semesterId", "batchId", "semesterNumber", "startDate", "endDate", "isActive"],
+        include: [
+          {
+            model: Batch,
+            attributes: ["batchId", "degree", "branch", "batch", "batchYears"],
+            required: false,
+          },
+        ],
         order: [["batchId", "ASC"], ["semesterNumber", "ASC"]],
-        raw: true
+        raw: true,
+        nest: true
       }),
     { ttlSeconds: ttl.medium, onStatus: markCache(res) }
   );

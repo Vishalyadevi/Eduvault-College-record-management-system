@@ -154,9 +154,12 @@ export const login = async (req, res) => {
     const lockout = checkLockout(identifier, req.ip);
 
     if (lockout.locked) {
+      const message = `Account temporarily locked. Try again in ${lockout.retryAfterSec}s.`;
+      res.set("Retry-After", String(lockout.retryAfterSec));
       return res.status(429).json({
         status: "error",
-        message: `Account temporarily locked. Try again in ${lockout.retryAfterSec}s.`,
+        message,
+        msg: message,
       });
     }
 

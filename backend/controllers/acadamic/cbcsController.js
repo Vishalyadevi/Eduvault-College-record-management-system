@@ -241,6 +241,10 @@ export const getCbcsById = async (req, res) => {
  */
 export const getStudentCbcsSelection = async (req, res) => {
   try {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+
     const { regno, batchId, semesterId } = req.query;
     const deptId = req.query.deptId || req.query.departmentId;
 
@@ -272,6 +276,16 @@ export const getStudentCbcsSelection = async (req, res) => {
       });
     }
 
+    const submittedChoices = await studentTempChoice.findAll({
+      where: { regno, cbcs_id: cbcs.cbcs_id },
+      attributes: ["courseId", "preferred_sectionId", "preferred_staffId", "preference_order", "status"],
+      order: [["preference_order", "ASC"]],
+      raw: true
+    });
+    const submittedChoiceByCourse = new Map(
+      submittedChoices.map((choice) => [Number(choice.courseId), choice])
+    );
+
     // Logic to only show Core or Electives specifically selected by this student
     const subjects = await CBCSSubject.findAll({
       where: { cbcs_id: cbcs.cbcs_id }
@@ -287,29 +301,35 @@ export const getStudentCbcsSelection = async (req, res) => {
         if (!elected) continue;
       }
 
-      // Fetch Staff for these subjects
-      const staffAssignments = await StaffCourse.findAll({
-        where: { courseId: sub.courseId },
+      const staffAssignments = await CBCSSectionStaff.findAll({
+        where: { cbcs_subject_id: sub.cbcs_subject_id },
         include: [
-          { model: Section, attributes: ['sectionName'] },
-          { model: User, attributes: ['userName'] }
-        ]
+          { model: Section, as: 'section', attributes: ['sectionName'] },
+          { model: User, as: 'staff', attributes: ['userId', 'userName'] }
+        ],
+        order: [['sectionId', 'ASC']]
       });
 
       finalSubjects.push({
         ...sub.get({ plain: true }),
-        staffs: staffAssignments.map(sa => ({
+        selectedChoice: submittedChoiceByCourse.get(Number(sub.courseId)) || null,
+        staffs: staffAssignments.map((sa) => ({
           sectionId: sa.sectionId,
-          sectionName: sa.Section?.sectionName,
-          staffId: sa.Userid,
-          staffName: sa.User?.userName
+          sectionName: sa.section?.sectionName,
+          staffId: sa.staffId,
+          staffName: sa.staff?.userName
         }))
       });
     }
 
     res.json({
       success: true,
-      cbcs: { ...cbcs.get({ plain: true }), subjects: finalSubjects },
+      cbcs: {
+        ...cbcs.get({ plain: true }),
+        isSubmitted: submittedChoices.length > 0,
+        submittedChoices,
+        subjects: finalSubjects
+      },
       message: finalSubjects.length ? null : "CBCS is available, but no course selections are mapped for this student yet"
     });
   } catch (err) {
@@ -325,11 +345,43 @@ export const submitStudentCourseSelection = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const alreadySubmitted = await studentTempChoice.findOne({ where: { regno, cbcs_id } });
-    if (alreadySubmitted) throw new Error("Choices already submitted.");
+    if (!regno || !cbcs_id || !Array.isArray(selections) || selections.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ success: false, error: "regno, cbcs_id, and selections are required." });
+    }
+
+    const cbcsInfo = await CBCS.findByPk(cbcs_id, { transaction: t });
+    if (!cbcsInfo) throw new Error("CBCS not found.");
+    if (cbcsInfo.complete === 'YES') {
+      await t.rollback();
+      return res.status(409).json({
+        success: false,
+        error: "Choices are already finalized and cannot be changed."
+      });
+    }
+
+    await studentTempChoice.destroy({ where: { regno, cbcs_id }, transaction: t });
 
     for (let i = 0; i < selections.length; i++) {
       const sel = selections[i];
+      const subject = await CBCSSubject.findOne({
+        where: { cbcs_id, courseId: sel.courseId },
+        transaction: t
+      });
+      if (!subject) throw new Error(`Course ${sel.courseId} is not part of this CBCS.`);
+
+      const validChoice = await CBCSSectionStaff.findOne({
+        where: {
+          cbcs_subject_id: subject.cbcs_subject_id,
+          sectionId: sel.sectionId,
+          staffId: sel.staffId
+        },
+        transaction: t
+      });
+      if (!validChoice) {
+        throw new Error(`Invalid staff/section selection for course ${sel.courseId}.`);
+      }
+
       await studentTempChoice.create({
         regno,
         cbcs_id,
@@ -340,7 +392,6 @@ export const submitStudentCourseSelection = async (req, res) => {
       }, { transaction: t });
     }
 
-    const cbcsInfo = await CBCS.findByPk(cbcs_id, { transaction: t });
     const submittedCount = await studentTempChoice.count({
       where: { cbcs_id },
       distinct: true,
@@ -355,7 +406,7 @@ export const submitStudentCourseSelection = async (req, res) => {
       setImmediate(() => finalizeAndOptimizeAllocation(cbcs_id, 1));
     }
 
-    res.json({ success: true, message: "Choices submitted successfully." });
+    res.json({ success: true, message: "Choices saved successfully." });
   } catch (err) {
     await t.rollback();
     res.status(400).json({ success: false, error: err.message });
