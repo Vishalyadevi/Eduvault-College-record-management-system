@@ -189,9 +189,9 @@ export const fetchStudentNptelEnrollments = async () => {
   }
 };
 
-export const requestNptelCreditTransfer = async (enrollmentId) => {
+export const requestNptelCreditTransfer = async (enrollmentId, decision = 'accepted', remarks = '') => {
   try {
-    const response = await api.post('/student/nptel-credit-transfer', { enrollmentId });
+    const response = await api.post('/student/nptel-credit-transfer', { enrollmentId, decision, remarks });
     return handleResponse(response);
   } catch (error) {
     console.error("requestNptelCreditTransfer error:", error);

@@ -90,6 +90,29 @@ async function upsertDayAttendanceSummary({ regno, semesterNumber, attendanceDat
   await DayAttendance.create({ regno, semesterNumber, attendanceDate, status: dailyStatus }, { transaction });
 }
 
+async function getRelatedStaffCourseScope(userId, course) {
+  const staffCourses = await StaffCourse.findAll({
+    where: { Userid: userId },
+    attributes: ['courseId', 'sectionId'],
+    include: [{
+      model: Course,
+      required: true,
+      attributes: ['courseId', 'courseCode', 'courseTitle'],
+      where: {
+        [Op.or]: [
+          { courseCode: course.courseCode },
+          { courseTitle: course.courseTitle }
+        ]
+      }
+    }]
+  });
+
+  return {
+    courseIds: [...new Set([course.courseId, ...staffCourses.map(sc => sc.courseId)])],
+    sectionIds: [...new Set(staffCourses.map(sc => sc.sectionId).filter(Boolean))]
+  };
+}
+
 // ==========================================
 // CONTROLLER FUNCTIONS
 // ==========================================
@@ -181,22 +204,9 @@ export async function getStudentsForPeriod(req, res, next) {
     if (!course) return res.status(404).json({ status: "error", message: "Course not found" });
 
     const isElective = ["OEC", "PEC"].includes(course.category?.trim().toUpperCase());
-    let targetCourseIds = [requestedCourseId];
-
-    if (isElective) {
-      const related = await Course.findAll({
-        attributes: ['courseId'],
-        include: [{
-          model: StaffCourse,
-          required: true,
-          where: { Userid: user.userId }
-        }],
-        where: {
-          [Op.or]: [{ courseCode: course.courseCode }, { courseTitle: course.courseTitle }]
-        }
-      });
-      targetCourseIds = [...new Set([requestedCourseId, ...related.map(r => r.courseId)])];
-    }
+    const relatedScope = await getRelatedStaffCourseScope(user.userId, course);
+    const targetCourseIds = relatedScope.courseIds;
+    const targetSectionIds = relatedScope.sectionIds;
 
     // Auth Check
     const isAssigned = await StaffCourse.findOne({
@@ -213,7 +223,7 @@ export async function getStudentsForPeriod(req, res, next) {
     let students = await StudentCourse.findAll({
       where: { 
         courseId: { [Op.in]: targetCourseIds },
-        ...(!isElective && safeSectionId ? { sectionId: safeSectionId } : {})
+        ...(targetSectionIds.length ? { sectionId: { [Op.in]: targetSectionIds } } : {})
       },
       include: [
         { 
@@ -310,7 +320,7 @@ export async function getStudentsForPeriod(req, res, next) {
         sectionId: s.sectionId,
         courseId: s.courseId
       })),
-      meta: { isElective, mappedCourses: targetCourseIds }
+      meta: { isElective, mappedCourses: targetCourseIds, mappedSections: targetSectionIds }
     });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
@@ -390,6 +400,9 @@ export async function markAttendance(req, res, next) {
     const baseCourse = await Course.findByPk(requestedCourseId, { include: [Semester] });
     const requestedIsElective = ["OEC", "PEC"].includes((baseCourse?.category || "").trim().toUpperCase());
     const baseSemNum = baseCourse?.Semester?.semesterNumber;
+    const relatedScope = baseCourse
+      ? await getRelatedStaffCourseScope(user.userId, baseCourse)
+      : { courseIds: [requestedCourseId], sectionIds: safeSectionId ? [safeSectionId] : [] };
 
     const uniqueAttendanceCourseIds = [
       ...new Set(
@@ -448,8 +461,13 @@ export async function markAttendance(req, res, next) {
       }
 
       // Section check
-      if (sc && safeSectionId && safeSectionId !== sc.sectionId) {
+      if (sc && safeSectionId && effectiveCourseId === requestedCourseId && safeSectionId !== sc.sectionId) {
         skipped.push({ rollnumber: att.rollnumber, reason: "Section mismatch" });
+        continue;
+      }
+
+      if (sc && relatedScope.sectionIds.length && !relatedScope.sectionIds.includes(sc.sectionId)) {
+        skipped.push({ rollnumber: att.rollnumber, reason: "Section not assigned" });
         continue;
       }
 

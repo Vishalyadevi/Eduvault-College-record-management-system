@@ -513,6 +513,9 @@ export const getMyCourses = catchAsync(async (req, res) => {
         semester: sem ? `Sem ${sem.semesterNumber}` : 'N/A',
         sections: [],
         branches: new Set(),
+        batches: new Set(),
+        batchYears: new Set(),
+        degrees: new Set(),
         compositeSectionIds: [],
       });
     }
@@ -524,12 +527,16 @@ export const getMyCourses = catchAsync(async (req, res) => {
 
     // Collect branches taught for this course
     if (batch?.branch) entry.branches.add(batch.branch);
+    if (batch?.batch) entry.batches.add(batch.batch);
+    if (batch?.batchYears) entry.batchYears.add(batch.batchYears);
+    if (batch?.degree) entry.degrees.add(batch.degree);
 
     // Collect sections with useful info
     entry.sections.push({
       sectionId: data.sectionId,
       sectionName: data.Section?.sectionName || 'Unnamed',
       batch: batch?.batch || 'N/A',
+      batchYears: batch?.batchYears || 'N/A',
       branch: batch?.branch || 'General',
       degree: batch?.degree || 'BE',
       // You can add more if needed: classroom, timing, etc.
@@ -546,6 +553,14 @@ export const getMyCourses = catchAsync(async (req, res) => {
     ...entry,
     courseCodes: Array.from(entry.courseCodes),
     branches: Array.from(entry.branches),
+    batches: Array.from(entry.batches),
+    batchYears: Array.from(entry.batchYears),
+    degrees: Array.from(entry.degrees),
+    batch: Array.from(entry.batches).join(' / ') || 'N/A',
+    batchYear: Array.from(entry.batches).join(' / ') || 'N/A',
+    academicBatch: Array.from(entry.batches).join(' / ') || 'N/A',
+    academicBatchYears: Array.from(entry.batchYears).join(' / ') || 'N/A',
+    degree: Array.from(entry.degrees).join(' / ') || 'BE',
     compositeSectionIds: entry.compositeSectionIds.join('_'),
     sectionCount: entry.sections.length,
     // Optional: sort sections by branch/batch/sectionName
@@ -772,33 +787,74 @@ export const updateStudentCOMarkByCoId = catchAsync(async (req, res) => {
 
 export const getStudentsForSection = catchAsync(async (req, res) => {
   const { courseCode, sectionId } = req.params;
+  const staffId = getStaffId(req);
 
   // Guard against "unknown" sectionId
   if (!sectionId || sectionId === 'unknown') {
     return res.status(400).json({ status: 'error', message: 'Valid Section ID is required' });
   }
 
+  const codes = String(courseCode || '')
+    .split('_')
+    .map(code => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  const baseCourses = await Course.findAll({
+    where: { courseCode: { [Op.in]: codes } },
+    attributes: ['courseCode', 'courseTitle']
+  });
+
+  const titles = [...new Set(baseCourses.map(course => course.courseTitle).filter(Boolean))];
+
+  const staffCourses = await StaffCourse.findAll({
+    where: { Userid: staffId },
+    attributes: ['courseId', 'sectionId'],
+    include: [{
+      model: Course,
+      required: true,
+      attributes: ['courseId', 'courseCode', 'courseTitle'],
+      where: {
+        [Op.or]: [
+          ...(codes.length ? [{ courseCode: { [Op.in]: codes } }] : []),
+          ...(titles.length ? [{ courseTitle: { [Op.in]: titles } }] : [])
+        ]
+      }
+    }]
+  });
+
+  if (!staffCourses.length) {
+    return res.status(200).json({ status: 'success', data: [] });
+  }
+
+  const courseIds = [...new Set(staffCourses.map(row => row.courseId))];
+  const sectionIds = [...new Set(staffCourses.map(row => row.sectionId).filter(Boolean))];
+
   const enrollments = await StudentCourse.findAll({
-    where: { sectionId: sectionId },
+    where: {
+      courseId: { [Op.in]: courseIds },
+      ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {})
+    },
     include: [
       {
-        model: Course,
-        where: { courseCode: courseCode },
-        attributes: [] // We only need this for filtering
-      },
-      {
         model: StudentDetails,
-        attributes: ['registerNumber', 'studentName']
+        attributes: ['registerNumber', 'studentName'],
+        required: true
       }
-    ]
+    ],
+    order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
   });
 
   // Flatten the response to match frontend expectations (regno, name)
-  const data = enrollments.map(e => ({
-    regno: e.StudentDetail?.registerNumber,
-    name: e.StudentDetail?.studentName,
-    studentId: e.StudentDetail?.studentId
-  }));
+  const data = Array.from(new Map(enrollments.map(e => [
+    e.StudentDetail?.registerNumber,
+    {
+      regno: e.StudentDetail?.registerNumber,
+      name: e.StudentDetail?.studentName,
+      studentId: e.StudentDetail?.studentId,
+      courseId: e.courseId,
+      sectionId: e.sectionId
+    }
+  ])).values()).filter(student => student.regno);
 
   res.status(200).json({ status: 'success', data });
 });
@@ -829,16 +885,46 @@ export const exportCourseWiseCsv = catchAsync(async (req, res) => {
 export const getStudentCOMarks = catchAsync(async (req, res) => {
   const { courseCode: rawCourseCode } = req.params;
   const normalizedCode = rawCourseCode.toUpperCase().trim();
+  const staffId = getStaffId(req);
 
   try {
-    // Find ALL courses with this courseCode (across departments)
-    const courses = await Course.findAll({
+    const baseCourses = await Course.findAll({
       where: { courseCode: normalizedCode },
+      attributes: ['courseId', 'courseCode', 'courseTitle'],
     });
 
-    if (courses.length === 0) {
+    if (baseCourses.length === 0) {
       return res.status(404).json({ status: 'error', message: 'No course found with this code' });
     }
+
+    const relatedTitles = [...new Set(baseCourses.map(course => course.courseTitle).filter(Boolean))];
+    const staffCourses = await StaffCourse.findAll({
+      where: { Userid: staffId },
+      attributes: ['courseId', 'sectionId'],
+      include: [{
+        model: Course,
+        required: true,
+        attributes: ['courseId', 'courseCode', 'courseTitle'],
+        where: {
+          [Op.or]: [
+            { courseCode: normalizedCode },
+            ...(relatedTitles.length ? [{ courseTitle: { [Op.in]: relatedTitles } }] : [])
+          ]
+        }
+      }]
+    });
+
+    const courses = staffCourses.map(row => row.Course).filter(Boolean);
+
+    if (courses.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Course not found or not assigned' });
+    }
+
+    const sectionIdsByCourseId = staffCourses.reduce((acc, row) => {
+      if (!acc[row.courseId]) acc[row.courseId] = new Set();
+      if (row.sectionId) acc[row.courseId].add(row.sectionId);
+      return acc;
+    }, {});
 
     // Use first course as reference for CO numbers & types
     const primaryCourse = courses[0];
@@ -861,16 +947,12 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
     const studentsMap = new Map(); // regno → student
 
     for (const course of courses) {
-      const sections = await Section.findAll({
-        where: { courseId: course.courseId, isActive: 'YES' },
-      });
-
-      const sectionIds = sections.map(s => s.sectionId);
+      const sectionIds = Array.from(sectionIdsByCourseId[course.courseId] || []);
 
       const enrollments = await StudentCourse.findAll({
         where: {
           courseId: course.courseId,
-          sectionId: { [Op.in]: sectionIds },
+          ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {}),
         },
         include: [{
           model: StudentDetails,

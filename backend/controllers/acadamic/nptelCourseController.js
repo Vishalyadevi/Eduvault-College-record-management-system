@@ -2,6 +2,7 @@
 import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
 import Joi from 'joi';
+import { recalculateStudentAcademicRows } from "./gradeController.js";
 
 const { 
   sequelize, 
@@ -232,6 +233,8 @@ export const approveRejectTransfer = catchAsync(async (req, res) => {
     studentRemarks: remarks || null,
     // Add audit fields if they exist in your schema
   });
+
+  await recalculateStudentAcademicRows(transfer.regno, null);
 
   res.status(200).json({ status: "success", message: `Request ${action} successfully` });
 });

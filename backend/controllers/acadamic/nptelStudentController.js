@@ -1,6 +1,7 @@
 import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
 import { Op } from "sequelize";
+import { recalculateStudentAcademicRows } from "./gradeController.js";
 
 const {
   sequelize,
@@ -215,6 +216,8 @@ export const requestCreditTransfer = catchAsync(async (req, res) => {
     studentRemarks: remarks || null,
     studentRespondedAt: new Date()
   });
+
+  await recalculateStudentAcademicRows(regno, null);
 
   res.status(200).json({
     status: "success",

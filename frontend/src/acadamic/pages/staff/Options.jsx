@@ -2,6 +2,20 @@ import React from 'react';
 import { ChevronLeft, BarChart3, Calculator, AlertTriangle } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
+const joinValues = (values) => {
+  const list = Array.isArray(values) ? values : [values];
+  const clean = list
+    .flatMap((value) => String(value ?? '').split('/'))
+    .map((value) => value.trim())
+    .filter((value) => value && value !== 'N/A');
+
+  return [...new Set(clean)].join(' / ');
+};
+
+const resolveSectionLabel = (course) =>
+  joinValues(course.sectionName || course.sectionNames) ||
+  joinValues((course.sections || []).map((section) => section.sectionName));
+
 const Options = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,7 +28,9 @@ const Options = () => {
   const displayTitle = course.title || course.courseTitle || 'Course Details';
   const displayCode = course.displayCode || course.courseCode || course.mainCourseCode || paramCourseId || 'Unknown Code';
   const displaySemester = course.semesterName || '';
-  const compositeSectionIds = course.compositeSectionIds || course.compositeSectionId || '';
+  const navigationSectionIds = course.compositeSectionIds || course.compositeSectionId || '';
+  const displaySections = resolveSectionLabel(course);
+  const compositeSectionIds = displaySections;
 
   // For navigation - prefer composite if available, fallback to single courseId
   const targetCourseId = course.compositeCourseCode || course.mainCourseCode || paramCourseId || course.courseCode || 'unknown';
@@ -26,7 +42,7 @@ const Options = () => {
       description: 'Define COs, assign tools, enter marks per tool',
       icon: BarChart3,
       color: 'bg-blue-600 hover:bg-blue-700',
-      path: `/staff/marks-allocation/${targetCourseId}/${compositeSectionIds || 'unknown'}`,
+      path: `/staff/marks-allocation/${targetCourseId}/${navigationSectionIds || 'unknown'}`,
     },
     {
       id: 'internal-marks',
@@ -55,7 +71,7 @@ const Options = () => {
     navigate(option.path, {
       state: {
         course,                        // full course object
-        compositeSectionIds,           // for section-specific student fetching
+        compositeSectionIds: navigationSectionIds, // for section-specific student fetching
         compositeCourseCode: targetCourseId, // in case child needs to split
       },
     });
@@ -100,7 +116,7 @@ const Options = () => {
                     </div>
                   )}
 
-                  {compositeSectionIds && (
+                  {displaySections && (
                     <span className="text-gray-500 italic">
                       Sections: {compositeSectionIds.split('_').join(' • ')}
                     </span>
@@ -158,7 +174,7 @@ const Options = () => {
         {/* Optional footer note */}
         <div className="mt-10 text-center text-sm text-gray-500">
           Select an option to manage or view marks for this course
-          {compositeSectionIds && ' (multi-section mode)'}
+          {displaySections && ` (${displaySections})`}
         </div>
       </div>
     </div>

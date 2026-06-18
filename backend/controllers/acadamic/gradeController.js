@@ -16,6 +16,7 @@ const {
   Department,
   NptelCourse,
   StudentNptelEnrollment,
+  NptelCreditTransfer,
   StudentSemesterGPA
 } = db;
 
@@ -303,6 +304,25 @@ const buildSemesterPerformance = async (regno, transaction) => {
     transaction
   });
 
+  const nptelEnrollments = await StudentNptelEnrollment.findAll({
+    where: { regno, isActive: 'YES' },
+    include: [
+      {
+        model: NptelCourse,
+        attributes: ['courseCode', 'credits', 'semesterId'],
+        required: true,
+        where: { isActive: 'YES' },
+        include: [{ model: Semester, attributes: ['semesterId', 'semesterNumber'], required: true }]
+      },
+      {
+        model: NptelCreditTransfer,
+        attributes: ['studentStatus'],
+        required: false
+      }
+    ],
+    transaction
+  });
+
   // Safety: use only latest attempt per course code even if legacy duplicates exist in DB.
   const latestByCourse = new Map();
   const sortedRows = [...gradeRows].sort((a, b) => (b.gradeId || 0) - (a.gradeId || 0));
@@ -314,10 +334,8 @@ const buildSemesterPerformance = async (regno, transaction) => {
 
   const bySemester = new Map();
 
-  for (const row of latestByCourse.values()) {
-    const course = row.Course;
-    const semester = course?.Semester;
-    if (!course || !semester || !course.credits || course.credits <= 0) continue;
+  const addCourseToSemester = ({ course, semester, grade, gradePoint }) => {
+    if (!course || !semester || !course.credits || course.credits <= 0) return;
 
     const semId = semester.semesterId;
     if (!bySemester.has(semId)) {
@@ -334,16 +352,61 @@ const buildSemesterPerformance = async (regno, transaction) => {
     const semData = bySemester.get(semId);
     semData.semTotalCredits += course.credits;
 
-    if (row.grade === 'U') {
+    if (grade === 'U') {
       semData.hasOutstandingFail = true;
-      continue;
+      return;
     }
 
-    const point = row.GradePoint?.point ?? GRADE_POINTS[row.grade];
-    if (point === null || point === undefined) continue;
+    const point = gradePoint ?? GRADE_POINTS[grade];
+    if (point === null || point === undefined) return;
 
     semData.semPoints += point * course.credits;
     semData.semEarnedCredits += course.credits;
+  };
+
+  for (const row of latestByCourse.values()) {
+    addCourseToSemester({
+      course: row.Course,
+      semester: row.Course?.Semester,
+      grade: row.grade,
+      gradePoint: row.GradePoint?.point
+    });
+  }
+
+  const regularCourseCodes = new Set([...latestByCourse.keys()]);
+  const nptelCourseCodes = [
+    ...new Set(
+      nptelEnrollments
+        .map((e) => normalizeCode(e.NptelCourse?.courseCode))
+        .filter((code) => code && !regularCourseCodes.has(code))
+    )
+  ];
+
+  if (nptelCourseCodes.length > 0) {
+    const nptelGrades = await StudentGrade.findAll({
+      where: { regno, courseCode: { [Op.in]: nptelCourseCodes } },
+      include: [{ model: GradePoint, attributes: ['point'], required: false }],
+      transaction
+    });
+    const gradeByCourseCode = new Map(
+      nptelGrades.map((row) => [normalizeCode(row.courseCode), row])
+    );
+
+    for (const enrollment of nptelEnrollments) {
+      const code = normalizeCode(enrollment.NptelCourse?.courseCode);
+      if (!code || regularCourseCodes.has(code)) continue;
+      if (enrollment.NptelCreditTransfer?.studentStatus === 'rejected') continue;
+
+      const gradeRow = gradeByCourseCode.get(code);
+      if (!gradeRow) continue;
+
+      addCourseToSemester({
+        course: enrollment.NptelCourse,
+        semester: enrollment.NptelCourse?.Semester,
+        grade: gradeRow.grade,
+        gradePoint: gradeRow.GradePoint?.point
+      });
+    }
   }
 
   const semesters = [...bySemester.values()].sort((a, b) => a.semesterNumber - b.semesterNumber);
@@ -440,7 +503,7 @@ const validateSemesterProgressionForRegularUpload = async (records, requestedSem
   };
 };
 
-const recalculateStudentAcademicRows = async (regno, transaction) => {
+export const recalculateStudentAcademicRows = async (regno, transaction) => {
   const semesterRows = await buildSemesterPerformance(regno, transaction);
   if (semesterRows.length === 0) return;
 

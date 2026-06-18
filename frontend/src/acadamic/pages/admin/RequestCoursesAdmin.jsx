@@ -221,15 +221,15 @@ const RequestCoursesAdmin = () => {
         draggable
         pauseOnHover
       />
-      <div className="flex items-center mb-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center mb-6">
         <button 
           onClick={() => navigate(-1)} 
-          className="mr-4 text-gray-600 hover:text-gray-800 transition-colors"
+          className="self-start md:mr-4 text-gray-600 hover:text-gray-800 transition-colors"
         >
           <ArrowLeft size={24} />
         </button>
         <h2 className="text-2xl font-bold text-gray-900">Manage Course Requests</h2>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="md:ml-auto flex flex-wrap items-center gap-3">
           <span className={`px-3 py-1 rounded-full text-xs font-bold ${requestWindowOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
             {requestWindowOpen ? 'Request Open' : 'Request Locked'}
           </span>
@@ -274,51 +274,70 @@ const RequestCoursesAdmin = () => {
           <p className="text-lg">Loading pending requests...</p>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto bg-white rounded-xl shadow-md border border-gray-200">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Staff Name</th>
-                {courseColumns.map((course) => (
-                  <th key={course.key} className="px-4 py-3 font-semibold whitespace-nowrap">
-                    {course.code || 'Course'}{course.title ? ` - ${course.title}` : ''}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {staffRows.map((row) => (
-                <tr key={row.staffId}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{row.staffName}</td>
-                  {courseColumns.map((course) => {
-                    const request = row.requestsByCourse.get(course.key);
-                    return (
-                      <td key={course.key} className="px-4 py-3">
-                        {request ? (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleAcceptRequest(request.requestId)}
-                              className="bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium"
-                            >
-                              <Check size={14} /> Accept
-                            </button>
-                            <button
-                              onClick={() => handleRejectRequest(request.requestId)}
-                              className="bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium"
-                            >
-                              <X size={14} /> Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+          {filteredRequests.map((request) => {
+            const course = request.Course || {};
+            const semester = course.Semester || {};
+            const batch = semester.Batch || {};
+            const staffName = request.User?.userName || request.staffName || 'N/A';
+            const staffId = request.User?.userNumber || request.User?.userMail || request.staffId || 'N/A';
+            const courseCode = course.courseCode || request.courseCode || 'Course';
+            const courseTitle = course.courseTitle || request.courseTitle || 'Untitled Course';
+
+            return (
+              <div
+                key={request.requestId}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col gap-4 min-w-0"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Staff</p>
+                    <h3 className="text-base font-bold text-gray-900 break-words">{staffName}</h3>
+                    <p className="text-xs text-gray-500 break-words">{staffId}</p>
+                  </div>
+                  <span className="self-start rounded-full bg-amber-100 text-amber-700 px-3 py-1 text-xs font-bold">
+                    Pending
+                  </span>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 min-w-0">
+                  <p className="text-xs font-bold text-blue-700 break-words">{courseCode}</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900 leading-snug break-words">
+                    {courseTitle}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <span className="rounded-md bg-white border border-gray-100 px-2 py-1 break-words">
+                      {batch.branch || 'Branch N/A'}
+                    </span>
+                    <span className="rounded-md bg-white border border-gray-100 px-2 py-1 break-words">
+                      Sem {semester.semesterNumber || 'N/A'}
+                    </span>
+                    <span className="rounded-md bg-white border border-gray-100 px-2 py-1 break-words">
+                      Batch {batch.batch || 'N/A'}
+                    </span>
+                    <span className="rounded-md bg-white border border-gray-100 px-2 py-1 break-words">
+                      {course.type || 'Type N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 mt-auto">
+                  <button
+                    onClick={() => handleAcceptRequest(request.requestId)}
+                    className="flex-1 justify-center bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium whitespace-nowrap"
+                  >
+                    <Check size={14} /> Accept
+                  </button>
+                  <button
+                    onClick={() => handleRejectRequest(request.requestId)}
+                    className="flex-1 justify-center bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg flex items-center gap-1 transition-colors font-medium whitespace-nowrap"
+                  >
+                    <X size={14} /> Reject
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

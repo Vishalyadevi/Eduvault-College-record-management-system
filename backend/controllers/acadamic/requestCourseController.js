@@ -58,6 +58,35 @@ const getUserContext = async (req) => {
   };
 };
 
+const resolveDepartmentFilter = async (deptValue, fallbackDepartmentId) => {
+  const raw = String(deptValue ?? '').trim();
+
+  if (raw) {
+    const numericId = Number.parseInt(raw, 10);
+    if (!Number.isNaN(numericId) && String(numericId) === raw) {
+      return Department.findByPk(numericId, {
+        attributes: ['departmentId', 'departmentAcr', 'departmentName']
+      });
+    }
+
+    return Department.findOne({
+      where: {
+        [Op.or]: [
+          sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentAcr')), raw.toUpperCase()),
+          sequelize.where(sequelize.fn('UPPER', sequelize.col('departmentName')), raw.toUpperCase())
+        ]
+      },
+      attributes: ['departmentId', 'departmentAcr', 'departmentName']
+    });
+  }
+
+  if (!fallbackDepartmentId) return null;
+
+  return Department.findByPk(fallbackDepartmentId, {
+    attributes: ['departmentId', 'departmentAcr', 'departmentName']
+  });
+};
+
 // 1. Get Available Courses
 export const getAvailableCoursesForStaff = catchAsync(async (req, res) => {
   const { semester, branch, batch, type, dept } = req.query;
@@ -66,18 +95,13 @@ export const getAvailableCoursesForStaff = catchAsync(async (req, res) => {
   if (!userId) {
     return res.status(401).json({ status: 'error', message: 'Authentication required' });
   }
-  const deptId = dept ? parseInt(dept) : staffDeptId;
-  if (!deptId) {
+
+  const deptRecord = await resolveDepartmentFilter(dept, staffDeptId);
+  if (!deptRecord) {
     return res.status(400).json({ status: 'error', message: 'Staff department not found' });
   }
 
-  const deptRecord = await Department.findByPk(deptId, {
-    attributes: ['departmentId', 'departmentAcr']
-  });
-  if (!deptRecord) {
-    return res.status(400).json({ status: 'error', message: 'Invalid department' });
-  }
-  const branchFilter = branch || '';
+  const branchFilter = branch || deptRecord.departmentAcr || '';
 
   const courses = await Course.findAll({
     where: {
@@ -119,18 +143,13 @@ export const getAllCoursesForStaff = catchAsync(async (req, res) => {
   if (!userId) {
     return res.status(401).json({ status: 'error', message: 'Authentication required' });
   }
-  const deptId = dept ? parseInt(dept) : staffDeptId;
-  if (!deptId) {
+
+  const deptRecord = await resolveDepartmentFilter(dept, staffDeptId);
+  if (!deptRecord) {
     return res.status(400).json({ status: 'error', message: 'Staff department not found' });
   }
 
-  const deptRecord = await Department.findByPk(deptId, {
-    attributes: ['departmentId', 'departmentAcr']
-  });
-  if (!deptRecord) {
-    return res.status(400).json({ status: 'error', message: 'Invalid department' });
-  }
-  const branchFilter = branch || '';
+  const branchFilter = branch || deptRecord.departmentAcr || '';
 
   const courses = await Course.findAll({
     attributes: {

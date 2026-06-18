@@ -70,6 +70,31 @@ const getCourseTheme = (index) => {
   return themes[index % themes.length];
 };
 
+const joinValues = (values) => {
+  const list = Array.isArray(values) ? values : [values];
+  const clean = list
+    .flatMap((value) => String(value ?? '').split('/'))
+    .map((value) => value.trim())
+    .filter((value) => value && value !== 'N/A');
+
+  return [...new Set(clean)].join(' / ');
+};
+
+const resolveAcademicBatch = (course) =>
+  joinValues(course.academicBatch || course.batchYear || course.batch || course.batches) ||
+  joinValues((course.sections || []).map((section) => section.batch)) ||
+  'N/A';
+
+const resolveAcademicBatchYears = (course) =>
+  joinValues(course.academicBatchYears || course.batchYears) ||
+  joinValues((course.sections || []).map((section) => section.batchYears)) ||
+  '';
+
+const resolveSectionNames = (course) =>
+  joinValues(course.sectionName || course.sectionNames) ||
+  joinValues((course.sections || []).map((section) => section.sectionName)) ||
+  '';
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -108,8 +133,9 @@ const Dashboard = () => {
               degree: course.degree || '',
               branch: course.branch || 'General',
               branches: course.branches || (course.branch ? [course.branch] : []),
-              batch: course.batch || 'N/A',
-              sectionName: course.sectionName || '',
+              batch: resolveAcademicBatch(course),
+              batchYears: resolveAcademicBatchYears(course),
+              sectionName: resolveSectionNames(course),
               compositeSectionIds: course.compositeSectionIds || '',  // keep this field
               theme: getCourseTheme(index),
             }))
@@ -285,7 +311,10 @@ const Dashboard = () => {
                         </div>
                         <div className="flex items-center text-sm text-slate-600">
                           <Calendar className="w-4 h-4 mr-2 text-slate-400" />
-                          <span>Batch {course.batch}</span>
+                          <span>
+                            Batch {course.batch}
+                            {course.batchYears ? ` (${course.batchYears})` : ''}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -317,6 +346,9 @@ const Dashboard = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <BookOpen className="w-3 h-3" /> {course.semester}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> Batch {course.batch}
                         </span>
                         {course.sectionName && (
                           <span className="text-blue-600 font-medium">Sec {course.sectionName}</span>
