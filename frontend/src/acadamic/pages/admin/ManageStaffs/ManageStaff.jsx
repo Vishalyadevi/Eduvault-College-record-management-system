@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Upload, Users } from 'lucide-react';
 import { ClipLoader } from 'react-spinners'; // Import the spinner
 import Filters from './Filters';
 import StaffCard from './StaffCard';
@@ -8,12 +8,14 @@ import AllocateCourseModal from './AllocateCourseModal';
 import AddBatchModal from './AddBatchModal';
 import EditBatchModal from './EditBatchModal';
 import StudentsModal from './StudentsModal';
+import StaffCourseImportModal from './StaffCourseImportModal';
 import useManageStaffData from './hooks/useManageStaffData';
 import useManageStaffFilters from './hooks/useManageStaffFilters';
 import useManageStaffHandlers from './hooks/useManageStaffHandlers';
 
 const ManageStaff = () => {
   const [staffPage, setStaffPage] = useState(1);
+  const [showImportModal, setShowImportModal] = useState(false);
   const STAFFS_PER_PAGE = 9;
 
   const {
@@ -126,8 +128,19 @@ const ManageStaff = () => {
   return (
     <div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center">
       <div className="w-full max-w-7xl mb-6">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight text-center sm:text-left">Manage Staff</h1>
-        <p className="text-gray-500 mt-2 text-lg text-center sm:text-left">Efficiently manage staff members and their course allocations</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight text-center sm:text-left">Manage Staff</h1>
+            <p className="text-gray-500 mt-2 text-lg text-center sm:text-left">Efficiently manage staff members and their course allocations</p>
+          </div>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all"
+          >
+            <Upload size={16} />
+            Import Allocation
+          </button>
+        </div>
         <Filters
           filters={filters}
           setFilters={setFilters}
@@ -265,6 +278,14 @@ const ManageStaff = () => {
           selectedCourseCode={selectedCourseCode}
           selectedCourseStudents={selectedCourseStudents}
           setShowStudentsModal={setShowStudentsModal}
+        />
+      )}
+      {showImportModal && (
+        <StaffCourseImportModal
+          staffList={staffList}
+          courses={courses}
+          fetchData={fetchData}
+          onClose={() => setShowImportModal(false)}
         />
       )}
     </div>
