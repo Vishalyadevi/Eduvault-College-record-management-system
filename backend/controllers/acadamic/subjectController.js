@@ -7,6 +7,7 @@ import { getOrSetCache, invalidateCachePrefixes, makeCacheKey, ttl } from "../..
 
 const { sequelize, Course, Semester, Batch } = db;
 const markCache = (res) => (status) => res.set("X-Cache", status);
+const serializeInstance = (instance) => (instance && typeof instance.toJSON === 'function' ? instance.toJSON() : instance);
 
 // Valid enum values
 const validTypes = ['THEORY', 'INTEGRATED', 'PRACTICAL', 'EXPERIENTIAL LEARNING'];
@@ -179,10 +180,13 @@ export const getAllCourse = catchAsync(async (req, res) => {
   );
 
   // Flatten the branch name into the top level for frontend compatibility
-  const data = courses.map(c => ({
-    ...c.toJSON(),
-    branch: c.Semester?.Batch?.branch
-  }));
+  const data = courses.map(c => {
+    const courseJson = serializeInstance(c);
+    return {
+      ...courseJson,
+      branch: courseJson.Semester?.Batch?.branch
+    };
+  });
 
   res.status(200).json({
     status: 'success',
@@ -212,10 +216,13 @@ export const getCourseBySemester = catchAsync(async (req, res) => {
     return res.status(404).json({ status: "failure", message: "No active courses found for this semester" });
   }
 
-  const data = courses.map(c => ({
-    ...c.toJSON(),
-    branch: c.Semester?.Batch?.branch
-  }));
+  const data = courses.map(c => {
+    const courseJson = serializeInstance(c);
+    return {
+      ...courseJson,
+      branch: courseJson.Semester?.Batch?.branch
+    };
+  });
 
   res.status(200).json({ status: "success", data });
 });

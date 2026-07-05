@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { invalidateCachePrefixes } from '../../utils/cache.js';
 import db from '../../models/acadamic/index.js'; // Assuming your index.js exports the db object
 const { 
   sequelize, 
@@ -470,6 +471,362 @@ export const createRegulation = async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
+  }
+};
+
+export const getRegulationCourses = async (req, res) => {
+  const { regulationId } = req.params;
+  try {
+    const courses = await RegulationCourse.findAll({
+      where: { regulationId, isActive: 'YES' },
+      order: [['semesterNumber', 'ASC'], ['courseCode', 'ASC']]
+    });
+
+    const connectedBatches = await Batch.findAll({
+      where: { regulationId, isActive: 'YES' },
+      attributes: ['batchId', 'degree', 'branch', 'batch', 'batchYears']
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        courses,
+        connectedBatches
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
+  }
+};
+
+export const addRegulationCourse = async (req, res) => {
+  const { regulationId } = req.params;
+  const {
+    courseCode,
+    courseTitle,
+    semesterNumber,
+    category,
+    lectureHours,
+    tutorialHours,
+    practicalHours,
+    experientialHours,
+    totalContactPeriods,
+    credits,
+    minMark,
+    maxMark
+  } = req.body;
+  const createdBy = req.user?.userName || 'admin';
+
+  if (!courseCode || !courseTitle || !category) {
+    return res.status(400).json({ status: 'failure', message: 'courseCode, courseTitle, and category are required' });
+  }
+
+  const transaction = await sequelize.transaction();
+  try {
+    let regCourse = await RegulationCourse.findOne({
+      where: { regulationId, courseCode },
+      transaction
+    });
+
+    const type = determineCourseType(
+      Number(lectureHours || 0),
+      Number(tutorialHours || 0),
+      Number(practicalHours || 0),
+      Number(experientialHours || 0)
+    );
+
+    const payload = {
+      regulationId: Number(regulationId),
+      semesterNumber: semesterNumber ? Number(semesterNumber) : null,
+      courseCode: String(courseCode).trim(),
+      courseTitle: String(courseTitle).trim(),
+      category: String(category).trim().toUpperCase(),
+      type,
+      lectureHours: Number(lectureHours || 0),
+      tutorialHours: Number(tutorialHours || 0),
+      practicalHours: Number(practicalHours || 0),
+      experientialHours: Number(experientialHours || 0),
+      totalContactPeriods: Number(totalContactPeriods || 0),
+      credits: Number(credits || 0),
+      minMark: Number(minMark || 0),
+      maxMark: Number(maxMark || 0),
+      isActive: 'YES',
+      updatedBy: createdBy
+    };
+
+    if (regCourse) {
+      if (regCourse.isActive === 'YES') {
+        await transaction.rollback();
+        return res.status(400).json({ status: 'failure', message: `Course with code ${courseCode} already exists and is active` });
+      }
+      await regCourse.update(payload, { transaction });
+    } else {
+      payload.createdBy = createdBy;
+      regCourse = await RegulationCourse.create(payload, { transaction });
+    }
+
+    const connectedBatches = await Batch.findAll({
+      where: { regulationId, isActive: 'YES' },
+      transaction
+    });
+
+    if (payload.semesterNumber !== null) {
+      for (const batch of connectedBatches) {
+        const semester = await Semester.findOne({
+          where: { batchId: batch.batchId, semesterNumber: payload.semesterNumber },
+          transaction
+        });
+
+        if (semester) {
+          const coursePayload = {
+            courseCode: payload.courseCode,
+            semesterId: semester.semesterId,
+            courseTitle: payload.courseTitle,
+            category: payload.category,
+            type: payload.type,
+            lectureHours: payload.lectureHours,
+            tutorialHours: payload.tutorialHours,
+            practicalHours: payload.practicalHours,
+            experientialHours: payload.experientialHours,
+            totalContactPeriods: payload.totalContactPeriods,
+            credits: payload.credits,
+            minMark: payload.minMark,
+            maxMark: payload.maxMark,
+            isActive: 'YES',
+            updatedBy: createdBy
+          };
+
+          const existingCourse = await Course.findOne({
+            where: { courseCode: payload.courseCode, semesterId: semester.semesterId },
+            transaction
+          });
+
+          if (existingCourse) {
+            await existingCourse.update(coursePayload, { transaction });
+          } else {
+            coursePayload.createdBy = createdBy;
+            await Course.create(coursePayload, { transaction });
+          }
+        }
+      }
+    }
+
+    await transaction.commit();
+    await invalidateCachePrefixes(["filters:subject", "filters:studentAllocation", "filters:timetable"]);
+
+    res.json({
+      status: 'success',
+      message: 'Course added to regulation and propagated to batches successfully',
+      data: regCourse
+    });
+  } catch (err) {
+    await transaction.rollback();
+    res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
+  }
+};
+
+export const updateRegulationCourse = async (req, res) => {
+  const { regCourseId } = req.params;
+  const {
+    courseCode,
+    courseTitle,
+    semesterNumber,
+    category,
+    lectureHours,
+    tutorialHours,
+    practicalHours,
+    experientialHours,
+    totalContactPeriods,
+    credits,
+    minMark,
+    maxMark
+  } = req.body;
+  const updatedBy = req.user?.userName || 'admin';
+
+  if (!courseCode || !courseTitle || !category) {
+    return res.status(400).json({ status: 'failure', message: 'courseCode, courseTitle, and category are required' });
+  }
+
+  const transaction = await sequelize.transaction();
+  try {
+    const regCourse = await RegulationCourse.findByPk(regCourseId, { transaction });
+    if (!regCourse) {
+      await transaction.rollback();
+      return res.status(404).json({ status: 'failure', message: 'Regulation course not found' });
+    }
+
+    const oldCourseCode = regCourse.courseCode;
+    const oldSemesterNumber = regCourse.semesterNumber;
+    const regulationId = regCourse.regulationId;
+
+    const duplicate = await RegulationCourse.findOne({
+      where: {
+        regulationId,
+        courseCode,
+        regCourseId: { [Op.ne]: regCourseId },
+        isActive: 'YES'
+      },
+      transaction
+    });
+    if (duplicate) {
+      await transaction.rollback();
+      return res.status(400).json({ status: 'failure', message: `Another course with code ${courseCode} already exists in this regulation` });
+    }
+
+    const type = determineCourseType(
+      Number(lectureHours || 0),
+      Number(tutorialHours || 0),
+      Number(practicalHours || 0),
+      Number(experientialHours || 0)
+    );
+
+    const newSemesterNumber = semesterNumber ? Number(semesterNumber) : null;
+
+    const payload = {
+      semesterNumber: newSemesterNumber,
+      courseCode: String(courseCode).trim(),
+      courseTitle: String(courseTitle).trim(),
+      category: String(category).trim().toUpperCase(),
+      type,
+      lectureHours: Number(lectureHours || 0),
+      tutorialHours: Number(tutorialHours || 0),
+      practicalHours: Number(practicalHours || 0),
+      experientialHours: Number(experientialHours || 0),
+      totalContactPeriods: Number(totalContactPeriods || 0),
+      credits: Number(credits || 0),
+      minMark: Number(minMark || 0),
+      maxMark: Number(maxMark || 0),
+      updatedBy
+    };
+
+    await regCourse.update(payload, { transaction });
+
+    const connectedBatches = await Batch.findAll({
+      where: { regulationId, isActive: 'YES' },
+      transaction
+    });
+
+    for (const batch of connectedBatches) {
+      if (oldSemesterNumber !== null && (oldSemesterNumber !== newSemesterNumber || newSemesterNumber === null)) {
+        const oldSem = await Semester.findOne({
+          where: { batchId: batch.batchId, semesterNumber: oldSemesterNumber },
+          transaction
+        });
+        if (oldSem) {
+          await Course.update(
+            { isActive: 'NO', updatedBy },
+            { where: { courseCode: oldCourseCode, semesterId: oldSem.semesterId }, transaction }
+          );
+        }
+      }
+
+      if (newSemesterNumber !== null) {
+        const newSem = await Semester.findOne({
+          where: { batchId: batch.batchId, semesterNumber: newSemesterNumber },
+          transaction
+        });
+
+        if (newSem) {
+          const coursePayload = {
+            courseCode: payload.courseCode,
+            semesterId: newSem.semesterId,
+            courseTitle: payload.courseTitle,
+            category: payload.category,
+            type: payload.type,
+            lectureHours: payload.lectureHours,
+            tutorialHours: payload.tutorialHours,
+            practicalHours: payload.practicalHours,
+            experientialHours: payload.experientialHours,
+            totalContactPeriods: payload.totalContactPeriods,
+            credits: payload.credits,
+            minMark: payload.minMark,
+            maxMark: payload.maxMark,
+            isActive: 'YES',
+            updatedBy
+          };
+
+          const existingCourse = await Course.findOne({
+            where: {
+              semesterId: newSem.semesterId,
+              courseCode: oldSemesterNumber === newSemesterNumber ? oldCourseCode : payload.courseCode
+            },
+            transaction
+          });
+
+          if (existingCourse) {
+            await existingCourse.update(coursePayload, { transaction });
+          } else {
+            coursePayload.createdBy = updatedBy;
+            await Course.create(coursePayload, { transaction });
+          }
+        }
+      }
+    }
+
+    await transaction.commit();
+    await invalidateCachePrefixes(["filters:subject", "filters:studentAllocation", "filters:timetable"]);
+
+    res.json({
+      status: 'success',
+      message: 'Course updated successfully and propagated to batches',
+      data: regCourse
+    });
+  } catch (err) {
+    await transaction.rollback();
+    res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
+  }
+};
+
+export const deleteRegulationCourse = async (req, res) => {
+  const { regCourseId } = req.params;
+  const userName = req.user?.userName || 'admin';
+
+  const transaction = await sequelize.transaction();
+  try {
+    const regCourse = await RegulationCourse.findByPk(regCourseId, { transaction });
+    if (!regCourse) {
+      await transaction.rollback();
+      return res.status(404).json({ status: 'failure', message: 'Regulation course not found' });
+    }
+
+    await regCourse.update({ isActive: 'NO', updatedBy: userName }, { transaction });
+
+    const connectedBatches = await Batch.findAll({
+      where: { regulationId: regCourse.regulationId, isActive: 'YES' },
+      transaction
+    });
+
+    for (const batch of connectedBatches) {
+      const semesters = await Semester.findAll({
+        where: { batchId: batch.batchId },
+        transaction
+      });
+      const semesterIds = semesters.map(s => s.semesterId);
+
+      if (semesterIds.length > 0) {
+        await Course.update(
+          { isActive: 'NO', updatedBy: userName },
+          {
+            where: {
+              courseCode: regCourse.courseCode,
+              semesterId: { [Op.in]: semesterIds }
+            },
+            transaction
+          }
+        );
+      }
+    }
+
+    await transaction.commit();
+    await invalidateCachePrefixes(["filters:subject", "filters:studentAllocation", "filters:timetable"]);
+
+    res.json({
+      status: 'success',
+      message: 'Course deleted from regulation and all connected batches successfully'
+    });
+  } catch (err) {
+    await transaction.rollback();
+    res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
   }
 };
 

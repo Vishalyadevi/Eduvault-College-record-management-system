@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Upload, Download, FileSpreadsheet, X } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Swal from 'sweetalert2';
@@ -24,6 +24,26 @@ const ManageRegulations = () => {
   const [loading, setLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState(null);
+
+  // New Regulation Course CRUD states
+  const [regulationCourses, setRegulationCourses] = useState([]);
+  const [connectedBatches, setConnectedBatches] = useState([]);
+  const [showAddEditModal, setShowAddEditModal] = useState(false);
+  const [modalCourse, setModalCourse] = useState(null);
+  const [courseFormData, setCourseFormData] = useState({
+    courseCode: '',
+    courseTitle: '',
+    semesterNumber: '',
+    category: 'PCC',
+    lectureHours: 0,
+    tutorialHours: 0,
+    practicalHours: 0,
+    experientialHours: 0,
+    totalContactPeriods: 0,
+    credits: 0,
+    minMark: 40,
+    maxMark: 100
+  });
 
   useEffect(() => {
     fetchDepartments();
@@ -110,6 +130,17 @@ const ManageRegulations = () => {
     }
   };
 
+  const fetchRegulationCourses = async (regulationId) => {
+    try {
+      const res = await api.get(`${API_BASE}/regulations/${regulationId}/courses`);
+      setRegulationCourses(res.data.data.courses || []);
+      setConnectedBatches(res.data.data.connectedBatches || []);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to fetch regulation courses');
+    }
+  };
+
   const handleRegulationChange = (e) => {
     const regulationId = e.target.value;
     setSelectedRegulation(regulationId);
@@ -120,8 +151,122 @@ const ManageRegulations = () => {
     if (regulationId) {
       fetchVerticals(regulationId);
       fetchAvailableCourses(regulationId);
+      fetchRegulationCourses(regulationId);
     } else {
       setVerticals([]);
+      setRegulationCourses([]);
+      setConnectedBatches([]);
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setModalCourse(null);
+    setCourseFormData({
+      courseCode: '',
+      courseTitle: '',
+      semesterNumber: '',
+      category: 'PCC',
+      lectureHours: 0,
+      tutorialHours: 0,
+      practicalHours: 0,
+      experientialHours: 0,
+      totalContactPeriods: 0,
+      credits: 0,
+      minMark: 40,
+      maxMark: 100
+    });
+    setShowAddEditModal(true);
+  };
+
+  const handleOpenEditModal = (course) => {
+    setModalCourse(course);
+    setCourseFormData({
+      courseCode: course.courseCode,
+      courseTitle: course.courseTitle,
+      semesterNumber: course.semesterNumber !== null && course.semesterNumber !== undefined ? String(course.semesterNumber) : '',
+      category: course.category,
+      lectureHours: course.lectureHours || 0,
+      tutorialHours: course.tutorialHours || 0,
+      practicalHours: course.practicalHours || 0,
+      experientialHours: course.experientialHours || 0,
+      totalContactPeriods: course.totalContactPeriods || 0,
+      credits: course.credits || 0,
+      minMark: course.minMark !== undefined ? course.minMark : 40,
+      maxMark: course.maxMark !== undefined ? course.maxMark : 100
+    });
+    setShowAddEditModal(true);
+  };
+
+  const handleSaveCourse = async (e) => {
+    e.preventDefault();
+    if (!courseFormData.courseCode.trim() || !courseFormData.courseTitle.trim() || !courseFormData.category) {
+      toast.error('Course Code, Title, and Category are required');
+      return;
+    }
+
+    let calculatedPeriods = Number(courseFormData.totalContactPeriods);
+    if (calculatedPeriods === 0) {
+      calculatedPeriods =
+        Number(courseFormData.lectureHours) +
+        Number(courseFormData.tutorialHours) +
+        Number(courseFormData.practicalHours) +
+        Number(courseFormData.experientialHours);
+    }
+
+    const payload = {
+      ...courseFormData,
+      totalContactPeriods: calculatedPeriods,
+      semesterNumber: courseFormData.semesterNumber ? Number(courseFormData.semesterNumber) : null
+    };
+
+    setLoading(true);
+    try {
+      if (modalCourse) {
+        const res = await api.put(`${API_BASE}/regulations/courses/${modalCourse.regCourseId}`, payload);
+        toast.success(res.data.message || 'Course updated successfully');
+      } else {
+        const res = await api.post(`${API_BASE}/regulations/${selectedRegulation}/courses/single`, payload);
+        toast.success(res.data.message || 'Course added successfully');
+      }
+      setShowAddEditModal(false);
+      await fetchRegulationCourses(selectedRegulation);
+      await fetchAvailableCourses(selectedRegulation);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to save course');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (course) => {
+    const batchesMsg = connectedBatches.length > 0
+      ? `<br/><span style="color:#ef4444; font-weight:bold;">Warning: This will also deactivate this course from ${connectedBatches.length} connected batch(es).</span>`
+      : '';
+
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      html: `You want to delete course <b>${course.courseCode} - ${course.courseTitle}</b>?${batchesMsg}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#4b5563',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      setLoading(true);
+      try {
+        const res = await api.delete(`${API_BASE}/regulations/courses/${course.regCourseId}`);
+        toast.success(res.data.message || 'Course deleted successfully');
+        await fetchRegulationCourses(selectedRegulation);
+        await fetchAvailableCourses(selectedRegulation);
+      } catch (err) {
+        console.error(err);
+        toast.error(err.response?.data?.message || 'Failed to delete course');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -424,6 +569,7 @@ const ManageRegulations = () => {
 
           setFile(null);
           await fetchAvailableCourses(selectedRegulation);
+          await fetchRegulationCourses(selectedRegulation);
         } catch (err) {
           console.error('XLSX processing error:', err);
           const backendMessage = err.response?.data?.message;
@@ -432,7 +578,7 @@ const ManageRegulations = () => {
             console.warn('Backend skipped rows:', skipped);
           }
           toast.error(
-            'Failed to process Excel file: ' + (backendMessagerr.message || 'Unknown error'),
+            'Failed to process Excel file: ' + (err.message || 'Unknown error'),
             { toastId: 'import-error' }
           );
         } finally {
@@ -634,6 +780,123 @@ const ManageRegulations = () => {
           </div>
 
           {selectedRegulation && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Regulation Courses</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Currently defined courses for this regulation.
+                  </p>
+                </div>
+                <button
+                  onClick={handleOpenAddModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors font-medium text-sm shadow-sm"
+                >
+                  <Plus size={16} />
+                  Add Single Course
+                </button>
+              </div>
+
+              {connectedBatches.length > 0 && (
+                <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg text-sm text-blue-700">
+                  <span className="font-semibold">Notice:</span> The following batches are currently connected to this regulation. Any additions, updates, or deletions will be automatically synchronized with their course schedules:
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {connectedBatches.map(b => (
+                      <span key={b.batchId} className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded animate-pulse">
+                        {b.degree} - {b.branch} ({b.batchYears})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {regulationCourses.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                  No courses imported or created for this regulation. Upload an Excel template above or click "Add Single Course".
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm font-sans">
+                  <table className="w-full text-sm text-left text-gray-500 table-auto" style={{ minWidth: '1100px' }}>
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Semester</th>
+                        <th className="px-4 py-3 font-semibold whitespace-nowrap">Course Code</th>
+                        <th className="px-4 py-3 font-semibold whitespace-nowrap" style={{ width: '30%', minWidth: '250px' }}>Course Title</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Category</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Type</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">L-T-P-E</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Periods</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Credits</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Marks</th>
+                        <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {regulationCourses.map(course => (
+                        <tr key={course.regCourseId} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3.5 text-center font-medium text-gray-900 whitespace-nowrap">
+                            {course.semesterNumber !== null && course.semesterNumber !== undefined ? (
+                              <span className="px-2 py-1 bg-gray-100 rounded text-xs font-semibold">
+                                Sem {course.semesterNumber}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">
+                                Global
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-xs font-bold text-gray-800 whitespace-nowrap">
+                            {course.courseCode}
+                          </td>
+                          <td className="px-4 py-3.5 font-medium text-gray-900 break-words" style={{ minWidth: '250px' }}>
+                            {course.courseTitle}
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold">
+                              {course.category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-xs whitespace-nowrap">
+                            {course.type}
+                          </td>
+                          <td className="px-4 py-3.5 text-center font-mono text-xs whitespace-nowrap">
+                            {course.lectureHours}-{course.tutorialHours}-{course.practicalHours}-{course.experientialHours}
+                          </td>
+                          <td className="px-4 py-3.5 text-center font-semibold text-gray-700 whitespace-nowrap">
+                            {course.totalContactPeriods}
+                          </td>
+                          <td className="px-4 py-3.5 text-center font-bold text-blue-600 whitespace-nowrap">
+                            {course.credits}
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-xs text-gray-600 whitespace-nowrap">
+                            {course.minMark} / {course.maxMark}
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => handleOpenEditModal(course)}
+                                className="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCourse(course)}
+                                className="px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedRegulation && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Allocate Courses to Vertical</h2>
               
@@ -716,6 +979,176 @@ const ManageRegulations = () => {
           />
         )}
       </div>
+
+      {showAddEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-2xl w-full my-8 shadow-2xl transform transition-all duration-300">
+            <div className="p-6 font-sans">
+              <div className="flex justify-between items-center mb-6 border-b pb-3">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {modalCourse ? 'Edit Course Details' : 'Add Single Course to Regulation'}
+                </h2>
+                <button
+                  onClick={() => setShowAddEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleSaveCourse} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Course Code *</label>
+                    <input
+                      type="text"
+                      value={courseFormData.courseCode}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, courseCode: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      placeholder="e.g. CS3301"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Course Title *</label>
+                    <input
+                      type="text"
+                      value={courseFormData.courseTitle}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, courseTitle: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      placeholder="e.g. Data Structures"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester Number</label>
+                    <select
+                      value={courseFormData.semesterNumber}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, semesterNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                    >
+                      <option value="">None (Global Elective / Null)</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+                        <option key={num} value={num}>Semester {num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                    <select
+                      value={courseFormData.category}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      required
+                    >
+                      {['HSMC', 'BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'PCC', 'MC'].map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Hours and Periods</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Lecture Hours (L)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={courseFormData.lectureHours}
+                        onChange={(e) => setCourseFormData({ ...courseFormData, lectureHours: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Tutorial Hours (T)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={courseFormData.tutorialHours}
+                        onChange={(e) => setCourseFormData({ ...courseFormData, tutorialHours: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Practical Hours (P)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={courseFormData.practicalHours}
+                        onChange={(e) => setCourseFormData({ ...courseFormData, practicalHours: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Experiential Hours (E)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={courseFormData.experientialHours}
+                        onChange={(e) => setCourseFormData({ ...courseFormData, experientialHours: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Credits *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={courseFormData.credits}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, credits: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Min Pass Mark *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={courseFormData.minMark}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, minMark: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Mark *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={courseFormData.maxMark}
+                      onChange={(e) => setCourseFormData({ ...courseFormData, maxMark: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 border-t pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEditModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium shadow-sm transition-colors"
+                  >
+                    {modalCourse ? 'Save Changes' : 'Add Course'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

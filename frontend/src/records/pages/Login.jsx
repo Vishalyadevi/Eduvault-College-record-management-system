@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useUser } from "../contexts/UserContext";
+import { useUser } from "../../contexts/UserContext";
 import { Lock, Mail, ChevronRight, AlertCircle, Loader2 } from "lucide-react";
 
 const Login = () => {

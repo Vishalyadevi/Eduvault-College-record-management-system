@@ -100,6 +100,10 @@ import {
   allocateRegulationToBatch,
   getCoursesByVertical,
   getElectivesForSemester,
+  getRegulationCourses,
+  addRegulationCourse,
+  updateRegulationCourse,
+  deleteRegulationCourse,
 } from "../../../controllers/acadamic/regulationController.js";
 
 // FIXED IMPORT: Changed 'protect' to 'requireAuth' and added 'authorize'
@@ -243,6 +247,11 @@ router.route('/regulations/:regulationId/courses/available').get(requireAuth, re
 router.route('/regulations/verticals/courses').post(requireAuth, restrictToAcademicAdmin, allocateCoursesToVertical);
 router.route('/regulations/verticals/:verticalId/courses').get(requireAuth, restrictToAcademicAdmin, getCoursesByVertical);
 router.route('/regulations/allocate-to-batch').post(requireAuth, restrictToAcademicAdmin, allocateRegulationToBatch);
+router.route('/regulations/:regulationId/courses').get(requireAuth, restrictToAcademicAdmin, getRegulationCourses);
+router.route('/regulations/:regulationId/courses/single').post(requireAuth, restrictToAcademicAdmin, addRegulationCourse);
+router.route('/regulations/courses/:regCourseId')
+  .put(requireAuth, restrictToAcademicAdmin, updateRegulationCourse)
+  .delete(requireAuth, restrictToAcademicAdmin, deleteRegulationCourse);
 
 router.get("/enrollments/view", requireAuth, restrictToAcademicAdmin, getStudentEnrollments);
 router.get("/student-course-matrix", requireAuth, restrictToAcademicAdmin, getStudentCourseMatrix);

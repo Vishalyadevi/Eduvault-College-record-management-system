@@ -39,10 +39,10 @@ export const addSemester = catchAsync(async (req, res) => {
   }
 
   const daysDifference = calculateDaysDifference(formattedStartDate, formattedEndDate);
-  if (daysDifference !== 90) {
+  if (daysDifference < 90) {
     return res.status(400).json({ 
       status: "failure", 
-      message: `The duration must be exactly 90 days, but got ${daysDifference} days` 
+      message: `The duration must be at least 90 days, but got ${daysDifference} days` 
     });
   }
 

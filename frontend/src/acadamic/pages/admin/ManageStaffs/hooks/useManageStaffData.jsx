@@ -43,7 +43,13 @@ const useManageStaffData = () => {
         manageStaffService.getCourses(),
       ]);
 
-      setSemesters(semestersData);
+      const processedSemesters = (semestersData || []).map(sem => ({
+        ...sem,
+        batchYears: sem.batchYears || sem.Batch?.batchYears || '',
+        batch: sem.batch || sem.Batch?.batch || '',
+      }));
+
+      setSemesters(processedSemesters);
       setBatches(batchesData);
 
       // 2. Process Staff
@@ -59,10 +65,10 @@ const useManageStaffData = () => {
                   sectionId: course.sectionId || '',
                   batch: course.sectionName ? course.sectionName.replace(/^BatchBatch/, 'Batch') : 'N/A',
                   semesterId: course.semesterId,
-                  semester: semestersData.find(s => s.semesterId === course.semesterId)?.semesterNumber
-                    ? String(semestersData.find(s => s.semesterId === course.semesterId).semesterNumber)
+                  semester: processedSemesters.find(s => s.semesterId === course.semesterId)?.semesterNumber
+                    ? String(processedSemesters.find(s => s.semesterId === course.semesterId).semesterNumber)
                     : 'N/A',
-                  year: semestersData.find(s => s.semesterId === course.semesterId)?.batchYears || 'N/A',
+                  year: processedSemesters.find(s => s.semesterId === course.semesterId)?.batchYears || 'N/A',
                 }))
               : [];
               
@@ -86,17 +92,17 @@ const useManageStaffData = () => {
       // 3. Process Courses (sections are loaded lazily in modals when needed)
       const coursesWithDetails = Array.isArray(coursesData)
         ? coursesData.map(course => {
-            const semester = semestersData.find(s => s.semesterId === course.semesterId) || {};
+            const semester = processedSemesters.find(s => s.semesterId === course.semesterId) || {};
             const batch = batchesData.find(b => b.batchId === semester.batchId) || {};
             return {
               ...course,
               courseId: course.courseId || 0,
               name: course.courseTitle || '',
               code: course.courseCode || '',
-              department: course.branch || batch.branch || semester.Batch?.branch || '',
+              department: course.branch || batch.branch || semester.Batch?.branch || semester.branch || '',
               semester: semester.semesterNumber ? String(semester.semesterNumber) : '',
-              batchYears: batch.batchYears || semester.Batch?.batchYears || '',
-              batch: batch.batch || '',
+              batchYears: semester.batchYears || batch.batchYears || semester.Batch?.batchYears || '',
+              batch: semester.batch || batch.batch || '',
               sections: [],
             };
           })

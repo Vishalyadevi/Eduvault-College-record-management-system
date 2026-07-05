@@ -49,6 +49,23 @@ function getDayOfWeek(dateStr) {
   return day === 0 ? 7 : day; // Convert Sunday to 7
 }
 
+function getDisplayStudentName(studentRecord) {
+  const candidateName =
+    studentRecord?.studentName ||
+    studentRecord?.StudentDetail?.studentName ||
+    studentRecord?.studentUser?.userName ||
+    studentRecord?.user?.userName ||
+    studentRecord?.User?.userName ||
+    studentRecord?.userAccount?.userName ||
+    studentRecord?.studentProfile?.userName;
+
+  if (typeof candidateName === 'string' && candidateName.trim()) {
+    return candidateName.trim();
+  }
+
+  return 'Unknown';
+}
+
 async function getInternalAdminUser(authUser) {
   if (!authUser) throw new Error("Unauthorized");
 
@@ -283,7 +300,15 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
                 ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
                 ...(queryBatch ? { batch: queryBatch } : {})
               },
-            attributes: ['registerNumber', 'studentName']
+            attributes: ['registerNumber', 'studentName', 'Userid'],
+            include: [
+              {
+                model: User,
+                as: 'studentUser',
+                required: false,
+                attributes: ['userName']
+              }
+            ]
           },
           {
             model: Section,
@@ -308,7 +333,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
 
         return {
           rollnumber: sc.regno,
-          name: sc.StudentDetail?.studentName || 'Unknown',
+          name: getDisplayStudentName(sc.StudentDetail),
           status: attendance ? attendance.status : '',
           sectionId: sc.sectionId,
           sectionName: sc.Section?.sectionName,
@@ -333,7 +358,15 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
                 ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
                 ...(queryBatch ? { batch: queryBatch } : {})
               },
-            attributes: ["registerNumber", "studentName", "section"]
+            attributes: ["registerNumber", "studentName", "section", "Userid"],
+            include: [
+              {
+                model: User,
+                as: 'studentUser',
+                required: false,
+                attributes: ['userName']
+              }
+            ]
           },
           {
             model: Section,
@@ -358,7 +391,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
 
         return {
           rollnumber: enrollment.regno,
-          name: enrollment.StudentDetail?.studentName || "Unknown",
+          name: getDisplayStudentName(enrollment.StudentDetail),
           status: attendance ? attendance.status : "",
           sectionId: enrollment.sectionId || safeSectionId || null,
           sectionName: enrollment.Section?.sectionName || enrollment.StudentDetail?.section || null,
@@ -734,14 +767,23 @@ export async function getStudentsBySemester(req, res) {
       attributes: [
         ['registerNumber', 'rollnumber'],
         ['studentName', 'name'],
-        ['section', 'section']
+        ['section', 'section'],
+        ['Userid', 'userid']
+      ],
+      include: [
+        {
+          model: User,
+          as: 'studentUser',
+          required: false,
+          attributes: ['userName']
+        }
       ],
       order: [['registerNumber', 'ASC']]
     });
 
     const formattedStudents = students.map(s => ({
       rollnumber: s.get('rollnumber'),
-      name: s.get('name') || 'Unknown',
+      name: getDisplayStudentName(s),
       section: s.get('section') || null
     }));
 
@@ -911,7 +953,15 @@ export async function getStudentsByDeptAndSem(req, res, next) {
         departmentId: departmentId,
         ...(semesterNumber ? { semester: String(semesterNumber) } : {})
       },
-      attributes: ['registerNumber', 'studentName'],
+      attributes: ['registerNumber', 'studentName', 'Userid'],
+      include: [
+        {
+          model: User,
+          as: 'studentUser',
+          required: false,
+          attributes: ['userName']
+        }
+      ],
       order: [['registerNumber', 'ASC']]
     });
 
@@ -939,7 +989,7 @@ export async function getStudentsByDeptAndSem(req, res, next) {
       const attendance = attendanceByRegno.get(s.registerNumber);
       return {
         rollnumber: s.registerNumber,
-        name: s.studentName || 'Unknown',
+        name: getDisplayStudentName(s),
         status: attendance ? attendance.status : '',
         markedCourseId: attendance ? attendance.courseId : null
       };
