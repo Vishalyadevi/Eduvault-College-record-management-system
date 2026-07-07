@@ -16,8 +16,50 @@ const {
   ElectiveBucket, 
   ElectiveBucketCourse, 
   StaffCourse, 
-  User 
+  User,
+  AppSetting
 } = db;
+
+const layoutKey = (semesterId) => `timetable_layout_semester_${semesterId}`;
+const defaultLayout = { workingDays: 5, periodCount: 8 };
+
+export const getTimetableLayout = catchAsync(async (req, res) => {
+  const semesterId = Number(req.params.semesterId);
+  if (!Number.isInteger(semesterId)) {
+    return res.status(400).json({ status: 'failure', message: 'Invalid semesterId' });
+  }
+  const row = await AppSetting.findByPk(layoutKey(semesterId));
+  let layout = defaultLayout;
+  try { layout = { ...defaultLayout, ...JSON.parse(row?.value || '{}') }; } catch { /* use defaults */ }
+  res.json({ status: 'success', data: layout });
+});
+
+export const saveTimetableLayout = catchAsync(async (req, res) => {
+  const semesterId = Number(req.params.semesterId);
+  const workingDays = Number(req.body.workingDays);
+  const periodCount = Number(req.body.periodCount);
+  if (!Number.isInteger(semesterId) || ![5, 6].includes(workingDays) || !Number.isInteger(periodCount) || periodCount < 1 || periodCount > 12) {
+    return res.status(400).json({ status: 'failure', message: 'Working days must be 5 or 6 and periods must be 1-12.' });
+  }
+  const actor = req.user?.userNumber || req.user?.email || 'admin';
+  await AppSetting.upsert({
+    key: layoutKey(semesterId),
+    value: JSON.stringify({ workingDays, periodCount }),
+    createdBy: actor,
+    updatedBy: actor
+  });
+  res.json({ status: 'success', data: { workingDays, periodCount } });
+});
+
+export const deleteTimetableLayout = catchAsync(async (req, res) => {
+  const semesterId = Number(req.params.semesterId);
+  if (!Number.isInteger(semesterId)) {
+    return res.status(400).json({ status: 'failure', message: 'Invalid semesterId' });
+  }
+
+  await AppSetting.destroy({ where: { key: layoutKey(semesterId) } });
+  res.json({ status: 'success', data: defaultLayout });
+});
 
 const toStaffAcronym = (name = '') => {
   const salutations = new Set([
@@ -289,7 +331,7 @@ export const getTimetableByFilters = catchAsync(async (req, res) => {
 });
 
 export const createTimetableEntry = catchAsync(async (req, res) => {
-  const { courseId, bucketId, sectionId, dayOfWeek, periodNumber, departmentId, semesterId } = req.body;
+  const { courseId, bucketId, bucketIds, sectionId, dayOfWeek, periodNumber, departmentId, semesterId } = req.body;
   const userEmail = req.user?.email || 'admin'; // Using email as per your new controller logic
 
   const transaction = await sequelize.transaction();
@@ -297,13 +339,27 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
     // 1. COLLECT ALL COURSE IDs TO ALLOCATE
     let coursesToAllocate = [];
     
-    if (bucketId) {
+    const requestedBucketIds = [...new Set(
+      (Array.isArray(bucketIds) ? bucketIds : (bucketId ? [bucketId] : []))
+        .map(Number)
+        .filter(Number.isInteger)
+    )];
+
+    if (requestedBucketIds.length > 0) {
+      const validBuckets = await ElectiveBucket.findAll({
+        where: { bucketId: { [Op.in]: requestedBucketIds }, semesterId },
+        attributes: ['bucketId'],
+        transaction
+      });
+      if (validBuckets.length !== requestedBucketIds.length) {
+        throw new Error('One or more selected buckets do not belong to this semester.');
+      }
       const bucketCourses = await ElectiveBucketCourse.findAll({
-        where: { bucketId },
+        where: { bucketId: { [Op.in]: requestedBucketIds } },
         attributes: ['courseId'],
         transaction
       });
-      coursesToAllocate = bucketCourses.map(bc => bc.courseId);
+      coursesToAllocate = [...new Set(bucketCourses.map(bc => bc.courseId))];
     } else if (courseId) {
       coursesToAllocate = [courseId];
     }
@@ -360,7 +416,13 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
     }
 
     await transaction.commit();
-    res.status(201).json({ status: 'success', message: 'Allocation successful', data: createdEntries });
+    res.status(201).json({
+      status: 'success',
+      message: requestedBucketIds.length > 1
+        ? `${requestedBucketIds.length} buckets allocated successfully`
+        : 'Allocation successful',
+      data: createdEntries
+    });
 
   } catch (error) {
     await transaction.rollback();

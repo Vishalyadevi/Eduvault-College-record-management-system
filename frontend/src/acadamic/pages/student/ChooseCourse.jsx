@@ -170,10 +170,6 @@ const ChooseCourse = () => {
           courseId: parseInt(courseId),
         }));
 
-      if (validSelections.length !== electiveBuckets.length) {
-        throw new Error('Please select one course from each elective bucket.');
-      }
-
       // Validate against remaining slots
       if (progress) {
         let oecSelected = 0, pecSelected = 0;
@@ -229,7 +225,7 @@ const ChooseCourse = () => {
 
   const isSubmitDisabled = () => {
     if (bucketMeta.isFinalized && !bucketMeta.canReselectNow) return true;
-    return electiveBuckets.length === 0 || Object.values(selections).some((val) => !val) || submitting;
+    return electiveBuckets.length === 0 || submitting;
   };
 
   // --- LOADING STATE ---
@@ -357,7 +353,7 @@ const ChooseCourse = () => {
                                             disabled={(bucketMeta.isFinalized && !bucketMeta.canReselectNow) || submitting}
                                             className="w-full appearance-none bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all cursor-pointer"
                                         >
-                                            <option value="">Select a Course...</option>
+                                            <option value="">Skip this bucket</option>
                                             {bucket.courses.map((course) => (
                                                 <option key={course.courseId} value={course.courseId}>
                                                     {course.courseCode} — {course.courseTitle} ({course.credits} Credits){course.verticalName ? ` - ${course.verticalName}` : ''}

@@ -55,6 +55,7 @@ export default function DayAttendance() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
   const [periods, setPeriods] = useState([]);
+  const [configuredPeriodCount, setConfiguredPeriodCount] = useState(8);
 
   useEffect(() => {
     if (!fromDate) {
@@ -165,6 +166,10 @@ export default function DayAttendance() {
       });
 
       if (res.data.data?.timetable) setTimetable(res.data.data.timetable);
+      const configuredCount = Number(res.data.data?.layout?.periodCount);
+      if (Number.isInteger(configuredCount) && configuredCount > 0) {
+        setConfiguredPeriodCount(configuredCount);
+      }
       else toast.info("No timetable data found");
     } catch {
       toast.error("Error loading timetable");
@@ -363,7 +368,7 @@ export default function DayAttendance() {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="border-b border-r border-slate-200 px-6 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Date</th>
-                    {periods.map((p) => (
+                    {periods.slice(0, configuredPeriodCount).map((p) => (
                       <th key={p} className="border-b border-r border-slate-200 px-2 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                         P{p}
                       </th>
@@ -380,7 +385,7 @@ export default function DayAttendance() {
                         </div>
                       </td>
 
-                      {periods.map((pNum) => {
+                      {periods.slice(0, configuredPeriodCount).map((pNum) => {
                         const coursesInSlot = (timetable[date] || []).filter((item) => item.periodNumber === pNum);
                         return (
                           <td key={pNum} className="h-16 border-r border-slate-200 p-2 align-middle">

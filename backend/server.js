@@ -90,11 +90,18 @@ import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 import adminRoleRoutes from './routes/adminRoutes.js';
 import placementMainRoutes from './routes/placement/index.js';
 import { getStudentNptelEnrollments } from './controllers/acadamic/nptelStudentController.js';
-import { authenticate } from './middlewares/requireauth.js';
+import { authenticate, isAdmin } from './middlewares/requireauth.js';
+import {
+  getTimetableLayout,
+  saveTimetableLayout,
+  deleteTimetableLayout,
+} from './controllers/acadamic/timetableController.js';
 
 //Acadamic
 import { initDatabase } from './models/acadamic/index.js';
 import AcadamicApp from './app.js';
+// Lightweight access to academic models for debug endpoints
+import acadDb from './models/acadamic/index.js';
 
 dotenv.config();
 
@@ -243,6 +250,7 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
+
 // Test database connection
 async function testConnection() {
   try {
@@ -258,6 +266,13 @@ async function testConnection() {
 
 
 // Route Registration
+// Direct academic timetable layout routes must be registered before AcadamicApp.
+// The frontend calls this exact /api/admin path, and keeping it early prevents
+// any nested router/middleware from swallowing the request first.
+app.get('/api/admin/timetable/semester/:semesterId/layout', authenticate, isAdmin, getTimetableLayout);
+app.put('/api/admin/timetable/semester/:semesterId/layout', authenticate, isAdmin, saveTimetableLayout);
+app.delete('/api/admin/timetable/semester/:semesterId/layout', authenticate, isAdmin, deleteTimetableLayout);
+
 app.use(AcadamicApp); // Mount academic app routes and middlewares to the main app
 app.use('/api/placement', placementMainRoutes);
 

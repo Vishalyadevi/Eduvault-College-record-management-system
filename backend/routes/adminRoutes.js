@@ -14,6 +14,11 @@ import {
   deleteDepartment,
 } from '../controllers/adminController.js';
 import { authenticate, isSuperAdmin, isAdmin } from '../middlewares/requireauth.js';
+import {
+  getTimetableLayout,
+  saveTimetableLayout,
+  deleteTimetableLayout,
+} from '../controllers/acadamic/timetableController.js';
 
 const router = express.Router();
 
@@ -55,5 +60,13 @@ router.post('/tutor-allocation/assign', authenticate, isAdmin, assignStudentsToT
 import { getPlacementStats } from '../controllers/admin/dashboardController.js';
 
 router.get('/dashboard-stats', authenticate, isAdmin, getPlacementStats);
+
+// Academic timetable layout fallback routes.
+// The main server mounts both the academic admin router and this admin router.
+// Keeping these here prevents /api/admin/timetable/semester/:semesterId/layout
+// from becoming a 404 if only this admin router is reached by the running server.
+router.get('/timetable/semester/:semesterId/layout', authenticate, isAdmin, getTimetableLayout);
+router.put('/timetable/semester/:semesterId/layout', authenticate, isAdmin, saveTimetableLayout);
+router.delete('/timetable/semester/:semesterId/layout', authenticate, isAdmin, deleteTimetableLayout);
 
 export default router;

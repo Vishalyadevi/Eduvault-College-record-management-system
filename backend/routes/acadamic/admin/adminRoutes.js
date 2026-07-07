@@ -69,6 +69,9 @@ import {
   getAllTimetableBatches,
   getAllTimetableDepartments,
   getTimetable,
+  getTimetableLayout,
+  saveTimetableLayout,
+  deleteTimetableLayout,
   createTimetableEntry,
   autoGenerateTimetable,
   updateTimetableEntry,
@@ -210,6 +213,9 @@ router.route("/batches/:batchId").get(requireAuth, restrictToAcademicAdmin, getB
 router.get("/timetable/batches", requireAuth, restrictToAcademicAdmin, getAllTimetableBatches);
 router.get("/timetable/departments", requireAuth, restrictToAcademicAdmin, getAllTimetableDepartments);
 router.get("/timetable/by-filters", requireAuth, restrictToAcademicAdmin, getTimetableByFilters);
+router.get("/timetable/semester/:semesterId/layout", requireAuth, restrictToAcademicAdmin, getTimetableLayout);
+router.put("/timetable/semester/:semesterId/layout", requireAuth, restrictToAcademicAdmin, saveTimetableLayout);
+router.delete("/timetable/semester/:semesterId/layout", requireAuth, restrictToAcademicAdmin, deleteTimetableLayout);
 router.get("/timetable/semester/:semesterId", requireAuth, restrictToAcademicAdmin, getTimetable);
 router.get("/timetable-periods", requireAuth, restrictToAcademicAdmin, getTimetablePeriods);
 router.post("/timetable-periods", requireAuth, restrictToAcademicAdmin, saveTimetablePeriods);

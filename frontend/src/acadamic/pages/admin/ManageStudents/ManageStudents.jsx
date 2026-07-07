@@ -18,6 +18,10 @@ const ManageStudents = () => {
   });
   const [pendingAssignments, setPendingAssignments] = useState({});
   const searchInputRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const bottomScrollRef = useRef(null);
+  const tableRef = useRef(null);
+  const topScrollContentRef = useRef(null);
 
   const { students, setStudents, availableCourses, degrees, branches, semesters, batches, isLoading, error, setError, reloadData } =
     useManageStudentsData(filters);
@@ -54,6 +58,41 @@ const ManageStudents = () => {
       console.log('Sync input value with searchTerm:', searchTerm);
     }
   }, [searchTerm]);
+
+  useEffect(() => {
+    const adjustTopScrollbar = () => {
+      if (tableRef.current && topScrollContentRef.current) {
+        topScrollContentRef.current.style.width = `${tableRef.current.scrollWidth}px`;
+      }
+    };
+
+    const top = topScrollRef.current;
+    const bottom = bottomScrollRef.current;
+    let isSyncing = false;
+
+    const sync = (source, target) => {
+      if (!source || !target || isSyncing) return;
+      isSyncing = true;
+      target.scrollLeft = source.scrollLeft;
+      window.requestAnimationFrame(() => {
+        isSyncing = false;
+      });
+    };
+
+    const onTopScroll = () => sync(top, bottom);
+    const onBottomScroll = () => sync(bottom, top);
+
+    adjustTopScrollbar();
+    top?.addEventListener('scroll', onTopScroll);
+    bottom?.addEventListener('scroll', onBottomScroll);
+    window.addEventListener('resize', adjustTopScrollbar);
+
+    return () => {
+      top?.removeEventListener('scroll', onTopScroll);
+      bottom?.removeEventListener('scroll', onBottomScroll);
+      window.removeEventListener('resize', adjustTopScrollbar);
+    };
+  }, [students, availableCourses]);
 
   useEffect(() => {
     console.log('Filters updated:', filters);
@@ -207,8 +246,11 @@ const ManageStudents = () => {
                     Students ({filteredStudents.length})
                   </h2>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden border-b border-gray-200 bg-slate-50 h-3">
+                  <div ref={topScrollContentRef} className="h-[1px]" />
+                </div>
+                <div ref={bottomScrollRef} className="overflow-x-auto scrollbar-hidden">
+                  <table ref={tableRef} className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-20">
                       <tr>
                         <th

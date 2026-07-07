@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Download, FileSearch, ShieldAlert } from "lucide-react";
@@ -24,6 +24,16 @@ export default function AttendanceReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [minPercentage, setMinPercentage] = useState("");
+
+  const reportTopScrollRef = useRef(null);
+  const reportTopScrollContentRef = useRef(null);
+  const reportBottomScrollRef = useRef(null);
+  const reportTableRef = useRef(null);
+
+  const blackboxTopScrollRef = useRef(null);
+  const blackboxTopScrollContentRef = useRef(null);
+  const blackboxBottomScrollRef = useRef(null);
+  const blackboxTableRef = useRef(null);
 
   const fetchWithAuth = async (url) => {
     const res = await fetch(url, { credentials: "include" });
@@ -167,6 +177,55 @@ export default function AttendanceReport() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const updateScrollWidth = () => {
+      if (reportTableRef.current && reportTopScrollContentRef.current) {
+        reportTopScrollContentRef.current.style.width = `${reportTableRef.current.scrollWidth}px`;
+      }
+      if (blackboxTableRef.current && blackboxTopScrollContentRef.current) {
+        blackboxTopScrollContentRef.current.style.width = `${blackboxTableRef.current.scrollWidth}px`;
+      }
+    };
+
+    updateScrollWidth();
+    window.addEventListener("resize", updateScrollWidth);
+    return () => window.removeEventListener("resize", updateScrollWidth);
+  }, [report, courses, unmarkedReport]);
+
+  useEffect(() => {
+    const reportTop = reportTopScrollRef.current;
+    const reportBottom = reportBottomScrollRef.current;
+    const blackboxTop = blackboxTopScrollRef.current;
+    const blackboxBottom = blackboxBottomScrollRef.current;
+
+    let isSyncing = false;
+    const syncScroll = (source, target) => {
+      if (!source || !target || isSyncing) return;
+      isSyncing = true;
+      target.scrollLeft = source.scrollLeft;
+      window.requestAnimationFrame(() => {
+        isSyncing = false;
+      });
+    };
+
+    const onReportTopScroll = () => syncScroll(reportTop, reportBottom);
+    const onReportBottomScroll = () => syncScroll(reportBottom, reportTop);
+    const onBlackboxTopScroll = () => syncScroll(blackboxTop, blackboxBottom);
+    const onBlackboxBottomScroll = () => syncScroll(blackboxBottom, blackboxTop);
+
+    reportTop?.addEventListener("scroll", onReportTopScroll);
+    reportBottom?.addEventListener("scroll", onReportBottomScroll);
+    blackboxTop?.addEventListener("scroll", onBlackboxTopScroll);
+    blackboxBottom?.addEventListener("scroll", onBlackboxBottomScroll);
+
+    return () => {
+      reportTop?.removeEventListener("scroll", onReportTopScroll);
+      reportBottom?.removeEventListener("scroll", onReportBottomScroll);
+      blackboxTop?.removeEventListener("scroll", onBlackboxTopScroll);
+      blackboxBottom?.removeEventListener("scroll", onBlackboxBottomScroll);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 md:px-8">
@@ -316,48 +375,135 @@ export default function AttendanceReport() {
 
         {report.length > 0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-slate-50">
+            <div className="border-b border-slate-200 px-6 py-4 bg-slate-50">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Attendance Summary</p>
+                  <p className="mt-1 text-sm text-slate-700">Showing {report.length} students for the selected filters</p>
+                </div>
+                <div className="text-sm text-slate-500">
+                  {filters.fromDate} → {filters.toDate}
+                </div>
+              </div>
+            </div>
+            <div ref={reportTopScrollRef} className="overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-slate-50 h-3">
+              <div ref={reportTopScrollContentRef} className="h-[1px]" />
+            </div>
+            <div ref={reportBottomScrollRef} className="overflow-x-auto scrollbar-hidden">
+              <table ref={reportTableRef} className="w-full text-sm border-separate border-spacing-0">
+                <thead className="bg-slate-50 sticky top-0 z-20">
                   <tr>
-                    <th className="table-head">Register Number</th>
-                    <th className="table-head">Student Name</th>
+                    <th
+                      className="table-head text-left"
+                      style={{ width: "140px", minWidth: "140px", position: "sticky", left: 0, zIndex: 30, background: "#f9fafb" }}
+                    >
+                      Register Number
+                    </th>
+                    <th
+                      className="table-head text-left"
+                      style={{ width: "240px", minWidth: "240px", position: "sticky", left: "140px", zIndex: 30, background: "#f9fafb" }}
+                    >
+                      Student Name
+                    </th>
                     {courses.map((courseCode) => (
                       <React.Fragment key={courseCode}>
-                        <th className="table-head">{courseCode} Conducted</th>
-                        <th className="table-head">{courseCode} Attended</th>
-                        <th className="table-head">{courseCode} Att%</th>
+                        <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-gray-900">{courseCode}</span>
+                            <span className="text-xs text-gray-400 font-normal">Conducted</span>
+                          </div>
+                        </th>
+                        <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-gray-900">{courseCode}</span>
+                            <span className="text-xs text-gray-400 font-normal">Attended</span>
+                          </div>
+                        </th>
+                        <th className="table-head" style={{ width: "100px", minWidth: "100px" }}>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-gray-900">{courseCode}</span>
+                            <span className="text-xs text-gray-400 font-normal">Att%</span>
+                          </div>
+                        </th>
                       </React.Fragment>
                     ))}
-                    <th className="table-head">Total Conducted</th>
-                    <th className="table-head">Total Attended</th>
-                    <th className="table-head">Total %</th>
+                    <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                      Total Conducted
+                    </th>
+                    <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                      Total Attended
+                    </th>
+                    <th className="table-head" style={{ width: "100px", minWidth: "100px" }}>
+                      Total %
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="bg-white divide-y divide-slate-100">
                   {report
                     .filter((student) => {
                       if (!minPercentage) return true;
                       return parseFloat(student["Total Percentage %"]) < parseFloat(minPercentage);
                     })
                     .map((student, idx) => (
-                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="table-cell">{student.RegisterNumber}</td>
-                        <td className="table-cell">{student.StudentName}</td>
+                      <tr
+                        key={idx}
+                        className={idx % 2 === 0 ? "bg-white hover:bg-slate-50" : "bg-slate-50 hover:bg-slate-100"}
+                        style={{ height: "60px" }}
+                      >
+                        <td
+                          className="table-cell text-left font-medium text-gray-900"
+                          style={{ width: "140px", minWidth: "140px", position: "sticky", left: 0, zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
+                        >
+                          {student.RegisterNumber}
+                        </td>
+                        <td
+                          className="table-cell text-left text-gray-900"
+                          style={{ width: "240px", minWidth: "240px", position: "sticky", left: "140px", zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
+                        >
+                          <div className="truncate" title={student.StudentName}>
+                            {student.StudentName}
+                          </div>
+                        </td>
                         {courses.map((courseCode) => [
-                          <td key={`${student.RegisterNumber}-conducted-${courseCode}`} className="table-cell">
+                          <td
+                            key={`${student.RegisterNumber}-conducted-${courseCode}`}
+                            className="table-cell"
+                            style={{ width: "120px", minWidth: "120px" }}
+                          >
                             {student[`${courseCode} Conducted Periods`] || 0}
                           </td>,
-                          <td key={`${student.RegisterNumber}-attended-${courseCode}`} className="table-cell">
+                          <td
+                            key={`${student.RegisterNumber}-attended-${courseCode}`}
+                            className="table-cell"
+                            style={{ width: "120px", minWidth: "120px" }}
+                          >
                             {student[`${courseCode} Attended Periods`] || 0}
                           </td>,
-                          <td key={`${student.RegisterNumber}-percentage-${courseCode}`} className="table-cell">
-                            {student[`${courseCode} Att%`] || "0.00"}
+                          <td
+                            key={`${student.RegisterNumber}-percentage-${courseCode}`}
+                            className="table-cell font-medium"
+                            style={{ width: "100px", minWidth: "100px" }}
+                          >
+                            {parseFloat(student[`${courseCode} Att%`] || 0) < 75 ? (
+                              <span className="text-red-600">{student[`${courseCode} Att%`] || "0.00"}%</span>
+                            ) : (
+                              <span className="text-green-600">{student[`${courseCode} Att%`] || "0.00"}%</span>
+                            )}
                           </td>,
                         ])}
-                        <td className="table-cell">{student["Total Conducted Periods"]}</td>
-                        <td className="table-cell">{student["Total Attended Periods"]}</td>
-                        <td className="table-cell">{student["Total Percentage %"]}</td>
+                        <td className="table-cell" style={{ width: "120px", minWidth: "120px" }}>
+                          {student["Total Conducted Periods"]}
+                        </td>
+                        <td className="table-cell" style={{ width: "120px", minWidth: "120px" }}>
+                          {student["Total Attended Periods"]}
+                        </td>
+                        <td className="table-cell font-medium" style={{ width: "100px", minWidth: "100px" }}>
+                          {parseFloat(student["Total Percentage %"]) < 75 ? (
+                            <span className="text-red-600">{student["Total Percentage %"]}%</span>
+                          ) : (
+                            <span className="text-green-600">{student["Total Percentage %"]}%</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                 </tbody>
@@ -368,34 +514,89 @@ export default function AttendanceReport() {
 
         {unmarkedReport.length > 0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-4">
+            <div className="border-b border-slate-100 px-6 py-4 bg-slate-50">
               <h2 className="text-lg font-semibold text-slate-900">Black Box Report - Unmarked Attendance</h2>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-slate-50">
+            <div ref={blackboxTopScrollRef} className="overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-slate-50 h-3">
+              <div ref={blackboxTopScrollContentRef} className="h-[1px]" />
+            </div>
+            <div ref={blackboxBottomScrollRef} className="overflow-x-auto scrollbar-hidden">
+              <table ref={blackboxTableRef} className="w-full text-sm border-separate border-spacing-0">
+                <thead className="bg-slate-50 sticky top-0 z-20">
                   <tr>
-                    <th className="table-head">Date</th>
-                    <th className="table-head">Day</th>
-                    <th className="table-head">Period Number</th>
-                    <th className="table-head">Course Code</th>
-                    <th className="table-head">Course Title</th>
-                    <th className="table-head">Section</th>
-                    <th className="table-head">Staff Name</th>
-                    <th className="table-head">Staff ID</th>
+                    <th
+                      className="table-head text-left"
+                      style={{ width: "120px", minWidth: "120px", position: "sticky", left: 0, zIndex: 30, background: "#f9fafb" }}
+                    >
+                      Date
+                    </th>
+                    <th
+                      className="table-head text-left"
+                      style={{ width: "100px", minWidth: "100px", position: "sticky", left: "120px", zIndex: 30, background: "#f9fafb" }}
+                    >
+                      Day
+                    </th>
+                    <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                      Period Number
+                    </th>
+                    <th className="table-head" style={{ width: "130px", minWidth: "130px" }}>
+                      Course Code
+                    </th>
+                    <th className="table-head" style={{ width: "250px", minWidth: "250px" }}>
+                      Course Title
+                    </th>
+                    <th className="table-head" style={{ width: "100px", minWidth: "100px" }}>
+                      Section
+                    </th>
+                    <th className="table-head text-left" style={{ width: "180px", minWidth: "180px" }}>
+                      Staff Name
+                    </th>
+                    <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                      Staff ID
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="bg-white divide-y divide-slate-100">
                   {unmarkedReport.map((entry, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="table-cell">{entry.Date}</td>
-                      <td className="table-cell">{entry.Day}</td>
-                      <td className="table-cell">{entry.PeriodNumber}</td>
-                      <td className="table-cell">{entry.CourseCode}</td>
-                      <td className="table-cell">{entry.CourseTitle}</td>
-                      <td className="table-cell">{entry.Section}</td>
-                      <td className="table-cell">{entry.StaffName}</td>
-                      <td className="table-cell">{entry.StaffNumber}</td>
+                    <tr
+                      key={idx}
+                      className={idx % 2 === 0 ? "bg-white hover:bg-slate-50" : "bg-slate-50 hover:bg-slate-100"}
+                      style={{ height: "60px" }}
+                    >
+                      <td
+                        className="table-cell text-left font-medium text-gray-900"
+                        style={{ width: "120px", minWidth: "120px", position: "sticky", left: 0, zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
+                      >
+                        {entry.Date}
+                      </td>
+                      <td
+                        className="table-cell text-left"
+                        style={{ width: "100px", minWidth: "100px", position: "sticky", left: "120px", zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
+                      >
+                        {entry.Day}
+                      </td>
+                      <td className="table-cell" style={{ width: "120px", minWidth: "120px" }}>
+                        {entry.PeriodNumber}
+                      </td>
+                      <td className="table-cell font-medium" style={{ width: "130px", minWidth: "130px" }}>
+                        {entry.CourseCode}
+                      </td>
+                      <td className="table-cell" style={{ width: "250px", minWidth: "250px" }}>
+                        <div className="truncate" title={entry.CourseTitle}>
+                          {entry.CourseTitle}
+                        </div>
+                      </td>
+                      <td className="table-cell" style={{ width: "100px", minWidth: "100px" }}>
+                        {entry.Section}
+                      </td>
+                      <td className="table-cell text-left" style={{ width: "180px", minWidth: "180px" }}>
+                        <div className="truncate" title={entry.StaffName}>
+                          {entry.StaffName}
+                        </div>
+                      </td>
+                      <td className="table-cell" style={{ width: "120px", minWidth: "120px" }}>
+                        {entry.StaffNumber}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -431,21 +632,35 @@ export default function AttendanceReport() {
           cursor: not-allowed;
         }
         .table-head {
-          border-bottom: 1px solid rgb(226 232 240);
-          padding: 12px;
+          border-bottom: 2px solid rgb(226 232 240);
+          padding: 14px 16px;
           text-align: center;
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 700;
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: rgb(100 116 139);
           white-space: nowrap;
+          background: rgb(248 250 252);
+          vertical-align: middle;
         }
         .table-cell {
-          padding: 12px;
+          padding: 12px 16px;
           text-align: center;
           color: rgb(30 41 59);
           white-space: nowrap;
+          vertical-align: middle;
+          border-bottom: 1px solid rgb(226 232 240);
+        }
+        .table-cell.text-left {
+          text-align: left;
+        }
+        .scrollbar-hidden::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hidden {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>

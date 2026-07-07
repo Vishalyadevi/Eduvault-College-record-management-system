@@ -14,6 +14,7 @@ const markCache = (res) => (status) => res.set("X-Cache", status);
 // Helper to safely get user ID from req.user (handles both id and userId)
 const getCurrentUserId = (req) => req.user?.id || req.user?.userId;
 const RESELECTION_KEY = "electiveReselectionRequests";
+const FINALIZED_KEY = "electiveFinalizedSemesters";
 
 const readReselectionRequests = (messages) => {
   if (!messages || typeof messages !== "object") return [];
@@ -33,6 +34,29 @@ const writeReselectionRequests = async (student, requests, updatedBy = null) => 
     messages: nextMessages,
     ...(updatedBy ? { updatedBy } : {}),
   });
+};
+
+const readFinalizedSemesters = (messages) => {
+  if (!messages || typeof messages !== "object") return [];
+  const list = messages[FINALIZED_KEY];
+  return Array.isArray(list) ? list.map((id) => Number(id)).filter(Boolean) : [];
+};
+
+const buildFinalizedMessages = (messages, semesterId, requests = null) => {
+  const nextMessages = (messages && typeof messages === "object") ? { ...messages } : {};
+  const finalizedSemesters = new Set(readFinalizedSemesters(nextMessages));
+  finalizedSemesters.add(Number(semesterId));
+  nextMessages[FINALIZED_KEY] = [...finalizedSemesters];
+
+  if (Array.isArray(requests)) {
+    if (requests.length > 0) {
+      nextMessages[RESELECTION_KEY] = requests;
+    } else {
+      delete nextMessages[RESELECTION_KEY];
+    }
+  }
+
+  return nextMessages;
 };
 
 // 1. GET STUDENT ACADEMIC IDS
@@ -301,7 +325,9 @@ export const getElectiveBuckets = catchAsync(async (req, res) => {
     (s) => Number(s.ElectiveBucket?.semesterId) === Number(semesterId)
   );
   const selectedByBucket = new Map(semesterSelections.map((s) => [Number(s.bucketId), s.Course]));
-  const isFinalized = semesterSelections.length > 0;
+  const isFinalized =
+    semesterSelections.length > 0 ||
+    readFinalizedSemesters(user.studentProfile.messages).includes(Number(semesterId));
 
   const reselectionRequests = readReselectionRequests(user.studentProfile.messages);
   const latestRequest = [...reselectionRequests]
@@ -452,10 +478,10 @@ export const allocateElectives = catchAsync(async (req, res) => {
     );
   }
 
-  if (selections.length !== buckets.length) {
+  if (selections.length > buckets.length) {
     return res.status(400).json({
       status: "failure",
-      message: "You must select exactly one course from each elective bucket."
+      message: "You can select at most one course from each elective bucket."
     });
   }
 
@@ -516,14 +542,20 @@ export const allocateElectives = catchAsync(async (req, res) => {
       createdBy: userId
     }));
 
-    await StudentElectiveSelection.bulkCreate(data, { transaction: t });
+    if (data.length > 0) {
+      await StudentElectiveSelection.bulkCreate(data, { transaction: t });
+    }
   });
 
   if (canReselectNow && latestRequestIndex) {
     // Requirement: after successful reselection submission, remove the request entry from DB messages.
     requests.splice(latestRequestIndex.index, 1);
-    await writeReselectionRequests(user.studentProfile, requests, userId);
   }
+
+  await user.studentProfile.update({
+    messages: buildFinalizedMessages(user.studentProfile.messages, semesterId, canReselectNow ? requests : null),
+    updatedBy: userId
+  });
 
   res.status(200).json({ status: "success", message: "Elective selection submitted successfully" });
 });

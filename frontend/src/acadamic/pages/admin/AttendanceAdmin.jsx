@@ -131,6 +131,7 @@ export default function AdminAttendanceGenerator() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
   const [timeSlots, setTimeSlots] = useState([]);
+  const [configuredPeriodCount, setConfiguredPeriodCount] = useState(8);
 
   useEffect(() => {
     if (!fromDate) {
@@ -253,6 +254,10 @@ export default function AdminAttendanceGenerator() {
       });
 
       if (res.data.data?.timetable) setTimetable(res.data.data.timetable);
+      const configuredCount = Number(res.data.data?.layout?.periodCount);
+      if (Number.isInteger(configuredCount) && configuredCount > 0) {
+        setConfiguredPeriodCount(configuredCount);
+      }
       else toast.info("No data found");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Error loading timetable");
@@ -468,7 +473,7 @@ export default function AdminAttendanceGenerator() {
                     <th className="border-b border-r border-slate-200 px-6 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                       Date
                     </th>
-                    {timeSlots.map((slot) => (
+                    {timeSlots.slice(0, configuredPeriodCount).map((slot) => (
                       <th
                         key={slot.periodNumber}
                         className="border-b border-r border-slate-200 px-2 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500"
@@ -489,7 +494,7 @@ export default function AdminAttendanceGenerator() {
                         </div>
                       </td>
 
-                      {timeSlots.map((slot) => {
+                      {timeSlots.slice(0, configuredPeriodCount).map((slot) => {
                         const coursesInSlot = (timetable[date] || [])
                           .filter((p) => p.periodNumber === slot.periodNumber)
                           .map((p) => ({ ...p, date }));

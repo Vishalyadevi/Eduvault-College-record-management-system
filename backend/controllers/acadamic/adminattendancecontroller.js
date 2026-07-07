@@ -16,7 +16,8 @@ const {
   StudentDetails, 
   User, 
   DayAttendance,
-  PeriodAttendance 
+  PeriodAttendance,
+  AppSetting
 } = db;
 
 async function resolveSemesterNumber(input) {
@@ -209,7 +210,11 @@ export async function getTimetableAdmin(req, res, next) {
       timetable[date] = periodsForDay;
     });
 
-    res.status(200).json({ status: "success", data: { timetable } });
+    const layoutRow = await AppSetting.findByPk(`timetable_layout_semester_${semesterId}`);
+    let layout = { workingDays: 5, periodCount: 8 };
+    try { layout = { ...layout, ...JSON.parse(layoutRow?.value || '{}') }; } catch { /* defaults */ }
+
+    res.status(200).json({ status: "success", data: { timetable, layout } });
   } catch (err) {
     console.error("Error in getTimetableAdmin:", err);
     res.status(500).json({ status: "error", message: err.message || "Failed to fetch timetable" });

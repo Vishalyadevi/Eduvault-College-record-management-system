@@ -5,11 +5,12 @@ import {
   Edit,
   X,
   Clock,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:4000";
-const ALLOCATE_URL = `${API_BASE_URL}/api/admin/timetable/allocate`;
 axios.defaults.withCredentials = true;
 
 const Timetable = () => {
@@ -28,7 +29,7 @@ const Timetable = () => {
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [allocationMode, setAllocationMode] = useState(""); // "select" | "manual" | "bucket"
   const [customCourseInput, setCustomCourseInput] = useState("");
-  const [selectedBucketId, setSelectedBucketId] = useState("");
+  const [selectedBucketIds, setSelectedBucketIds] = useState([]);
   const [error, setError] = useState(null);
   const [timetablePeriods, setTimetablePeriods] = useState([]);
 
@@ -36,13 +37,52 @@ const Timetable = () => {
   const [electiveBuckets, setElectiveBuckets] = useState([]);
   const [bucketCourses, setBucketCourses] = useState([]);
 
-  const days = ["MON", "TUE", "WED", "THU", "FRI"];
+  const [dayCount, setDayCount] = useState(5);
+  const [periodCount, setPeriodCount] = useState(8);
+  const [layoutSaving, setLayoutSaving] = useState(false);
+  const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT"].slice(0, dayCount);
   const fallbackPeriods = Array.from({ length: 8 }, (_, i) => ({
     periodNumber: i + 1,
     startTime: "",
     endTime: "",
   }));
-  const periods = timetablePeriods.length > 0 ? timetablePeriods : fallbackPeriods;
+  const availablePeriods = timetablePeriods.length > 0 ? timetablePeriods : fallbackPeriods;
+  const periods = availablePeriods.slice(0, Math.min(periodCount, availablePeriods.length));
+
+  useEffect(() => {
+    if (!selectedSem) return;
+    axios.get(`${API_BASE_URL}/api/admin/timetable/semester/${selectedSem}/layout`)
+      .then((res) => {
+        setDayCount(Number(res.data?.data?.workingDays) || 5);
+        setPeriodCount(Number(res.data?.data?.periodCount) || 8);
+      })
+      .catch(() => {
+        setDayCount(5);
+        setPeriodCount(8);
+      });
+  }, [selectedSem]);
+
+  const saveLayout = async (nextLayout = { workingDays: dayCount, periodCount }) => {
+    if (!selectedSem) return;
+    setLayoutSaving(true);
+    try {
+      await axios.put(`${API_BASE_URL}/api/admin/timetable/semester/${selectedSem}/layout`, {
+        workingDays: nextLayout.workingDays,
+        periodCount: nextLayout.periodCount,
+      });
+      setDayCount(nextLayout.workingDays);
+      setPeriodCount(nextLayout.periodCount);
+      alert("Timetable layout saved successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save timetable layout");
+    } finally {
+      setLayoutSaving(false);
+    }
+  };
+
+  const removeSaturdayLayout = async () => {
+    await saveLayout({ workingDays: 5, periodCount });
+  };
 
   // Auth
   // Fetch basic data (unchanged)
@@ -172,7 +212,7 @@ const Timetable = () => {
     setSelectedCell({ day, periodNumber });
     setAllocationMode(""); // reset mode
     setCustomCourseInput(""); // reset input
-    setSelectedBucketId(""); // reset bucket
+    setSelectedBucketIds([]); // reset buckets
     setShowCourseModal(true); // open modal
   };
 
@@ -213,7 +253,7 @@ const Timetable = () => {
 
   // Assign bucket
   const handleAssignBucket = async () => {
-    if (!selectedBucketId) return alert("Please select a bucket");
+    if (selectedBucketIds.length === 0) return alert("Please select at least one bucket");
 
     try {
       const payload = {
@@ -221,14 +261,14 @@ const Timetable = () => {
         periodNumber: selectedCell.periodNumber,
         semesterId: +selectedSem,
         departmentId: +selectedDept,
-        bucketId: +selectedBucketId,
+        bucketIds: selectedBucketIds.map(Number),
       };
 
-      await axios.post(ALLOCATE_URL, payload);
+      await axios.post(`${API_BASE_URL}/api/admin/timetable/entry`, payload);
 
       await refreshTimetable();
       setShowCourseModal(false);
-      alert("All courses from the bucket assigned successfully!");
+      alert(`${selectedBucketIds.length} bucket(s) assigned successfully!`);
     } catch (err) {
       console.error(err);
       alert("Failed: " + (err.response?.data?.message || err.message || "Unknown error"));
@@ -400,6 +440,55 @@ const Timetable = () => {
               )}
             </button>
           )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-slate-50 border rounded-lg">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Working days</label>
+            {dayCount === 5 ? (
+              <button
+                type="button"
+                disabled={!selectedSem || layoutSaving}
+                onClick={() => saveLayout({ workingDays: 6, periodCount })}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" /> Add Saturday
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={!selectedSem || layoutSaving}
+                onClick={removeSaturdayLayout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" /> Remove Saturday
+              </button>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Periods shown per day</label>
+            <select
+              value={Math.min(periodCount, availablePeriods.length)}
+              disabled={!selectedSem}
+              onChange={(e) => setPeriodCount(Number(e.target.value))}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+            >
+              {availablePeriods.map((_, index) => (
+                <option key={index + 1} value={index + 1}>{index + 1} period{index > 0 ? "s" : ""}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Period times are managed from Timetable Periods.</p>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={!selectedSem || layoutSaving}
+              onClick={() => saveLayout()}
+              className="w-full px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
+            >
+              {layoutSaving ? "Saving..." : "Save Layout"}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -589,7 +678,7 @@ const Timetable = () => {
                 onChange={(e) => {
                   setAllocationMode(e.target.value);
                   setCustomCourseInput("");
-                  setSelectedBucketId("");
+                  setSelectedBucketIds([]);
                 }}
                 className="w-full p-4 text-base border-2 border-gray-300 rounded-lg"
               >
@@ -627,24 +716,29 @@ const Timetable = () => {
               )}
 
               {allocationMode === "bucket" && (
-                <select
-                  value={selectedBucketId}
-                  onChange={(e) => setSelectedBucketId(e.target.value)}
-                  className="w-full p-4 border-2 border-gray-300 rounded-lg"
-                >
-                  <option value="">Select a bucket...</option>
+                <div className="p-4 border-2 border-gray-300 rounded-lg space-y-3 max-h-64 overflow-y-auto">
+                  <p className="text-sm font-semibold text-gray-700">Select one or more buckets</p>
                   {electiveBuckets.map((b) => {
                     const count = bucketCourses.filter(
                       (c) => c.bucketId === b.bucketId,
                     ).length;
                     return (
-                      <option key={b.bucketId} value={b.bucketId}>
-                        {b.bucketName || `Bucket ${b.bucketNumber}`} ({count}{" "}
-                        courses)
-                      </option>
+                      <label key={b.bucketId} className="flex items-center gap-3 p-2 rounded hover:bg-purple-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedBucketIds.includes(b.bucketId)}
+                          onChange={(e) => setSelectedBucketIds((current) =>
+                            e.target.checked
+                              ? [...current, b.bucketId]
+                              : current.filter((id) => id !== b.bucketId)
+                          )}
+                          className="h-5 w-5 accent-purple-600"
+                        />
+                        <span>{b.bucketName || `Bucket ${b.bucketNumber}`} ({count} courses)</span>
+                      </label>
                     );
                   })}
-                </select>
+                </div>
               )}
             </div>
 
@@ -659,12 +753,12 @@ const Timetable = () => {
                   </button>
                 )}
 
-              {allocationMode === "bucket" && selectedBucketId && (
+              {allocationMode === "bucket" && selectedBucketIds.length > 0 && (
                 <button
                   onClick={handleAssignBucket}
                   className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xl rounded-lg"
                 >
-                  Assign All Courses in Selected Bucket
+                  Assign {selectedBucketIds.length} Selected Bucket{selectedBucketIds.length > 1 ? "s" : ""}
                 </button>
               )}
             </div>

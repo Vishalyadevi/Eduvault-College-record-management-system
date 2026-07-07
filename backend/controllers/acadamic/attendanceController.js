@@ -15,7 +15,8 @@ const {
   StudentCourse, 
   StudentDetails, 
   DayAttendance,
-  PeriodAttendance 
+  PeriodAttendance,
+  AppSetting
 } = db;
 
 // ==========================================
@@ -183,7 +184,19 @@ export async function getTimetable(req, res, next) {
         })) : [];
     });
 
-    res.status(200).json({ status: "success", data: { timetable } });
+    const semesterIds = [...new Set(periods.map((p) => p.semesterId).filter(Boolean))];
+    const layoutRows = semesterIds.length
+      ? await AppSetting.findAll({ where: { key: { [Op.in]: semesterIds.map((id) => `timetable_layout_semester_${id}`) } } })
+      : [];
+    const layouts = layoutRows.map((row) => {
+      try { return JSON.parse(row.value || '{}'); } catch { return {}; }
+    });
+    const layout = {
+      workingDays: layouts.length ? Math.max(...layouts.map((item) => Number(item.workingDays) || 5)) : 5,
+      periodCount: layouts.length ? Math.max(...layouts.map((item) => Number(item.periodCount) || 8)) : 8,
+    };
+
+    res.status(200).json({ status: "success", data: { timetable, layout } });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }

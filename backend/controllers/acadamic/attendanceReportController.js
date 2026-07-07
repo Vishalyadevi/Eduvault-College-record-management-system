@@ -38,6 +38,24 @@ function countDaysInRange(from, to, dayOfWeek) {
   return count;
 }
 
+function getDisplayStudentName(studentRecord) {
+  const candidateName =
+    studentRecord?.studentName ||
+    studentRecord?.StudentName ||
+    studentRecord?.get?.("studentName") ||
+    studentRecord?.get?.("StudentName") ||
+    studentRecord?.studentUser?.userName ||
+    studentRecord?.user?.userName ||
+    studentRecord?.User?.userName ||
+    studentRecord?.userAccount?.userName;
+
+  if (typeof candidateName === "string" && candidateName.trim()) {
+    return candidateName.trim();
+  }
+
+  return "";
+}
+
 // ==========================================
 // CONTROLLERS
 // ==========================================
@@ -171,7 +189,16 @@ export const getSubjectWiseAttendance = async (req, res) => {
             departmentId: normalizedDeptId,
             semester: String(semesterInfo.semesterNumber),
           },
-          attributes: [["registerNumber", "RegisterNumber"], ["studentName", "StudentName"]],
+          attributes: [["registerNumber", "RegisterNumber"], ["studentName", "StudentName"], "Userid"],
+          include: [
+            {
+              model: User,
+              as: "studentUser",
+              required: false,
+              attributes: ["userName"],
+            },
+          ],
+          order: [["registerNumber", "ASC"]],
         });
 
         if (!students.length) return { statusCode: 200, body: { success: true, courses: [], report: [] } };
@@ -273,7 +300,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
 
           const studentData = {
             RegisterNumber: regNo,
-            StudentName: s.get("StudentName"),
+            StudentName: getDisplayStudentName(s),
           };
 
           courseCodes.forEach((courseCode) => {
