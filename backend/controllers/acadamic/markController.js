@@ -491,7 +491,7 @@ export const getMyCourses = catchAsync(async (req, res) => {
     order: [[Course, 'courseTitle', 'ASC']], // nicer ordering
   });
 
-  const groupedMap = new Map(); // key = courseTitle (or courseId if you prefer uniqueness by ID)
+  const groupedMap = new Map(); // key = courseCode for stable grouping across duplicates
 
   for (const row of rows) {
     const data = row.get({ plain: true });
@@ -501,13 +501,11 @@ export const getMyCourses = catchAsync(async (req, res) => {
     const sem = course.Semester;
     const batch = sem?.Batch;
 
-    // Use courseTitle as main grouping key (most user-friendly)
-    const key = course.courseTitle;
+    const key = course.courseCode || `course-${course.courseId}`;
 
     if (!groupedMap.has(key)) {
       groupedMap.set(key, {
-        title: course.courseTitle,
-        // Use the most common / first course code as representative
+        title: course.courseTitle || course.courseCode,
         mainCourseCode: course.courseCode,
         courseCodes: new Set([course.courseCode]),
         semester: sem ? `Sem ${sem.semesterNumber}` : 'N/A',
@@ -522,29 +520,29 @@ export const getMyCourses = catchAsync(async (req, res) => {
 
     const entry = groupedMap.get(key);
 
-    // Collect unique course codes
     entry.courseCodes.add(course.courseCode);
 
-    // Collect branches taught for this course
     if (batch?.branch) entry.branches.add(batch.branch);
     if (batch?.batch) entry.batches.add(batch.batch);
     if (batch?.batchYears) entry.batchYears.add(batch.batchYears);
     if (batch?.degree) entry.degrees.add(batch.degree);
 
-    // Collect sections with useful info
-    entry.sections.push({
+    const sectionEntry = {
       sectionId: data.sectionId,
       sectionName: data.Section?.sectionName || 'Unnamed',
       batch: batch?.batch || 'N/A',
       batchYears: batch?.batchYears || 'N/A',
       branch: batch?.branch || 'General',
       degree: batch?.degree || 'BE',
-      // You can add more if needed: classroom, timing, etc.
-    });
+    };
 
-    // For composite ID if frontend still needs it (e.g. for some bulk action)
-    if (!entry.compositeSectionIds.includes(String(data.sectionId))) {
-      entry.compositeSectionIds.push(String(data.sectionId));
+    if (!entry.sections.some((s) => s.sectionId === sectionEntry.sectionId && s.branch === sectionEntry.branch)) {
+      entry.sections.push(sectionEntry);
+    }
+
+    const sectionIdString = String(data.sectionId);
+    if (sectionIdString && !entry.compositeSectionIds.includes(sectionIdString)) {
+      entry.compositeSectionIds.push(sectionIdString);
     }
   }
 
@@ -615,15 +613,28 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
     order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
   });
 
+  const pickStudentName = (student) => {
+    return (
+      student?.studentName ||
+      student?.name ||
+      student?.StudentName ||
+      student?.student_name ||
+      student?.registerNumber ||
+      'N/A'
+    );
+  };
+
   const studentsMap = new Map();
   for (const enrollment of enrollments) {
-    const student = enrollment.StudentDetail;
-    if (!student?.registerNumber || studentsMap.has(student.registerNumber)) continue;
-    studentsMap.set(student.registerNumber, {
-      regno: student.registerNumber,
-      registerNumber: student.registerNumber,
-      name: student.studentName,
-      studentName: student.studentName,
+    const student = enrollment.StudentDetail || enrollment.StudentDetails;
+    const registerNumber = student?.registerNumber || student?.regno;
+    if (!registerNumber || studentsMap.has(registerNumber)) continue;
+    const resolvedName = pickStudentName(student);
+    studentsMap.set(registerNumber, {
+      regno: registerNumber,
+      registerNumber,
+      name: resolvedName,
+      studentName: resolvedName,
       batch: student.batch,
       semester: student.semester
     });
@@ -641,11 +652,12 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
     });
 
     for (const student of studentRows) {
+      const resolvedName = pickStudentName(student);
       studentsMap.set(student.registerNumber, {
         regno: student.registerNumber,
         registerNumber: student.registerNumber,
-        name: student.studentName,
-        studentName: student.studentName,
+        name: resolvedName,
+        studentName: resolvedName,
         batch: student.batch,
         semester: student.semester
       });
@@ -789,7 +801,6 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
   const { courseCode, sectionId } = req.params;
   const staffId = getStaffId(req);
 
-  // Guard against "unknown" sectionId
   if (!sectionId || sectionId === 'unknown') {
     return res.status(400).json({ status: 'error', message: 'Valid Section ID is required' });
   }
@@ -797,6 +808,11 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
   const codes = String(courseCode || '')
     .split('_')
     .map(code => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  const requestedSectionIds = String(sectionId || '')
+    .split('_')
+    .map(id => id.trim())
     .filter(Boolean);
 
   const baseCourses = await Course.findAll({
@@ -807,7 +823,10 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
   const titles = [...new Set(baseCourses.map(course => course.courseTitle).filter(Boolean))];
 
   const staffCourses = await StaffCourse.findAll({
-    where: { Userid: staffId },
+    where: {
+      Userid: staffId,
+      sectionId: { [Op.in]: requestedSectionIds }
+    },
     attributes: ['courseId', 'sectionId'],
     include: [{
       model: Course,
@@ -837,16 +856,15 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
     include: [
       {
         model: StudentDetails,
-        attributes: ['registerNumber', 'studentName'],
+        attributes: ['registerNumber', 'studentName', 'studentId'],
         required: true
       }
     ],
     order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
   });
 
-  // Flatten the response to match frontend expectations (regno, name)
   const data = Array.from(new Map(enrollments.map(e => [
-    e.StudentDetail?.registerNumber,
+    `${e.StudentDetail?.registerNumber}-${e.sectionId}`,
     {
       regno: e.StudentDetail?.registerNumber,
       name: e.StudentDetail?.studentName,

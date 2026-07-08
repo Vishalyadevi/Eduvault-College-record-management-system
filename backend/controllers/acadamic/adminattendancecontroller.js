@@ -809,10 +809,25 @@ export async function getStudentsBySemester(req, res) {
 export async function markFullDayOD(req, res) {
   const t = await sequelize.transaction();
   try {
-    const { startDate, endDate, students, departmentId, semesterId, batch } = req.body;
+    const {
+      startDate,
+      endDate,
+      students,
+      departmentId,
+      semesterId,
+      batch,
+      status = "OD",
+      selectedPeriods = [],
+    } = req.body;
     const adminUser = await getInternalAdminUser(req.user);
     const adminUserId = adminUser.userId;
     const semesterNumber = await resolveSemesterNumber(semesterId);
+    const normalizedStatus = (status || "OD").toUpperCase();
+    const requestedPeriods = Array.isArray(selectedPeriods)
+      ? selectedPeriods
+          .map((period) => Number(period))
+          .filter((period) => Number.isInteger(period) && period > 0)
+      : [];
 
     if (!students || students.length === 0) {
       await t.rollback();
@@ -875,6 +890,10 @@ export async function markFullDayOD(req, res) {
 
       for (const student of students) {
         for (const slot of timetableSlots) {
+          if (requestedPeriods.length > 0 && !requestedPeriods.includes(Number(slot.periodNumber))) {
+            continue;
+          }
+
           let resolvedSectionId = slot.sectionId || null;
           if (!resolvedSectionId && student.section) {
             const cacheKey = `${slot.courseId}::${student.section}`;
@@ -899,7 +918,7 @@ export async function markFullDayOD(req, res) {
             dayOfWeek: dayOfWeek,
             periodNumber: slot.periodNumber,
             attendanceDate: currentDate,
-            status: "OD",
+            status: normalizedStatus,
             departmentId: departmentId,
             updatedBy: "admin"
           }, { transaction: t });
@@ -926,8 +945,8 @@ export async function markFullDayOD(req, res) {
     await t.commit();
     res.json({
       status: "success",
-      message: `OD marked successfully for Batch ${batch} across ${processedDates} day(s).`,
-      data: { processedDates, totalEntries }
+      message: `${normalizedStatus} marked successfully for Batch ${batch} across ${processedDates} day(s).`,
+      data: { processedDates, totalEntries, status: normalizedStatus, selectedPeriods: requestedPeriods.length > 0 ? requestedPeriods : [] }
     });
   } catch (err) {
     await t.rollback();

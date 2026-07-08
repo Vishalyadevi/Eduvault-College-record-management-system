@@ -293,7 +293,6 @@ export default function AttendanceGenerator() {
         { date: selectedCourse.date, attendances: payload }
       );
       toast.success("Attendance Saved");
-      setSelectedCourse(null);
     } catch (err) {
       toast.error("Save Failed");
     } finally {
@@ -532,7 +531,7 @@ export default function AttendanceGenerator() {
                       Student Name
                     </th>
                     <th className="p-5 text-center font-bold uppercase text-[9px] tracking-widest">
-                      Mark Status
+                      Status
                     </th>
                   </tr>
                 </thead>
@@ -565,19 +564,16 @@ export default function AttendanceGenerator() {
                               Admin Marked
                             </span>
                           ) : (
-                            ["P", "A", "OD"].map((status) => (
+                            ['P', 'A', 'OD'].map((status) => (
                               <button
                                 key={status}
                                 onClick={() =>
-                                  handleAttendanceChange(
-                                    student.rollnumber,
-                                    status
-                                  )
+                                  handleAttendanceChange(student.rollnumber, status)
                                 }
                                 className={`w-10 h-10 rounded-xl text-[11px] font-bold transition-all border ${
                                   student.status === status
-                                    ? "bg-[#0f172a] text-white border-[#0f172a] shadow-md scale-105"
-                                    : "bg-white text-slate-300 border-slate-200 hover:border-slate-400"
+                                    ? 'bg-[#10b981] text-white border-[#10b981] shadow-md scale-105'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
                                 }`}
                               >
                                 {status}

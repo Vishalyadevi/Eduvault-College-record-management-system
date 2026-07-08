@@ -6,13 +6,19 @@ import { Download, FileSearch, ShieldAlert } from "lucide-react";
 const API_BASE_URL = "http://localhost:4000";
 
 export default function AttendanceReport() {
+  const today = new Date();
+const isoToday = today.toISOString().split("T")[0];
+const nextWeek = new Date(today);
+nextWeek.setDate(nextWeek.getDate() + 6);
+const isoNextWeek = nextWeek.toISOString().split("T")[0];
+
   const [filters, setFilters] = useState({
     degree: "Select Degree",
     batch: "Select Batch",
     department: "Select Department",
     semester: "Select Semester",
-    fromDate: "2025-10-20",
-    toDate: "2025-10-26",
+    fromDate: isoToday,
+    toDate: isoNextWeek,
   });
 
   const [batches, setBatches] = useState([]);
@@ -24,6 +30,18 @@ export default function AttendanceReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [minPercentage, setMinPercentage] = useState("");
+
+  const getStudentDisplayName = (student = {}) =>
+    student.StudentName ||
+    student.studentName ||
+    student.name ||
+    student.student_name ||
+    student.RegisterNumber ||
+    student.registerNumber ||
+    student.RegNo ||
+    student.rollnumber ||
+    student.rollNo ||
+    "Unknown";
 
   const reportTopScrollRef = useRef(null);
   const reportTopScrollContentRef = useRef(null);
@@ -61,7 +79,7 @@ export default function AttendanceReport() {
 
   useEffect(() => {
     const loadDepartments = async () => {
-      if (!filters.batch === "Select Batch") {
+      if (!filters.batch || filters.batch === "Select Batch") {
         setDepartments([]);
         return;
       }
@@ -84,7 +102,7 @@ export default function AttendanceReport() {
 
   useEffect(() => {
     const loadSemesters = async () => {
-      if (!filters.batch || !filters.department === "Select Department") {
+      if (!filters.batch || !filters.department || filters.department === "Select Department") {
         setSemesters([]);
         return;
       }
@@ -460,8 +478,8 @@ export default function AttendanceReport() {
                           className="table-cell text-left text-gray-900"
                           style={{ width: "240px", minWidth: "240px", position: "sticky", left: "140px", zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
                         >
-                          <div className="truncate" title={student.StudentName}>
-                            {student.StudentName}
+                          <div className="truncate" title={getStudentDisplayName(student)}>
+                            {getStudentDisplayName(student)}
                           </div>
                         </td>
                         {courses.map((courseCode) => [

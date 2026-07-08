@@ -95,7 +95,7 @@ export const getSectionsForCourse = catchAsync(async (req, res) => {
     where: { courseId, isActive: 'YES' },
     include: [{
       model: Course,
-      attributes: ['courseCode']
+      attributes: ['courseCode', 'courseTitle']
     }]
   });
 
@@ -104,7 +104,9 @@ export const getSectionsForCourse = catchAsync(async (req, res) => {
     data: sections.map(s => ({
       sectionId: s.sectionId,
       sectionName: s.sectionName,
-      courseCode: s.Course?.courseCode
+      courseCode: s.Course?.courseCode,
+      courseTitle: s.Course?.courseTitle,
+      displayName: [s.sectionName, s.Course?.courseTitle || s.Course?.courseCode].filter(Boolean).join(' - ')
     })),
   });
 });
@@ -205,7 +207,8 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
 });
 
 export const getSections = catchAsync(async (req, res) => {
-  const { courseId, semesterId } = req.query;
+  const { courseId } = req.query;
+  const semesterId = req.query.semesterId ? Number(req.query.semesterId) : undefined;
 
   const whereCondition = { isActive: 'YES' };
   if (courseId) whereCondition.courseId = courseId;
@@ -214,28 +217,35 @@ export const getSections = catchAsync(async (req, res) => {
     where: whereCondition,
     include: [{
       model: Course,
-      where: { isActive: 'YES', ...(semesterId && { semesterId }) },
-      attributes: ['courseCode', 'semesterId'],
+      where: { isActive: 'YES', ...(semesterId ? { semesterId } : {}) },
+      attributes: ['courseCode', 'courseTitle', 'semesterId'],
       include: [{
         model: Semester,
         attributes: ['batchId'],
         include: [{
-            model: Batch,
-            attributes: ['branch']
+          model: Batch,
+          attributes: ['branch']
         }]
       }]
     }]
   });
 
   // Flatten the data for the frontend
-  const formatted = sections.map(s => ({
+  const formatted = sections.map((s) => ({
     sectionId: s.sectionId,
     sectionName: s.sectionName,
     courseId: s.courseId,
-    courseCode: s.Course?.courseCode,
-    semesterId: s.Course?.semesterId,
-    batchId: s.Course?.Semester?.batchId,
-    branch: s.Course?.Semester?.Batch?.branch
+    courseCode: s.Course?.courseCode || null,
+    courseTitle: s.Course?.courseTitle || null,
+    semesterId: s.Course?.semesterId || null,
+    batchId: s.Course?.Semester?.batchId || null,
+    branch: s.Course?.Semester?.Batch?.branch || null,
+    displayName: [
+      s.sectionName,
+      s.Course?.courseTitle || s.Course?.courseCode,
+    ]
+      .filter(Boolean)
+      .join(' - '),
   }));
 
   res.status(200).json({ status: 'success', data: formatted });

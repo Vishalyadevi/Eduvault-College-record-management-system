@@ -56,7 +56,8 @@ import StudentCBCS from './pages/student/StudentCBCS.jsx';
 // NotFound + others
 import NotFound from "./pages/NotFound";
 import AttendanceReport from "./pages/admin/AttendanceReports";
-import BulkOD from "./pages/admin/BulkOD.jsx";
+import StudentAttendanceReport from "./pages/admin/StudentAttendanceReport";
+import BulkAttendance from "./pages/admin/BulkOD.jsx";
 import DayAttendance from "./pages/admin/DayAttendance.jsx";
 import StudentCourseMapping from "./pages/admin/StudentCourseMapping.jsx";
 
@@ -163,7 +164,9 @@ const routes = [
       { path: 'subjectWise-marks', element: <SubjectWiseMarks /> },
       { path: 'course-recommendation', element: <CourseRecommendation /> },
       { path: 'adminattendance', element: <AdminAttendance /> },
-      { path: 'bulk-od', element: <BulkOD /> },
+      { path: 'bulk-attendance', element: <BulkAttendance /> },
+      { path: 'bulk-od', element: <BulkAttendance /> },
+      { path: 'student-attendance-report', element: <StudentAttendanceReport /> },
       { path: 'periodattendance', element: <DayAttendance /> },
       { path: "/admin/attendance-report", element: <AttendanceReport /> },
       { path: 'report', element: <Report /> },

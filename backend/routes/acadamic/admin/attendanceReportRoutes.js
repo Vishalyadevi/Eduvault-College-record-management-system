@@ -4,7 +4,8 @@ import {
   getDepartments,
   getSemesters,
   getSubjectWiseAttendance,
-  getUnmarkedAttendanceReport
+  getUnmarkedAttendanceReport,
+  getStudentAttendanceReport,
 } from "../../../controllers/acadamic/attendanceReportController.js";
 
 // FIXED IMPORT: Changed 'protect' to 'requireAuth'
@@ -23,6 +24,7 @@ router.get(
   "/subject-wise/:degree/:batchId/:departmentId/:semesterId",
   getSubjectWiseAttendance
 );
+router.get("/student-attendance", getStudentAttendanceReport);
 router.get("/unmarked/:batchId/:semesterId", getUnmarkedAttendanceReport);
 
 export default router;

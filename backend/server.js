@@ -100,6 +100,7 @@ import {
 //Acadamic
 import { initDatabase } from './models/acadamic/index.js';
 import AcadamicApp from './app.js';
+import attendanceReportRoutes from './routes/acadamic/admin/attendanceReportRoutes.js';
 // Lightweight access to academic models for debug endpoints
 import acadDb from './models/acadamic/index.js';
 
@@ -274,6 +275,7 @@ app.put('/api/admin/timetable/semester/:semesterId/layout', authenticate, isAdmi
 app.delete('/api/admin/timetable/semester/:semesterId/layout', authenticate, isAdmin, deleteTimetableLayout);
 
 app.use(AcadamicApp); // Mount academic app routes and middlewares to the main app
+app.use('/api/admin/attendanceReports', attendanceReportRoutes); // Ensure attendance report endpoints are directly reachable
 app.use('/api/placement', placementMainRoutes);
 
 app.use('/api', dashboardRoutes);

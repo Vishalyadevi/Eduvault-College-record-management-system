@@ -105,9 +105,14 @@ const StudentCourseMapping = () => {
 
       const res = await api.get(`/admin/student-course-matrix?${params}`);
       const data = res.data?.data || {};
+      const normalizedStudents = (data.students || []).map((student) => ({
+        ...student,
+        regno: student.regno || student.registerNumber || student.regNo || student.rollnumber || '',
+        name: student.name || student.studentName || student.StudentName || student.student_name || '',
+      }));
       
       setCourses(data.courses || []);
-      setStudents(data.students || []);
+      setStudents(normalizedStudents);
       setEnrollments(data.enrollments || []);
 
       if (!data.students?.length) {

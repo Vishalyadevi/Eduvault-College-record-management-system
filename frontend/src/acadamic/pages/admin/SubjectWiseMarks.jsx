@@ -10,6 +10,17 @@ const MySwal = withReactContent(Swal);
 const { Option } = Select;
 const { Title, Text } = Typography;
 
+const getStudentDisplayName = (student = {}) =>
+  student.name ||
+  student.studentName ||
+  student.StudentName ||
+  student.student_name ||
+  student.fullName ||
+  student.fullname ||
+  student.displayName ||
+  student.Name ||
+  '';
+
 const SubjectWiseMarks = () => {
   const [batches, setBatches] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -171,6 +182,11 @@ const SubjectWiseMarks = () => {
         const res = await api.get('/admin/consolidated-marks', { params });
         console.log('API response:', JSON.stringify(res.data, null, 2));
         const { students, courses, marks, message } = res.data.data;
+        const normalizedStudents = (students || []).map((student) => ({
+          ...student,
+          regno: student.regno || student.registerNumber || student.regNo || student.rollnumber || student.rollNo || '',
+          name: getStudentDisplayName(student),
+        }));
         if (message) {
           setError(message);
           MySwal.fire({
@@ -216,7 +232,7 @@ const SubjectWiseMarks = () => {
             timerProgressBar: true,
           });
         }
-        setFullData({ students, courses, marks });
+        setFullData({ students: normalizedStudents, courses, marks });
         setCourses(courses);
         console.log('Marks data:', marks);
       } catch (err) {

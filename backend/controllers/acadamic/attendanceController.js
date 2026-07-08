@@ -232,6 +232,14 @@ export async function getStudentsForPeriod(req, res, next) {
 
     if (!isAssigned) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
+    const nameFromRow = (row) =>
+      row?.StudentDetail?.studentName ||
+      row?.StudentDetails?.studentName ||
+      row?.studentName ||
+      row?.StudentDetail?.User?.userName ||
+      row?.StudentDetails?.User?.userName ||
+      'N/A';
+
     // Fetch Students
     let students = await StudentCourse.findAll({
       where: { 
@@ -328,7 +336,7 @@ export async function getStudentsForPeriod(req, res, next) {
       status: "success",
       data: students.map(s => ({
         rollnumber: s.regno,
-        name: s.StudentDetail?.studentName || 'N/A',
+        name: nameFromRow(s),
         status: s.PeriodAttendances?.[0]?.status || '',
         sectionId: s.sectionId,
         courseId: s.courseId
@@ -357,6 +365,12 @@ export async function getSkippedStudents(req, res, next) {
     });
     if (!assignment) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
+    const nameFromAttendance = (pa) =>
+      pa?.StudentDetail?.studentName ||
+      pa?.StudentDetails?.studentName ||
+      pa?.studentName ||
+      'N/A';
+
     const skipped = await PeriodAttendance.findAll({
       where: {
         courseId,
@@ -377,7 +391,7 @@ export async function getSkippedStudents(req, res, next) {
       data: skipped.map(pa => ({
         rollnumber: pa.regno,
         status: pa.status,
-        name: pa.StudentDetail?.studentName,
+        name: nameFromAttendance(pa),
         reason: 'Attendance marked by admin'
       }))
     });

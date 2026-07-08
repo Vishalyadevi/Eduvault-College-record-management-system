@@ -10,6 +10,17 @@ const MySwal = withReactContent(Swal);
 const { Option } = Select;
 const { Title, Text } = Typography;
 
+const getStudentDisplayName = (student = {}) =>
+  student.name ||
+  student.studentName ||
+  student.StudentName ||
+  student.student_name ||
+  student.fullName ||
+  student.fullname ||
+  student.displayName ||
+  student.Name ||
+  '';
+
 const OverallConsolidatedMarks = () => {
   const [batches, setBatches] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -222,8 +233,8 @@ const OverallConsolidatedMarks = () => {
       }
       const normalizedStudents = students.map((student) => ({
         ...student,
-        regno: student.regno || student.registerNumber,
-        name: student.name || student.studentName,
+        regno: student.regno || student.registerNumber || student.regNo || student.rollnumber || student.rollNo || '',
+        name: getStudentDisplayName(student),
       }));
 
       const normalizedCourses = courses.map((course) => {

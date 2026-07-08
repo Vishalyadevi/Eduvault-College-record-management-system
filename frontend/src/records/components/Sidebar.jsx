@@ -173,7 +173,7 @@ const Sidebar = () => {
     { to: "/admin/timetable", icon: <FaCalendarAlt />, label: "Timetable" },
     { to: "/admin/periods", icon: <FaClock />, label: "Periods" },
     { to: "/admin/adminattendance", icon: <FaClipboardCheck />, label: "Attendance" },
-    { to: "/admin/bulk-od", icon: <FaFileUpload />, label: "Bulk OD" },
+    { to: "/admin/bulk-attendance", icon: <FaFileUpload />, label: "Bulk Attendance" },
     { to: "/admin/periodattendance", icon: <FaCalendarCheck />, label: "Day Attendance" },
     { to: "/admin/attendance-report", icon: <FaChartPie />, label: "Attendance Report" },
     { to: "/admin/consolidated-marks", icon: <FaCalculator />, label: "Consolidated Marks" },

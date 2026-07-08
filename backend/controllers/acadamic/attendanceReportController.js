@@ -334,6 +334,193 @@ export const getSubjectWiseAttendance = async (req, res) => {
   }
 };
 
+export const getStudentAttendanceReport = async (req, res) => {
+  const {
+    degree,
+    batchId,
+    departmentId,
+    semesterId,
+    sectionId,
+    fromDate,
+    toDate,
+  } = req.query;
+
+  try {
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, error: "fromDate and toDate are required" });
+    }
+
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, error: "fromDate cannot be later than toDate" });
+    }
+
+    const normalizedBatchId = batchId && batchId !== "Select Batch" ? parseInt(batchId, 10) : null;
+    const normalizedDepartmentId = departmentId && departmentId !== "Select Department" ? parseInt(departmentId, 10) : null;
+    const normalizedSemesterId = semesterId && semesterId !== "Select Semester" ? parseInt(semesterId, 10) : null;
+    const normalizedSectionId = sectionId && sectionId !== "Select Section" ? parseInt(sectionId, 10) : null;
+    const normalizedDegree = degree && degree !== "Select Degree" ? degree : null;
+
+    const key = makeCacheKey("attendanceReports:studentAttendance", {
+      degree: normalizedDegree,
+      batchId: normalizedBatchId,
+      departmentId: normalizedDepartmentId,
+      semesterId: normalizedSemesterId,
+      sectionId: normalizedSectionId,
+      fromDate,
+      toDate,
+    });
+
+    const payload = await getOrSetCache(
+      key,
+      async () => {
+        const whereStudent = {};
+        let batchInfo = null;
+        let semesterInfo = null;
+        let sectionInfo = null;
+
+        if (normalizedBatchId) {
+          batchInfo = await Batch.findOne({
+            where: {
+              batchId: normalizedBatchId,
+              ...(normalizedDegree ? { degree: normalizedDegree } : {}),
+              isActive: "YES",
+            },
+          });
+
+          if (!batchInfo) {
+            return { statusCode: 404, body: { success: false, error: "Batch not found" } };
+          }
+
+          whereStudent.batch = batchInfo.batch;
+        }
+
+        if (normalizedDepartmentId) {
+          whereStudent.departmentId = normalizedDepartmentId;
+        }
+
+        if (normalizedSemesterId) {
+          semesterInfo = await Semester.findOne({
+            where: { semesterId: normalizedSemesterId, isActive: "YES" },
+            attributes: ["semesterId", "semesterNumber"],
+          });
+          if (!semesterInfo) {
+            return { statusCode: 404, body: { success: false, error: "Semester not found" } };
+          }
+          whereStudent.semester = String(semesterInfo.semesterNumber);
+        }
+
+        if (normalizedSectionId) {
+          sectionInfo = await Section.findOne({
+            where: { sectionId: normalizedSectionId, isActive: "YES" },
+          });
+          if (!sectionInfo) {
+            return { statusCode: 404, body: { success: false, error: "Section not found" } };
+          }
+          whereStudent.section = sectionInfo.sectionName;
+        }
+
+        const students = await StudentDetails.findAll({
+          where: whereStudent,
+          attributes: ["registerNumber", "studentName", "Userid"],
+          include: [
+            {
+              model: User,
+              as: "studentUser",
+              required: false,
+              attributes: ["userName"],
+            },
+          ],
+          order: [["registerNumber", "ASC"]],
+        });
+
+        if (!students.length) {
+          return { statusCode: 200, body: { success: true, report: [] } };
+        }
+
+        const selectedRegNos = students.map((s) => String(s.registerNumber || s.get?.("registerNumber") || "").trim()).filter(Boolean);
+
+        const attendanceRows = await PeriodAttendance.findAll({
+          where: {
+            regno: { [Op.in]: selectedRegNos },
+            attendanceDate: { [Op.between]: [fromDate, toDate] },
+          },
+          attributes: ["regno", "attendanceDate", "status"],
+          raw: true,
+        });
+
+        const attendanceByStudent = {};
+
+        attendanceRows.forEach((row) => {
+          const regno = String(row.regno || "").trim();
+          const date = row.attendanceDate;
+          const status = row.status || "A";
+          if (!attendanceByStudent[regno]) attendanceByStudent[regno] = {};
+
+          const existing = attendanceByStudent[regno][date];
+          if (existing === "P") return;
+          if (existing === "OD" && status === "A") return;
+          if (status === "P") {
+            attendanceByStudent[regno][date] = "P";
+          } else if (status === "OD") {
+            attendanceByStudent[regno][date] = "OD";
+          } else if (!existing) {
+            attendanceByStudent[regno][date] = "A";
+          }
+        });
+
+        const from = new Date(fromDate);
+        const to = new Date(toDate);
+        const dates = [];
+        const current = new Date(from);
+        while (current <= to) {
+          dates.push(current.toISOString().split("T")[0]);
+          current.setDate(current.getDate() + 1);
+        }
+
+        const report = students.map((student) => {
+          const regNo = String(student.registerNumber || student.get?.("registerNumber") || "").trim();
+          const studentName = getDisplayStudentName(student) || "Unknown";
+          const dailyAttendance = {};
+          let presentCount = 0;
+          let absentCount = 0;
+          let odCount = 0;
+
+          dates.forEach((date) => {
+            const status = attendanceByStudent[regNo]?.[date] || "A";
+            dailyAttendance[date] = status;
+            if (status === "P") presentCount += 1;
+            else if (status === "OD") odCount += 1;
+            else absentCount += 1;
+          });
+
+          const totalDays = dates.length;
+          const attendancePercentage = totalDays
+            ? ((presentCount / totalDays) * 100).toFixed(2)
+            : "0.00";
+
+          return {
+            registerNumber: regNo,
+            name: studentName,
+            attendanceByDate: dailyAttendance,
+            presentCount,
+            absentCount,
+            odCount,
+            attendancePercentage,
+          };
+        });
+
+        return { statusCode: 200, body: { success: true, report } };
+      },
+      { ttlSeconds: ttl.short, onStatus: markCache(res) }
+    );
+
+    return res.status(payload.statusCode).json(payload.body);
+  } catch (error) {
+    console.error("Error in getStudentAttendanceReport:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
 /**
  * UNMARKED ATTENDANCE REPORT
  */
