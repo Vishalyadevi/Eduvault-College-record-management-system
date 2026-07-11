@@ -4,8 +4,10 @@ import {
   getTimetableAdmin,
   getStudentsForPeriodAdmin,
   markAttendanceAdmin,
+  markStudentStatus,
   markFullDayOD,
   getStudentsBySemester,
+  getStudentAttendanceStatuses,
   getStudentsByDeptAndSem,
 } from "../../../controllers/acadamic/adminattendancecontroller.js";
 
@@ -31,6 +33,9 @@ router.get(
 );
 
 router.get("/students-list", getStudentsBySemester);
+router.get("/student-statuses", getStudentAttendanceStatuses);
+router.post("/student-statuses", getStudentAttendanceStatuses);
+router.post("/mark-student-status", markStudentStatus);
 router.post("/mark-full-day-od", markFullDayOD);
 router.post(
   "/mark/:courseId/:sectionId/:dayOfWeek/:periodNumber",

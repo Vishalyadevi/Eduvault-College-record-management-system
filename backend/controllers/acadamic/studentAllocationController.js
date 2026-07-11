@@ -1,5 +1,6 @@
 import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
+import { Op } from "sequelize";
 import { getOrSetCache, invalidateCachePrefixes, makeCacheKey, ttl } from "../../utils/cache.js";
 import { autoAllocateSemesterData } from "../../services/semesterAutoAllocationService.js";
 
@@ -20,12 +21,39 @@ const {
 const markCache = (res) => (status) => res.set("X-Cache", status);
 
 export const searchStudents = catchAsync(async (req, res) => {
-  const { branch, batch, semesterNumber } = req.query;
+  const { branch, batch, semesterNumber, degree } = req.query;
+
+  // If a degree filter is provided (e.g., BE / ME) the Batch table contains
+  // the canonical mapping of `batch` -> `degree` -> `branch`. Resolve the set
+  // of batch values that match the requested degree/branch/batch combination
+  // and use that to filter StudentDetails. This avoids returning students
+  // from a different degree that happen to share the same batch year.
+  let batchFilterValues = [];
+  if (degree || branch || batch) {
+    const matchingBatches = await Batch.findAll({
+      where: {
+        ...(degree && { degree }),
+        ...(branch && { branch }),
+        ...(batch && { batch }),
+        isActive: 'YES'
+      },
+      attributes: ['batch'],
+      raw: true
+    });
+    batchFilterValues = matchingBatches.map((b) => b.batch);
+  }
+
+  // If the UI requested a specific degree but there are no matching Batch
+  // records for that degree/branch/batch combination, return empty results
+  // (prevents pulling students from other degrees that share the same year).
+  if (degree && batchFilterValues.length === 0) {
+    return res.status(200).json({ status: 'success', studentsData: [], coursesData: [] });
+  }
 
   const students = await StudentDetails.findAll({
     where: {
       pending: true,
-      ...(batch && { batch }),
+      ...(batchFilterValues.length > 0 ? { batch: batchFilterValues } : {}),
       ...(semesterNumber && { semester: semesterNumber })
     },
     include: [
@@ -51,6 +79,21 @@ export const searchStudents = catchAsync(async (req, res) => {
     order: [['registerNumber', 'ASC']]
   });
 
+  const userIds = [...new Set(students.map((student) => student.Userid).filter(Boolean))];
+  const userNameMap = new Map();
+
+  if (userIds.length > 0) {
+    const users = await User.findAll({
+      where: { userId: { [Op.in]: userIds } },
+      attributes: ['userId', 'userName'],
+      raw: true,
+    });
+
+    users.forEach((user) => {
+      if (user.userName) userNameMap.set(user.userId, user.userName);
+    });
+  }
+
   const rawCourses = await Course.findAll({
     where: { isActive: 'YES' },
     include: [
@@ -64,11 +107,12 @@ export const searchStudents = catchAsync(async (req, res) => {
         include: [{
           model: Batch,
           required: true,
-          where: {
-            isActive: 'YES',
-            ...(batch && { batch }),
-            ...(branch && { branch })
-          }
+            where: {
+              isActive: 'YES',
+              ...(batchFilterValues.length > 0 ? { batch: batchFilterValues } : {}),
+              ...(branch && { branch }),
+              ...(degree && { degree })
+            }
         }]
       },
       {
@@ -103,9 +147,15 @@ export const searchStudents = catchAsync(async (req, res) => {
       };
     }));
 
+    const displayName = [
+      student.studentName,
+      userNameMap.get(student.Userid),
+      student.registerNumber,
+    ].find((value) => typeof value === 'string' && value.trim());
+
     return {
       rollnumber: student.registerNumber,
-      name: student.studentName,
+      name: displayName || '',
       batch: student.batch,
       semester: `Semester ${student.semester}`,
       enrolledCourses,

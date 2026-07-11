@@ -549,19 +549,26 @@ export default function AttendanceGenerator() {
                       <tr
                         key={idx}
                         className={`hover:bg-slate-50 transition-colors ${
-                          isSkipped ? "bg-slate-50/50 opacity-40" : ""
+                          isSkipped ? "bg-slate-50/70 opacity-80" : ""
                         }`}
                       >
                         <td className="p-5 font-mono font-bold text-xs text-slate-500">
                           {student.rollnumber}
                         </td>
                         <td className="p-5 font-semibold text-slate-700">
-                          {student.name}
+                          <div className="flex items-center gap-2">
+                            <span>{student.name}</span>
+                            {isSkipped && (
+                              <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Admin Locked
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-5 flex justify-center gap-3">
                           {isSkipped ? (
-                            <span className="text-[9px] font-bold bg-slate-200/50 text-slate-500 px-4 py-1.5 rounded-full uppercase tracking-widest">
-                              Admin Marked
+                            <span className="text-[10px] font-bold bg-slate-200/80 text-slate-600 px-4 py-1.5 rounded-full uppercase tracking-widest">
+                              Admin Locked
                             </span>
                           ) : (
                             ['P', 'A', 'OD'].map((status) => (

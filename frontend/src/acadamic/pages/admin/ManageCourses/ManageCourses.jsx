@@ -19,6 +19,19 @@ const deptNameMap = {
   1: 'Computer Science Engineering',
   2: 'Electronics and Communication Engineering',
   3: 'Mechanical Engineering',
+  4: 'Information Technology',
+  5: 'Electrical and Electronics Engineering',
+  6: 'Artificial Intelligence and Data Science',
+  7: 'Civil Engineering',
+  8: 'Science and Humanities',
+  9: 'Management Studies',
+};
+
+const getDepartmentDisplayName = (departmentName, departmentId) => {
+  if (departmentName) return departmentName;
+  if (departmentId && deptNameMap[departmentId]) return deptNameMap[departmentId];
+  if (departmentId) return `Department ${departmentId}`;
+  return 'Unknown';
 };
 
 const ManageCourses = () => {
@@ -93,7 +106,7 @@ const ManageCourses = () => {
         id: user.id || user.userId || user.Userid,
         name: user.name || user.userName || 'Unknown',
         departmentId: user.departmentId,
-        departmentName: user.departmentName || deptNameMap[user.departmentId] || 'Unknown',
+        departmentName: getDepartmentDisplayName(user.departmentName, user.departmentId),
       }));
       const uniqueStaff = staffData.filter((staff, index, self) =>
         index === self.findIndex(s => s.id === staff.id)
@@ -162,7 +175,7 @@ const ManageCourses = () => {
               sectionId: alloc.sectionId,
               sectionName: normalizedName,
               departmentId: alloc.departmentId,
-              departmentName: alloc.departmentName || alloc.department || deptNameMap[alloc.departmentId] || 'Unknown',
+              departmentName: getDepartmentDisplayName(alloc.departmentName || alloc.department, alloc.departmentId),
             });
           }
         });

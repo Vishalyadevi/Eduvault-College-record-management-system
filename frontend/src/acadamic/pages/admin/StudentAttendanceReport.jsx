@@ -43,11 +43,11 @@ const generateDateRange = (from, to) => {
 
 export default function StudentAttendanceReport() {
   const [filters, setFilters] = useState({
-    degree: "Select Degree",
-    batch: "Select Batch",
-    department: "Select Department",
-    semester: "Select Semester",
-    section: "Select Section",
+    degree: "",
+    batch: "",
+    department: "",
+    semester: "",
+    section: "",
     fromDate: new Date().toISOString().split("T")[0],
     toDate: new Date().toISOString().split("T")[0],
   });
@@ -87,7 +87,7 @@ export default function StudentAttendanceReport() {
 
   useEffect(() => {
     const loadDepartments = async () => {
-      if (!filters.batch || filters.batch === "Select Batch") {
+      if (!filters.batch) {
         setDepartments([]);
         return;
       }
@@ -111,7 +111,7 @@ export default function StudentAttendanceReport() {
 
   useEffect(() => {
     const loadSemesters = async () => {
-      if (!filters.batch || filters.batch === "Select Batch" || !filters.department || filters.department === "Select Department") {
+      if (!filters.batch || !filters.department) {
         setSemesters([]);
         return;
       }
@@ -134,7 +134,7 @@ export default function StudentAttendanceReport() {
   }, [filters.batch, filters.department]);
 
   useEffect(() => {
-    if (!filters.semester || filters.semester === "Select Semester") {
+    if (!filters.semester) {
       setSections([]);
       return;
     }
@@ -220,11 +220,11 @@ export default function StudentAttendanceReport() {
     try {
       const res = await axios.get(`${API_BASE_URL}/api/admin/attendanceReports/student-attendance`, {
         params: {
-          degree: filters.degree === "Select Degree" ? undefined : filters.degree,
-          batchId: filters.batch === "Select Batch" ? undefined : filters.batch,
-          departmentId: filters.department === "Select Department" ? undefined : filters.department,
-          semesterId: filters.semester === "Select Semester" ? undefined : filters.semester,
-          sectionId: filters.section === "Select Section" ? undefined : filters.section,
+          degree: filters.degree || undefined,
+          batchId: filters.batch || undefined,
+          departmentId: filters.department || undefined,
+          semesterId: filters.semester || undefined,
+          sectionId: filters.section || undefined,
           fromDate: filters.fromDate,
           toDate: filters.toDate,
         },
@@ -273,7 +273,7 @@ export default function StudentAttendanceReport() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-8">
             <Field label="Degree">
               <select name="degree" value={filters.degree} onChange={handleChange} className="field-input">
-                <option value="Select Degree">Select Degree</option>
+                <option value="">Select Degree</option>
                 <option value="BE">BE</option>
                 <option value="B.Tech">B.Tech</option>
                 <option value="ME">ME</option>
@@ -282,8 +282,8 @@ export default function StudentAttendanceReport() {
             </Field>
 
             <Field label="Batch">
-              <select name="batch" value={filters.batch} onChange={handleChange} className="field-input">
-                <option value="Select Batch">Select Batch</option>
+              <select name="batch" value={filters.batch} onChange={handleChange} className="field-input" disabled={!filters.degree}>
+                <option value="">Select Batch</option>
                 {batches.map((batch) => (
                   <option key={batch.batchId} value={batch.batchId}>
                     {batch.batch} {batch.branch ? `- ${batch.branch}` : ""}
@@ -293,8 +293,8 @@ export default function StudentAttendanceReport() {
             </Field>
 
             <Field label="Department">
-              <select name="department" value={filters.department} onChange={handleChange} className="field-input">
-                <option value="Select Department">Select Department</option>
+              <select name="department" value={filters.department} onChange={handleChange} className="field-input" disabled={!filters.batch}>
+                <option value="">Select Department</option>
                 {departments.map((dept) => (
                   <option key={dept.departmentId} value={dept.departmentId}>
                     {dept.departmentName} ({dept.departmentCode})
@@ -304,8 +304,8 @@ export default function StudentAttendanceReport() {
             </Field>
 
             <Field label="Semester">
-              <select name="semester" value={filters.semester} onChange={handleChange} className="field-input">
-                <option value="Select Semester">Select Semester</option>
+              <select name="semester" value={filters.semester} onChange={handleChange} className="field-input" disabled={!filters.department}>
+                <option value="">Select Semester</option>
                 {semesters.map((sem) => (
                   <option key={sem.semesterId} value={sem.semesterId}>
                     Semester {sem.semesterNumber}
@@ -315,8 +315,8 @@ export default function StudentAttendanceReport() {
             </Field>
 
             <Field label="Section">
-              <select name="section" value={filters.section} onChange={handleChange} className="field-input">
-                <option value="Select Section">Select Section</option>
+              <select name="section" value={filters.section} onChange={handleChange} className="field-input" disabled={!filters.semester}>
+                <option value="">Select Section</option>
                 {sections.map((section) => (
                   <option key={section.sectionId} value={section.sectionId}>
                     {getSectionLabel(section)}
@@ -336,7 +336,15 @@ export default function StudentAttendanceReport() {
             <div className="flex items-end">
               <button
                 onClick={handleGenerateReport}
-                disabled={loading || !filters.fromDate || !filters.toDate}
+                disabled={
+                  loading ||
+                  !filters.fromDate ||
+                  !filters.toDate ||
+                  !filters.degree ||
+                  !filters.batch ||
+                  !filters.department ||
+                  !filters.semester
+                }
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold uppercase tracking-[0.14em] text-white transition disabled:opacity-60"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />}

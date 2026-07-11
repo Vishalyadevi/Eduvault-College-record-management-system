@@ -14,6 +14,7 @@ import path from 'path';
 import os from 'os';
 import { Readable } from 'stream';
 import catchAsync from '../../utils/catchAsync.js';
+import { resolveStudentDisplayName } from './studentNameResolver.js';
 
 // --- HELPERS ---
 const getStaffId = (req) => {
@@ -69,7 +70,7 @@ const resolveDepartmentFilter = async (dept) => {
   });
 };
 
-const resolveBatchFilter = async (batch, department) => {
+const resolveBatchFilter = async (batch, department, degree, branch) => {
   if (!batch && batch !== 0) return null;
 
   const raw = String(batch).trim();
@@ -82,7 +83,12 @@ const resolveBatchFilter = async (batch, department) => {
   }
 
   const where = { batch: raw };
-  if (department?.departmentAcr) {
+  if (degree) {
+    where.degree = String(degree).trim();
+  }
+  if (branch) {
+    where.branch = String(branch).trim();
+  } else if (department?.departmentAcr) {
     where.branch = department.departmentAcr;
   }
 
@@ -571,10 +577,14 @@ export const getMyCourses = catchAsync(async (req, res) => {
 });
 // 10. ADMIN FUNCTIONS
 export const getConsolidatedMarks = catchAsync(async (req, res) => {
-  const { batch, dept, sem } = req.query;
-  const department = await resolveDepartmentFilter(dept);
-  const batchRecord = await resolveBatchFilter(batch, department);
+  const { batch, dept, sem, degree, branch } = req.query;
+  const department = await resolveDepartmentFilter(dept || branch);
+  const batchRecord = await resolveBatchFilter(batch, department, degree, branch);
   const semesterRecord = await resolveSemesterFilter(sem, batchRecord);
+
+  if (!department && (degree || branch || dept)) {
+    return res.status(404).json({ status: 'error', message: 'Department not found' });
+  }
 
   if (!department) {
     return res.status(404).json({ status: 'error', message: 'Department not found' });
@@ -587,7 +597,7 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
   }
 
   const courses = await Course.findAll({
-    where: { semesterId: semesterRecord.semesterId },
+    where: { semesterId: semesterRecord.semesterId, isActive: 'YES' },
     include: [CoursePartitions]
   });
   if (!courses.length) {
@@ -608,21 +618,18 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
         batch: batchRecord.batch,
         semester: String(semesterRecord.semesterNumber)
       },
-      attributes: ['registerNumber', 'studentName', 'batch', 'semester']
+      attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
+      include: [{
+        model: User,
+        as: 'studentUser',
+        required: false,
+        attributes: ['userName']
+      }]
     }],
     order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
   });
 
-  const pickStudentName = (student) => {
-    return (
-      student?.studentName ||
-      student?.name ||
-      student?.StudentName ||
-      student?.student_name ||
-      student?.registerNumber ||
-      'N/A'
-    );
-  };
+  const pickStudentName = (student) => resolveStudentDisplayName(student);
 
   const studentsMap = new Map();
   for (const enrollment of enrollments) {
@@ -648,6 +655,12 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
         semester: String(semesterRecord.semesterNumber)
       },
       attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
+      include: [{
+        model: User,
+        as: 'studentUser',
+        required: false,
+        attributes: ['userName']
+      }],
       order: [['registerNumber', 'ASC']]
     });
 
@@ -719,12 +732,17 @@ export const getStudentCOMarksAdmin = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const course = await Course.findOne({ where: { courseCode } });
   const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: course.courseId } }] });
+  const students = await StudentDetails.findAll({
+    include: [
+      { model: StudentCourse, where: { courseId: course.courseId } },
+      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+    ]
+  });
   const marks = await StudentCoMarks.findAll({ where: { coId: cos.map(c => c.coId), regno: students.map(s => s.registerNumber) } });
   const resData = students.map(s => {
     const mks = {};
     cos.forEach(co => { mks[co.coNumber] = marks.find(m => m.regno === s.registerNumber && m.coId === co.coId)?.consolidatedMark || '0.00'; });
-    return { regno: s.registerNumber, name: s.studentName, marks: mks };
+    return { regno: s.registerNumber, name: resolveStudentDisplayName(s), marks: mks };
   });
   res.json({ status: 'success', data: { students: resData, partitions: { theoryCount: cos.filter(c => c.COType?.coType === 'THEORY').length } } });
 });
@@ -747,10 +765,15 @@ export const exportCourseWiseCsvAdmin = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const course = await Course.findOne({ where: { courseCode } });
   const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: course.courseId } }] });
+  const students = await StudentDetails.findAll({
+    include: [
+      { model: StudentCourse, where: { courseId: course.courseId } },
+      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+    ]
+  });
   const header = [{ id: 'regno', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...cos.map(c => ({ id: c.coNumber, title: c.coNumber })), { id: 'avg', title: 'Average' }];
   const data = await Promise.all(students.map(async s => {
-    const row = { regno: s.registerNumber, name: s.studentName };
+    const row = { regno: s.registerNumber, name: resolveStudentDisplayName(s) };
     let sum = 0;
     for (const co of cos) {
       const val = parseFloat((await StudentCoMarks.findOne({ where: { regno: s.registerNumber, coId: co.coId } }))?.consolidatedMark || 0);
@@ -773,12 +796,17 @@ export const getStudentCOMarksBySection = catchAsync(async (req, res) => {
   const { courseCode, sectionId } = req.params;
   const course = await Course.findOne({ where: { courseCode } });
   const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: course.courseId, sectionId } }] });
+  const students = await StudentDetails.findAll({
+    include: [
+      { model: StudentCourse, where: { courseId: course.courseId, sectionId } },
+      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+    ]
+  });
   const marks = await StudentCoMarks.findAll({ where: { coId: cos.map(c => c.coId), regno: students.map(s => s.registerNumber) } });
   const resData = students.map(s => {
     const mks = {};
     cos.forEach(co => { mks[co.coNumber] = marks.find(m => m.regno === s.registerNumber && m.coId === co.coId)?.consolidatedMark || '0.00'; });
-    return { regno: s.registerNumber, name: s.studentName, marks: mks };
+    return { regno: s.registerNumber, name: resolveStudentDisplayName(s), marks: mks };
   });
   res.json({ status: 'success', data: { students: resData } });
 });

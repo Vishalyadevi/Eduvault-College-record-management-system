@@ -27,8 +27,8 @@ const useManageStudentsData = (filters) => {
       setError(null);
       try {
         const [baseOptions, branchOptions] = await Promise.all([
-          manageStudentsService.fetchFilterOptions(''),
-          filters.branch ? manageStudentsService.fetchFilterOptions(filters.branch) : Promise.resolve(null),
+          manageStudentsService.fetchFilterOptions('', filters.degree),
+          filters.branch ? manageStudentsService.fetchFilterOptions(filters.branch, filters.degree) : Promise.resolve(null),
         ]);
         setBranches(baseOptions?.branches || Object.keys(branchMap));
         setSemesters(baseOptions?.semesters || []);

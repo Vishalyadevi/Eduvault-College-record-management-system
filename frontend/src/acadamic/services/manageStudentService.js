@@ -5,12 +5,17 @@ const API_BASE = 'http://localhost:4000/api/admin';
 const DEBUG_ACADAMIC = import.meta.env.VITE_DEBUG_ACADAMIC === 'true';
 
 const manageStudentsService = {
-  fetchFilterOptions: async (branch) => {
+  fetchFilterOptions: async (branch, degree) => {
     try {
+      const batchesQuery = [];
+      if (branch) batchesQuery.push(`branch=${encodeURIComponent(branch)}`);
+      if (degree) batchesQuery.push(`degree=${encodeURIComponent(degree)}`);
+      const queryString = batchesQuery.length ? `?${batchesQuery.join('&')}` : '';
+
       const [branchesRes, semestersRes, batchesRes] = await Promise.all([
         api.get(`${API_BASE}/students/branches`),
         api.get(`${API_BASE}/students/semesters`),
-        api.get(`${API_BASE}/students/batches${branch ? `?branch=${encodeURIComponent(branch)}` : ''}`),
+        api.get(`${API_BASE}/students/batches${queryString}`),
       ]);
 
       if (branchesRes.status !== 200) throw new Error('Failed to load branches.');
@@ -31,17 +36,17 @@ const manageStudentsService = {
 
   fetchStudentsAndCourses: async (filters, batches) => {
     try {
-      const { degree, branch, batch, semester } = filters;
+        const { degree, branch, batch, semester } = filters;
       const semesterNumber = semester && typeof semester === 'string' && semester.startsWith('Semester ')
         ? semester.replace('Semester ', '')
         : '';
 
       const studentsRes = await api.get(`${API_BASE}/students/search`, {
         params: {
-          degree,
-          branch,
-          batch,
-          semesterNumber,
+          degree: degree || undefined,
+          branch: branch || undefined,
+          batch: batch || undefined,
+          semesterNumber: semesterNumber || undefined,
         },
       });
 

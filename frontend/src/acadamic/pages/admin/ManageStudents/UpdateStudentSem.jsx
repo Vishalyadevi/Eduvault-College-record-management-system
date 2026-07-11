@@ -5,22 +5,47 @@ import { showConfirmToast, showErrorToast, showSuccessToast } from '../../../uti
 
 const UpdateStudentSem = () => {
   const [departments, setDepartments] = useState([]);
+  const [degreeOptions, setDegreeOptions] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [upgradingKey, setUpgradingKey] = useState('');
   const [filters, setFilters] = useState({
     departmentId: '',
     batch: '',
+    degree: '',
     search: '',
   });
 
-  const canSearch = useMemo(() => filters.departmentId || filters.batch || filters.search, [filters]);
+  const canSearch = useMemo(() => filters.departmentId || filters.batch || filters.degree || filters.search, [filters]);
 
   const fetchDepartments = async () => {
     try {
-      const res = await api.get('/departments');
-      const list = res?.data?.data || [];
-      setDepartments(list);
+      const [deptRes, batchRes] = await Promise.all([
+        api.get('/departments'),
+        api.get('/admin/batches'),
+      ]);
+
+      const departmentPayload = Array.isArray(deptRes?.data)
+        ? deptRes.data
+        : Array.isArray(deptRes?.data?.data)
+          ? deptRes.data.data
+          : [];
+
+      const batchPayload = Array.isArray(batchRes?.data)
+        ? batchRes.data
+        : Array.isArray(batchRes?.data?.data)
+          ? batchRes.data.data
+          : [];
+
+      const normalizedDepartments = departmentPayload.map((dept) => ({
+        ...dept,
+        departmentId: dept.departmentId ?? dept.id ?? dept.deptId,
+        Deptname: dept.Deptname || dept.departmentName || dept.name || dept.DeptName,
+        Deptacronym: dept.Deptacronym || dept.departmentAcr || dept.deptCode || dept.acronym || dept.DeptAcronym,
+      }));
+
+      setDepartments(normalizedDepartments);
+      setDegreeOptions([...new Set(batchPayload.map((b) => b.degree || b.Degree).filter(Boolean))]);
     } catch (error) {
       showErrorToast('Error', error?.response?.data?.message || 'Failed to load departments');
     }
@@ -32,6 +57,7 @@ const UpdateStudentSem = () => {
       const params = {};
       if (filters.departmentId) params.departmentId = filters.departmentId;
       if (filters.batch) params.batch = filters.batch.trim();
+      if (filters.degree) params.degree = filters.degree.trim();
       if (filters.search) params.search = filters.search.trim();
 
       const res = await api.get('/admin/students/semester-upgrade-batches', { params });
@@ -61,6 +87,7 @@ const UpdateStudentSem = () => {
       const res = await api.post('/admin/students/semester-upgrade', {
         departmentId: row.departmentId,
         batch: row.batch,
+        degree: row.degree,
       });
       showSuccessToast(res?.data?.message || 'Semester upgraded successfully');
       await fetchRows();
@@ -86,7 +113,7 @@ const UpdateStudentSem = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <select
             value={filters.departmentId}
             onChange={(e) => setFilters((prev) => ({ ...prev, departmentId: e.target.value }))}
@@ -97,6 +124,17 @@ const UpdateStudentSem = () => {
               <option key={d.departmentId} value={d.departmentId}>
                 {d.Deptacronym} - {d.Deptname}
               </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.degree}
+            onChange={(e) => setFilters((prev) => ({ ...prev, degree: e.target.value }))}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="">All Degrees</option>
+            {degreeOptions.map((degree) => (
+              <option key={degree} value={degree}>{degree}</option>
             ))}
           </select>
 
@@ -125,7 +163,7 @@ const UpdateStudentSem = () => {
             </button>
             <button
               onClick={() => {
-                setFilters({ departmentId: '', batch: '', search: '' });
+                setFilters({ departmentId: '', batch: '', degree: '', search: '' });
                 setTimeout(fetchRows, 0);
               }}
               className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-100"

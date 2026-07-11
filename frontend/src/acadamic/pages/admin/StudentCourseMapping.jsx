@@ -18,8 +18,10 @@ const { Title, Text } = Typography;
 const StudentCourseMapping = () => {
   const [departments, setDepartments] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [degreeOptions, setDegreeOptions] = useState([]);
   const [semesterOptions, setSemesterOptions] = useState([]);
   
+  const [selectedDegree, setSelectedDegree] = useState(null);
   const [selectedDept, setSelectedDept] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [selectedSemester, setSelectedSemester] = useState(null);
@@ -53,7 +55,9 @@ const StudentCourseMapping = () => {
               ? deptRes.data.data
               : []
         );
-        setBatches(batchRes.data?.data || []);
+        const batchData = Array.isArray(batchRes.data?.data) ? batchRes.data.data : [];
+        setBatches(batchData);
+        setDegreeOptions([...new Set(batchData.map((b) => b.degree).filter(Boolean))]);
       } catch (err) {
         console.error("Failed to load filters", err);
       } finally {
@@ -78,12 +82,12 @@ const StudentCourseMapping = () => {
   }, []);
 
   const handleFetchMatrix = async () => {
-    if (!selectedDept || !selectedBatch || !selectedSemester) {
+    if (!selectedDegree || !selectedDept || !selectedBatch || !selectedSemester) {
       MySwal.fire({
         toast: true,
         position: 'top-end',
         icon: 'warning',
-        title: 'Please select Department, Batch, and Semester',
+        title: 'Please select Degree, Department, Batch, and Semester',
         showConfirmButton: false,
         timer: 3000,
       });
@@ -97,6 +101,7 @@ const StudentCourseMapping = () => {
 
     try {
       const params = new URLSearchParams({
+        degree: selectedDegree,
         dept: selectedDept,
         batch: selectedBatch,
         semester: selectedSemester,
@@ -191,6 +196,7 @@ const StudentCourseMapping = () => {
   const getDeptName = () =>
     departments.find((d) => String(d.departmentId) === String(selectedDept))?.Deptacronym || selectedDept;
   const getBatchName = () => selectedBatch;
+  const getDegreeName = () => selectedDegree;
 
   const exportToExcel = () => {
     if (!students.length || !courses.length) {
@@ -239,7 +245,25 @@ const StudentCourseMapping = () => {
         <Card className="mb-6 shadow-sm border-gray-200 overflow-hidden">
           <Spin spinning={loading}>
             <Form layout="vertical">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <Form.Item label="Degree">
+                  <Select
+                    showSearch
+                    optionFilterProp="children"
+                    placeholder="Select Degree"
+                    value={selectedDegree}
+                    onChange={(value) => {
+                      setSelectedDegree(value);
+                      setSelectedBatch(null);
+                    }}
+                    size="large"
+                  >
+                    {degreeOptions.map((degree) => (
+                      <Option key={degree} value={degree}>{degree}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+
                 <Form.Item label="Department">
                   <Select
                     showSearch
@@ -264,7 +288,12 @@ const StudentCourseMapping = () => {
                     onChange={setSelectedBatch}
                     size="large"
                   >
-                    {[...new Set(batches.map(b => b.batch).filter(Boolean))].map(b => (
+                    {[...new Set(
+                      batches
+                        .filter((b) => !selectedDegree || b.degree === selectedDegree)
+                        .map((b) => b.batch)
+                        .filter(Boolean)
+                    )].map((b) => (
                       <Option key={b} value={b}>{b}</Option>
                     ))}
                   </Select>
@@ -294,9 +323,10 @@ const StudentCourseMapping = () => {
                 </Form.Item>
               </div>
 
-              {(selectedDept || selectedBatch || selectedSemester) && (
+              {(selectedDegree || selectedDept || selectedBatch || selectedSemester) && (
                 <div className="mt-5 p-3 bg-blue-50 border border-blue-100 rounded-lg flex flex-wrap gap-2 items-center">
                   <span className="text-blue-800 font-medium mr-2">Filters:</span>
+                  {selectedDegree && <Tag color="purple">{getDegreeName()}</Tag>}
                   {selectedDept && <Tag color="blue">{getDeptName()}</Tag>}
                   {selectedBatch && <Tag color="green">{getBatchName()}</Tag>}
                   {selectedSemester && <Tag color="orange">Sem {selectedSemester}</Tag>}
@@ -309,7 +339,7 @@ const StudentCourseMapping = () => {
                   icon={<SearchOutlined />}
                   loading={fetchingMatrix}
                   onClick={handleFetchMatrix}
-                  disabled={!selectedDept || !selectedBatch || !selectedSemester}
+                  disabled={!selectedDegree || !selectedDept || !selectedBatch || !selectedSemester}
                   size="large"
                 >
                   Load Details
@@ -368,7 +398,7 @@ const StudentCourseMapping = () => {
               description={
                 courses.length > 0
                   ? "No students match the current search"
-                  : "Select department, batch, semester and click 'Load Details'"
+                  : "Select degree, department, batch, semester and click 'Load Details'"
               }
             />
           </Card>

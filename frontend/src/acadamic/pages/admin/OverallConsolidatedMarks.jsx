@@ -10,16 +10,33 @@ const MySwal = withReactContent(Swal);
 const { Option } = Select;
 const { Title, Text } = Typography;
 
-const getStudentDisplayName = (student = {}) =>
-  student.name ||
-  student.studentName ||
-  student.StudentName ||
-  student.student_name ||
-  student.fullName ||
-  student.fullname ||
-  student.displayName ||
-  student.Name ||
-  '';
+const isLikelyRegisterNumber = (value) => typeof value === 'string' && /^\d+$/.test(value.trim());
+
+const getStudentDisplayName = (student = {}) => {
+  const candidates = [
+    student.studentUser?.userName,
+    student.user?.userName,
+    student.User?.userName,
+    student.userName,
+    student.studentName,
+    student.StudentName,
+    student.student_name,
+    student.name,
+    student.fullName,
+    student.fullname,
+    student.displayName,
+    student.Name,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim();
+    if (!trimmed || isLikelyRegisterNumber(trimmed)) continue;
+    return trimmed;
+  }
+
+  return student.registerNumber || student.regno || '';
+};
 
 const OverallConsolidatedMarks = () => {
   const [batches, setBatches] = useState([]);
@@ -181,6 +198,7 @@ const OverallConsolidatedMarks = () => {
         batch: selectedBatchData?.batch || selectedBatch,
         dept: selectedDeptData?.Deptacronym || selectedDept,
         sem: selectedSem,
+        degree: selectedBatchData?.degree || undefined,
       };
       console.log('Sending request with params:', params);
       const res = await api.get('/admin/consolidated-marks', { params });

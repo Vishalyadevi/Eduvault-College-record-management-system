@@ -72,13 +72,20 @@ const useManageStaffData = () => {
                 }))
               : [];
               
+            const departmentName = department?.departmentName
+              || user.department?.departmentName
+              || user.Deptname
+              || user.departmentName
+              || user.department?.Deptname
+              || 'Unknown';
+
             return {
               id: user.id || 0, // Numeric ID
               staffId: user.staffId || `STAFF_${user.id}`, // String ID "cset01"
               name: user.name || 'Unknown',
               email: user.email || '',
               departmentId: user.departmentId || 0,
-              departmentName: department ? department.departmentName : user.Deptname || user.departmentName || 'Unknown',
+              departmentName,
               allocatedCourses,
             };
           })

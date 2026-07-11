@@ -336,7 +336,7 @@ export const getStudentsByCourseAndSection = catchAsync(async (req, res) => {
  * Query: departmentId?, batch?, search?
  */
 export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
-  const { departmentId, batch, search } = req.query;
+  const { departmentId, batch, search, degree } = req.query;
 
   const departments = await Department.findAll({
     where: { status: 'Active' },
@@ -351,6 +351,7 @@ export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
   }
 
   const batchWhere = { isActive: 'YES' };
+  if (degree) batchWhere.degree = String(degree).trim();
   if (batch) batchWhere.batch = String(batch).trim();
   if (search) {
     const q = `%${String(search).trim()}%`;
@@ -422,7 +423,7 @@ export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
  * Body: { batch, departmentId }
  */
 export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) => {
-  const { batch, departmentId } = req.body;
+  const { batch, departmentId, degree } = req.body;
   const currentUserId = getCurrentUserId(req);
 
   if (!batch || !departmentId) {
@@ -437,11 +438,43 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
     return res.status(400).json({ status: 'failure', message: 'Invalid departmentId' });
   }
 
+  const departmentRecord = await Department.findByPk(normalizedDepartmentId, {
+    attributes: ['departmentId', 'departmentAcr'],
+    raw: true,
+  });
+
+  let studentWhere = {
+    batch: String(batch).trim(),
+    departmentId: normalizedDepartmentId,
+  };
+
+  if (degree && departmentRecord?.departmentAcr) {
+    const matchingBatch = await Batch.findOne({
+      where: {
+        degree: String(degree).trim(),
+        branch: departmentRecord.departmentAcr,
+        batch: String(batch).trim(),
+        isActive: 'YES',
+      },
+      attributes: ['batch', 'departmentId'],
+      raw: true,
+    });
+
+    if (matchingBatch) {
+      studentWhere = {
+        batch: String(matchingBatch.batch).trim(),
+        departmentId: matchingBatch.departmentId || normalizedDepartmentId,
+      };
+    } else {
+      return res.status(404).json({
+        status: 'failure',
+        message: 'No matching batch found for the selected degree and department',
+      });
+    }
+  }
+
   const students = await StudentDetails.findAll({
-    where: {
-      batch: String(batch).trim(),
-      departmentId: normalizedDepartmentId,
-    },
+    where: studentWhere,
     attributes: ['studentId', 'semester'],
     raw: true,
   });

@@ -24,6 +24,21 @@ const StudentFilters = ({ filters, setFilters, searchTerm, setSearchTerm, degree
           />
         </div>
         <select
+          value={filters.degree}
+          onChange={(e) => {
+            console.log('Degree filter changed:', e.target.value);
+            setFilters({ ...filters, degree: e.target.value, branch: '', batch: '' });
+          }}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">All Degrees</option>
+          {degrees.map((deg) => (
+            <option key={deg} value={deg}>
+              {deg}
+            </option>
+          ))}
+        </select>
+        <select
           value={filters.branch}
           onChange={(e) => {
             console.log('Branch filter changed:', e.target.value);

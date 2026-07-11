@@ -2,6 +2,7 @@
 import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
 import { Op } from "sequelize";
+import { isTeachingStaffRole } from "./staffRoleUtils.js";
 
 const {
   sequelize, User, Role, StaffCourse, Course, Section,
@@ -10,15 +11,14 @@ const {
 
 // 1. Get all Staff/Teaching Staff and their current allocations
 export const getUsers = catchAsync(async (req, res) => {
-  // A. Find Role IDs for "Staff", "Teaching Staff", or "Faculty"
-  const staffRoles = await Role.findAll({
-    where: {
-      roleName: { [Op.or]: ['Staff', 'Teaching Staff', 'Faculty'] }
-    },
-    attributes: ['roleId']
+  // A. Find role IDs for staff-like teaching roles, including S&H and other faculty titles.
+  const allRoles = await Role.findAll({
+    attributes: ['roleId', 'roleName']
   });
 
-  const roleIds = staffRoles.map(r => r.roleId);
+  const roleIds = allRoles
+    .filter(role => isTeachingStaffRole(role.roleName))
+    .map(role => role.roleId);
 
   if (roleIds.length === 0) {
     return res.status(200).json({ status: "success", data: [] });
@@ -85,13 +85,15 @@ export const getUsers = catchAsync(async (req, res) => {
       semesterId: ta.Course?.semesterId || null,
     }));
 
+    const departmentName = u.department?.departmentName || u.departmentName || "Unknown";
+
     return {
       id: u.userId,
       staffId: u.userNumber, // Using userNumber (Register/Staff ID)
-      name: displayName || "Unknown",
+      name: displayName || u.userName || "Unknown",
       email: u.userMail || "",
       departmentId: u.departmentId,
-      departmentName: u.department?.departmentName || "Unknown",
+      departmentName,
       allocatedCourses: userAllocations
     };
   });

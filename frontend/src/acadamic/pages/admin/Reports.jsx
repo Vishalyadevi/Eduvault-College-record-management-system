@@ -170,6 +170,7 @@ const Report = () => {
         batch: selectedBatchData?.batch || selectedBatch,
         dept: selectedDeptData?.Deptacronym || selectedDept,
         sem: selectedSem,
+        degree: selectedBatchData?.degree || undefined,
       };
       const res = await api.get('/admin/consolidated-marks', { params });
       const { courses: apiCourses } = res.data.data;
@@ -224,6 +225,7 @@ const Report = () => {
         batch: selectedBatchData?.batch || selectedBatch,
         dept: selectedDeptData?.Deptacronym || selectedDept,
         sem: selectedSem,
+        degree: selectedBatchData?.degree || undefined,
       };
       console.log('Sending request with params:', params);
       const res = await api.get('/admin/consolidated-marks', { params });

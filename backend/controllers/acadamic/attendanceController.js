@@ -43,6 +43,25 @@ const dayMap = {
   1: "MON", 2: "TUE", 3: "WED", 4: "THU", 5: "FRI", 6: "SAT", 7: "SUN"
 };
 
+function getDisplayStudentName(studentRecord) {
+  const candidateName =
+    studentRecord?.studentName ||
+    studentRecord?.StudentDetail?.studentName ||
+    studentRecord?.StudentDetails?.studentName ||
+    studentRecord?.studentUser?.userName ||
+    studentRecord?.user?.userName ||
+    studentRecord?.User?.userName ||
+    studentRecord?.userAccount?.userName ||
+    studentRecord?.StudentDetail?.studentUser?.userName ||
+    studentRecord?.StudentDetail?.user?.userName ||
+    studentRecord?.StudentDetails?.studentUser?.userName ||
+    studentRecord?.StudentDetails?.user?.userName;
+
+  return typeof candidateName === 'string' && candidateName.trim()
+    ? candidateName.trim()
+    : null;
+}
+
 // Resolve current staff from JWT payload (supports old/new token payload shapes)
 async function getInternalUser(authUser) {
   if (!authUser) throw new Error("Unauthorized");
@@ -63,6 +82,40 @@ async function getInternalUser(authUser) {
   }
 
   throw new Error("Staff user not found");
+}
+
+async function findAttendanceRecord({ regno, courseId, sectionId, dayOfWeek, periodNumber, attendanceDate, transaction }) {
+  return PeriodAttendance.findOne({
+    where: {
+      regno,
+      courseId,
+      sectionId,
+      dayOfWeek,
+      periodNumber,
+      attendanceDate,
+    },
+    order: [['periodAttendanceId', 'DESC']],
+    transaction,
+  });
+}
+
+async function saveOrUpdatePeriodAttendance(payload, transaction) {
+  const existing = await findAttendanceRecord({
+    regno: payload.regno,
+    courseId: payload.courseId,
+    sectionId: payload.sectionId,
+    dayOfWeek: payload.dayOfWeek,
+    periodNumber: payload.periodNumber,
+    attendanceDate: payload.attendanceDate,
+    transaction,
+  });
+
+  if (existing) {
+    await existing.update(payload, { transaction });
+    return existing;
+  }
+
+  return PeriodAttendance.create(payload, { transaction });
 }
 
 async function upsertDayAttendanceSummary({ regno, semesterNumber, attendanceDate, transaction }) {
@@ -112,6 +165,32 @@ async function getRelatedStaffCourseScope(userId, course) {
     courseIds: [...new Set([course.courseId, ...staffCourses.map(sc => sc.courseId)])],
     sectionIds: [...new Set(staffCourses.map(sc => sc.sectionId).filter(Boolean))]
   };
+}
+
+async function buildStudentNameMap(regnos) {
+  const uniqueRegnos = [...new Set(regnos.map((regno) => String(regno || '').trim()).filter(Boolean))];
+  if (!uniqueRegnos.length) return new Map();
+
+  const [studentRows, userRows] = await Promise.all([
+    StudentDetails.findAll({
+      where: { registerNumber: { [Op.in]: uniqueRegnos } },
+      attributes: ['registerNumber', 'studentName']
+    }),
+    User.findAll({
+      where: { userNumber: { [Op.in]: uniqueRegnos } },
+      attributes: ['userNumber', 'userName']
+    })
+  ]);
+
+  const names = new Map();
+  userRows.forEach((user) => {
+    if (user.userName) names.set(String(user.userNumber), user.userName);
+  });
+  studentRows.forEach((student) => {
+    if (student.studentName) names.set(String(student.registerNumber), student.studentName);
+  });
+
+  return names;
 }
 
 // ==========================================
@@ -207,6 +286,10 @@ export async function getTimetable(req, res, next) {
  */
 export async function getStudentsForPeriod(req, res, next) {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const date = req.query.date || new Date().toISOString().split("T")[0];
     const user = await getInternalUser(req.user);
@@ -232,14 +315,6 @@ export async function getStudentsForPeriod(req, res, next) {
 
     if (!isAssigned) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
-    const nameFromRow = (row) =>
-      row?.StudentDetail?.studentName ||
-      row?.StudentDetails?.studentName ||
-      row?.studentName ||
-      row?.StudentDetail?.User?.userName ||
-      row?.StudentDetails?.User?.userName ||
-      'N/A';
-
     // Fetch Students
     let students = await StudentCourse.findAll({
       where: { 
@@ -250,7 +325,14 @@ export async function getStudentsForPeriod(req, res, next) {
         { 
           model: StudentDetails, 
           required: true,
-          attributes: ['registerNumber', 'studentName']
+          on: {
+            regno: sequelize.where(
+              sequelize.col('StudentCourse.regno'),
+              '=',
+              sequelize.col('StudentDetail.registerNumber')
+            )
+          },
+          attributes: ['registerNumber', 'studentName', 'Userid']
         },
         {
           model: PeriodAttendance,
@@ -261,8 +343,7 @@ export async function getStudentsForPeriod(req, res, next) {
             sectionId: sequelize.where(sequelize.col('StudentCourse.sectionId'), '=', sequelize.col('PeriodAttendances.sectionId')),
             dayOfWeek,
             periodNumber,
-            attendanceDate: date,
-            staffId: user.userId
+            attendanceDate: date
           }
         }
       ],
@@ -332,11 +413,13 @@ export async function getStudentsForPeriod(req, res, next) {
       }
     }
 
+    const studentNameByRegno = await buildStudentNameMap(students.map((s) => s.regno));
+
     res.json({
       status: "success",
       data: students.map(s => ({
         rollnumber: s.regno,
-        name: nameFromRow(s),
+        name: getDisplayStudentName(s) || studentNameByRegno.get(String(s.regno).trim()) || 'N/A',
         status: s.PeriodAttendances?.[0]?.status || '',
         sectionId: s.sectionId,
         courseId: s.courseId
@@ -353,6 +436,10 @@ export async function getStudentsForPeriod(req, res, next) {
  */
 export async function getSkippedStudents(req, res, next) {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date } = req.query;
     const user = await getInternalUser(req.user);
@@ -365,12 +452,6 @@ export async function getSkippedStudents(req, res, next) {
     });
     if (!assignment) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
-    const nameFromAttendance = (pa) =>
-      pa?.StudentDetail?.studentName ||
-      pa?.StudentDetails?.studentName ||
-      pa?.studentName ||
-      'N/A';
-
     const skipped = await PeriodAttendance.findAll({
       where: {
         courseId,
@@ -378,20 +459,26 @@ export async function getSkippedStudents(req, res, next) {
         periodNumber,
         attendanceDate: date,
         updatedBy: 'admin',
+        status: 'OD',
         sectionId: {
           [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${user.userId} AND courseId = ${courseId})`)
         },
         ...(safeSectionId ? { sectionId: safeSectionId } : {})
       },
-      include: [{ model: StudentDetails, attributes: ['studentName'] }]
+      include: [{
+        model: StudentDetails,
+        attributes: ['registerNumber', 'studentName', 'Userid']
+      }]
     });
+
+    const studentNameByRegno = await buildStudentNameMap(skipped.map((pa) => pa.regno));
 
     res.json({
       status: "success",
       data: skipped.map(pa => ({
         rollnumber: pa.regno,
         status: pa.status,
-        name: nameFromAttendance(pa),
+        name: getDisplayStudentName(pa) || studentNameByRegno.get(String(pa.regno).trim()) || 'N/A',
         reason: 'Attendance marked by admin'
       }))
     });
@@ -498,18 +585,24 @@ export async function markAttendance(req, res, next) {
         continue;
       }
 
-      // Check Admin lock
-      const existing = await PeriodAttendance.findOne({
-        where: { regno: att.rollnumber, courseId: effectiveCourseId, sectionId: resolvedSectionId, attendanceDate: date, periodNumber }
+      // Check Admin lock: only lock if Admin marked OD
+      const existing = await findAttendanceRecord({
+        regno: att.rollnumber,
+        courseId: effectiveCourseId,
+        sectionId: resolvedSectionId,
+        attendanceDate: date,
+        dayOfWeek,
+        periodNumber,
+        transaction: t,
       });
 
-      if (existing?.updatedBy === 'admin') {
+      if (existing?.updatedBy === 'admin' && existing.status === 'OD') {
         skipped.push({ rollnumber: att.rollnumber, reason: "Locked by Admin" });
         continue;
       }
 
       // Save
-      await PeriodAttendance.upsert({
+      await saveOrUpdatePeriodAttendance({
         regno: att.rollnumber,
         staffId: user.userId,
         courseId: effectiveCourseId,
@@ -521,7 +614,7 @@ export async function markAttendance(req, res, next) {
         status: att.status,
         departmentId: deptId,
         updatedBy: 'staff'
-      }, { transaction: t });
+      }, t);
 
       await upsertDayAttendanceSummary({
         regno: att.rollnumber,

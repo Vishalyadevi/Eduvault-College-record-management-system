@@ -144,7 +144,7 @@ function NewsBook() {
           </div>
           {/* Stack */}
           {[4,3,2,1].map(offset => (
-            <div key={offset} style={{ position:"absolute", top:0, right:`${-offset*3}px`, top:`${offset*1.5}px`, width:"100%", height:"100%", borderRadius:"0 8px 8px 0", background:offset%2===0?"#e8eef8":"#f0f4fc", zIndex:offset, boxShadow:"2px 2px 4px rgba(0,0,0,.1)" }}/>
+            <div key={offset} style={{ position:"absolute", top:`${offset*1.5}px`, right:`${-offset*3}px`, width:"100%", height:"100%", borderRadius:"0 8px 8px 0", background:offset%2===0?"#e8eef8":"#f0f4fc", zIndex:offset, boxShadow:"2px 2px 4px rgba(0,0,0,.1)" }}/>
           ))}
           {/* Flipping */}
           {flipping && flippingPage !== null && (

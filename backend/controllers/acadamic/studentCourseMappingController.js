@@ -8,12 +8,11 @@ const {
   Course,
   Semester,
   Batch,
-  Regulation,
   Department,
 } = db;
 
 export const getStudentCourseMatrix = catchAsync(async (req, res) => {
-  const { dept, batch, semester, search } = req.query;
+  const { dept, batch, semester, search, degree } = req.query;
 
   if (!dept || !batch || !semester) {
     return res.status(400).json({
@@ -25,6 +24,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
   const deptId = parseInt(dept, 10);
   const semesterNumber = parseInt(semester, 10);
   const batchValue = String(batch);
+  const selectedDegree = degree ? String(degree).trim() : null;
 
   const deptRecord = await Department.findByPk(deptId, {
     attributes: ["departmentId", "departmentAcr", "departmentName"],
@@ -33,6 +33,27 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
   if (!deptRecord) {
     return res.status(400).json({ status: "failure", message: "Invalid department" });
   }
+
+  const batchFilter = {
+    branch: deptRecord.departmentAcr,
+    batch: batchValue,
+  };
+
+  if (selectedDegree) {
+    batchFilter.degree = selectedDegree;
+  }
+
+  const resolvedBatch = await Batch.findOne({
+    where: {
+      ...batchFilter,
+      isActive: "YES",
+    },
+    attributes: ["batch"],
+    raw: true,
+  });
+
+  const resolvedBatchValue = String(resolvedBatch?.batch ?? batchValue);
+  const resolvedDeptId = deptId;
 
   // 1) Courses offered in the given semester + batch + department branch
   const courses = await Course.findAll({
@@ -49,18 +70,9 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
             model: Batch,
             required: true,
             where: {
-              branch: deptRecord.departmentAcr,
-              batch: batchValue,
+              ...batchFilter,
+              batch: resolvedBatchValue,
             },
-            attributes: [],
-            include: [
-              {
-                model: Regulation,
-                required: false,
-                where: { departmentId: deptId },
-                attributes: [],
-              },
-            ],
           },
         ],
       },
@@ -72,8 +84,8 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
 
   // 2) Students for the given filters
   const studentWhere = {
-    departmentId: deptId,
-    batch: parseInt(batch, 10),
+    departmentId: resolvedDeptId,
+    batch: resolvedBatchValue,
     semester: String(semesterNumber),
   };
 
@@ -113,7 +125,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
       courses,
       students: students.map((s) => ({
         regno: s.registerNumber,
-        name: s.studentName,
+        name: s.studentName || s.registerNumber || "",
       })),
       enrollments,
     },

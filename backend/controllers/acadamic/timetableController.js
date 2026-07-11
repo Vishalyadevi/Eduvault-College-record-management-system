@@ -111,9 +111,20 @@ async function findStaffConflictForSlot({
   sectionId,
   dayOfWeek,
   periodNumber,
+  semesterId,
+  departmentId,
   excludeTimetableId = null,
   transaction
 }) {
+  if (!Array.isArray(courseIds) || !courseIds.length) return null;
+
+  const courseRows = await Course.findAll({
+    where: { courseId: { [Op.in]: courseIds } },
+    attributes: ['courseId', 'courseTitle', 'courseCode'],
+    transaction
+  });
+  const courseMap = new Map(courseRows.map((course) => [course.courseId, course]));
+  const courseTitles = [...new Set(courseRows.map((course) => String(course.courseTitle || '').trim().toLowerCase()).filter(Boolean))];
   // Staff assigned to the new allocation candidate(s)
   const newStaffAllocations = await StaffCourse.findAll({
     where: {
@@ -128,6 +139,7 @@ async function findStaffConflictForSlot({
   if (staffIds.length === 0) return null;
 
   const excludeClause = excludeTimetableId ? 'AND t.timetableId <> :excludeTimetableId' : '';
+  const departmentClause = departmentId != null && departmentId !== '' ? 'AND t.departmentId = :departmentId' : '';
   const [conflicts] = await sequelize.query(
     `
       SELECT t.timetableId, t.courseId, t.sectionId, scExisting.Userid AS staffId
@@ -136,14 +148,16 @@ async function findStaffConflictForSlot({
         ON scExisting.courseId = t.courseId
        AND (t.sectionId IS NULL OR scExisting.sectionId = t.sectionId)
       WHERE t.isActive = 'YES'
+        AND t.semesterId = :semesterId
         AND t.dayOfWeek = :dayOfWeek
         AND t.periodNumber = :periodNumber
         AND scExisting.Userid IN (:staffIds)
+        ${departmentClause}
         ${excludeClause}
       LIMIT 1
     `,
     {
-      replacements: { dayOfWeek, periodNumber, staffIds, excludeTimetableId },
+      replacements: { semesterId, dayOfWeek, periodNumber, staffIds, departmentId, excludeTimetableId },
       transaction
     }
   );
@@ -160,6 +174,10 @@ async function findStaffConflictForSlot({
       transaction
     })
   ]);
+
+  const conflictTitle = String(conflictCourse?.courseTitle || '').trim().toLowerCase();
+  const isSameCourseName = courseTitles.includes(conflictTitle) && conflictTitle;
+  if (isSameCourseName) return null;
 
   return {
     staffName: staff?.userName || `Staff ${conflict.staffId}`,
@@ -375,6 +393,8 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
       sectionId: sectionId || null,
       dayOfWeek,
       periodNumber,
+      semesterId,
+      departmentId,
       transaction
     });
     if (staffConflict) {
@@ -387,6 +407,7 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
     const batchConflict = await Timetable.findOne({
       where: {
         semesterId,
+        departmentId,
         dayOfWeek,
         periodNumber,
         isActive: 'YES'
@@ -447,6 +468,8 @@ export const updateTimetableEntry = catchAsync(async (req, res) => {
         sectionId: sectionId || null,
         dayOfWeek,
         periodNumber,
+        semesterId,
+        departmentId,
         excludeTimetableId: timetableId,
         transaction
       });

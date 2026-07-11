@@ -13,10 +13,10 @@ nextWeek.setDate(nextWeek.getDate() + 6);
 const isoNextWeek = nextWeek.toISOString().split("T")[0];
 
   const [filters, setFilters] = useState({
-    degree: "Select Degree",
-    batch: "Select Batch",
-    department: "Select Department",
-    semester: "Select Semester",
+    degree: "",
+    batch: "",
+    department: "",
+    semester: "",
     fromDate: isoToday,
     toDate: isoNextWeek,
   });
@@ -166,12 +166,7 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
   };
 
   const handleBlackBoxReport = async () => {
-    if (
-      !filters.batch === "Select Batch" ||
-      !filters.semester === "Select Semester" ||
-      !filters.fromDate ||
-      !filters.toDate
-    ) {
+    if (!filters.batch || !filters.semester || !filters.fromDate || !filters.toDate) {
       setError("Please select all required filters and log in.");
       return;
     }
@@ -262,7 +257,7 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 onChange={handleInputChange}
                 className="field-input"
               >
-                <option value="Select Degree">Select Degree</option>
+                <option value="">Select Degree</option>
                 <option value="BE">BE</option>
                 <option value="B.Tech">B.Tech</option>
                 <option value="ME">ME</option>
@@ -275,10 +270,10 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 name="batch"
                 value={filters.batch}
                 onChange={handleInputChange}
-                disabled={!filters.degree === "Select Degree"}
+                disabled={!filters.degree}
                 className="field-input"
               >
-                <option value="Select Batch">Select Batch</option>
+                <option value="">Select Batch</option>
                 {batches.map((batch) => (
                   <option key={batch.batchId} value={batch.batchId}>
                     {batch.batch}
@@ -292,10 +287,10 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 name="department"
                 value={filters.department}
                 onChange={handleInputChange}
-                disabled={!filters.batch === "Select Batch"}
+                disabled={!filters.batch}
                 className="field-input"
               >
-                <option value="Select Department">Select Department</option>
+                <option value="">Select Department</option>
                 {departments.map((dept) => (
                   <option key={dept.departmentId} value={dept.departmentId}>
                     {dept.departmentName} ({dept.departmentCode})
@@ -309,10 +304,10 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 name="semester"
                 value={filters.semester}
                 onChange={handleInputChange}
-                disabled={!filters.department === "Select Department"}
+                disabled={!filters.department}
                 className="field-input"
               >
-                <option value="Select Semester">Select Semester</option>
+                <option value="">Select Semester</option>
                 {semesters.map((sem) => (
                   <option key={sem.semesterId} value={sem.semesterId}>
                     Semester {sem.semesterNumber}
@@ -356,10 +351,10 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 loading ||
                 !filters.fromDate ||
                 !filters.toDate ||
-                filters.degree === "Select Degree" ||
-                filters.batch === "Select Batch" ||
-                filters.department === "Select Department" ||
-                filters.semester === "Select Semester"
+                !filters.degree ||
+                !filters.batch ||
+                !filters.department ||
+                !filters.semester
               }
             >
               <FileSearch size={14} />
@@ -372,9 +367,9 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 loading ||
                 !filters.fromDate ||
                 !filters.toDate ||
-                filters.batch === "Select Batch" ||
-                filters.department === "Select Department" ||
-                filters.semester === "Select Semester"
+                !filters.batch ||
+                !filters.department ||
+                !filters.semester
               }
               variant="secondary"
             >

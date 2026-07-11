@@ -75,7 +75,9 @@ export default function AdminAttendanceGenerator() {
   const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedPeriods, setSelectedPeriods] = useState(["all"]);
   const [selectedStatus, setSelectedStatus] = useState("OD");
+  const [rollNumberFilter, setRollNumberFilter] = useState("");
   const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const [savingStudentKey, setSavingStudentKey] = useState(null);
   const periodDropdownRef = useRef(null);
 
   const periodOptions = ["all", ...Array.from({ length: 8 }, (_, index) => String(index + 1))];
@@ -192,25 +194,64 @@ export default function AdminAttendanceGenerator() {
   }, [dates.length, students.length]);
 
   const normalizeStudentList = (list = [], datesRange = []) =>
-    list.map((student) => ({
-      ...student,
-      rollnumber: student.rollnumber || student.registerNumber || student.regno || student.rollNo || "",
-      name: getStudentDisplayName(student),
-      status: selectedStatus,
-      dateStatuses: datesRange.reduce((acc, date) => ({ ...acc, [date]: selectedStatus }), {}),
-    }));
+    list.map((student) => {
+      const rollnumber = String(
+        student.rollnumber || student.registerNumber || student.regno || student.rollNo || ""
+      ).trim();
+
+      return {
+        ...student,
+        rollnumber,
+        name: getStudentDisplayName(student),
+        status: "",
+        dateStatuses: datesRange.reduce((acc, date) => ({ ...acc, [date]: "" }), {}),
+      };
+    });
+
+  const fetchSavedAttendanceStatuses = async (rollnumbers) => {
+    const normalizedRollnumbers = (rollnumbers || []).
+      map((r) => String(r || "").trim()).
+      filter(Boolean);
+
+    if (!normalizedRollnumbers.length || !startDate || !endDate) return {};
+
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/admin/attendance/student-statuses`, {
+        regnos: normalizedRollnumbers,
+        startDate,
+        endDate,
+      });
+      return res.data?.status === 'success' ? res.data.data || {} : {};
+    } catch (err) {
+      console.warn('Failed to fetch saved attendance statuses', err);
+      return {};
+    }
+  };
+
+  const reloadSavedAttendanceStatuses = async (studentRows = []) => {
+    const rollnumbers = studentRows.map((s) => s.rollnumber).filter(Boolean);
+    if (!rollnumbers.length) return;
+
+    const savedStatuses = await fetchSavedAttendanceStatuses(rollnumbers);
+    if (!Object.keys(savedStatuses).length) return;
+
+    setStudents((prev) =>
+      prev.map((student) => ({
+        ...student,
+        dateStatuses: {
+          ...student.dateStatuses,
+          ...(savedStatuses[student.rollnumber] || {}),
+        },
+      }))
+    );
+  };
 
   useEffect(() => {
     if (!dates.length || students.length === 0) return;
+
     setStudents((prevStudents) =>
       prevStudents.map((student) => {
         const updatedDateStatuses = { ...(student.dateStatuses || {}) };
-
-        dates.forEach((date) => {
-          if (!updatedDateStatuses[date]) {
-            updatedDateStatuses[date] = selectedStatus;
-          }
-        });
 
         Object.keys(updatedDateStatuses).forEach((date) => {
           if (!dates.includes(date)) {
@@ -222,6 +263,11 @@ export default function AdminAttendanceGenerator() {
       })
     );
   }, [dates]);
+
+  useEffect(() => {
+    if (!dates.length || students.length === 0) return;
+    reloadSavedAttendanceStatuses(students);
+  }, [startDate, endDate, students.length]);
 
   const fetchStudents = async () => {
     if (!selectedDegree || !selectedBatch || !selectedSemester || !selectedDepartment) {
@@ -248,16 +294,32 @@ export default function AdminAttendanceGenerator() {
 
       const res = await axios.get(`${API_BASE_URL}/api/admin/attendance/students-list`, {
         params: {
-          degree: selectedDegree,
-          batch: bData.batch,
-          semesterId: selectedSemester,
-          departmentId: selectedDepartment,
+          degree: selectedDegree || undefined,
+          batch: bData.batch || undefined,
+          semesterId: selectedSemester || undefined,
+          departmentId: selectedDepartment || undefined,
         },
       });
 
       if (res.data.status === "success") {
         const studentList = Array.isArray(res.data.data) ? res.data.data : [];
-        setStudents(normalizeStudentList(studentList, dates));
+        const normalized = normalizeStudentList(studentList, dates);
+        const rollnumbers = normalized.map((s) => s.rollnumber).filter(Boolean);
+
+        if (rollnumbers.length > 0) {
+          const savedStatuses = await fetchSavedAttendanceStatuses(rollnumbers);
+          setStudents(
+            normalized.map((student) => ({
+              ...student,
+              dateStatuses: {
+                ...student.dateStatuses,
+                ...(savedStatuses[student.rollnumber] || {}),
+              },
+            }))
+          );
+        } else {
+          setStudents(normalized);
+        }
       } else {
         setStudents([]);
         toast.error(res.data.message || "Failed to load students");
@@ -269,7 +331,16 @@ export default function AdminAttendanceGenerator() {
     }
   };
 
-  const handleStudentDateStatusChange = (roll, date, status) => {
+  const handleStudentDateStatusChange = async (roll, date, status) => {
+    const student = students.find((s) => s.rollnumber === roll);
+    if (!student) return;
+
+    const previousStatus = student.dateStatuses?.[date] || "";
+    if (previousStatus === status) return;
+
+    const saveKey = `${roll}-${date}`;
+    setSavingStudentKey(saveKey);
+
     setStudents((prev) =>
       prev.map((s) =>
         s.rollnumber === roll
@@ -277,28 +348,71 @@ export default function AdminAttendanceGenerator() {
           : s
       )
     );
+
+    try {
+      const bData = batches.find((b) => b.batchId === parseInt(selectedBatch, 10));
+      const payload = {
+        student: {
+          rollnumber: roll,
+          section: student.section || null,
+        },
+        date,
+        status,
+        departmentId: selectedDepartment || undefined,
+        semesterId: selectedSemester || undefined,
+        batch: bData?.batch || undefined,
+        degree: selectedDegree || undefined,
+        branch: bData?.branch || undefined,
+        selectedPeriods: selectedPeriods.includes("all") ? [] : selectedPeriods.map((period) => Number(period)),
+      };
+
+      await axios.post(`${API_BASE_URL}/api/admin/attendance/mark-student-status`, payload);
+      toast.success(`${status} saved for ${roll}`);
+    } catch (err) {
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.rollnumber === roll
+            ? { ...s, dateStatuses: { ...s.dateStatuses, [date]: previousStatus } }
+            : s
+        )
+      );
+      toast.error(err.response?.data?.message || "Failed to save attendance");
+    } finally {
+      setSavingStudentKey(null);
+    }
   };
 
   const markAllForDate = (date, status) => {
+    const activeRollNumbers = new Set(filteredStudents.map((s) => s.rollnumber));
+
     setStudents((prev) =>
-      prev.map((s) => ({
-        ...s,
-        dateStatuses: { ...s.dateStatuses, [date]: status },
-      }))
+      prev.map((s) => {
+        if (activeRollNumbers.size > 0 && !activeRollNumbers.has(s.rollnumber)) return s;
+        return {
+          ...s,
+          dateStatuses: { ...(s.dateStatuses || {}), [date]: status },
+        };
+      })
     );
   };
 
   const markAllAs = (status) => {
+    const activeRollNumbers = new Set(filteredStudents.map((s) => s.rollnumber));
+
     setStudents((prev) =>
-      prev.map((s) => ({
-        ...s,
-        dateStatuses: dates.reduce((acc, date) => ({ ...acc, [date]: status }), {}),
-      }))
+      prev.map((s) => {
+        if (activeRollNumbers.size > 0 && !activeRollNumbers.has(s.rollnumber)) return s;
+        return {
+          ...s,
+          dateStatuses: dates.reduce((acc, date) => ({ ...acc, [date]: status }), {}),
+        };
+      })
     );
   };
 
   const handleSaveBulkAttendance = async () => {
-    const selectedList = students.filter((s) => dates.some((date) => !!s.dateStatuses?.[date]));
+    const activeStudents = rollNumberFilter.trim() ? filteredStudents : students;
+    const selectedList = activeStudents.filter((s) => dates.some((date) => !!s.dateStatuses?.[date]));
     if (selectedList.length === 0) return toast.error("Assign status to at least one student first");
 
     if (!startDate || !endDate) {
@@ -324,11 +438,10 @@ export default function AdminAttendanceGenerator() {
       const payload = {
         startDate,
         endDate,
-        degree: selectedDegree,
-        batch: bData.batch,
-        departmentId: selectedDepartment,
-        semesterId: selectedSemester,
-        status: selectedStatus,
+        degree: selectedDegree || undefined,
+        batch: bData.batch || undefined,
+        departmentId: selectedDepartment || undefined,
+        semesterId: selectedSemester || undefined,
         students: selectedList.map((s) => ({
           rollnumber: s.rollnumber,
           dateStatuses: s.dateStatuses,
@@ -341,7 +454,7 @@ export default function AdminAttendanceGenerator() {
       toast.success(
         `Bulk attendance marked successfully for ${selectedPeriods.includes("all") ? "all periods" : `periods ${selectedPeriods.join(", ")}`}!`
       );
-      setStudents((prev) => prev.map((s) => ({ ...s })));
+      await reloadSavedAttendanceStatuses(students);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to save attendance");
     } finally {
@@ -350,12 +463,23 @@ export default function AdminAttendanceGenerator() {
   };
 
   const attendanceStatusOptions = [
-    { key: "P", label: "P", colorClass: "bg-emerald-500 border-emerald-500 text-white" },
-    { key: "A", label: "A", colorClass: "bg-rose-500 border-rose-500 text-white" },
-    { key: "OD", label: "OD", colorClass: "bg-sky-500 border-sky-500 text-white" },
+    { key: "P", label: "P", value: "P", colorClass: "bg-emerald-500 border-emerald-500 text-white" },
+    { key: "A", label: "A", value: "A", colorClass: "bg-rose-500 border-rose-500 text-white" },
+    { key: "OD", label: "OD", value: "OD", colorClass: "bg-sky-500 border-sky-500 text-white" },
+    { key: "UNASSIGNED", label: "Unassigned", value: "UNASSIGNED", colorClass: "bg-slate-100 border-slate-300 text-slate-700" },
   ];
 
-  const selectedCount = students.reduce(
+  const filteredStudents = useMemo(() => {
+    const normalizedSuffix = rollNumberFilter.trim().toLowerCase();
+    if (!normalizedSuffix) return students;
+
+    return students.filter((student) => {
+      const rollNumber = `${student.rollnumber || ""}`.toLowerCase();
+      return rollNumber.endsWith(normalizedSuffix);
+    });
+  }, [students, rollNumberFilter]);
+
+  const selectedCount = filteredStudents.reduce(
     (count, s) => count + dates.filter((date) => !!s.dateStatuses?.[date]).length,
     0
   );
@@ -381,7 +505,7 @@ export default function AdminAttendanceGenerator() {
               ))}
             </FilterField>
 
-            <FilterField label="Batch" value={selectedBatch} onChange={setSelectedBatch}>
+            <FilterField label="Batch" value={selectedBatch} onChange={setSelectedBatch} disabled={!selectedDegree}>
               <option value="">Select</option>
               {batches
                 .filter((b) => b.degree === selectedDegree)
@@ -392,7 +516,7 @@ export default function AdminAttendanceGenerator() {
                 ))}
             </FilterField>
 
-            <FilterField label="Department" value={selectedDepartment} onChange={setSelectedDepartment}>
+            <FilterField label="Department" value={selectedDepartment} onChange={setSelectedDepartment} disabled={!selectedBatch}>
               <option value="">Select</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -401,7 +525,7 @@ export default function AdminAttendanceGenerator() {
               ))}
             </FilterField>
 
-            <FilterField label="Semester" value={selectedSemester} onChange={setSelectedSemester}>
+            <FilterField label="Semester" value={selectedSemester} onChange={setSelectedSemester} disabled={!selectedDepartment}>
               <option value="">Select</option>
               {semesters.map((s) => (
                 <option key={s.semesterId} value={s.semesterId}>
@@ -477,11 +601,16 @@ export default function AdminAttendanceGenerator() {
               )}
             </div>
 
-            <FilterField label="Status" value={selectedStatus} onChange={setSelectedStatus}>
-              <option value="OD">OD</option>
-              <option value="P">P</option>
-              <option value="A">A</option>
-            </FilterField>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Roll No</label>
+              <input
+                type="text"
+                value={rollNumberFilter}
+                onChange={(e) => setRollNumberFilter(e.target.value)}
+                placeholder="Last 2-4 digits"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
+              />
+            </div>
           </div>
 
           <div className="mt-4 flex justify-end">
@@ -510,10 +639,10 @@ export default function AdminAttendanceGenerator() {
                 {attendanceStatusOptions.map((option) => (
                   <button
                     key={option.key}
-                    onClick={() => markAllAs(option.key)}
+                    onClick={() => markAllAs(option.value)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    All {option.key}
+                    All {option.label}
                   </button>
                 ))}
               </div>
@@ -574,7 +703,7 @@ export default function AdminAttendanceGenerator() {
                               <button
                                 key={`${date}-${status.key}`}
                                 type="button"
-                                onClick={() => markAllForDate(date, status.key)}
+                                onClick={() => markAllForDate(date, status.value)}
                                 disabled={isSundayDate(date)}
                                 className={`h-8 min-w-[34px] rounded-full border text-[11px] font-semibold transition ${
                                   isSundayDate(date)
@@ -582,7 +711,7 @@ export default function AdminAttendanceGenerator() {
                                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                                 }`}
                               >
-                                {status.key}
+                                {status.label}
                               </button>
                             ))}
                           </div>
@@ -591,7 +720,7 @@ export default function AdminAttendanceGenerator() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {students.map((s, index) => (
+                    {filteredStudents.map((s, index) => (
                       <tr key={s.rollnumber} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                         <td
                           className="border-r border-slate-200 px-6 py-4 text-sm font-semibold text-slate-700"
@@ -621,15 +750,15 @@ export default function AdminAttendanceGenerator() {
                                   <button
                                     key={`${s.rollnumber}-${date}-${statusOption.key}`}
                                     type="button"
-                                    onClick={() => handleStudentDateStatusChange(s.rollnumber, date, statusOption.key)}
-                                    disabled={isSundayDate(date)}
+                                    onClick={() => handleStudentDateStatusChange(s.rollnumber, date, statusOption.value)}
+                                    disabled={isSundayDate(date) || savingStudentKey === `${s.rollnumber}-${date}`}
                                     className={`h-9 w-full rounded-xl border px-2 text-[11px] font-semibold transition ${
-                                      status === statusOption.key
+                                      status === statusOption.value
                                         ? `${statusOption.colorClass} shadow-sm`
                                         : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                                    } ${isSundayDate(date) ? 'cursor-not-allowed opacity-60' : ''}`}
+                                    } ${isSundayDate(date) || savingStudentKey === `${s.rollnumber}-${date}` ? 'cursor-not-allowed opacity-60' : ''}`}
                                   >
-                                    {statusOption.key}
+                                    {savingStudentKey === `${s.rollnumber}-${date}` ? 'Saving...' : statusOption.label}
                                   </button>
                                 ))}
                               </div>
@@ -671,7 +800,7 @@ export default function AdminAttendanceGenerator() {
   );
 }
 
-function FilterField({ label, value, onChange, children, multiple = false }) {
+function FilterField({ label, value, onChange, children, multiple = false, disabled = false }) {
   const handleChange = (e) => {
     if (multiple) {
       const selectedValues = Array.from(e.target.selectedOptions, (option) => option.value);
@@ -687,6 +816,7 @@ function FilterField({ label, value, onChange, children, multiple = false }) {
       <select
         value={value}
         multiple={multiple}
+        disabled={disabled}
         onChange={handleChange}
         className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
       >
