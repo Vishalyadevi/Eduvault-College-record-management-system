@@ -331,9 +331,9 @@ export default function StudentAttendanceReport() {
               <select name="degree" value={filters.degree} onChange={handleChange} className="field-input">
                 <option value="">Select Degree</option>
                 <option value="BE">BE</option>
-                <option value="B.Tech">B.Tech</option>
+                <option value="BTech">BTech</option>
                 <option value="ME">ME</option>
-                <option value="M.Tech">M.Tech</option>
+                <option value="MTech">MTech</option>
               </select>
             </Field>
 

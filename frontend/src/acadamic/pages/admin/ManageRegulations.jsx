@@ -15,6 +15,7 @@ const ManageRegulations = () => {
   const [verticals, setVerticals] = useState([]);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [selectedDept, setSelectedDept] = useState('');
+  const [selectedDegree, setSelectedDegree] = useState(''); // NEW: BE or ME
   const [selectedRegulation, setSelectedRegulation] = useState('');
   const [newRegulationYear, setNewRegulationYear] = useState('');
   const [selectedVertical, setSelectedVertical] = useState('');
@@ -118,6 +119,7 @@ const ManageRegulations = () => {
   const handleDeptChange = (e) => {
     const departmentId = e.target.value;
     setSelectedDept(departmentId);
+    setSelectedDegree('');
     setSelectedRegulation('');
     setSelectedVertical('');
     setAvailableCourses([]);
@@ -282,29 +284,36 @@ const ManageRegulations = () => {
       return;
     }
 
+    if (!selectedDegree || !['BE', 'BTech', 'ME', 'MTech'].includes(selectedDegree)) {
+      toast.error('Please select a degree (BE, BTech, ME, or MTech)');
+      return;
+    }
+
     const year = Number(newRegulationYear);
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      toast.error('Enter a valid regulation year');
+      toast.error('Enter a valid regulation year (e.g. 2023)');
       return;
     }
 
     try {
       const res = await api.post(`${API_BASE}/regulations`, {
         departmentId: departmentId,
+        degree: selectedDegree,
         regulationYear: year,
       });
 
       const created = res?.data?.data;
-      toast.success(res?.data?.message || 'Regulation year added');
+      toast.success(res?.data?.message || 'Regulation created successfully');
       setNewRegulationYear('');
       await fetchRegulations(selectedDept);
       if (created?.regulationId) {
         setSelectedRegulation(String(created.regulationId));
         fetchVerticals(created.regulationId);
         fetchAvailableCourses(created.regulationId);
+        fetchRegulationCourses(created.regulationId);
       }
     } catch (err) {
-      const message = err.response?.data?.message || 'Failed to add regulation year';
+      const message = err.response?.data?.message || 'Failed to create regulation';
       toast.error(message);
     }
   };
@@ -685,6 +694,53 @@ const ManageRegulations = () => {
               </div>
 
               <div>
+                {/* ── Create new regulation (shown first for user-friendliness) ── */}
+                <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Create New Regulation</p>
+                  <div className="flex gap-2">
+                    {/* Degree selector */}
+                    <select
+                      value={selectedDegree}
+                      onChange={(e) => {
+                        setSelectedDegree(e.target.value);
+                        setSelectedRegulation('');
+                      }}
+                      disabled={!selectedDept}
+                      className="w-28 shrink-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed text-sm font-semibold"
+                    >
+                      <option value="">Degree</option>
+                      <option value="BE">BE</option>
+                      <option value="BTech">BTech</option>
+                      <option value="ME">ME</option>
+                      <option value="MTech">MTech</option>
+                    </select>
+                    {/* Year input */}
+                    <input
+                      type="number"
+                      min="2000"
+                      max="2100"
+                      value={newRegulationYear}
+                      onChange={(e) => setNewRegulationYear(e.target.value)}
+                      placeholder="Year (e.g. 2026)"
+                      disabled={!selectedDept || !selectedDegree}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddRegulationYear}
+                      disabled={!selectedDept || !selectedDegree || !newRegulationYear}
+                      className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {selectedDept && selectedDegree && newRegulationYear && (
+                    <p className="text-xs text-blue-600 mt-1.5 font-medium">
+                      Will create: {departments.find(d => String(d.departmentId) === String(selectedDept))?.deptCode || ''} {selectedDegree} {newRegulationYear}
+                    </p>
+                  )}
+                </div>
+
                 <label className="block text-sm font-medium text-gray-700 mb-2">Regulation</label>
                 <select
                   value={selectedRegulation}
@@ -695,30 +751,10 @@ const ManageRegulations = () => {
                   <option value="">Select Regulation</option>
                   {regulations.map(reg => (
                     <option key={reg.regulationId} value={reg.regulationId}>
-                      {getRegDeptAcronym(reg)} - {reg.regulationYear}
+                      {reg.displayName || `${getRegDeptAcronym(reg)} ${reg.degree || ''} ${reg.regulationYear}`.trim()}
                     </option>
                   ))}
                 </select>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="number"
-                    min="2000"
-                    max="2100"
-                    value={newRegulationYear}
-                    onChange={(e) => setNewRegulationYear(e.target.value)}
-                    placeholder="Add year (e.g., 2026)"
-                    disabled={!selectedDept}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddRegulationYear}
-                    disabled={!selectedDept || !newRegulationYear}
-                    className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    Add
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1027,7 +1063,10 @@ const ManageRegulations = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
                     >
                       <option value="">None (Global Elective / Null)</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+                      {(regulations.find(r => String(r.regulationId) === String(selectedRegulation))?.degree && ['ME', 'MTech'].includes(regulations.find(r => String(r.regulationId) === String(selectedRegulation)).degree)
+                        ? [1, 2, 3, 4]
+                        : [1, 2, 3, 4, 5, 6, 7, 8]
+                      ).map(num => (
                         <option key={num} value={num}>Semester {num}</option>
                       ))}
                     </select>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search } from 'lucide-react';
 
-const Filters = ({ filters, setFilters, semesters, courseTypes, departments }) => {
+const Filters = ({ filters, setFilters, semesters, courseTypes, departments, degrees = [] }) => {
   const deptOptions = Array.isArray(departments) && departments.length > 0
     ? departments.map((dept) => {
         const deptId =
@@ -44,6 +44,20 @@ const Filters = ({ filters, setFilters, semesters, courseTypes, departments }) =
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
       <div className="flex flex-wrap gap-4 items-end justify-center">
+        {/* Degree Filter */}
+        <div className="flex-1 min-w-[130px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
+          <select
+            value={filters.degree || ''}
+            onChange={(e) => setFilters({ ...filters, degree: e.target.value, batch: '' })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Degrees</option>
+            {degrees.map(deg => (
+              <option key={deg} value={deg}>{deg}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
           <select
@@ -107,7 +121,7 @@ const Filters = ({ filters, setFilters, semesters, courseTypes, departments }) =
           </select>
         </div>
         <button
-          onClick={() => setFilters({ dept: '', semester: '', batch: '', name: '', type: '' })}
+          onClick={() => setFilters({ degree: '', dept: '', semester: '', batch: '', name: '', type: '' })}
           className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-1"
         >
           <Search size={16} />

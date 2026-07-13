@@ -32,7 +32,7 @@ const SelectSemesterModal = ({
               <option value="">Select Semester</option>
               {semesters.map(sem => (
                 <option key={sem.semesterId} value={sem.semesterId}>
-                  Semester {sem.semesterNumber} - {sem.branch} {sem.batch || ''}
+                  Semester {sem.semesterNumber} – {sem.branch} {sem.degree ? `(${sem.degree})` : ''} {sem.batch || ''}
                 </option>
               ))}
             </select>

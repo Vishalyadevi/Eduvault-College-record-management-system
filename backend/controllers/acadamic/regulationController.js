@@ -39,9 +39,17 @@ export const getAllRegulations = async (req, res) => {
       include: [{
         model: Department,
         attributes: ['departmentAcr']
-      }]
+      }],
+      order: [['departmentId', 'ASC'], ['degree', 'ASC'], ['regulationYear', 'ASC']]
     });
-    res.json({ status: 'success', data: rows });
+    // Attach a convenience displayName: e.g. "CSE BE 2023"
+    const data = rows.map(r => {
+      const plain = r.toJSON();
+      const acr = plain.Department?.departmentAcr || '';
+      plain.displayName = `${acr} ${plain.degree} ${plain.regulationYear}`.trim();
+      return plain;
+    });
+    res.json({ status: 'success', data });
   } catch (err) {
     res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
   }
@@ -89,6 +97,13 @@ export const importRegulationCourses = async (req, res) => {
     return res.status(400).json({ status: 'failure', message: 'Regulation ID and courses array are required' });
   }
 
+  const regulation = await Regulation.findByPk(regulationId);
+  if (!regulation) {
+    return res.status(404).json({ status: 'failure', message: 'Regulation not found' });
+  }
+  const degreeUpper = String(regulation.degree || '').trim().toUpperCase();
+  const maxSem = ['ME', 'MTECH'].includes(degreeUpper) ? 4 : 8;
+
   const skippedRows = [];
   const validRows = [];
   const allowedCategories =
@@ -116,8 +131,8 @@ export const importRegulationCourses = async (req, res) => {
     let semesterNumber = null;
     if (course.semesterNumber !== undefined && course.semesterNumber !== null && String(course.semesterNumber).trim() !== '') {
       const sem = Number(course.semesterNumber);
-      if (!Number.isInteger(sem) || sem < 1 || sem > 8) {
-        skippedRows.push({ row, reason: 'Invalid semesterNumber (must be 1-8)' });
+      if (!Number.isInteger(sem) || sem < 1 || sem > maxSem) {
+        skippedRows.push({ row, reason: `Invalid semesterNumber (must be 1-${maxSem} for degree ${regulation.degree})` });
         continue;
       }
       semesterNumber = sem;
@@ -272,8 +287,11 @@ export const allocateRegulationToBatch = async (req, res) => {
     // 1. Update Batch
     await batch.update({ regulationId, updatedBy: createdBy }, { transaction });
 
-    // 2. Ensure 8 Semesters exist
-    for (let i = 1; i <= 8; i++) {
+    // 2. Ensure semesters exist dynamically based on degree (ME/MTech=4, BE/BTech=8)
+    const degreeUpper = String(regulation.degree || batch.degree || '').trim().toUpperCase();
+    const maxSemesters = ['ME', 'MTECH'].includes(degreeUpper) ? 4 : 8;
+
+    for (let i = 1; i <= maxSemesters; i++) {
       await Semester.findOrCreate({
         where: { batchId, semesterNumber: i },
         defaults: {
@@ -415,7 +433,7 @@ export const getCoursesByVertical = async (req, res) => {
 };
 
 export const createRegulation = async (req, res) => {
-  const { departmentId, regulationYear } = req.body;
+  const { departmentId, regulationYear, degree } = req.body;
   const createdBy = req.user?.userName || 'admin';
 
   const deptIdNum = Number(departmentId);
@@ -435,15 +453,30 @@ export const createRegulation = async (req, res) => {
     });
   }
 
+  let normalizedDegree = String(degree || '').trim();
+  const degreeUpper = normalizedDegree.toUpperCase();
+  if (degreeUpper === 'BE') normalizedDegree = 'BE';
+  else if (degreeUpper === 'ME') normalizedDegree = 'ME';
+  else if (degreeUpper === 'BTECH') normalizedDegree = 'BTech';
+  else if (degreeUpper === 'MTECH') normalizedDegree = 'MTech';
+  else {
+    return res.status(400).json({
+      status: 'failure',
+      message: 'degree must be BE, BTech, ME, or MTech',
+    });
+  }
+
   try {
-    const dept = await Department.findByPk(deptIdNum, { attributes: ['departmentId'] });
+    const dept = await Department.findByPk(deptIdNum, { attributes: ['departmentId', 'departmentAcr'] });
     if (!dept) {
       return res.status(404).json({ status: 'failure', message: 'Department not found' });
     }
 
+    // Unique check: same department + degree + year cannot exist twice
     const existing = await Regulation.findOne({
       where: {
         departmentId: deptIdNum,
+        degree: normalizedDegree,
         regulationYear: yearNum,
         isActive: 'YES',
       },
@@ -452,22 +485,26 @@ export const createRegulation = async (req, res) => {
     if (existing) {
       return res.status(409).json({
         status: 'failure',
-        message: 'Regulation year already exists for this department',
+        message: `Regulation ${dept.departmentAcr} ${normalizedDegree} ${yearNum} already exists`,
       });
     }
 
     const created = await Regulation.create({
       departmentId: deptIdNum,
+      degree: normalizedDegree,
       regulationYear: yearNum,
       isActive: 'YES',
       createdBy,
       updatedBy: createdBy,
     });
 
+    const plain = created.toJSON();
+    plain.displayName = `${dept.departmentAcr} ${normalizedDegree} ${yearNum}`;
+
     return res.status(201).json({
       status: 'success',
-      message: 'Regulation year added successfully',
-      data: created,
+      message: `Regulation ${dept.departmentAcr} ${normalizedDegree} ${yearNum} created successfully`,
+      data: plain,
     });
   } catch (err) {
     return res.status(500).json({ status: 'failure', message: 'Server error: ' + err.message });
@@ -519,6 +556,20 @@ export const addRegulationCourse = async (req, res) => {
 
   if (!courseCode || !courseTitle || !category) {
     return res.status(400).json({ status: 'failure', message: 'courseCode, courseTitle, and category are required' });
+  }
+
+  const regulation = await Regulation.findByPk(regulationId);
+  if (!regulation) {
+    return res.status(404).json({ status: 'failure', message: 'Regulation not found' });
+  }
+  const degreeUpper = String(regulation.degree || '').trim().toUpperCase();
+  const maxSem = ['ME', 'MTECH'].includes(degreeUpper) ? 4 : 8;
+
+  if (semesterNumber) {
+    const semNum = Number(semesterNumber);
+    if (semNum < 1 || semNum > maxSem) {
+      return res.status(400).json({ status: 'failure', message: `Semester number must be between 1 and ${maxSem} for degree ${regulation.degree}` });
+    }
   }
 
   const transaction = await sequelize.transaction();

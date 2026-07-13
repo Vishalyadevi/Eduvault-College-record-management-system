@@ -303,8 +303,11 @@ const CgpaAllocation = () => {
             }
             className="px-4 py-2 border rounded-lg"
           >
+          <option value="">All Degrees</option>
             <option value="BE">BE</option>
             <option value="BTech">BTech</option>
+            <option value="ME">ME</option>
+            <option value="MTech">MTech</option>
           </select>
 
           <select

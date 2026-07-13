@@ -105,12 +105,21 @@ const BatchRegulationAllocation = () => {
     reg?.Department?.Deptacronym ||
     '';
 
-  // Get regulations filtered by selected branch
+  const normalizeDegree = (deg) => {
+    if (!deg) return '';
+    return String(deg).replace(/\./g, '').trim().toUpperCase();
+  };
+
+  // Get regulations filtered by selected branch AND degree
   const filteredRegulations = regulations
-    .filter(reg => !selectedBranch || getRegDeptAcronym(reg) === selectedBranch)
+    .filter(reg => {
+      const deptMatch = !selectedBranch || getRegDeptAcronym(reg) === selectedBranch;
+      const degreeMatch = !selectedDegree || normalizeDegree(reg.degree) === normalizeDegree(selectedDegree);
+      return deptMatch && degreeMatch;
+    })
     .map(reg => ({
       regulationId: reg.regulationId,
-      regulationYear: reg.regulationYear
+      displayName: reg.displayName || `${getRegDeptAcronym(reg)} ${reg.degree || ''} ${reg.regulationYear}`.trim(),
     }));
 
   if (loading) return <div className="p-6 text-center">Loading...</div>;
@@ -190,17 +199,17 @@ const BatchRegulationAllocation = () => {
               </select>
             </div>
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Regulation Year</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Regulation</label>
               <select
                 value={selectedRegulation}
                 onChange={(e) => setSelectedRegulation(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                disabled={!selectedBranch}
+                disabled={!selectedBranch || !selectedDegree}
               >
-                <option value="">Select Regulation Year</option>
+                <option value="">Select Regulation</option>
                 {filteredRegulations.map(reg => (
                   <option key={reg.regulationId} value={reg.regulationId}>
-                    {reg.regulationYear}
+                    {reg.displayName}
                   </option>
                 ))}
               </select>

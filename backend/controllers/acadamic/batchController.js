@@ -200,7 +200,7 @@ export const deleteBatch = catchAsync(async (req, res) => {
  * INTERNAL HELPER: getOrCreateBatch
  * Used by other controllers (like Regulation)
  */
-export const getOrCreateBatch = async (departmentId, regulationYear, createdBy, updatedBy) => {
+export const getOrCreateBatch = async (departmentId, regulationYear, createdBy, updatedBy, degree = 'BE') => {
   const t = await sequelize.transaction();
   try {
     // Find if the batch exists for this department and year
@@ -227,11 +227,13 @@ export const getOrCreateBatch = async (departmentId, regulationYear, createdBy, 
     }
 
     // Create a new batch if not found
+    // ME/MTech programs are 2 years; BE/BTech are 4 years
     const startYear = parseInt(regulationYear);
-    const batchYears = `${startYear}-${startYear + 4}`;
+    const durationYears = ['ME', 'MTech', 'M.Tech', 'M.E'].includes(degree) ? 2 : 4;
+    const batchYears = `${startYear}-${startYear + durationYears}`;
 
     batch = await Batch.create({
-      degree: 'B.Tech',
+      degree: degree || 'BE',
       branch: dept.departmentAcr,
       batch: batchName,
       batchYears: batchYears,

@@ -4,7 +4,9 @@ export const branchMap = {
   'ECE': 'Electronics & Communication',
   'MECH': 'Mechanical Engineering',
   'CIVIL': 'Civil Engineering',
-  'EEE': 'Electrical Engineering'
+  'EEE': 'Electrical Engineering',
+  'AIDS': 'Artificial Intelligence And Data Science',
+
 };
 
 export const degrees = ['BE', 'BTech', 'ME', 'MTech'];

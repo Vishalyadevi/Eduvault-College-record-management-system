@@ -11,7 +11,7 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
     degree: '',
     batch: '',
     branch: '',
-    semesterNumber: '',
+    semesterNumber: '1',
     startDate: '',
     endDate: '',
     createdBy: 'admin'
@@ -29,8 +29,9 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
       toast.error('Start date must be before end date');
       return;
     }
-    if (parseInt(formData.semesterNumber) < 1 || parseInt(formData.semesterNumber) > 8) {
-      toast.error('Semester number must be between 1 and 8');
+    const maxSem = ['ME', 'MTech'].includes(formData.degree) ? 4 : 8;
+    if (parseInt(formData.semesterNumber) < 1 || parseInt(formData.semesterNumber) > maxSem) {
+      toast.error(`Semester number must be between 1 and ${maxSem} for degree ${formData.degree}`);
       return;
     }
 
@@ -47,8 +48,9 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
         }
         // 404 means no existing semesters (length 0), safe to proceed
       }
-      if (existing.length >= 8) {
-        toast.error('Maximum 8 semesters allowed per batch');
+      const maxSemCount = ['ME', 'MTech'].includes(formData.degree) ? 4 : 8;
+      if (existing.length >= maxSemCount) {
+        toast.error(`Maximum ${maxSemCount} semesters allowed per batch for ${formData.degree}`);
         return;
       }
 
@@ -59,8 +61,9 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
         batchId = batchRes.data.batchId;
       } catch (err) {
         if (err.response?.status === 404) {
-          // Create batch
-          const batchYears = `${formData.batch}-${parseInt(formData.batch) + 4}`;
+          // Create batch - ME/MTech is 2 years, BE/BTech is 4 years
+          const durationYears = ['ME', 'MTech'].includes(formData.degree) ? 2 : 4;
+          const batchYears = `${formData.batch}-${parseInt(formData.batch) + durationYears}`;
           const batchRes = await api.post(`${API_BASE}/batches`, {
             degree: formData.degree,
             branch: formData.branch,
@@ -81,7 +84,7 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
         semesterNumber: parseInt(formData.semesterNumber)
       });
       toast.success('Semester created successfully');
-      setFormData({ degree: '', batch: '', branch: '', semesterNumber: '', startDate: '', endDate: '', createdBy: 'admin' });
+      setFormData({ degree: '', batch: '', branch: '', semesterNumber: '1', startDate: '', endDate: '', createdBy: 'admin' });
       setShowCreateForm(false);
       onRefresh(); // Refresh list
     } catch (err) {
@@ -151,16 +154,10 @@ const CreateSemesterForm = ({ showCreateForm, setShowCreateForm, onRefresh }) =>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Semester Number</label>
-              <select
-                value={formData.semesterNumber}
-                onChange={(e) => setFormData({ ...formData, semesterNumber: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg"
-              >
-                <option value="">Select Semester</option>
-                {[1,2,3,4,5,6,7,8].map((sem) => (
-                  <option key={sem} value={sem}>Semester {sem}</option>
-                ))}
-              </select>
+              <div className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
+                Semester 1 <span className="text-xs font-normal text-gray-500 ml-1">(always starts at 1; remaining semesters created via allocation)</span>
+              </div>
+              <input type="hidden" value="1" readOnly />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>

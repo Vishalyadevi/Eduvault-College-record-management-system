@@ -42,7 +42,7 @@ const ManageCourses = () => {
   const [fetchingSections, setFetchingSections] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ dept: '', semester: '', batch: '', name: '', type: '' });
+  const [filters, setFilters] = useState({ degree: '', dept: '', semester: '', batch: '', name: '', type: '' });
   const [staffSearch, setStaffSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -441,12 +441,14 @@ const ManageCourses = () => {
   if (error) return <div className="p-6 text-red-500">{error}</div>;
 
   const filteredCourses = courses.filter(course => {
-    const { dept, semester, batch, name, type } = filters;
+    const { degree, dept, semester, batch, name, type } = filters;
     const semDetails = course.semesterDetails;
     const semBranch = semDetails?.Batch?.branch || semDetails?.branch || '';
     const semBatch = semDetails?.Batch?.batch || semDetails?.batch || '';
+    const semDegree = semDetails?.Batch?.degree || semDetails?.degree || '';
     const semNumber = semDetails?.semesterNumber;
     return (
+      (!degree || semDegree === degree) &&
       (!dept || String(semBranch) === String(dept)) &&
       (!semester || String(semNumber) === String(semester)) &&
       (!batch || String(semBatch) === String(batch)) &&
@@ -493,6 +495,7 @@ const ManageCourses = () => {
           setFilters={setFilters}
           semesters={semesters}
           courseTypes={courseTypes}
+          degrees={['BE', 'BTech', 'ME', 'MTech']}
         />
       </div>
 

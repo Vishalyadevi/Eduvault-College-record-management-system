@@ -47,6 +47,12 @@ const SemesterUpdateForm = ({ isOpen, onClose, semester, onRefresh }) => {
       return;
     }
 
+    const maxSem = ['ME', 'MTech'].includes(formData.degree) ? 4 : 8;
+    if (parseInt(formData.semesterNumber) < 1 || parseInt(formData.semesterNumber) > maxSem) {
+      toast.error(`Semester number must be between 1 and ${maxSem} for degree ${formData.degree}`);
+      return;
+    }
+
     setLoading(true);
     try {
       await api.put(`${API_BASE}/semesters/${semester.semesterId}`, formData);
@@ -118,7 +124,7 @@ const SemesterUpdateForm = ({ isOpen, onClose, semester, onRefresh }) => {
                 className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Semester</option>
-                {[1,2,3,4,5,6,7,8].map((sem) => (
+                {(['ME', 'MTech'].includes(formData.degree) ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6, 7, 8]).map((sem) => (
                   <option key={sem} value={sem}>Semester {sem}</option>
                 ))}
               </select>

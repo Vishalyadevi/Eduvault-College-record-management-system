@@ -30,6 +30,13 @@ export const addSemester = catchAsync(async (req, res) => {
     return res.status(400).json({ status: "failure", message: "All fields are required" });
   }
 
+  const degreeUpper = String(degree || '').trim().toUpperCase();
+  const maxSem = ['ME', 'MTECH'].includes(degreeUpper) ? 4 : 8;
+  const semNum = Number(semesterNumber);
+  if (!Number.isInteger(semNum) || semNum < 1 || semNum > maxSem) {
+    return res.status(400).json({ status: "failure", message: `Semester number must be between 1 and ${maxSem} for degree ${degree}` });
+  }
+
   // 2. Date Validations
   const formattedStartDate = formatDate(startDate);
   const formattedEndDate = formatDate(endDate);
@@ -210,6 +217,17 @@ export const updateSemester = catchAsync(async (req, res) => {
   const userName = req.user?.userName || req.user?.userMail || 'admin';
 
   // 1. Validate the Batch linked to the update request
+  if (!batch || !branch || !degree || !semesterNumber || !startDate || !endDate) {
+    return res.status(400).json({ status: "failure", message: "All fields are required" });
+  }
+
+  const degreeUpper = String(degree || '').trim().toUpperCase();
+  const maxSem = ['ME', 'MTECH'].includes(degreeUpper) ? 4 : 8;
+  const semNum = Number(semesterNumber);
+  if (!Number.isInteger(semNum) || semNum < 1 || semNum > maxSem) {
+    return res.status(400).json({ status: "failure", message: `Semester number must be between 1 and ${maxSem} for degree ${degree}` });
+  }
+
   const batchRecord = await Batch.findOne({
     where: { batch, branch, degree, isActive: 'YES' }
   });
