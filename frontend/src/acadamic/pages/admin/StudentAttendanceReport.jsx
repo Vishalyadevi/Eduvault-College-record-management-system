@@ -20,6 +20,8 @@ const getDayLabel = (dateString) => {
   return date.toLocaleDateString("en-US", { weekday: "short" });
 };
 
+const getSlotLabel = (slot) => [slot?.courseCode, slot?.periodNumber ? `P${slot.periodNumber}` : ""].filter(Boolean).join(" ");
+
 const getSectionLabel = (section = {}) => {
   if (section.displayName) return section.displayName;
   const courseName = section.courseTitle || section.Course?.courseTitle || section.courseCode || section.branch;
@@ -47,7 +49,9 @@ export default function StudentAttendanceReport() {
     batch: "",
     department: "",
     semester: "",
+    reportBy: "course",
     section: "",
+    course: "",
     fromDate: new Date().toISOString().split("T")[0],
     toDate: new Date().toISOString().split("T")[0],
   });
@@ -55,8 +59,10 @@ export default function StudentAttendanceReport() {
   const [departments, setDepartments] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [sections, setSections] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [report, setReport] = useState([]);
   const [dates, setDates] = useState([]);
+  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -136,18 +142,23 @@ export default function StudentAttendanceReport() {
   useEffect(() => {
     if (!filters.semester) {
       setSections([]);
+      setCourses([]);
       return;
     }
 
-    const loadSections = async () => {
+    const loadSemesterData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${API_BASE_URL}/api/admin/sections`, {
-          params: { semesterId: filters.semester },
-        });
-        if (res.data.status === "success") {
+        const [sectionsRes, coursesRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/admin/sections`, {
+            params: { semesterId: filters.semester },
+          }),
+          axios.get(`${API_BASE_URL}/api/admin/semesters/${filters.semester}/courses`),
+        ]);
+
+        if (sectionsRes.data.status === "success") {
           setSections(
-            (res.data.data || []).map((section) => ({
+            (sectionsRes.data.data || []).map((section) => ({
               ...section,
               displayName:
                 section.displayName ||
@@ -159,18 +170,24 @@ export default function StudentAttendanceReport() {
                   .join(' - '),
             }))
           );
+        } else {
+          throw new Error(sectionsRes.data.message || "Failed to load sections");
+        }
+
+        if (coursesRes.data.status === "success") {
+          setCourses(coursesRes.data.data || []);
           setError(null);
         } else {
-          throw new Error(res.data.message || "Failed to load sections");
+          throw new Error(coursesRes.data.message || "Failed to load courses");
         }
       } catch (err) {
-        setError(err.message || "Failed to load sections");
+        setError(err.message || "Failed to load semester data");
       } finally {
         setLoading(false);
       }
     };
 
-    loadSections();
+    loadSemesterData();
   }, [filters.semester]);
 
   useEffect(() => {
@@ -203,7 +220,32 @@ export default function StudentAttendanceReport() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "degree") {
+        next.batch = "";
+        next.department = "";
+        next.semester = "";
+        next.section = "";
+        next.course = "";
+      } else if (name === "batch") {
+        next.department = "";
+        next.semester = "";
+        next.section = "";
+        next.course = "";
+      } else if (name === "department") {
+        next.semester = "";
+        next.section = "";
+        next.course = "";
+      } else if (name === "semester") {
+        next.section = "";
+        next.course = "";
+      } else if (name === "reportBy") {
+        next.section = "";
+        next.course = "";
+      }
+      return next;
+    });
   };
 
   const handleGenerateReport = async () => {
@@ -213,9 +255,16 @@ export default function StudentAttendanceReport() {
     if (new Date(filters.fromDate) > new Date(filters.toDate)) {
       return toast.error("End date must be after or equal to start date.");
     }
+    if (filters.reportBy === "course" && !filters.course) {
+      return toast.error("Please select a course for course-wise report.");
+    }
+    if (filters.reportBy === "section" && !filters.section) {
+      return toast.error("Please select a section for section-wise report.");
+    }
     setLoading(true);
     setError(null);
     setReport([]);
+    setSlots([]);
 
     try {
       const res = await axios.get(`${API_BASE_URL}/api/admin/attendanceReports/student-attendance`, {
@@ -224,14 +273,17 @@ export default function StudentAttendanceReport() {
           batchId: filters.batch || undefined,
           departmentId: filters.department || undefined,
           semesterId: filters.semester || undefined,
-          sectionId: filters.section || undefined,
+          sectionId: filters.reportBy === "section" ? filters.section || undefined : undefined,
+          courseId: filters.reportBy === "course" ? filters.course || undefined : undefined,
           fromDate: filters.fromDate,
           toDate: filters.toDate,
+          _: Date.now(),
         },
       });
 
       if (res.data.success) {
         setReport(res.data.report || []);
+        setSlots(res.data.slots || []);
       } else {
         setError(res.data.error || "Unable to generate report.");
       }
@@ -245,12 +297,16 @@ export default function StudentAttendanceReport() {
   const handleDownloadExcel = () => {
     const worksheetData = report.map((row) => {
       const rowCopy = { "Register Number": row.registerNumber, "Student Name": row.name };
-      dates.forEach((date) => {
-        rowCopy[date] = row.attendanceByDate?.[date] || "A";
+      const columns = slots.length ? slots : dates.map((date) => ({ key: date, date }));
+      columns.forEach((column) => {
+        const key = column.key || column.date;
+        const header = slots.length ? `${column.date} ${getSlotLabel(column)}` : column.date;
+        rowCopy[header] = row.attendanceByDate?.[key] ?? "A";
       });
       rowCopy.Present = row.presentCount;
       rowCopy.Absent = row.absentCount;
       rowCopy.OD = row.odCount;
+      if (slots.length) rowCopy["Allocated Periods"] = row.totalAllocatedPeriods;
       rowCopy["Attendance %"] = row.attendancePercentage;
       return rowCopy;
     });
@@ -270,7 +326,7 @@ export default function StudentAttendanceReport() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Generate daily attendance matrix for students</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-8">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-9">
             <Field label="Degree">
               <select name="degree" value={filters.degree} onChange={handleChange} className="field-input">
                 <option value="">Select Degree</option>
@@ -314,12 +370,42 @@ export default function StudentAttendanceReport() {
               </select>
             </Field>
 
+            <Field label="Report By">
+              <select name="reportBy" value={filters.reportBy} onChange={handleChange} className="field-input">
+                <option value="course">Course Wise</option>
+                <option value="section">Section Wise</option>
+              </select>
+            </Field>
+
             <Field label="Section">
-              <select name="section" value={filters.section} onChange={handleChange} className="field-input" disabled={!filters.semester}>
+              <select
+                name="section"
+                value={filters.section}
+                onChange={handleChange}
+                className="field-input"
+                disabled={!filters.semester || filters.reportBy === "course"}
+              >
                 <option value="">Select Section</option>
                 {sections.map((section) => (
                   <option key={section.sectionId} value={section.sectionId}>
                     {getSectionLabel(section)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Course">
+              <select
+                name="course"
+                value={filters.course}
+                onChange={handleChange}
+                className="field-input"
+                disabled={!filters.semester || filters.reportBy === "section"}
+              >
+                <option value="">Select Course</option>
+                {courses.map((course) => (
+                  <option key={course.courseId} value={course.courseId}>
+                    {course.courseCode} - {course.courseTitle}
                   </option>
                 ))}
               </select>
@@ -359,7 +445,10 @@ export default function StudentAttendanceReport() {
             <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Student Attendance Matrix</p>
-                <p className="mt-1 text-sm text-slate-700">{report.length} students from {filters.fromDate} to {filters.toDate}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {report.length} students from {filters.fromDate} to {filters.toDate}
+                  {slots.length ? ` | ${slots.length} allocated periods` : ""}
+                </p>
               </div>
               <button
                 onClick={handleDownloadExcel}
@@ -382,17 +471,20 @@ export default function StudentAttendanceReport() {
                     <th className="table-head text-left" style={{ width: "240px", minWidth: "240px", position: "sticky", left: "140px", zIndex: 30, background: "#f9fafb" }}>
                       Student Name
                     </th>
-                    {dates.map((date) => (
-                      <th key={date} className="table-head" style={{ width: "120px", minWidth: "120px" }}>
+                    {(slots.length ? slots : dates.map((date) => ({ key: date, date }))).map((column) => (
+                      <th key={column.key || column.date} className="table-head" style={{ width: "120px", minWidth: "120px" }}>
                         <div className="flex flex-col gap-1">
-                          <span className="font-semibold text-slate-900">{formatDisplayDate(date)}</span>
-                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{getDayLabel(date)}</span>
+                          <span className="font-semibold text-slate-900">{formatDisplayDate(column.date)}</span>
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                            {slots.length ? `${getDayLabel(column.date)} ${getSlotLabel(column)}` : getDayLabel(column.date)}
+                          </span>
                         </div>
                       </th>
                     ))}
                     <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>Present</th>
                     <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>Absent</th>
                     <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>OD</th>
+                    {slots.length > 0 && <th className="table-head" style={{ width: "140px", minWidth: "140px" }}>Allocated</th>}
                     <th className="table-head" style={{ width: "120px", minWidth: "120px" }}>Attendance %</th>
                   </tr>
                 </thead>
@@ -405,11 +497,12 @@ export default function StudentAttendanceReport() {
                       <td className="table-cell text-left" style={{ width: "240px", minWidth: "240px", position: "sticky", left: "140px", zIndex: 20, background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
                         <div className="truncate" title={student.name}>{student.name}</div>
                       </td>
-                      {dates.map((date) => {
-                        const value = student.attendanceByDate?.[date] || "A";
+                      {(slots.length ? slots : dates.map((date) => ({ key: date, date }))).map((column) => {
+                        const key = column.key || column.date;
+                        const value = student.attendanceByDate?.[key] ?? "A";
                         const color = value === "P" ? "text-emerald-600" : value === "OD" ? "text-sky-600" : "text-rose-600";
                         return (
-                          <td key={`${student.registerNumber}-${date}`} className="table-cell font-semibold">
+                          <td key={`${student.registerNumber}-${key}`} className="table-cell font-semibold">
                             <span className={color}>{value}</span>
                           </td>
                         );
@@ -417,6 +510,7 @@ export default function StudentAttendanceReport() {
                       <td className="table-cell font-semibold text-emerald-700">{student.presentCount}</td>
                       <td className="table-cell font-semibold text-rose-700">{student.absentCount}</td>
                       <td className="table-cell font-semibold text-sky-700">{student.odCount}</td>
+                      {slots.length > 0 && <td className="table-cell font-semibold text-slate-700">{student.totalAllocatedPeriods}</td>}
                       <td className="table-cell font-semibold text-slate-900">{student.attendancePercentage}%</td>
                     </tr>
                   ))}

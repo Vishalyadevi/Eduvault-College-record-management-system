@@ -43,6 +43,16 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
     student.rollNo ||
     "Unknown";
 
+  const isEmptyReportValue = (value) => value === "" || value === null || value === undefined;
+
+  const getFilteredReport = () =>
+    report.filter((student) => {
+      if (!minPercentage) return true;
+      return parseFloat(student["Total Percentage %"]) < parseFloat(minPercentage);
+    });
+
+  const toExcelValue = (value) => (isEmptyReportValue(value) ? "" : value);
+
   const reportTopScrollRef = useRef(null);
   const reportTopScrollContentRef = useRef(null);
   const reportBottomScrollRef = useRef(null);
@@ -136,7 +146,34 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
       return;
     }
 
-    const worksheet = XLSX.utils.json_to_sheet(report);
+    const headers = [
+      "Register Number",
+      "Student Name",
+      ...courses.flatMap((courseCode) => [
+        `${courseCode} Conducted`,
+        `${courseCode} Attended`,
+        `${courseCode} Att%`,
+      ]),
+      "Total Conducted",
+      "Total Attended",
+      "Total %",
+    ];
+
+    const rows = getFilteredReport().map((student) => [
+      student.RegisterNumber,
+      getStudentDisplayName(student),
+      ...courses.flatMap((courseCode) => [
+        toExcelValue(student[`${courseCode} Conducted Periods`]),
+        toExcelValue(student[`${courseCode} Attended Periods`]),
+        toExcelValue(student[`${courseCode} Att%`]),
+      ]),
+      toExcelValue(student["Total Conducted Periods"]),
+      toExcelValue(student["Total Attended Periods"]),
+      toExcelValue(student["Total Percentage %"]),
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    worksheet["!cols"] = headers.map((header) => ({ wch: Math.max(12, header.length + 2) }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
@@ -452,12 +489,7 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
-                  {report
-                    .filter((student) => {
-                      if (!minPercentage) return true;
-                      return parseFloat(student["Total Percentage %"]) < parseFloat(minPercentage);
-                    })
-                    .map((student, idx) => (
+                  {getFilteredReport().map((student, idx) => (
                       <tr
                         key={idx}
                         className={idx % 2 === 0 ? "bg-white hover:bg-slate-50" : "bg-slate-50 hover:bg-slate-100"}
@@ -483,24 +515,30 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                             className="table-cell"
                             style={{ width: "120px", minWidth: "120px" }}
                           >
-                            {student[`${courseCode} Conducted Periods`] || 0}
+                            {isEmptyReportValue(student[`${courseCode} Conducted Periods`])
+                              ? ""
+                              : student[`${courseCode} Conducted Periods`]}
                           </td>,
                           <td
                             key={`${student.RegisterNumber}-attended-${courseCode}`}
                             className="table-cell"
                             style={{ width: "120px", minWidth: "120px" }}
                           >
-                            {student[`${courseCode} Attended Periods`] || 0}
+                            {isEmptyReportValue(student[`${courseCode} Attended Periods`])
+                              ? ""
+                              : student[`${courseCode} Attended Periods`]}
                           </td>,
                           <td
                             key={`${student.RegisterNumber}-percentage-${courseCode}`}
                             className="table-cell font-medium"
                             style={{ width: "100px", minWidth: "100px" }}
                           >
-                            {parseFloat(student[`${courseCode} Att%`] || 0) < 75 ? (
-                              <span className="text-red-600">{student[`${courseCode} Att%`] || "0.00"}%</span>
-                            ) : (
-                              <span className="text-green-600">{student[`${courseCode} Att%`] || "0.00"}%</span>
+                            {isEmptyReportValue(student[`${courseCode} Att%`]) ? "" : (
+                              parseFloat(student[`${courseCode} Att%`]) < 75 ? (
+                                <span className="text-red-600">{student[`${courseCode} Att%`]}%</span>
+                              ) : (
+                                <span className="text-green-600">{student[`${courseCode} Att%`]}%</span>
+                              )
                             )}
                           </td>,
                         ])}

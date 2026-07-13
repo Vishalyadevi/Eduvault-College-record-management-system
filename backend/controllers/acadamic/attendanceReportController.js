@@ -13,6 +13,7 @@ const {
   Section,
   Timetable, 
   StaffCourse,
+  StudentCourse,
   StudentDetails, 
   User, 
   PeriodAttendance 
@@ -36,6 +37,13 @@ function countDaysInRange(from, to, dayOfWeek) {
     cur.setDate(cur.getDate() + 1);
   }
   return count;
+}
+
+function getDayCode(dateString) {
+  const map = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "";
+  return map[date.getDay()] || "";
 }
 
 function getDisplayStudentName(studentRecord) {
@@ -221,13 +229,37 @@ export const getSubjectWiseAttendance = async (req, res) => {
 
         const courses = await Course.findAll({
           where: { courseId: { [Op.in]: courseIds }, isActive: "YES" },
-          attributes: ["courseId", "courseCode", "courseTitle"],
+          attributes: ["courseId", "courseCode", "courseTitle", "category"],
           order: [["courseCode", "ASC"]],
         });
 
         const orderedCourseIds = courses.map((c) => c.courseId);
         const courseCodes = [...new Set(courses.map((c) => c.courseCode))];
         const courseCodeById = new Map(courses.map((c) => [c.courseId, c.courseCode]));
+        const electiveCourseCodes = new Set(
+          courses
+            .filter((c) => ["OEC", "PEC"].includes((c.category || "").trim().toUpperCase()))
+            .map((c) => c.courseCode)
+        );
+
+        const studentCourseRows = await StudentCourse.findAll({
+          where: {
+            regno: { [Op.in]: selectedRegNos },
+            courseId: { [Op.in]: orderedCourseIds },
+          },
+          attributes: ["regno", "courseId"],
+          raw: true,
+        });
+
+        const courseEnrollmentMap = {};
+        studentCourseRows.forEach((row) => {
+          const regno = String(row.regno || "").trim();
+          const courseCode = courseCodeById.get(row.courseId);
+          if (!regno || !courseCode) return;
+          if (!courseEnrollmentMap[regno]) courseEnrollmentMap[regno] = new Set();
+          courseEnrollmentMap[regno].add(courseCode);
+        });
+        const hasCourseEnrollmentData = studentCourseRows.length > 0;
 
     // 4. Conducted slots are unique per (course, dayOfWeek, period) for selected dept+semester
     const timetableSlotRows = await Timetable.findAll({
@@ -256,6 +288,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
           where: {
             status: { [Op.in]: ["P", "OD"] },
             regno: { [Op.in]: selectedRegNos },
+            courseId: { [Op.in]: orderedCourseIds },
             attendanceDate: { [Op.between]: [fromDate, toDate] },
           },
           attributes: ["regno", "courseId", "attendanceDate", "periodNumber"],
@@ -277,6 +310,8 @@ export const getSubjectWiseAttendance = async (req, res) => {
           if (!selectedRegNoSet.has(regno)) return;
           const courseCode = row["Course.courseCode"];
           if (!courseCode) return;
+          if (hasCourseEnrollmentData && !courseEnrollmentMap[regno]?.has(courseCode)) return;
+          if (!hasCourseEnrollmentData && electiveCourseCodes.has(courseCode)) return;
 
           if (!attendanceSlotMap[regno]) attendanceSlotMap[regno] = {};
           if (!attendanceSlotMap[regno][courseCode]) attendanceSlotMap[regno][courseCode] = new Set();
@@ -304,6 +339,18 @@ export const getSubjectWiseAttendance = async (req, res) => {
           };
 
           courseCodes.forEach((courseCode) => {
+            const isElectiveCourse = electiveCourseCodes.has(courseCode);
+            const isEnrolled = hasCourseEnrollmentData
+              ? courseEnrollmentMap[regNo]?.has(courseCode)
+              : !isElectiveCourse;
+
+            if (!isEnrolled) {
+              studentData[`${courseCode} Conducted Periods`] = "";
+              studentData[`${courseCode} Attended Periods`] = "";
+              studentData[`${courseCode} Att%`] = "";
+              return;
+            }
+
             const conducted = courseConductedMap[courseCode] || 0;
             const attended = attendanceMap[regNo]?.[courseCode] || 0;
 
@@ -341,11 +388,16 @@ export const getStudentAttendanceReport = async (req, res) => {
     departmentId,
     semesterId,
     sectionId,
+    courseId,
     fromDate,
     toDate,
   } = req.query;
 
   try {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+
     if (!fromDate || !toDate) {
       return res.status(400).json({ success: false, error: "fromDate and toDate are required" });
     }
@@ -358,163 +410,257 @@ export const getStudentAttendanceReport = async (req, res) => {
     const normalizedDepartmentId = departmentId && departmentId !== "Select Department" ? parseInt(departmentId, 10) : null;
     const normalizedSemesterId = semesterId && semesterId !== "Select Semester" ? parseInt(semesterId, 10) : null;
     const normalizedSectionId = sectionId && sectionId !== "Select Section" ? parseInt(sectionId, 10) : null;
+    const normalizedCourseId = courseId && courseId !== "Select Course" ? parseInt(courseId, 10) : null;
     const normalizedDegree = degree && degree !== "Select Degree" ? degree : null;
 
-    const key = makeCacheKey("attendanceReports:studentAttendance", {
-      degree: normalizedDegree,
-      batchId: normalizedBatchId,
-      departmentId: normalizedDepartmentId,
-      semesterId: normalizedSemesterId,
-      sectionId: normalizedSectionId,
-      fromDate,
-      toDate,
+    const whereStudent = {};
+    let batchInfo = null;
+    let semesterInfo = null;
+
+    if (normalizedBatchId) {
+      batchInfo = await Batch.findOne({
+        where: {
+          batchId: normalizedBatchId,
+          ...(normalizedDegree ? { degree: normalizedDegree } : {}),
+          isActive: "YES",
+        },
+      });
+
+      if (!batchInfo) {
+        return res.status(404).json({ success: false, error: "Batch not found" });
+      }
+
+      whereStudent.batch = batchInfo.batch;
+    }
+
+    if (normalizedDepartmentId) {
+      whereStudent.departmentId = normalizedDepartmentId;
+    }
+
+    if (normalizedSemesterId) {
+      semesterInfo = await Semester.findOne({
+        where: { semesterId: normalizedSemesterId, isActive: "YES" },
+        attributes: ["semesterId", "semesterNumber"],
+      });
+      if (!semesterInfo) {
+        return res.status(404).json({ success: false, error: "Semester not found" });
+      }
+      whereStudent.semester = String(semesterInfo.semesterNumber);
+    }
+
+    if (normalizedSectionId) {
+      const sectionInfo = await Section.findOne({
+        where: { sectionId: normalizedSectionId, isActive: "YES" },
+      });
+      if (!sectionInfo) {
+        return res.status(404).json({ success: false, error: "Section not found" });
+      }
+    }
+
+    const students = await StudentDetails.findAll({
+      where: whereStudent,
+      attributes: ["registerNumber", "studentName", "Userid"],
+      include: [
+        {
+          model: User,
+          as: "studentUser",
+          required: false,
+          attributes: ["userName"],
+        },
+      ],
+      order: [["registerNumber", "ASC"]],
     });
 
-    const payload = await getOrSetCache(
-      key,
-      async () => {
-        const whereStudent = {};
-        let batchInfo = null;
-        let semesterInfo = null;
-        let sectionInfo = null;
+    if (!students.length) {
+      return res.json({ success: true, report: [], slots: [] });
+    }
 
-        if (normalizedBatchId) {
-          batchInfo = await Batch.findOne({
-            where: {
-              batchId: normalizedBatchId,
-              ...(normalizedDegree ? { degree: normalizedDegree } : {}),
-              isActive: "YES",
-            },
-          });
-
-          if (!batchInfo) {
-            return { statusCode: 404, body: { success: false, error: "Batch not found" } };
-          }
-
-          whereStudent.batch = batchInfo.batch;
-        }
-
-        if (normalizedDepartmentId) {
-          whereStudent.departmentId = normalizedDepartmentId;
-        }
-
-        if (normalizedSemesterId) {
-          semesterInfo = await Semester.findOne({
-            where: { semesterId: normalizedSemesterId, isActive: "YES" },
-            attributes: ["semesterId", "semesterNumber"],
-          });
-          if (!semesterInfo) {
-            return { statusCode: 404, body: { success: false, error: "Semester not found" } };
-          }
-          whereStudent.semester = String(semesterInfo.semesterNumber);
-        }
-
-        if (normalizedSectionId) {
-          sectionInfo = await Section.findOne({
-            where: { sectionId: normalizedSectionId, isActive: "YES" },
-          });
-          if (!sectionInfo) {
-            return { statusCode: 404, body: { success: false, error: "Section not found" } };
-          }
-          whereStudent.section = sectionInfo.sectionName;
-        }
-
-        const students = await StudentDetails.findAll({
-          where: whereStudent,
-          attributes: ["registerNumber", "studentName", "Userid"],
-          include: [
-            {
-              model: User,
-              as: "studentUser",
-              required: false,
-              attributes: ["userName"],
-            },
-          ],
-          order: [["registerNumber", "ASC"]],
-        });
-
-        if (!students.length) {
-          return { statusCode: 200, body: { success: true, report: [] } };
-        }
-
-        const selectedRegNos = students.map((s) => String(s.registerNumber || s.get?.("registerNumber") || "").trim()).filter(Boolean);
-
-        const attendanceRows = await PeriodAttendance.findAll({
-          where: {
-            regno: { [Op.in]: selectedRegNos },
-            attendanceDate: { [Op.between]: [fromDate, toDate] },
-          },
-          attributes: ["regno", "attendanceDate", "status"],
-          raw: true,
-        });
-
-        const attendanceByStudent = {};
-
-        attendanceRows.forEach((row) => {
-          const regno = String(row.regno || "").trim();
-          const date = row.attendanceDate;
-          const status = row.status || "A";
-          if (!attendanceByStudent[regno]) attendanceByStudent[regno] = {};
-
-          const existing = attendanceByStudent[regno][date];
-          if (existing === "P") return;
-          if (existing === "OD" && status === "A") return;
-          if (status === "P") {
-            attendanceByStudent[regno][date] = "P";
-          } else if (status === "OD") {
-            attendanceByStudent[regno][date] = "OD";
-          } else if (!existing) {
-            attendanceByStudent[regno][date] = "A";
-          }
-        });
-
-        const from = new Date(fromDate);
-        const to = new Date(toDate);
-        const dates = [];
-        const current = new Date(from);
-        while (current <= to) {
-          dates.push(current.toISOString().split("T")[0]);
-          current.setDate(current.getDate() + 1);
-        }
-
-        const report = students.map((student) => {
-          const regNo = String(student.registerNumber || student.get?.("registerNumber") || "").trim();
-          const studentName = getDisplayStudentName(student) || "Unknown";
-          const dailyAttendance = {};
-          let presentCount = 0;
-          let absentCount = 0;
-          let odCount = 0;
-
-          dates.forEach((date) => {
-            const status = attendanceByStudent[regNo]?.[date] || "A";
-            dailyAttendance[date] = status;
-            if (status === "P") presentCount += 1;
-            else if (status === "OD") odCount += 1;
-            else absentCount += 1;
-          });
-
-          const totalDays = dates.length;
-          const attendancePercentage = totalDays
-            ? ((presentCount / totalDays) * 100).toFixed(2)
-            : "0.00";
-
-          return {
-            registerNumber: regNo,
-            name: studentName,
-            attendanceByDate: dailyAttendance,
-            presentCount,
-            absentCount,
-            odCount,
-            attendancePercentage,
-          };
-        });
-
-        return { statusCode: 200, body: { success: true, report } };
+    const studentRegNos = students.map((s) => String(s.registerNumber || s.get?.("registerNumber") || "").trim()).filter(Boolean);
+    const studentCourseRows = await StudentCourse.findAll({
+      where: {
+        regno: { [Op.in]: studentRegNos },
+        ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
+        ...(normalizedSectionId ? { sectionId: normalizedSectionId } : {}),
       },
-      { ttlSeconds: ttl.short, onStatus: markCache(res) }
+      attributes: ["regno", "courseId", "sectionId"],
+      raw: true,
+    });
+
+    const enrollmentByRegNo = {};
+    const selectedRegNoSet = new Set();
+    const enrolledCourseIds = new Set();
+    studentCourseRows.forEach((row) => {
+      const regno = String(row.regno || "").trim();
+      if (!regno) return;
+      selectedRegNoSet.add(regno);
+      enrolledCourseIds.add(row.courseId);
+      if (!enrollmentByRegNo[regno]) enrollmentByRegNo[regno] = new Set();
+      enrollmentByRegNo[regno].add(`${row.courseId}-${row.sectionId || 0}`);
+    });
+
+    const selectedRegNos = studentRegNos.filter((regno) => selectedRegNoSet.has(regno));
+    if (!selectedRegNos.length) {
+      return res.json({ success: true, report: [], slots: [] });
+    }
+
+    const dates = [];
+    const current = new Date(fromDate);
+    const end = new Date(toDate);
+    while (current <= end) {
+      dates.push(current.toISOString().split("T")[0]);
+      current.setDate(current.getDate() + 1);
+    }
+
+    const timetableRows = await Timetable.findAll({
+      where: {
+        isActive: "YES",
+        courseId: { [Op.in]: [...enrolledCourseIds] },
+        ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
+        ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
+        ...(normalizedSemesterId ? { semesterId: normalizedSemesterId } : {}),
+        ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
+      },
+      attributes: ["courseId", "sectionId", "dayOfWeek", "periodNumber"],
+      raw: true,
+    });
+
+    if (!timetableRows.length) {
+      return res.json({ success: true, report: [], slots: [] });
+    }
+
+    const timetableCourseIds = [...new Set(timetableRows.map((row) => row.courseId))];
+    const courseRows = await Course.findAll({
+      where: { courseId: { [Op.in]: timetableCourseIds } },
+      attributes: ["courseId", "courseCode", "courseTitle"],
+      raw: true,
+    });
+    const courseMetaMap = new Map(courseRows.map((course) => [course.courseId, course]));
+    const timetableSlotSet = new Set(
+      timetableRows.map((slot) => `${slot.courseId}-${slot.sectionId || 0}-${slot.dayOfWeek}-${slot.periodNumber}`)
+    );
+    const genericTimetableSlotSet = new Set(
+      timetableRows
+        .filter((slot) => !slot.sectionId)
+        .map((slot) => `${slot.courseId}-${slot.dayOfWeek}-${slot.periodNumber}`)
     );
 
-    return res.status(payload.statusCode).json(payload.body);
+    const visibleSlotMap = new Map();
+    dates.forEach((date) => {
+      const dayOfWeek = getDayCode(date);
+      timetableRows.forEach((slot) => {
+        if (slot.dayOfWeek !== dayOfWeek) return;
+        const meta = courseMetaMap.get(slot.courseId) || {};
+        const key = `${date}-${slot.periodNumber}-${slot.courseId}-${slot.sectionId || 0}`;
+        visibleSlotMap.set(key, {
+          key,
+          date,
+          dayOfWeek,
+          periodNumber: slot.periodNumber,
+          courseId: slot.courseId,
+          sectionId: slot.sectionId || 0,
+          courseCode: meta.courseCode || String(slot.courseId),
+          courseTitle: meta.courseTitle || "",
+        });
+      });
+    });
+
+    const slots = [...visibleSlotMap.values()].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      if (Number(a.periodNumber) !== Number(b.periodNumber)) return Number(a.periodNumber) - Number(b.periodNumber);
+      return String(a.courseCode).localeCompare(String(b.courseCode));
+    });
+
+    if (!slots.length) {
+      return res.json({ success: true, report: [], slots: [] });
+    }
+
+    const attendanceRows = await PeriodAttendance.findAll({
+      where: {
+        regno: { [Op.in]: selectedRegNos },
+        courseId: { [Op.in]: timetableCourseIds },
+        attendanceDate: { [Op.between]: [fromDate, toDate] },
+        ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
+        ...(semesterInfo ? { semesterNumber: semesterInfo.semesterNumber } : {}),
+        ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
+        ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
+      },
+      attributes: ["regno", "courseId", "sectionId", "attendanceDate", "periodNumber", "status"],
+      raw: true,
+    });
+
+    const attendanceByStudent = {};
+    attendanceRows.forEach((row) => {
+      const regno = String(row.regno || "").trim();
+      if (!attendanceByStudent[regno]) attendanceByStudent[regno] = {};
+      const key = `${row.attendanceDate}-${row.periodNumber}-${row.courseId}-${row.sectionId || 0}`;
+      const genericKey = `${row.attendanceDate}-${row.periodNumber}-${row.courseId}-0`;
+      const existing = attendanceByStudent[regno][key];
+      const status = row.status || "A";
+      if (existing === "P") return;
+      if (existing === "OD" && status === "A") return;
+      attendanceByStudent[regno][key] = status;
+      if (row.sectionId) {
+        const genericExisting = attendanceByStudent[regno][genericKey];
+        if (genericExisting !== "P" && !(genericExisting === "OD" && status === "A")) {
+          attendanceByStudent[regno][genericKey] = status;
+        }
+      }
+    });
+
+    const report = students
+      .map((student) => {
+        const regNo = String(student.registerNumber || student.get?.("registerNumber") || "").trim();
+        const studentName = getDisplayStudentName(student) || "Unknown";
+        const enrolledSlots = enrollmentByRegNo[regNo] || new Set();
+        const attendanceByDate = {};
+        let presentCount = 0;
+        let absentCount = 0;
+        let odCount = 0;
+        let totalAllocatedPeriods = 0;
+
+        slots.forEach((slot) => {
+          const enrollmentKey = `${slot.courseId}-${slot.sectionId || 0}`;
+          const isAllocated =
+            (
+              enrolledSlots.has(enrollmentKey) ||
+              (!slot.sectionId && [...enrolledSlots].some((item) => item.startsWith(`${slot.courseId}-`)))
+            ) &&
+            (
+              timetableSlotSet.has(`${slot.courseId}-${slot.sectionId || 0}-${slot.dayOfWeek}-${slot.periodNumber}`) ||
+              genericTimetableSlotSet.has(`${slot.courseId}-${slot.dayOfWeek}-${slot.periodNumber}`)
+            );
+
+          if (!isAllocated) {
+            attendanceByDate[slot.key] = "";
+            return;
+          }
+
+          totalAllocatedPeriods += 1;
+          const status = attendanceByStudent[regNo]?.[slot.key] || "A";
+          attendanceByDate[slot.key] = status;
+          if (status === "P") presentCount += 1;
+          else if (status === "OD") odCount += 1;
+          else absentCount += 1;
+        });
+
+        const attendancePercentage = totalAllocatedPeriods
+          ? (((presentCount + odCount) / totalAllocatedPeriods) * 100).toFixed(2)
+          : "0.00";
+
+        return {
+          registerNumber: regNo,
+          name: studentName,
+          attendanceByDate,
+          presentCount,
+          absentCount,
+          odCount,
+          totalAllocatedPeriods,
+          attendancePercentage,
+        };
+      })
+      .filter((student) => selectedRegNoSet.has(student.registerNumber));
+
+    return res.json({ success: true, report, slots });
   } catch (error) {
     console.error("Error in getStudentAttendanceReport:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
