@@ -1,25 +1,26 @@
 import { useState, useMemo } from 'react';
 
 const useManageStaffFilters = (staffList, courses, selectedStaff) => {
-  const [filters, setFilters] = useState({ dept: '', semester: '', batch: '' });
+  const [filters, setFilters] = useState({ degree: '', dept: '', semester: '', batch: '' });
   const [nameSearch, setNameSearch] = useState('');
   const [sortBy, setSortBy] = useState('staffId');
   const [sortOrder, setSortOrder] = useState('desc');
   const [courseSearch, setCourseSearch] = useState('');
-  const [courseFilters, setCourseFilters] = useState({ dept: '', semester: '', batch: '' });
+  const [courseFilters, setCourseFilters] = useState({ degree: '', dept: '', semester: '', batch: '' });
 
   const getFilteredStaff = () => {
     return staffList
       .filter(staff => {
-        const { dept, semester, batch } = filters;
+        const { degree, dept, semester, batch } = filters;
         const matchesName = !nameSearch || staff.name.toLowerCase().includes(nameSearch.toLowerCase());
         const hasMatchingCourse = staff.allocatedCourses.some(course =>
+          (!degree || String(course.degree || '').toLowerCase() === degree.toLowerCase()) &&
           (!semester || course.semester === semester) &&
           (!batch || course.year.toLowerCase() === batch.toLowerCase())
         );
         return (
           (!dept || staff.departmentName.toLowerCase() === dept.toLowerCase()) &&
-          ((!semester && !batch) || hasMatchingCourse) &&
+          ((!degree && !semester && !batch) || hasMatchingCourse) &&
           matchesName
         );
       })
@@ -38,8 +39,9 @@ const useManageStaffFilters = (staffList, courses, selectedStaff) => {
     })) || [];
     return courses
       .filter(course => {
-        const { dept, semester, batch } = courseFilters;
+        const { degree, dept, semester, batch } = courseFilters;
         return (
+          (!degree || String(course.degree || '').toLowerCase() === degree.toLowerCase()) &&
           (!dept || course.department.toLowerCase() === dept.toLowerCase()) &&
           (!semester || course.semester === semester) &&
           (!batch || String(course.batchYears || '').toLowerCase() === batch.toLowerCase()) &&
