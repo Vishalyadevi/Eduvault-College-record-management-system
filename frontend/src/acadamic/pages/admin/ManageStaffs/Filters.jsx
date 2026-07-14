@@ -2,6 +2,10 @@ import React from 'react';
 import { Search } from 'lucide-react';
 
 const Filters = ({ filters, setFilters, nameSearch, setNameSearch, sortBy, handleSort, departments, semesters, staffList }) => {
+  const degreeOptions = [...new Set([
+    ...semesters.map(sem => sem.degree || sem.Batch?.degree),
+    ...staffList.flatMap(staff => staff.allocatedCourses.map(course => course.degree))
+  ])].filter(Boolean).sort();
   const departmentOptions = departments.length > 0
     ? [...new Set(departments.map(dept => dept.departmentName))].filter(d => d).sort()
     : [...new Set(staffList.map(staff => staff.departmentName))].filter(d => d).sort();
@@ -23,6 +27,17 @@ const Filters = ({ filters, setFilters, nameSearch, setNameSearch, sortBy, handl
             />
             <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           </div>
+        </div>
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Degree</label>
+          <select
+            value={filters.degree}
+            onChange={e => setFilters({ ...filters, degree: e.target.value, batch: '' })}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+          >
+            <option value="">All Degrees</option>
+            {degreeOptions.map(degree => <option key={degree} value={degree}>{degree}</option>)}
+          </select>
         </div>
         <div className="flex-1 min-w-[180px]">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>

@@ -64,6 +64,27 @@ function getDisplayStudentName(studentRecord) {
   return "";
 }
 
+function normalizeDegree(value) {
+  return String(value || "").trim().toUpperCase().replace(/[\s.]/g, "");
+}
+
+function degreeAliases(value) {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ["B.E", "BE"],
+    ME: ["M.E", "ME"],
+    BTECH: ["B.Tech", "BTech", "BTECH"],
+    MTECH: ["M.Tech", "MTech", "MTECH"],
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+}
+
+function buildStudentDegreeWhere(value) {
+  const aliases = degreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+}
+
 // ==========================================
 // CONTROLLERS
 // ==========================================
@@ -178,7 +199,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
       async () => {
         // 1. Get batch + semester info
         const batchInfo = await Batch.findOne({
-          where: { batchId, degree, isActive: "YES" },
+          where: { batchId, degree: { [Op.in]: degreeAliases(degree) }, isActive: "YES" },
         });
         if (!batchInfo) return { statusCode: 404, body: { success: false, error: "Batch not found" } };
 
@@ -196,7 +217,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
             batch: batchInfo.batch,
             departmentId: normalizedDeptId,
             semester: String(semesterInfo.semesterNumber),
-            ...(batchInfo.degree ? { course: batchInfo.degree } : {})
+            ...buildStudentDegreeWhere(degree || batchInfo.degree)
           },
           attributes: [["registerNumber", "RegisterNumber"], ["studentName", "StudentName"], "Userid"],
           include: [
@@ -422,7 +443,7 @@ export const getStudentAttendanceReport = async (req, res) => {
       batchInfo = await Batch.findOne({
         where: {
           batchId: normalizedBatchId,
-          ...(normalizedDegree ? { degree: normalizedDegree } : {}),
+          ...(normalizedDegree ? { degree: { [Op.in]: degreeAliases(normalizedDegree) } } : {}),
           isActive: "YES",
         },
       });
@@ -432,9 +453,7 @@ export const getStudentAttendanceReport = async (req, res) => {
       }
 
       whereStudent.batch = batchInfo.batch;
-      if (batchInfo.degree) {
-        whereStudent.course = batchInfo.degree;
-      }
+      Object.assign(whereStudent, buildStudentDegreeWhere(normalizedDegree || batchInfo.degree));
     }
 
     if (normalizedDepartmentId) {

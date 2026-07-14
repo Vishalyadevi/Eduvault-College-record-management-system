@@ -99,6 +99,25 @@ const resolveBatchFilter = async (batch, department, degree, branch) => {
   return record;
 };
 
+const normalizeDegree = (value) => String(value || '').trim().toUpperCase().replace(/[\s.]/g, '');
+
+const getDegreeAliases = (value) => {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ['B.E', 'BE'],
+    ME: ['M.E', 'ME'],
+    BTECH: ['B.Tech', 'BTech', 'BTECH'],
+    MTECH: ['M.Tech', 'MTech', 'MTECH']
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+};
+
+const buildStudentDegreeWhere = (value) => {
+  const aliases = getDegreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+};
+
 const resolveSemesterFilter = async (sem, batchRecord) => {
   if (!sem && sem !== 0) return null;
 
@@ -617,7 +636,7 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
         departmentId: department.departmentId,
         batch: batchRecord.batch,
         semester: String(semesterRecord.semesterNumber),
-        ...(batchRecord.degree ? { course: batchRecord.degree } : {})
+        ...buildStudentDegreeWhere(degree || batchRecord.degree)
       },
       attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
       include: [{
@@ -653,7 +672,8 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
       where: {
         departmentId: department.departmentId,
         batch: batchRecord.batch,
-        semester: String(semesterRecord.semesterNumber)
+        semester: String(semesterRecord.semesterNumber),
+        ...buildStudentDegreeWhere(degree || batchRecord.degree)
       },
       attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
       include: [{

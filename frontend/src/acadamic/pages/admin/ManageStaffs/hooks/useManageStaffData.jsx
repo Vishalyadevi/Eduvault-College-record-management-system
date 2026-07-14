@@ -65,10 +65,15 @@ const useManageStaffData = () => {
                   sectionId: course.sectionId || '',
                   batch: course.sectionName ? course.sectionName.replace(/^BatchBatch/, 'Batch') : 'N/A',
                   semesterId: course.semesterId,
-                  semester: processedSemesters.find(s => s.semesterId === course.semesterId)?.semesterNumber
-                    ? String(processedSemesters.find(s => s.semesterId === course.semesterId).semesterNumber)
-                    : 'N/A',
-                  year: processedSemesters.find(s => s.semesterId === course.semesterId)?.batchYears || 'N/A',
+                  semester: course.semesterNumber
+                    ? String(course.semesterNumber)
+                    : (processedSemesters.find(s => s.semesterId === course.semesterId)?.semesterNumber
+                      ? String(processedSemesters.find(s => s.semesterId === course.semesterId).semesterNumber)
+                      : 'N/A'),
+                  year: course.batchYears || processedSemesters.find(s => s.semesterId === course.semesterId)?.batchYears || 'N/A',
+                  degree: course.degree || '',
+                  branch: course.branch || '',
+                  academicBatch: course.batch || '',
                 }))
               : [];
               
@@ -107,6 +112,7 @@ const useManageStaffData = () => {
               name: course.courseTitle || '',
               code: course.courseCode || '',
               department: course.branch || batch.branch || semester.Batch?.branch || semester.branch || '',
+              degree: course.degree || batch.degree || semester.Batch?.degree || semester.degree || '',
               semester: semester.semesterNumber ? String(semester.semesterNumber) : '',
               batchYears: semester.batchYears || batch.batchYears || semester.Batch?.batchYears || '',
               batch: semester.batch || batch.batch || '',

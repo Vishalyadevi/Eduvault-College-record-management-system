@@ -105,6 +105,7 @@ const AllocateCourseModal = React.memo(({
   };
 
   const semesterOptions = [...new Set(semesters.map(sem => String(sem.semesterNumber)))].filter(sem => sem).sort((a, b) => a - b);
+  const degreeOptions = [...new Set(batches.map(batch => batch.degree).filter(Boolean))].sort();
   const batchOptions = [...new Set(semesters.map(sem => sem.batchYears))].filter(batch => batch).sort();
 
   useEffect(() => {
@@ -147,7 +148,7 @@ const AllocateCourseModal = React.memo(({
     setLocalSelectedSectionId('');
     setSelectedSectionId('');
     setCourseSearch('');
-    setCourseFilters({ dept: '', semester: '', batch: '' });
+    setCourseFilters({ degree: '', dept: '', semester: '', batch: '' });
     if (operationFromModal) setShowStaffDetailsModal(true);
   };
 
@@ -181,6 +182,21 @@ const AllocateCourseModal = React.memo(({
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
+             <div className="flex-1 relative">
+                <select
+                  value={courseFilters.degree}
+                  onChange={e => setCourseFilters({ ...courseFilters, degree: e.target.value, batch: '' })}
+                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none appearance-none"
+                  disabled={operationLoading}
+                >
+                  <option value="">All Degrees</option>
+                  {degreeOptions.map(degree => (
+                    <option key={degree} value={degree}>{degree}</option>
+                  ))}
+                </select>
+                <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+             </div>
+
              <div className="flex-1 relative">
                 <select
                   value={courseFilters.dept}
