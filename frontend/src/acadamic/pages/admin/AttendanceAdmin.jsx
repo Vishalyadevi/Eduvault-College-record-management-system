@@ -403,7 +403,7 @@ export default function AdminAttendanceGenerator() {
                 .filter((b) => b.degree === selectedDegree)
                 .map((b) => (
                   <option key={b.batchId} value={b.batchId}>
-                    {b.batch}
+                    {b.batchYears || b.batch} - {b.branch} ({b.degree})
                   </option>
                 ))}
             </FilterField>

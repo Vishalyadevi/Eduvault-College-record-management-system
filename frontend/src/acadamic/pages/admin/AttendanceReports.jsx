@@ -137,7 +137,21 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters((prev) => {
+      const next = { ...prev, [name]: value };
+      // Cascade reset downstream selections
+      if (name === 'degree') {
+        next.batch = '';
+        next.department = '';
+        next.semester = '';
+      } else if (name === 'batch') {
+        next.department = '';
+        next.semester = '';
+      } else if (name === 'department') {
+        next.semester = '';
+      }
+      return next;
+    });
   };
 
   const handleDownloadExcel = () => {
@@ -311,11 +325,13 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 className="field-input"
               >
                 <option value="">Select Batch</option>
-                {batches.map((batch) => (
-                  <option key={batch.batchId} value={batch.batchId}>
-                    {batch.batch}
-                  </option>
-                ))}
+                {batches
+                  .filter((b) => !filters.degree || b.degree === filters.degree)
+                  .map((batch) => (
+                    <option key={batch.batchId} value={batch.batchId}>
+                      {batch.batchYears || batch.batch} - {batch.branch} ({batch.degree})
+                    </option>
+                  ))}
               </select>
             </Field>
 

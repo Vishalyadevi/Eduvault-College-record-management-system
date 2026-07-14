@@ -913,7 +913,8 @@ export async function getStudentsBySemester(req, res) {
       where: {
         departmentId: departmentId,
         ...(normalizedBatch ? { batch: normalizedBatch } : {}),
-        ...(semesterNumber ? { semester: String(semesterNumber) } : {})
+        ...(semesterNumber ? { semester: String(semesterNumber) } : {}),
+        ...(batchRecord?.degree ? { course: batchRecord.degree } : {})
       },
       attributes: [
         ['registerNumber', 'rollnumber'],
@@ -1341,7 +1342,8 @@ export async function getStudentsByDeptAndSem(req, res, next) {
       where: {
         departmentId: departmentId,
         ...(normalizedBatch ? { batch: normalizedBatch } : {}),
-        ...(semesterNumber ? { semester: String(semesterNumber) } : {})
+        ...(semesterNumber ? { semester: String(semesterNumber) } : {}),
+        ...(batchRecord?.degree ? { course: batchRecord.degree } : {})
       },
       attributes: ['registerNumber', 'studentName', 'Userid'],
       include: [

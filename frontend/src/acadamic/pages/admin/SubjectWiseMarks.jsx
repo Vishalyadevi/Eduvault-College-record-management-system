@@ -119,6 +119,28 @@ const SubjectWiseMarks = () => {
   }, []);
 
   useEffect(() => {
+    const selectedBatchData = batches.find((b) => String(b.batchId) === String(selectedBatch));
+    if (selectedBatchData && departments.length > 0) {
+      const matched = departments.find(d => d.Deptacronym === selectedBatchData.branch);
+      if (matched) {
+        setSelectedDept(matched.departmentId);
+        form.setFieldsValue({ dept: matched.departmentId });
+      } else {
+        setSelectedDept(null);
+        form.setFieldsValue({ dept: null });
+      }
+    } else {
+      setSelectedDept(null);
+      form.setFieldsValue({ dept: null });
+    }
+  }, [selectedBatch, departments, batches, form]);
+
+  const selectedBatchData = batches.find((b) => String(b.batchId) === String(selectedBatch));
+  const filteredDepartments = selectedBatchData
+    ? departments.filter(d => d.Deptacronym === selectedBatchData.branch)
+    : departments;
+
+  useEffect(() => {
     const fetchSemesters = async () => {
       if (selectedBatch && selectedDept) {
         setLoading(true);
@@ -556,7 +578,7 @@ const SubjectWiseMarks = () => {
                     size="large"
                     className="w-full"
                   >
-                    {departments.map(dept => (
+                    {filteredDepartments.map(dept => (
                       <Option key={dept.departmentId} value={dept.departmentId}>
                         <div className="flex justify-between items-center">
                           <span className="font-medium">{dept.Deptname}</span>

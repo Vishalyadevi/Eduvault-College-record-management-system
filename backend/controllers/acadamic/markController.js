@@ -616,7 +616,8 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
       where: {
         departmentId: department.departmentId,
         batch: batchRecord.batch,
-        semester: String(semesterRecord.semesterNumber)
+        semester: String(semesterRecord.semesterNumber),
+        ...(batchRecord.degree ? { course: batchRecord.degree } : {})
       },
       attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
       include: [{

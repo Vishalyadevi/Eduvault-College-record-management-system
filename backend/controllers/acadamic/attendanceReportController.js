@@ -77,7 +77,7 @@ export const getBatches = async (req, res) => {
       () =>
         Batch.findAll({
           where: { isActive: "YES" },
-          attributes: ["batchId", "branch", "batch"],
+          attributes: ["batchId", "branch", "batch", "degree", "batchYears"],
         }),
       { ttlSeconds: ttl.medium, onStatus: markCache(res) }
     );
@@ -196,6 +196,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
             batch: batchInfo.batch,
             departmentId: normalizedDeptId,
             semester: String(semesterInfo.semesterNumber),
+            ...(batchInfo.degree ? { course: batchInfo.degree } : {})
           },
           attributes: [["registerNumber", "RegisterNumber"], ["studentName", "StudentName"], "Userid"],
           include: [
@@ -431,6 +432,9 @@ export const getStudentAttendanceReport = async (req, res) => {
       }
 
       whereStudent.batch = batchInfo.batch;
+      if (batchInfo.degree) {
+        whereStudent.course = batchInfo.degree;
+      }
     }
 
     if (normalizedDepartmentId) {

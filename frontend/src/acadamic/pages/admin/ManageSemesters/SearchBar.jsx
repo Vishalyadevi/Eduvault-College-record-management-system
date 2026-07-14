@@ -1,9 +1,14 @@
 import React from 'react';
 import { Search } from 'lucide-react';
-import { degrees, branchMap } from './branchMap';
+import { degrees, branchMap, degreeBranches } from './branchMap';
 
 const SearchBar = ({ searchQuery, setSearchQuery }) => {
-  const branches = Object.keys(branchMap);
+  const branches = searchQuery.degree 
+    ? degreeBranches[searchQuery.degree] || []
+    : Object.keys(branchMap);
+
+  const maxSemesters = ['ME', 'MTech'].includes(searchQuery.degree) ? 4 : 8;
+  const semestersArray = Array.from({ length: maxSemesters }, (_, i) => i + 1);
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
@@ -16,7 +21,28 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => {
           <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
           <select
             value={searchQuery.degree}
-            onChange={(e) => setSearchQuery({ ...searchQuery, degree: e.target.value })}
+            onChange={(e) => {
+              const nextDegree = e.target.value;
+              let nextBranch = searchQuery.branch;
+              let nextSemester = searchQuery.semesterNumber;
+              
+              if (nextDegree) {
+                const validBranches = degreeBranches[nextDegree] || [];
+                if (!validBranches.includes(nextBranch)) {
+                  nextBranch = '';
+                }
+                const maxSems = ['ME', 'MTech'].includes(nextDegree) ? 4 : 8;
+                if (Number(nextSemester) > maxSems) {
+                  nextSemester = '';
+                }
+              }
+              setSearchQuery({ 
+                ...searchQuery, 
+                degree: nextDegree, 
+                branch: nextBranch, 
+                semesterNumber: nextSemester 
+              });
+            }}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="">All Degrees</option>
@@ -56,7 +82,7 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => {
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="">All Semesters</option>
-            {[1,2,3,4,5,6,7,8].map((sem) => (
+            {semestersArray.map((sem) => (
               <option key={sem} value={sem}>Semester {sem}</option>
             ))}
           </select>

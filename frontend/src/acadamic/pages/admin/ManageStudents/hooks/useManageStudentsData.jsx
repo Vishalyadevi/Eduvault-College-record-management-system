@@ -39,7 +39,7 @@ const useManageStudentsData = (filters) => {
       }
     };
     fetchFilterOptions();
-  }, [filters.branch, reloadToken]);
+  }, [filters.branch, filters.degree, reloadToken]);
 
   useEffect(() => {
     const areRequiredFiltersSelected = filters.branch !== '' && filters.semester !== '' && filters.batch !== '';

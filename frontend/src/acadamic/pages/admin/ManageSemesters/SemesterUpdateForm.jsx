@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit, X, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { api } from '../../../services/authService'; // Import the api instance
-import { degrees, branchMap } from './branchMap';
+import { degrees, branchMap, degreeBranches } from './branchMap';
 
 const API_BASE = 'http://localhost:4000/api/admin';
 
@@ -19,7 +19,9 @@ const SemesterUpdateForm = ({ isOpen, onClose, semester, onRefresh }) => {
   });
   const [loading, setLoading] = useState(false);
 
-  const branches = Object.keys(branchMap);
+  const branches = formData.degree
+    ? degreeBranches[formData.degree] || []
+    : Object.keys(branchMap);
 
   useEffect(() => {
     if (semester) {
@@ -84,7 +86,17 @@ const SemesterUpdateForm = ({ isOpen, onClose, semester, onRefresh }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
               <select
                 value={formData.degree}
-                onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
+                onChange={(e) => {
+                  const nextDegree = e.target.value;
+                  let nextBranch = formData.branch;
+                  if (nextDegree) {
+                    const validBranches = degreeBranches[nextDegree] || [];
+                    if (!validBranches.includes(nextBranch)) {
+                      nextBranch = '';
+                    }
+                  }
+                  setFormData({ ...formData, degree: nextDegree, branch: nextBranch });
+                }}
                 className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Degree</option>

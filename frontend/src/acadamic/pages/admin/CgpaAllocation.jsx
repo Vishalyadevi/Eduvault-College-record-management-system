@@ -9,7 +9,15 @@ const branchMap = {
   ECE: 'Electronics & Communication',
   MECH: 'Mechanical Engineering',
   CIVIL: 'Civil Engineering',
-  EEE: 'Electrical Engineering'
+  EEE: 'Electrical Engineering',
+  AIDS: 'Artificial Intelligence And Data Science'
+};
+
+const degreeBranches = {
+  BE: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE'],
+  ME: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE'],
+  BTech: ['IT', 'AIDS'],
+  MTech: ['IT', 'AIDS']
 };
 
 const CgpaAllocation = () => {
@@ -316,11 +324,13 @@ const CgpaAllocation = () => {
             className="px-4 py-2 border rounded-lg"
           >
             <option value="">Select Branch</option>
-            {Object.entries(branchMap).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
+            {Object.entries(branchMap)
+              .filter(([k]) => !filters.degree || (degreeBranches[filters.degree] || []).includes(k))
+              .map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
           </select>
 
           <select
@@ -332,7 +342,7 @@ const CgpaAllocation = () => {
             <option value="">Select Batch</option>
             {batches.map((b) => (
               <option key={b.batchId} value={b.batch}>
-                {b.batch}
+                {b.batchYears || b.batch} ({b.degree || filters.degree})
               </option>
             ))}
           </select>

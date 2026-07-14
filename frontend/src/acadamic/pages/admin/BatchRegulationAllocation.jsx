@@ -193,7 +193,7 @@ const BatchRegulationAllocation = () => {
                 <option value="">Select Batch</option>
                 {filteredBatches.map(batch => (
                   <option key={batch.batchId} value={batch.batchId}>
-                    {batch.batch}
+                    {batch.batch} - {batch.branch} ({batch.degree})
                   </option>
                 ))}
               </select>

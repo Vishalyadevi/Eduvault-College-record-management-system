@@ -53,6 +53,7 @@ export const searchStudents = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({
     where: {
       pending: true,
+      ...(degree && { course: degree }),
       ...(batchFilterValues.length > 0 ? { batch: batchFilterValues } : {}),
       ...(semesterNumber && { semester: semesterNumber })
     },

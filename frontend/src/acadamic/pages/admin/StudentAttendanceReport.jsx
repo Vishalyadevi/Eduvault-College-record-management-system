@@ -340,11 +340,13 @@ export default function StudentAttendanceReport() {
             <Field label="Batch">
               <select name="batch" value={filters.batch} onChange={handleChange} className="field-input" disabled={!filters.degree}>
                 <option value="">Select Batch</option>
-                {batches.map((batch) => (
-                  <option key={batch.batchId} value={batch.batchId}>
-                    {batch.batch} {batch.branch ? `- ${batch.branch}` : ""}
-                  </option>
-                ))}
+                {batches
+                  .filter((b) => !filters.degree || b.degree === filters.degree)
+                  .map((batch) => (
+                    <option key={batch.batchId} value={batch.batchId}>
+                      {batch.batchYears || batch.batch} - {batch.branch} ({batch.degree})
+                    </option>
+                  ))}
               </select>
             </Field>
 

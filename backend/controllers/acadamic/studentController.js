@@ -392,7 +392,7 @@ export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
 
   const data = await Promise.all(
     normalized.map(async (row) => {
-      const where = { batch: row.batch, departmentId: row.departmentId };
+      const where = { batch: row.batch, departmentId: row.departmentId, course: row.degree };
       const students = await StudentDetails.findAll({
         where,
         attributes: ['semester'],
@@ -404,7 +404,8 @@ export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
         .filter((n) => !Number.isNaN(n) && n > 0);
 
       const currentSemester = semesterNumbers.length ? Math.max(...semesterNumbers) : null;
-      const upgradableCount = semesterNumbers.filter((n) => n < 8).length;
+      const maxSemForDegree = ['ME', 'MTech'].includes(row.degree) ? 4 : 8;
+      const upgradableCount = semesterNumbers.filter((n) => n < maxSemForDegree).length;
 
       return {
         ...row,
@@ -446,6 +447,7 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
   let studentWhere = {
     batch: String(batch).trim(),
     departmentId: normalizedDepartmentId,
+    ...(degree && { course: String(degree).trim() })
   };
 
   if (degree && departmentRecord?.departmentAcr) {
@@ -464,6 +466,7 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
       studentWhere = {
         batch: String(matchingBatch.batch).trim(),
         departmentId: matchingBatch.departmentId || normalizedDepartmentId,
+        course: String(degree).trim(),
       };
     } else {
       return res.status(404).json({
@@ -486,6 +489,7 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
     });
   }
 
+  const maxSemForDegree = ['ME', 'MTech'].includes(degree) ? 4 : 8;
   const upgradable = students
     .map((s) => {
       const sem = parseInt(s.semester, 10);
@@ -495,12 +499,12 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
         currentSemester: sem,
       };
     })
-    .filter((s) => s.nextSemester !== null && s.currentSemester >= 1 && s.currentSemester < 8);
+    .filter((s) => s.nextSemester !== null && s.currentSemester >= 1 && s.currentSemester < maxSemForDegree);
 
   if (!upgradable.length) {
     return res.status(400).json({
       status: 'failure',
-      message: 'No eligible students found to upgrade (all are already semester 8 or invalid)',
+      message: `No eligible students found to upgrade (all are already semester ${maxSemForDegree} or invalid)`,
     });
   }
 

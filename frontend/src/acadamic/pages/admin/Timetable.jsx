@@ -535,7 +535,7 @@ const Timetable = () => {
                 .filter((b) => b.degree === selectedDegree)
                 .map((b) => (
                   <option key={b.batchId} value={b.batchId}>
-                    {b.branch} ({b.batchYears})
+                    {b.branch} — {b.batchYears || b.batch} ({b.degree})
                   </option>
                 ))}
             </select>

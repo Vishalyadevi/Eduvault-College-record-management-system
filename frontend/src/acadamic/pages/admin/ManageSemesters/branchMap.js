@@ -14,3 +14,10 @@ export const degrees = ['BE', 'BTech', 'ME', 'MTech'];
 export const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'EXPERIENTIAL LEARNING'];
 
 export const categories = ['BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'HSMC'];
+
+export const degreeBranches = {
+  BE: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE'],
+  ME: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE'],
+  BTech: ['IT', 'AIDS'],
+  MTech: ['IT', 'AIDS']
+};

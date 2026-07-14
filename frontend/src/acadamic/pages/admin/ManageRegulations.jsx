@@ -124,6 +124,8 @@ const ManageRegulations = () => {
     setSelectedVertical('');
     setAvailableCourses([]);
     setSelectedCourses([]);
+    setRegulationCourses([]);
+    setConnectedBatches([]);
     setError(null);
     if (departmentId) {
       fetchRegulations(departmentId);
@@ -131,6 +133,13 @@ const ManageRegulations = () => {
       setRegulations([]);
     }
   };
+
+  // Derive the regulations visible in the dropdown:
+  // If a degree is selected (for creating a new regulation), only show regulations
+  // of that same degree so the user works within the correct programme.
+  const visibleRegulations = selectedDegree
+    ? regulations.filter(reg => reg.degree === selectedDegree)
+    : regulations;
 
   const fetchRegulationCourses = async (regulationId) => {
     try {
@@ -424,45 +433,133 @@ const ManageRegulations = () => {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-          const expectedHeaders = [
-            'S. No',
-            'Semester No',
-            'Course Code',
-            'Course Title',
-            'Category',
-            'L',
-            'T',
-            'P',
-            'E',
-            'Total Contact Periods',
-            'Credits',
-            'Min Marks',
-            'Max Marks',
-          ];
-          const headers = jsonData[0].map(h => h.toString().trim().toLowerCase());
-          const expectedHeadersLower = expectedHeaders.map(h => h.toLowerCase());
-          if (!headers.every((header, index) => header === expectedHeadersLower[index])) {
-            console.log('Actual headers:', headers);
-            toast.error('Invalid Excel format. Please ensure column headers match: ' + expectedHeaders.join(', '), {
+          // Find the headers row dynamically
+          let headerRowIdx = -1;
+          let headers = [];
+          for (let i = 0; i < Math.min(jsonData.length, 15); i++) {
+            const row = jsonData[i] || [];
+            const rowStrings = row.map(cell => String(cell || '').trim().toLowerCase());
+            if (rowStrings.includes('course code') && rowStrings.includes('course title')) {
+              headerRowIdx = i;
+              headers = rowStrings;
+              break;
+            }
+          }
+
+          if (headerRowIdx === -1) {
+            toast.error('Could not find header row with "Course Code" and "Course Title" in the Excel file.', {
               toastId: 'invalid-excel-format',
             });
             return;
           }
 
-          const coursesData = jsonData.slice(1).filter(row => row && row.length >= 13).map(row => ({
-            semesterNumber: parseInt(row[1]),
-            courseCode: row[2]?.toString().trim(),
-            courseTitle: row[3]?.toString().trim(),
-            category: row[4]?.toString().trim(),
-            lectureHours: parseInt(row[5]) || 0,
-            tutorialHours: parseInt(row[6]) || 0,
-            practicalHours: parseInt(row[7]) || 0,
-            experientialHours: parseInt(row[8]) || 0,
-            totalContactPeriods: parseInt(row[9]),
-            credits: parseInt(row[10]),
-            minMark: parseInt(row[11]),
-            maxMark: parseInt(row[12]),
-          }));
+          // Parse column indexes dynamically
+          const colIdx = {
+            courseCode: headers.indexOf('course code'),
+            courseTitle: headers.indexOf('course title'),
+            category: headers.indexOf('category'),
+            semesterNo: headers.findIndex(h => h.includes('semester')),
+            L: headers.indexOf('l'),
+            T: headers.indexOf('t'),
+            P: headers.indexOf('p'),
+            E: headers.indexOf('e'),
+            totalContactPeriods: headers.findIndex(h => h.includes('contact') || h.includes('period')),
+            credits: headers.indexOf('credits'),
+            minMark: headers.findIndex(h => h.includes('min') && h.includes('mark')),
+            maxMark: headers.findIndex(h => h.includes('max') && h.includes('mark')),
+          };
+
+          // Extract semester from sheet name or text cells in the first few rows
+          let sheetSemester = null;
+          const romanMap = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8 };
+          
+          const parseSemText = (text) => {
+            if (!text) return null;
+            const cleaned = text.toUpperCase().replace(/\s+/g, ' ');
+            const match = cleaned.match(/SEMESTER\s*(?:–|-|NO|NUMBER)?\s*([IVX1-8]+)/i);
+            if (match) {
+              const semVal = match[1].toLowerCase();
+              if (romanMap[semVal]) return romanMap[semVal];
+              const parsedVal = parseInt(semVal, 10);
+              if (parsedVal >= 1 && parsedVal <= 8) return parsedVal;
+            }
+            return null;
+          };
+
+          // Try parsing from sheet name first
+          sheetSemester = parseSemText(sheetName);
+
+          // If not found, try parsing from first few rows
+          if (!sheetSemester) {
+            for (let i = 0; i < headerRowIdx; i++) {
+              const row = jsonData[i] || [];
+              for (const cell of row) {
+                const parsed = parseSemText(String(cell || ''));
+                if (parsed) {
+                  sheetSemester = parsed;
+                  break;
+                }
+              }
+              if (sheetSemester) break;
+            }
+          }
+
+          // Read data rows starting after the headers row
+          const coursesData = [];
+          for (let i = headerRowIdx + 1; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || row.length === 0) continue;
+
+            const courseCode = String(row[colIdx.courseCode] || '').trim();
+            if (!courseCode || courseCode.toLowerCase() === 'total' || courseCode.toLowerCase() === 's. no' || courseCode.toLowerCase() === 's.no') {
+              continue; // Skip totals or empty rows
+            }
+
+            const category = String(row[colIdx.category] || '').trim().toUpperCase();
+            const courseTitle = String(row[colIdx.courseTitle] || '').trim();
+            if (!courseTitle) continue;
+            
+            // Determine Semester Number:
+            // 1. Column in row
+            // 2. Extracted from sheet banner/name
+            // 3. Fallback to 1
+            let semNum = NaN;
+            if (colIdx.semesterNo !== -1) {
+              semNum = parseInt(row[colIdx.semesterNo], 10);
+            }
+            if (isNaN(semNum)) {
+              semNum = sheetSemester || 1;
+            }
+
+            const L = colIdx.L !== -1 ? parseInt(row[colIdx.L], 10) || 0 : 0;
+            const T = colIdx.T !== -1 ? parseInt(row[colIdx.T], 10) || 0 : 0;
+            const P = colIdx.P !== -1 ? parseInt(row[colIdx.P], 10) || 0 : 0;
+            const E = colIdx.E !== -1 ? parseInt(row[colIdx.E], 10) || 0 : 0;
+
+            let contactPeriods = colIdx.totalContactPeriods !== -1 ? parseInt(row[colIdx.totalContactPeriods], 10) : NaN;
+            if (isNaN(contactPeriods)) {
+              contactPeriods = L + T + P + E;
+            }
+
+            const credits = colIdx.credits !== -1 ? parseInt(row[colIdx.credits], 10) || 0 : 0;
+            const minMark = colIdx.minMark !== -1 ? parseInt(row[colIdx.minMark], 10) || 40 : 40;
+            const maxMark = colIdx.maxMark !== -1 ? parseInt(row[colIdx.maxMark], 10) || 100 : 100;
+
+            coursesData.push({
+              semesterNumber: semNum,
+              courseCode,
+              courseTitle,
+              category,
+              lectureHours: L,
+              tutorialHours: T,
+              practicalHours: P,
+              experientialHours: E,
+              totalContactPeriods: contactPeriods,
+              credits,
+              minMark,
+              maxMark,
+            });
+          }
 
           const validTypes = ['THEORY', 'INTEGRATED', 'PRACTICAL', 'EXPERIENTIAL LEARNING'];
           const knownCategories = ['HSMC', 'BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'PCC', 'MC'];
@@ -473,7 +570,11 @@ const ManageRegulations = () => {
             const normalizedCategory = String(course.category || '').trim().toUpperCase();
             const isElective = ['PEC', 'OEC'].includes(normalizedCategory);
             const hasSemester = !isNaN(course.semesterNumber);
-            const semesterOutOfRange = hasSemester && (course.semesterNumber < 1 || course.semesterNumber > 8);
+            // Determine max semester based on the regulation's degree (ME/MTech = 4 sems, BE/BTech = 8 sems)
+            const selectedReg = regulations.find(r => String(r.regulationId) === String(selectedRegulation));
+            const regDegree = selectedReg?.degree || 'BE';
+            const maxSemForImport = ['ME', 'MTech'].includes(regDegree) ? 4 : 8;
+            const semesterOutOfRange = hasSemester && (course.semesterNumber < 1 || course.semesterNumber > maxSemForImport);
             const missingRequiredSemester = !isElective && !hasSemester;
             const invalidSemester = semesterOutOfRange || missingRequiredSemester;
 
@@ -500,7 +601,7 @@ const ManageRegulations = () => {
               invalidCourses.push({
                 course,
                 error: `Invalid data: ${missingRequiredSemester ? 'Missing semester number for non-PEC/OEC' : ''} ${
-                  semesterOutOfRange ? 'Semester out of range (1-8)' : ''
+                  semesterOutOfRange ? `Semester out of range (1-${maxSemForImport} for ${regDegree})` : ''
                 } ${
                   !course.courseCode ? 'Missing course code' : ''
                 } ${!course.courseTitle ? 'Missing course title' : ''} ${
@@ -702,8 +803,15 @@ const ManageRegulations = () => {
                     <select
                       value={selectedDegree}
                       onChange={(e) => {
-                        setSelectedDegree(e.target.value);
+                        const deg = e.target.value;
+                        setSelectedDegree(deg);
+                        // Reset regulation + downstream state when degree changes
                         setSelectedRegulation('');
+                        setSelectedVertical('');
+                        setAvailableCourses([]);
+                        setSelectedCourses([]);
+                        setRegulationCourses([]);
+                        setConnectedBatches([]);
                       }}
                       disabled={!selectedDept}
                       className="w-28 shrink-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed text-sm font-semibold"
@@ -741,7 +849,19 @@ const ManageRegulations = () => {
                   )}
                 </div>
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">Regulation</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Regulation
+                  {selectedDegree && (
+                    <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                      Showing {selectedDegree} only
+                    </span>
+                  )}
+                  {!selectedDegree && regulations.length > 0 && (
+                    <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      Select a degree above to filter
+                    </span>
+                  )}
+                </label>
                 <select
                   value={selectedRegulation}
                   onChange={handleRegulationChange}
@@ -749,11 +869,18 @@ const ManageRegulations = () => {
                   disabled={!selectedDept}
                 >
                   <option value="">Select Regulation</option>
-                  {regulations.map(reg => (
+                  {visibleRegulations.map(reg => (
                     <option key={reg.regulationId} value={reg.regulationId}>
                       {reg.displayName || `${getRegDeptAcronym(reg)} ${reg.degree || ''} ${reg.regulationYear}`.trim()}
                     </option>
                   ))}
+                  {visibleRegulations.length === 0 && selectedDept && (
+                    <option value="" disabled>
+                      {selectedDegree
+                        ? `No ${selectedDegree} regulations found — create one above`
+                        : 'No regulations found for this department'}
+                    </option>
+                  )}
                 </select>
               </div>
             </div>
