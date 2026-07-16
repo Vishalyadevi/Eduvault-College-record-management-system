@@ -38,32 +38,7 @@ function normalizeAttendanceDate(rawDate) {
   return date.toISOString().split('T')[0];
 }
 
-<<<<<<< HEAD
 async function resolveSectionIdForStudent({ slot, student, transaction, actor = 'admin' }) {
-=======
-function normalizeDegree(value) {
-  return String(value || '').trim().toUpperCase().replace(/[\s.]/g, '');
-}
-
-function degreeAliases(value) {
-  const normalized = normalizeDegree(value);
-  const aliases = {
-    BE: ['B.E', 'BE'],
-    ME: ['M.E', 'ME'],
-    BTECH: ['B.Tech', 'BTech', 'BTECH'],
-    MTECH: ['M.Tech', 'MTech', 'MTECH']
-  };
-
-  return aliases[normalized] || (value ? [String(value).trim()] : []);
-}
-
-function buildStudentDegreeWhere(value) {
-  const aliases = degreeAliases(value);
-  return aliases.length ? { course: { [Op.in]: aliases } } : {};
-}
-
-async function resolveSectionIdForStudent({ slot, student }) {
->>>>>>> 9fa05dd3ac1acb791f39accf6a5da4667bb9d148
   if (!slot || !slot.courseId) return null;
 
   if (slot.sectionId) return slot.sectionId;
@@ -112,10 +87,6 @@ async function resolveSectionIdForStudent({ slot, student }) {
 
   if (fallbackSection?.sectionId) return fallbackSection.sectionId;
 
-  // Postgraduate/small-cohort courses are sometimes configured without a
-  // Section row because the whole cohort attends together. PeriodAttendance
-  // requires a non-null sectionId, so create one stable cohort section rather
-  // than silently skipping every student and returning a false success.
   const [generalSection] = await Section.findOrCreate({
     where: { courseId: slot.courseId, sectionName: 'General' },
     defaults: {
@@ -134,6 +105,27 @@ async function resolveSectionIdForStudent({ slot, student }) {
   }
 
   return generalSection.sectionId;
+}
+
+function normalizeDegree(value) {
+  return String(value || '').trim().toUpperCase().replace(/[\s.]/g, '');
+}
+
+function degreeAliases(value) {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ['B.E', 'BE'],
+    ME: ['M.E', 'ME'],
+    BTECH: ['B.Tech', 'BTech', 'BTECH'],
+    MTECH: ['M.Tech', 'MTech', 'MTECH']
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+}
+
+function buildStudentDegreeWhere(value) {
+  const aliases = degreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
 }
 
 async function resolveBatchContext({ batch, departmentId, degree, branch }) {
@@ -1017,13 +1009,27 @@ export async function getStudentsBySemester(req, res) {
 
 export async function getStudentAttendanceStatuses(req, res) {
   try {
-    const { regnos, startDate, endDate } = req.method === 'POST' ? req.body : req.query;
+    const {
+      regnos,
+      startDate,
+      endDate,
+      departmentId,
+      semesterId,
+      selectedPeriods = [],
+    } = req.method === 'POST' ? req.body : req.query;
     const rollnumbers = Array.isArray(regnos)
       ? regnos.map((r) => String(r).trim()).filter(Boolean)
       : String(regnos || '')
           .split(',')
           .map((r) => r.trim())
           .filter(Boolean);
+    const semesterNumber = await resolveSemesterNumber(semesterId);
+    const periodFilter = Array.isArray(selectedPeriods)
+      ? selectedPeriods.map((period) => Number(period)).filter((period) => Number.isInteger(period) && period > 0)
+      : String(selectedPeriods || '')
+          .split(',')
+          .map((period) => Number(period))
+          .filter((period) => Number.isInteger(period) && period > 0);
 
     if (!rollnumbers.length || !startDate || !endDate) {
       return res.status(400).json({
@@ -1036,9 +1042,15 @@ export async function getStudentAttendanceStatuses(req, res) {
       where: {
         regno: { [Op.in]: rollnumbers },
         attendanceDate: { [Op.between]: [startDate, endDate] },
+        ...(departmentId ? { departmentId } : {}),
+        ...(semesterNumber ? { semesterNumber } : {}),
+        ...(periodFilter.length > 0 ? { periodNumber: { [Op.in]: periodFilter } } : {}),
       },
       attributes: ['regno', 'attendanceDate', 'status'],
-      order: [['attendanceDate', 'ASC']],
+      order: [
+        ['attendanceDate', 'ASC'],
+        ['periodAttendanceId', 'DESC'],
+      ],
     });
 
     const dateStatuses = attendanceRows.reduce((acc, row) => {

@@ -216,10 +216,17 @@ export default function AdminAttendanceGenerator() {
     if (!normalizedRollnumbers.length || !startDate || !endDate) return {};
 
     try {
+      const selectedPeriodNumbers = selectedPeriods.includes("all")
+        ? []
+        : selectedPeriods.map((period) => Number(period)).filter(Number.isInteger);
+
       const res = await axios.post(`${API_BASE_URL}/api/admin/attendance/student-statuses`, {
         regnos: normalizedRollnumbers,
         startDate,
         endDate,
+        departmentId: selectedDepartment || undefined,
+        semesterId: selectedSemester || undefined,
+        selectedPeriods: selectedPeriodNumbers,
       });
       return res.data?.status === 'success' ? res.data.data || {} : {};
     } catch (err) {
@@ -267,7 +274,7 @@ export default function AdminAttendanceGenerator() {
   useEffect(() => {
     if (!dates.length || students.length === 0) return;
     reloadSavedAttendanceStatuses(students);
-  }, [startDate, endDate, students.length]);
+  }, [startDate, endDate, selectedDepartment, selectedSemester, selectedPeriods, students.length]);
 
   const fetchStudents = async () => {
     if (!selectedDegree || !selectedBatch || !selectedSemester || !selectedDepartment) {
