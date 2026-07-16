@@ -25,6 +25,14 @@ const getStaffId = (req) => {
 
 const getStaffNumber = (req) => req.user?.userNumber || 'Unknown';
 
+const activeStudentUserInclude = () => ({
+  model: User,
+  as: 'studentUser',
+  where: { status: 'Active' },
+  required: true,
+  attributes: ['userName']
+});
+
 const CONSOLIDATION_LOCK_PREFIX = 'MARKS_LOCK_SEM_';
 const FINALIZED_MARKS_LOCK_VALUE = 'finalized';
 
@@ -462,7 +470,7 @@ export const exportCoWiseCsv = catchAsync(async (req, res) => {
   const { coId } = req.params;
   const co = await CourseOutcome.findByPk(coId, { include: [Course] });
   const tools = await COTool.findAll({ where: { coId }, include: [ToolDetails] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: co.courseId } }] });
+  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: co.courseId } }, activeStudentUserInclude()] });
   const header = [{ id: 'regno', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...tools.map(t => ({ id: t.toolName, title: t.toolName })), { id: 'con', title: 'Consolidated' }];
   const data = await Promise.all(students.map(async s => {
     const row = { regno: s.registerNumber, name: s.studentName };
@@ -656,12 +664,7 @@ export const getConsolidatedMarks = catchAsync(async (req, res) => {
         semester: String(semesterRecord.semesterNumber)
       },
       attributes: ['registerNumber', 'studentName', 'batch', 'semester'],
-      include: [{
-        model: User,
-        as: 'studentUser',
-        required: false,
-        attributes: ['userName']
-      }],
+      include: [activeStudentUserInclude()],
       order: [['registerNumber', 'ASC']]
     });
 
@@ -736,7 +739,7 @@ export const getStudentCOMarksAdmin = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({
     include: [
       { model: StudentCourse, where: { courseId: course.courseId } },
-      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+      activeStudentUserInclude()
     ]
   });
   const marks = await StudentCoMarks.findAll({ where: { coId: cos.map(c => c.coId), regno: students.map(s => s.registerNumber) } });
@@ -769,7 +772,7 @@ export const exportCourseWiseCsvAdmin = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({
     include: [
       { model: StudentCourse, where: { courseId: course.courseId } },
-      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+      activeStudentUserInclude()
     ]
   });
   const header = [{ id: 'regno', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...cos.map(c => ({ id: c.coNumber, title: c.coNumber })), { id: 'avg', title: 'Average' }];
@@ -789,7 +792,7 @@ export const exportCourseWiseCsvAdmin = catchAsync(async (req, res) => {
 
 export const getStudentsForCourseAdmin = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, include: [{ model: Course, where: { courseCode: courseCode.toUpperCase() } }] }] });
+  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, include: [{ model: Course, where: { courseCode: courseCode.toUpperCase() } }] }, activeStudentUserInclude()] });
   res.json({ status: 'success', data: students });
 });
 
@@ -800,7 +803,7 @@ export const getStudentCOMarksBySection = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({
     include: [
       { model: StudentCourse, where: { courseId: course.courseId, sectionId } },
-      { model: User, as: 'studentUser', required: false, attributes: ['userName'] }
+      activeStudentUserInclude()
     ]
   });
   const marks = await StudentCoMarks.findAll({ where: { coId: cos.map(c => c.coId), regno: students.map(s => s.registerNumber) } });
@@ -886,6 +889,7 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
       {
         model: StudentDetails,
         attributes: ['registerNumber', 'studentName', 'studentId'],
+        include: [activeStudentUserInclude()],
         required: true
       }
     ],
@@ -912,7 +916,7 @@ export const exportCourseWiseCsv = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const course = await Course.findOne({ where: { courseCode: courseCode.toUpperCase() } });
   const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType], order: [['coNumber', 'ASC']] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: course.courseId, sectionId: { [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${staffId} AND courseId = ${course.courseId})`) } } }] });
+  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: course.courseId, sectionId: { [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${staffId} AND courseId = ${course.courseId})`) } } }, activeStudentUserInclude()] });
   const header = [{ id: 'regNo', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...cos.map(co => ({ id: co.coNumber, title: co.coNumber })), { id: 'finalAvg', title: 'Final Avg' }];
   const data = await Promise.all(students.map(async s => {
     const row = { regNo: s.registerNumber, name: s.studentName };
@@ -1146,7 +1150,7 @@ export const getStudentsForCourse = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const staffAssig = await StaffCourse.findAll({ where: { Userid: staffId }, include: [{ model: Course, where: { courseCode: courseCode.toUpperCase() } }] });
   if (!staffAssig.length) return res.json({ status: 'success', results: 0, data: [] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: staffAssig[0].courseId, sectionId: { [Op.in]: staffAssig.map(a => a.sectionId) } } }] });
+  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: staffAssig[0].courseId, sectionId: { [Op.in]: staffAssig.map(a => a.sectionId) } } }, activeStudentUserInclude()] });
   res.json({ status: 'success', results: students.length, data: students.map(s => ({ regno: s.registerNumber, name: s.studentName })) });
 });
 

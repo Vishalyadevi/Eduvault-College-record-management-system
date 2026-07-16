@@ -180,6 +180,13 @@ export const updateStaffAllocation = catchAsync(async (req, res) => {
     const allocation = await StaffCourse.findByPk(staffCourseId, { transaction });
     if (!allocation) throw new Error("Allocation not found");
 
+    const activeStaff = await User.findOne({
+      where: { userId: Userid, status: 'Active' },
+      attributes: ['userId'],
+      transaction
+    });
+    if (!activeStaff) throw new Error("Staff member not found or inactive");
+
     // Duplicate check (excluding current record)
     const dup = await StaffCourse.findOne({
       where: {

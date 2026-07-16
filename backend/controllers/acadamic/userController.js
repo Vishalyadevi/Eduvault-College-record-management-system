@@ -25,15 +25,27 @@ const toSafeUser = (userInstance) => {
 export const getAllUsers = async (req, res) => {
   try {
     const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
+    const requestedStatus = String(req.query.status || '').trim();
+    const where = {};
+    if (req.query.companyId) where.companyId = req.query.companyId;
+    if (req.query.departmentId) where.departmentId = req.query.departmentId;
+    if (req.query.roleId) where.roleId = req.query.roleId;
+    if (['Active', 'Inactive'].includes(requestedStatus)) {
+      where.status = requestedStatus;
+    } else if (!includeInactive) {
+      where.status = 'Active';
+    }
+
     const users = await User.findAll({
       attributes: ['userId', 'userName', 'userMail', 'userNumber', 'departmentId', 'roleId', 'companyId', 'status', 'createdAt', 'updatedAt'],
-      where: includeInactive ? {} : { status: 'Active' },
+      where,
       include: [
         { model: db.Company, as: 'company', attributes: ['companyId', 'companyName', 'companyAcr'] },
         { model: db.Department, as: 'department', attributes: ['departmentId', 'departmentName', 'departmentAcr'] },
         { model: db.Role, as: 'role', attributes: ['roleId', 'roleName'] },
 
-      ]
+      ],
+      order: [['userNumber', 'ASC']]
     });
     res.json(users.map(toSafeUser));
   } catch (error) {

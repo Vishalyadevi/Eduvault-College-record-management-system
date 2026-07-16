@@ -379,7 +379,31 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
       });
       coursesToAllocate = [...new Set(bucketCourses.map(bc => bc.courseId))];
     } else if (courseId) {
-      coursesToAllocate = [courseId];
+      const selectedCourseId = Number(courseId);
+      const selectedCourse = await Course.findOne({
+        where: { courseId: selectedCourseId, semesterId, isActive: 'YES' },
+        attributes: ['courseId'],
+        transaction
+      });
+      if (!selectedCourse) {
+        throw new Error('The selected course does not belong to this semester.');
+      }
+
+      const electiveMembership = await ElectiveBucketCourse.findOne({
+        where: { courseId: selectedCourseId },
+        include: [{
+          model: ElectiveBucket,
+          where: { semesterId },
+          attributes: [],
+          required: true
+        }],
+        transaction
+      });
+      if (electiveMembership) {
+        throw new Error('Elective courses must be assigned through the elective bucket option.');
+      }
+
+      coursesToAllocate = [selectedCourseId];
     }
 
     if (coursesToAllocate.length === 0) {

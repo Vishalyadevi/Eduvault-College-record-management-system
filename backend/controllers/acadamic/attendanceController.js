@@ -332,7 +332,14 @@ export async function getStudentsForPeriod(req, res, next) {
               sequelize.col('StudentDetail.registerNumber')
             )
           },
-          attributes: ['registerNumber', 'studentName', 'Userid']
+          attributes: ['registerNumber', 'studentName', 'Userid'],
+          include: [{
+            model: User,
+            as: 'studentUser',
+            where: { status: 'Active' },
+            required: true,
+            attributes: []
+          }]
         },
         {
           model: PeriodAttendance,
@@ -382,6 +389,13 @@ export async function getStudentsForPeriod(req, res, next) {
             semester: String(semesterNumber),
             ...(sectionName ? { section: sectionName } : {})
           },
+          include: [{
+            model: User,
+            as: 'studentUser',
+            where: { status: 'Active' },
+            required: true,
+            attributes: []
+          }],
           attributes: ['registerNumber', 'studentName'],
           order: [['registerNumber', 'ASC']]
         });

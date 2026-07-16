@@ -134,7 +134,7 @@ const ChooseCourse = () => {
         });
         setSelections(initialSelections);
       } catch (err) {
-        setError('Failed to fetch elective buckets for this semester.');
+        setError(err.message || 'Failed to fetch elective buckets for this semester.');
       } finally {
         setLoading(false);
       }

@@ -38,7 +38,7 @@ function normalizeAttendanceDate(rawDate) {
   return date.toISOString().split('T')[0];
 }
 
-async function resolveSectionIdForStudent({ slot, student }) {
+async function resolveSectionIdForStudent({ slot, student, transaction, actor = 'admin' }) {
   if (!slot || !slot.courseId) return null;
 
   if (slot.sectionId) return slot.sectionId;
@@ -52,6 +52,7 @@ async function resolveSectionIdForStudent({ slot, student }) {
           sectionName,
         },
         attributes: ['sectionId'],
+        transaction,
       });
       if (sectionMatch) return sectionMatch.sectionId;
 
@@ -64,6 +65,7 @@ async function resolveSectionIdForStudent({ slot, student }) {
           ),
         },
         attributes: ['sectionId'],
+        transaction,
       });
       if (sectionMatchInsensitive) return sectionMatchInsensitive.sectionId;
     }
@@ -72,16 +74,41 @@ async function resolveSectionIdForStudent({ slot, student }) {
   const studentCourse = await StudentCourse.findOne({
     where: { regno: student?.rollnumber, courseId: slot.courseId },
     attributes: ['sectionId'],
+    transaction,
   });
   if (studentCourse?.sectionId) return studentCourse.sectionId;
 
   const fallbackSection = await Section.findOne({
-    where: { courseId: slot.courseId },
+    where: { courseId: slot.courseId, isActive: 'YES' },
     attributes: ['sectionId'],
     order: [['sectionId', 'ASC']],
+    transaction,
   });
 
-  return fallbackSection?.sectionId || null;
+  if (fallbackSection?.sectionId) return fallbackSection.sectionId;
+
+  // Postgraduate/small-cohort courses are sometimes configured without a
+  // Section row because the whole cohort attends together. PeriodAttendance
+  // requires a non-null sectionId, so create one stable cohort section rather
+  // than silently skipping every student and returning a false success.
+  const [generalSection] = await Section.findOrCreate({
+    where: { courseId: slot.courseId, sectionName: 'General' },
+    defaults: {
+      courseId: slot.courseId,
+      sectionName: 'General',
+      capacity: 40,
+      isActive: 'YES',
+      createdBy: actor,
+      updatedBy: actor,
+    },
+    transaction,
+  });
+
+  if (generalSection.isActive !== 'YES') {
+    await generalSection.update({ isActive: 'YES', updatedBy: actor }, { transaction });
+  }
+
+  return generalSection.sectionId;
 }
 
 async function resolveBatchContext({ batch, departmentId, degree, branch }) {
@@ -926,8 +953,9 @@ export async function getStudentsBySemester(req, res) {
         {
           model: User,
           as: 'studentUser',
-          required: false,
-          attributes: ['userName']
+          required: true,
+          where: { status: 'Active' },
+          attributes: ['userName', 'status']
         }
       ],
       order: [['registerNumber', 'ASC']]
@@ -1084,7 +1112,12 @@ export async function markStudentStatus(req, res) {
         continue;
       }
 
-      let resolvedSectionId = await resolveSectionIdForStudent({ slot, student });
+      const resolvedSectionId = await resolveSectionIdForStudent({
+        slot,
+        student,
+        transaction: t,
+        actor: adminUser.userName || 'admin',
+      });
       if (!resolvedSectionId) {
         continue;
       }
@@ -1239,14 +1272,17 @@ export async function markFullDayOD(req, res) {
             ...(requestedPeriods.length > 0 ? { periodNumber: { [Op.in]: requestedPeriods } } : {}),
           };
 
-          await PeriodAttendance.destroy({ where: deleteWhere, transaction: t });
+          const deletedCount = await PeriodAttendance.destroy({ where: deleteWhere, transaction: t });
           await upsertDayAttendanceSummary({
             regno: student.rollnumber,
             semesterNumber: effectiveSemesterNumber,
             attendanceDate: currentDate,
             transaction: t
           });
-          dateHadChanges = true;
+          if (deletedCount > 0) {
+            totalEntries += deletedCount;
+            dateHadChanges = true;
+          }
           continue;
         }
 
@@ -1259,10 +1295,12 @@ export async function markFullDayOD(req, res) {
             continue;
           }
 
-          const resolvedSectionId = await resolveSectionIdForStudent({ slot, student });
-          if (!resolvedSectionId) {
-            continue;
-          }
+          const resolvedSectionId = await resolveSectionIdForStudent({
+            slot,
+            student,
+            transaction: t,
+            actor: adminUser.userName || 'admin',
+          });
 
           await saveOrUpdatePeriodAttendance({
             regno: student.rollnumber,
@@ -1278,6 +1316,7 @@ export async function markFullDayOD(req, res) {
             updatedBy: "admin"
           }, t);
           totalEntries += 1;
+          dateHadChanges = true;
         }
 
         await upsertDayAttendanceSummary({
@@ -1286,7 +1325,6 @@ export async function markFullDayOD(req, res) {
           attendanceDate: currentDate,
           transaction: t
         });
-        dateHadChanges = true;
       }
 
       if (dateHadChanges) {
@@ -1294,13 +1332,13 @@ export async function markFullDayOD(req, res) {
       }
     }
 
-    if (processedDates === 0) {
+    if (processedDates === 0 || totalEntries === 0) {
       if (!t.finished) {
         await t.rollback();
       }
       return res.status(404).json({
         status: "error",
-        message: `No classes found in timetable for Batch ${batch}, Dept ${departmentId} in the selected date range.`,
+        message: `No attendance records were written. Check the timetable and course sections for Batch ${batch}, Dept ${departmentId}.`,
       });
     }
 

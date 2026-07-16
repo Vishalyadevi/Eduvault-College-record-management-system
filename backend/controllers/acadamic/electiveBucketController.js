@@ -412,7 +412,13 @@ export const getElectiveReselectionRequestsForAdmin = catchAsync(async (req, res
   const students = await StudentDetails.findAll({
     include: [
       { model: Department, as: "department", attributes: ["departmentName", "departmentAcr"] },
-      { model: User, as: "user", attributes: ["userId", "userName", "userMail"] }
+      {
+        model: User,
+        as: "user",
+        where: { status: "Active" },
+        required: true,
+        attributes: ["userId", "userName", "userMail", "status"]
+      }
     ],
     attributes: ["studentId", "studentName", "registerNumber", "semester", "batch", "messages"]
   });

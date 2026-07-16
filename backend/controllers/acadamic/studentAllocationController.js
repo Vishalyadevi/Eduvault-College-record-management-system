@@ -59,6 +59,13 @@ export const searchStudents = catchAsync(async (req, res) => {
     },
     include: [
       {
+        model: User,
+        as: 'studentUser',
+        where: { status: 'Active' },
+        required: true,
+        attributes: []
+      },
+      {
         model: Department,
         as: 'department',
         where: branch ? { departmentAcr: branch } : {},
@@ -85,7 +92,7 @@ export const searchStudents = catchAsync(async (req, res) => {
 
   if (userIds.length > 0) {
     const users = await User.findAll({
-      where: { userId: { [Op.in]: userIds } },
+      where: { userId: { [Op.in]: userIds }, status: 'Active' },
       attributes: ['userId', 'userName'],
       raw: true,
     });
@@ -195,6 +202,13 @@ export const enrollStudentInCourse = catchAsync(async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+    const activeStudent = await User.findOne({
+      where: { userNumber: rollnumber, status: 'Active' },
+      attributes: ['userId'],
+      transaction
+    });
+    if (!activeStudent) throw new Error('Student not found or inactive');
+
     const section = await Section.findOne({
       where: { courseId, sectionName, isActive: 'YES' },
       transaction

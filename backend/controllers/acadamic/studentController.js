@@ -68,6 +68,7 @@ export const addStudent = catchAsync(async (req, res) => {
       departmentId: batchRecord.departmentId,
       // Deptid: batchRecord.departmentId,
       batch: batch,
+      course: degree,
       semester: semesterNumber,
       pending: true,
       createdBy: currentUserId
@@ -85,12 +86,26 @@ export const addStudent = catchAsync(async (req, res) => {
  * Gets all students with their batch info
  */
 export const getAllStudents = catchAsync(async (req, res) => {
+  const requestedStatus = String(req.query.status || 'Active').trim();
+  const userStatusWhere = requestedStatus.toLowerCase() === 'all'
+    ? {}
+    : { status: requestedStatus === 'Inactive' ? 'Inactive' : 'Active' };
+
   const students = await StudentDetails.findAll({
-    include: [{
-      model: Department,
-      as: 'department',
-      attributes: ['departmentName', 'departmentAcr']
-    }],
+    include: [
+      {
+        model: User,
+        as: 'studentUser',
+        where: userStatusWhere,
+        required: true,
+        attributes: ['userId', 'userName', 'userMail', 'status']
+      },
+      {
+        model: Department,
+        as: 'department',
+        attributes: ['departmentName', 'departmentAcr']
+      }
+    ],
     order: [['registerNumber', 'ASC']]
   });
 
@@ -120,8 +135,16 @@ export const updateStudent = catchAsync(async (req, res) => {
       updatedBy: currentUserId
     }, { transaction: t });
 
-    if (name) {
-      await User.update({ userName: name }, { where: { userNumber: rollnumber }, transaction: t });
+    const userUpdates = {};
+    if (name) userUpdates.userName = name;
+    if (status !== undefined) {
+      if (!['Active', 'Inactive'].includes(status)) {
+        throw new Error('Status must be Active or Inactive');
+      }
+      userUpdates.status = status;
+    }
+    if (Object.keys(userUpdates).length > 0) {
+      await User.update(userUpdates, { where: { userNumber: rollnumber }, transaction: t });
     }
   });
 
@@ -252,6 +275,12 @@ export const getStudentByRollNumber = catchAsync(async (req, res) => {
     where: { registerNumber: rollnumber },
     include: [
       {
+        model: User,
+        as: 'studentUser',
+        attributes: ['userId', 'userName', 'userMail', 'status'],
+        required: true
+      },
+      {
         model: Department,
         as: 'department',
         attributes: ['departmentName', 'departmentAcr']
@@ -312,7 +341,15 @@ export const getStudentsByCourseAndSection = catchAsync(async (req, res) => {
     include: [
       {
         model: StudentDetails,
-        attributes: ['registerNumber', 'studentName', 'batch']
+        attributes: ['registerNumber', 'studentName', 'batch'],
+        include: [{
+          model: User,
+          as: 'studentUser',
+          where: { status: 'Active' },
+          required: true,
+          attributes: []
+        }],
+        required: true
       },
       {
         model: Section,
@@ -395,8 +432,8 @@ export const getSemesterUpgradeBatches = catchAsync(async (req, res) => {
       const where = { batch: row.batch, departmentId: row.departmentId, course: row.degree };
       const students = await StudentDetails.findAll({
         where,
+        include: [{ model: User, as: 'studentUser', where: { status: 'Active' }, required: true, attributes: [] }],
         attributes: ['semester'],
-        raw: true,
       });
 
       const semesterNumbers = students
@@ -478,8 +515,8 @@ export const upgradeSemesterByBatchAndDepartment = catchAsync(async (req, res) =
 
   const students = await StudentDetails.findAll({
     where: studentWhere,
+    include: [{ model: User, as: 'studentUser', where: { status: 'Active' }, required: true, attributes: [] }],
     attributes: ['studentId', 'semester'],
-    raw: true,
   });
 
   if (!students.length) {

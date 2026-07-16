@@ -48,6 +48,14 @@ const StudentDetails = sequelize.define(
       type: DataTypes.INTEGER,
     },
 
+    // Academic programme/degree (BE, BTech, ME, MTech).  Several academic
+    // queries already use this legacy database column as `course`; declaring
+    // it here ensures it is also loaded on student profile reads.
+    course: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+
     semester: {
       type: DataTypes.STRING(255),
     },

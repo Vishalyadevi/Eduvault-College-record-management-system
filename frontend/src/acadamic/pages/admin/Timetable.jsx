@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Filter,
   Save,
@@ -36,6 +36,20 @@ const Timetable = () => {
   // Bucket states
   const [electiveBuckets, setElectiveBuckets] = useState([]);
   const [bucketCourses, setBucketCourses] = useState([]);
+  const [bucketsLoading, setBucketsLoading] = useState(false);
+
+  // A course linked to an elective bucket must only be assignable through the
+  // bucket workflow. Keep the complete semester response for bucket/course
+  // management pages, but expose a strictly separated list in this page.
+  const regularCourses = useMemo(() => {
+    if (bucketsLoading) return [];
+    const electiveCourseIds = new Set(
+      bucketCourses.map((course) => Number(course.courseId)),
+    );
+    return courses.filter(
+      (course) => !electiveCourseIds.has(Number(course.courseId)),
+    );
+  }, [courses, bucketCourses, bucketsLoading]);
 
   const [dayCount, setDayCount] = useState(5);
   const [periodCount, setPeriodCount] = useState(8);
@@ -150,11 +164,23 @@ const Timetable = () => {
   }, [selectedDegree, selectedBatch, selectedDept, batches]);
 
   useEffect(() => {
-    if (selectedSem) {
-      axios
-        .get(`${API_BASE_URL}/api/admin/semesters/${selectedSem}/courses`)
-        .then((res) => setCourses(res.data.data || []));
+    if (!selectedSem) {
+      setCourses([]);
+      return undefined;
     }
+
+    const controller = new AbortController();
+    setCourses([]);
+    axios
+      .get(`${API_BASE_URL}/api/admin/semesters/${selectedSem}/courses`, {
+        signal: controller.signal,
+      })
+      .then((res) => setCourses(res.data.data || []))
+      .catch((err) => {
+        if (err.code !== "ERR_CANCELED") setError("Failed to load courses");
+      });
+
+    return () => controller.abort();
   }, [selectedSem]);
 
   useEffect(() => {
@@ -170,13 +196,20 @@ const Timetable = () => {
     if (!selectedSem) {
       setElectiveBuckets([]);
       setBucketCourses([]);
+      setBucketsLoading(false);
       return;
     }
+
+    const controller = new AbortController();
+    setBucketsLoading(true);
+    setElectiveBuckets([]);
+    setBucketCourses([]);
 
     const fetchBuckets = async () => {
       try {
         const res = await axios.get(
           `${API_BASE_URL}/api/admin/elective-buckets/${selectedSem}`,
+          { signal: controller.signal },
         );
         const buckets = res.data.data || [];
         setElectiveBuckets(buckets);
@@ -186,6 +219,7 @@ const Timetable = () => {
             try {
               const cRes = await axios.get(
                 `${API_BASE_URL}/api/admin/bucket-courses/${b.bucketId}`,
+                { signal: controller.signal },
               );
               return (cRes.data.data || []).map((c) => ({
                 ...c,
@@ -193,17 +227,24 @@ const Timetable = () => {
                 bucketNumber: b.bucketNumber,
                 bucketName: b.bucketName || `Bucket ${b.bucketNumber}`,
               }));
-            } catch {
+            } catch (err) {
+              if (err.code === "ERR_CANCELED") throw err;
               return [];
             }
           }),
         );
         setBucketCourses(allCourses.flat());
       } catch (err) {
-        console.error("Failed to load buckets", err);
+        if (err.code !== "ERR_CANCELED") {
+          console.error("Failed to load buckets", err);
+          setError("Failed to load elective buckets");
+        }
+      } finally {
+        if (!controller.signal.aborted) setBucketsLoading(false);
       }
     };
     fetchBuckets();
+    return () => controller.abort();
   }, [selectedSem]);
 
   const handleCellClick = (day, periodNumber) => {
@@ -697,7 +738,7 @@ const Timetable = () => {
                   className="w-full p-4 border-2 border-gray-300 rounded-lg"
                 >
                   <option value="">Select a course...</option>
-                  {courses.map((c) => (
+                  {regularCourses.map((c) => (
                     <option key={c.courseId} value={c.courseId}>
                       {c.courseCode} - {c.courseTitle}
                     </option>
@@ -773,7 +814,7 @@ const Timetable = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
               <h4 className="text-xl font-bold mb-4">Regular Courses</h4>
-              {courses.map((c) => (
+              {regularCourses.map((c) => (
                 <div key={c.courseId} className="p-4 border rounded-lg mb-3">
                   {c.courseCode} - {c.courseTitle}
                 </div>

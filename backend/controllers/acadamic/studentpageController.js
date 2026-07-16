@@ -59,6 +59,38 @@ const buildFinalizedMessages = (messages, semesterId, requests = null) => {
   return nextMessages;
 };
 
+// Resolve a student's one exact academic batch. Batch year and branch are not
+// sufficient because undergraduate and postgraduate programmes can share both.
+const resolveStudentBatch = async (profile) => {
+  const dept = profile.departmentId
+    ? await Department.findByPk(profile.departmentId, { attributes: ["departmentAcr"] })
+    : null;
+
+  const where = { batch: profile.batch, isActive: "YES" };
+  if (dept?.departmentAcr) where.branch = dept.departmentAcr;
+  if (profile.course) where.degree = profile.course;
+
+  const matches = await Batch.findAll({
+    where,
+    attributes: ["batchId", "degree", "branch", "batch", "regulationId"],
+  });
+
+  // Never guess between BE/ME (or another programme) and expose its courses.
+  if (matches.length !== 1) return null;
+  return matches[0];
+};
+
+const validateStudentSemester = async (profile, semesterId) => {
+  const batch = await resolveStudentBatch(profile);
+  if (!batch) return { batch: null, semester: null };
+
+  const semester = await Semester.findOne({
+    where: { semesterId: Number(semesterId), batchId: batch.batchId, isActive: "YES" },
+    attributes: ["semesterId", "batchId", "semesterNumber"],
+  });
+  return { batch, semester };
+};
+
 // 1. GET STUDENT ACADEMIC IDS
 export const getStudentAcademicIds = catchAsync(async (req, res) => {
   const userId = getCurrentUserId(req);
@@ -66,7 +98,7 @@ export const getStudentAcademicIds = catchAsync(async (req, res) => {
     return res.status(401).json({ status: "failure", message: "User not authenticated" });
   }
 
-  const key = makeCacheKey("filters:studentPage:academicIds", { userId });
+  const key = makeCacheKey("filters:studentPage:academicIds:v2", { userId });
   const payload = await getOrSetCache(
     key,
     async () => {
@@ -74,7 +106,7 @@ export const getStudentAcademicIds = catchAsync(async (req, res) => {
         include: [{
           model: StudentDetails,
           as: 'studentProfile',
-          attributes: ['departmentId', 'batch', 'semester']
+          attributes: ['departmentId', 'batch', 'semester', 'course']
         }]
       });
 
@@ -83,26 +115,13 @@ export const getStudentAcademicIds = catchAsync(async (req, res) => {
       }
 
       const profile = student.studentProfile;
-
-      const dept = profile.departmentId
-        ? await Department.findByPk(profile.departmentId, { attributes: ['departmentAcr', 'departmentName'] })
-        : null;
-
-      const batchWhere = {
-        batch: profile.batch,
-        isActive: 'YES',
-      };
-      if (dept?.departmentAcr) {
-        batchWhere.branch = dept.departmentAcr;
-      }
-
-      const batchRecord = await Batch.findOne({ where: batchWhere });
+      const batchRecord = await resolveStudentBatch(profile);
       if (!batchRecord) {
         return {
-          statusCode: 404,
+          statusCode: 409,
           body: {
             status: "failure",
-            message: `No active Batch mapping for batch ${profile.batch} and department ${dept?.departmentAcr || profile.departmentId}`
+            message: "Student degree/programme is missing or has multiple active batch mappings. Contact the academic administrator."
           }
         };
       }
@@ -294,6 +313,20 @@ export const getElectiveBuckets = catchAsync(async (req, res) => {
     return res.status(400).json({ status: "failure", message: "semesterId is required" });
   }
 
+  const { batch: studentBatch, semester } = await validateStudentSemester(user.studentProfile, semesterId);
+  if (!studentBatch) {
+    return res.status(409).json({
+      status: "failure",
+      message: "Student degree/programme is missing or has multiple active batch mappings. Contact the academic administrator."
+    });
+  }
+  if (!semester) {
+    return res.status(403).json({
+      status: "failure",
+      message: "The selected semester does not belong to your degree, branch, and batch."
+    });
+  }
+
   const buckets = await ElectiveBucket.findAll({
     where: { semesterId },
     attributes: ["bucketId", "bucketNumber", "bucketName"],
@@ -335,19 +368,7 @@ export const getElectiveBuckets = catchAsync(async (req, res) => {
     .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0))[0] || null;
   const canReselectNow = latestRequest?.status === "approved" && latestRequest?.open === true;
 
-  let regulationId = user.studentProfile.regulationId || null;
-  if (!regulationId) {
-    const dept = user.studentProfile.departmentId
-      ? await Department.findByPk(user.studentProfile.departmentId, { attributes: ["departmentAcr"] })
-      : null;
-    const batchWhere = { batch: user.studentProfile.batch, isActive: "YES" };
-    if (dept?.departmentAcr) batchWhere.branch = dept.departmentAcr;
-    const batchRecord = await Batch.findOne({
-      where: batchWhere,
-      attributes: ["regulationId"],
-    });
-    regulationId = batchRecord?.regulationId || null;
-  }
+  const regulationId = studentBatch.regulationId || null;
 
   const formatted = buckets.map((bucket) => {
     const b = bucket.toJSON();
@@ -454,6 +475,20 @@ export const allocateElectives = catchAsync(async (req, res) => {
   const { semesterId, selections } = req.body;
   if (!semesterId || !Array.isArray(selections)) {
     return res.status(400).json({ status: "failure", message: "semesterId and selections are required" });
+  }
+
+  const { batch: studentBatch, semester } = await validateStudentSemester(user.studentProfile, semesterId);
+  if (!studentBatch) {
+    return res.status(409).json({
+      status: "failure",
+      message: "Student degree/programme is missing or has multiple active batch mappings. Contact the academic administrator."
+    });
+  }
+  if (!semester) {
+    return res.status(403).json({
+      status: "failure",
+      message: "Cannot allocate an elective from another degree, branch, or batch."
+    });
   }
 
   const buckets = await ElectiveBucket.findAll({
@@ -672,7 +707,19 @@ export const getStudentEnrolledCourses = catchAsync(async (req, res) => {
 
 // 8. OTHER REQUIRED EXPORTS (some unchanged, some fixed)
 export const getMandatoryCourses = catchAsync(async (req, res) => {
+  const userId = getCurrentUserId(req);
   const { semesterId } = req.query;
+  if (!userId || !semesterId) {
+    return res.status(userId ? 400 : 401).json({ status: "failure", message: userId ? "semesterId is required" : "User not authenticated" });
+  }
+  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: "studentProfile" }] });
+  if (!user?.studentProfile) {
+    return res.status(404).json({ status: "failure", message: "Student profile not found" });
+  }
+  const { semester } = await validateStudentSemester(user.studentProfile, semesterId);
+  if (!semester) {
+    return res.status(403).json({ status: "failure", message: "The selected semester does not belong to your degree, branch, and batch." });
+  }
   const courses = await Course.findAll({ 
     where: { semesterId, isActive: 'YES', category: { [Op.notIn]: ['PEC', 'OEC'] } } 
   });
@@ -685,12 +732,12 @@ export const getSemesters = catchAsync(async (req, res) => {
     return res.status(401).json({ status: "failure", message: "User not authenticated" });
   }
 
-  const key = makeCacheKey("filters:studentPage:semesters", { userId });
+  const key = makeCacheKey("filters:studentPage:semesters:v2", { userId });
   const payload = await getOrSetCache(
     key,
     async () => {
       const user = await User.findByPk(userId, {
-        include: [{ model: StudentDetails, as: 'studentProfile', attributes: ['batch', 'departmentId'] }]
+        include: [{ model: StudentDetails, as: 'studentProfile', attributes: ['batch', 'departmentId', 'course'] }]
       });
 
       if (!user?.studentProfile) {
@@ -698,28 +745,19 @@ export const getSemesters = catchAsync(async (req, res) => {
       }
 
       const profile = user.studentProfile;
-      const dept = profile.departmentId
-        ? await Department.findByPk(profile.departmentId, { attributes: ['departmentAcr'] })
-        : null;
-
-      const batchWhere = { batch: profile.batch, isActive: 'YES' };
-      if (dept?.departmentAcr) batchWhere.branch = dept.departmentAcr;
-
-      const batches = await Batch.findAll({ where: batchWhere, attributes: ['batchId'] });
-
-      const batchIds = batches.map((b) => b.batchId);
-      if (!batchIds.length) {
+      const studentBatch = await resolveStudentBatch(profile);
+      if (!studentBatch) {
         return {
-          statusCode: 404,
+          statusCode: 409,
           body: {
             status: "failure",
-            message: `No active Batch mapping for batch ${profile.batch} and department ${dept?.departmentAcr || profile.departmentId}`
+            message: "Student degree/programme is missing or has multiple active batch mappings. Contact the academic administrator."
           }
         };
       }
 
       const semesters = await Semester.findAll({
-        where: { batchId: { [Op.in]: batchIds } },
+        where: { batchId: studentBatch.batchId, isActive: 'YES' },
         include: [{ model: Batch, where: { isActive: 'YES' }, required: true }],
         order: [['semesterNumber', 'ASC']]
       });

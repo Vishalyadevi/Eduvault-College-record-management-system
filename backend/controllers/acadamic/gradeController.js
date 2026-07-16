@@ -551,7 +551,8 @@ const getGradeStudentsByFilters = async ({ branch, batch }) => {
       {
         model: User,
         as: 'user',
-        required: false,
+        where: { status: 'Active' },
+        required: true,
         attributes: ['userName', 'status', 'roleId']
       }
     ],
@@ -627,6 +628,7 @@ export const uploadGrades = catchAsync(async (req, res) => {
     const students = await StudentDetails.findAll({
       where: { registerNumber: { [Op.in]: uniqueRegnos } },
       attributes: ['registerNumber'],
+      include: [{ model: User, as: 'studentUser', where: { status: 'Active' }, required: true, attributes: [] }],
       transaction
     });
     const validRegnos = new Set(students.map((s) => s.registerNumber));

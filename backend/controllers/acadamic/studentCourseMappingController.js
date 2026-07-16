@@ -9,6 +9,7 @@ const {
   Semester,
   Batch,
   Department,
+  User,
 } = db;
 
 export const getStudentCourseMatrix = catchAsync(async (req, res) => {
@@ -101,6 +102,13 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
 
   const students = await StudentDetails.findAll({
     where: studentWhere,
+    include: [{
+      model: User,
+      as: "studentUser",
+      where: { status: "Active" },
+      required: true,
+      attributes: [],
+    }],
     attributes: ["registerNumber", "studentName"],
     order: [["registerNumber", "ASC"]],
   });

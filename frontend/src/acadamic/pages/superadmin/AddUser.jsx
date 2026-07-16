@@ -194,6 +194,19 @@ function AddOrEditUser({
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              name="status"
+              value={formData.status || "Active"}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+
           {/* Buttons */}
           <div className="flex justify-end gap-2 pt-3">
             <button
@@ -241,6 +254,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
 
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [isEdit, setIsEdit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
@@ -260,7 +274,10 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
           API.get("/companies"),
           API.get("/roles"),
           API.get("/users", {
-            params: selectedCompanyId ? { companyId: selectedCompanyId } : {},
+            params: {
+              ...(selectedCompanyId ? { companyId: selectedCompanyId } : {}),
+              ...(statusFilter === "Active" ? {} : { includeInactive: true }),
+            },
           }),
         ]);
 
@@ -276,7 +293,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
     };
 
     fetchBaseData();
-  }, [selectedCompanyId, refreshFlag]);
+  }, [selectedCompanyId, refreshFlag, statusFilter]);
 
   // Fetch departments when company changes (in form or fixed)
   useEffect(() => {
@@ -318,6 +335,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
       companyId: currentUserRole !== "Super Admin" ? currentUserCompanyId : (selectedCompanyId || ""),
       departmentId: "",
       password: "",
+      status: "Active",
     });
     setIsEdit(false);
     setShowForm(true);
@@ -609,6 +627,16 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 bg-white text-black rounded-lg px-4 py-2 w-1/3 min-w-52 outline-none"
         />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-300 bg-white text-black rounded-lg px-4 py-2 outline-none"
+          aria-label="Filter users by status"
+        >
+          <option value="Active">Active users</option>
+          <option value="Inactive">Inactive users</option>
+          <option value="All">All users</option>
+        </select>
         <div className="flex items-center gap-2">
           <button
             onClick={openAddUserForm}
@@ -652,6 +680,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
               <th className="py-3 px-4">Role</th>
               {!selectedCompanyId && <th className="py-3 px-4">Company</th>}
               <th className="py-3 px-4">Department</th>
+              <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4">Actions</th>
             </tr>
           </thead>
@@ -659,8 +688,9 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
             {users
               .filter(
                 (u) =>
-                  (u.userNumber || "").toLowerCase().includes(search.toLowerCase()) ||
-                  (u.userMail || "").toLowerCase().includes(search.toLowerCase())
+                  (statusFilter === "All" || u.status === statusFilter) &&
+                  ((u.userNumber || "").toLowerCase().includes(search.toLowerCase()) ||
+                    (u.userMail || "").toLowerCase().includes(search.toLowerCase()))
               )
               .map((u) => (
                 <tr key={u.userNumber} className="border-t hover:bg-gray-50">
@@ -677,6 +707,15 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
                       departmentsForCompany.find((d) => d.departmentId === u.departmentId)?.Deptacronym ||
                       "-"}
                   </td>
+                  <td className="py-2 px-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      u.status === "Active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-200 text-gray-700"
+                    }`}>
+                      {u.status || "Active"}
+                    </span>
+                  </td>
                   <td className="py-2 px-4 flex gap-2">
                     <button
                       className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-md"
@@ -690,6 +729,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
                           companyId: u.companyId,
                           departmentId: u.departmentId || "",
                           password: "",
+                          status: u.status || "Active",
                         });
                         setShowForm(true);
                         setIsEdit(true);
@@ -731,7 +771,7 @@ export default function AddUser({ selectedCompanyId, selectedCompanyName }) {
 
             {users.length === 0 && (
               <tr>
-                <td colSpan={selectedCompanyId ? 5 : 6} className="text-center py-8 text-gray-500">
+                <td colSpan={selectedCompanyId ? 6 : 7} className="text-center py-8 text-gray-500">
                   No users found
                 </td>
               </tr>

@@ -322,7 +322,7 @@ export const forgotPassword = async (req, res) => {
     const email = String(req.body.email || "").toLowerCase().trim();
     if (!email) return res.status(400).json({ msg: "Email is required" });
 
-    const user = await db.User.findOne({ where: { userMail: email } });
+    const user = await db.User.findOne({ where: { userMail: email, status: "Active" } });
     if (!user) return res.status(200).json({ msg: "If the email exists, a reset link has been sent" });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
