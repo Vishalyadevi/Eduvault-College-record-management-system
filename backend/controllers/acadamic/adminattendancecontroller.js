@@ -38,7 +38,32 @@ function normalizeAttendanceDate(rawDate) {
   return date.toISOString().split('T')[0];
 }
 
+<<<<<<< HEAD
 async function resolveSectionIdForStudent({ slot, student, transaction, actor = 'admin' }) {
+=======
+function normalizeDegree(value) {
+  return String(value || '').trim().toUpperCase().replace(/[\s.]/g, '');
+}
+
+function degreeAliases(value) {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ['B.E', 'BE'],
+    ME: ['M.E', 'ME'],
+    BTECH: ['B.Tech', 'BTech', 'BTECH'],
+    MTECH: ['M.Tech', 'MTech', 'MTECH']
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+}
+
+function buildStudentDegreeWhere(value) {
+  const aliases = degreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+}
+
+async function resolveSectionIdForStudent({ slot, student }) {
+>>>>>>> 9fa05dd3ac1acb791f39accf6a5da4667bb9d148
   if (!slot || !slot.courseId) return null;
 
   if (slot.sectionId) return slot.sectionId;
@@ -119,7 +144,7 @@ async function resolveBatchContext({ batch, departmentId, degree, branch }) {
 
   const where = { batch: rawBatch };
   if (degree) {
-    where.degree = String(degree).trim();
+    where.degree = { [Op.in]: degreeAliases(degree) };
   }
   if (branch) {
     where.branch = String(branch).trim();
@@ -131,11 +156,19 @@ async function resolveBatchContext({ batch, departmentId, degree, branch }) {
   if (departmentId) {
     const departmentRecord = await Department.findByPk(departmentId);
     if (departmentRecord?.departmentAcr) {
-      return Batch.findOne({ where: { batch: rawBatch, branch: departmentRecord.departmentAcr } });
+      const fallbackWhere = { batch: rawBatch, branch: departmentRecord.departmentAcr };
+      if (degree) {
+        fallbackWhere.degree = { [Op.in]: degreeAliases(degree) };
+      }
+      return Batch.findOne({ where: fallbackWhere });
     }
   }
 
-  return Batch.findOne({ where: { batch: rawBatch } });
+  const fallbackWhere = { batch: rawBatch };
+  if (degree) {
+    fallbackWhere.degree = { [Op.in]: degreeAliases(degree) };
+  }
+  return Batch.findOne({ where: fallbackWhere });
 }
 
 // Helper to generate dates between two dates (inclusive)
@@ -312,7 +345,7 @@ export async function getTimetableAdmin(req, res, next) {
             model: Batch,
             required: true,
             where: {
-              degree: degree,
+              degree: { [Op.in]: degreeAliases(degree) },
               batch: batch,
               branch: branch
             }
@@ -391,6 +424,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
     const effectiveDeptId = Number.isNaN(normalizedDeptId) ? authDeptId : normalizedDeptId;
     const effectiveSemesterId = Number.isNaN(normalizedSemesterId) ? course.semesterId : normalizedSemesterId;
     const effectiveSemesterNumber = await resolveSemesterNumber(effectiveSemesterId);
+    const studentDegreeWhere = buildStudentDegreeWhere(queryDegree);
     let targetCourseIds = [requestedCourseId];
 
     if (isElective) {
@@ -450,7 +484,8 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
               where: {
                 ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
                 ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
-                ...(queryBatch ? { batch: queryBatch } : {})
+                ...(queryBatch ? { batch: queryBatch } : {}),
+                ...studentDegreeWhere
               },
             attributes: ['registerNumber', 'studentName', 'Userid'],
             include: [
@@ -508,7 +543,8 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
               where: {
                 ...(effectiveDeptId ? { departmentId: effectiveDeptId } : {}),
                 ...(effectiveSemesterNumber ? { semester: String(effectiveSemesterNumber) } : {}),
-                ...(queryBatch ? { batch: queryBatch } : {})
+                ...(queryBatch ? { batch: queryBatch } : {}),
+                ...studentDegreeWhere
               },
             attributes: ["registerNumber", "studentName", "section", "Userid"],
             include: [
@@ -935,13 +971,14 @@ export async function getStudentsBySemester(req, res) {
     const semesterNumber = await resolveSemesterNumber(semesterId);
     const batchRecord = await resolveBatchContext({ batch, departmentId, degree, branch });
     const normalizedBatch = batchRecord?.batch ?? batch;
+    const degreeFilter = degree || batchRecord?.degree;
 
     const students = await StudentDetails.findAll({
       where: {
         departmentId: departmentId,
         ...(normalizedBatch ? { batch: normalizedBatch } : {}),
         ...(semesterNumber ? { semester: String(semesterNumber) } : {}),
-        ...(batchRecord?.degree ? { course: batchRecord.degree } : {})
+        ...buildStudentDegreeWhere(degreeFilter)
       },
       attributes: [
         ['registerNumber', 'rollnumber'],
@@ -1375,13 +1412,14 @@ export async function getStudentsByDeptAndSem(req, res, next) {
     const semesterNumber = await resolveSemesterNumber(semesterId);
     const batchRecord = await resolveBatchContext({ batch, departmentId, degree, branch });
     const normalizedBatch = batchRecord?.batch ?? batch;
+    const degreeFilter = degree || batchRecord?.degree;
 
     const students = await StudentDetails.findAll({
       where: {
         departmentId: departmentId,
         ...(normalizedBatch ? { batch: normalizedBatch } : {}),
         ...(semesterNumber ? { semester: String(semesterNumber) } : {}),
-        ...(batchRecord?.degree ? { course: batchRecord.degree } : {})
+        ...buildStudentDegreeWhere(degreeFilter)
       },
       attributes: ['registerNumber', 'studentName', 'Userid'],
       include: [

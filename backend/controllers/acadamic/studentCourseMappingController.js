@@ -12,6 +12,25 @@ const {
   User,
 } = db;
 
+const normalizeDegree = (value) => String(value || "").trim().toUpperCase().replace(/[\s.]/g, "");
+
+const degreeAliases = (value) => {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ["B.E", "BE"],
+    ME: ["M.E", "ME"],
+    BTECH: ["B.Tech", "BTech", "BTECH"],
+    MTECH: ["M.Tech", "MTech", "MTECH"],
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+};
+
+const buildStudentDegreeWhere = (value) => {
+  const aliases = degreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+};
+
 export const getStudentCourseMatrix = catchAsync(async (req, res) => {
   const { dept, batch, semester, search, degree } = req.query;
 
@@ -41,7 +60,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
   };
 
   if (selectedDegree) {
-    batchFilter.degree = selectedDegree;
+    batchFilter.degree = { [Op.in]: degreeAliases(selectedDegree) };
   }
 
   const resolvedBatch = await Batch.findOne({
@@ -88,6 +107,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
     departmentId: resolvedDeptId,
     batch: resolvedBatchValue,
     semester: String(semesterNumber),
+    ...buildStudentDegreeWhere(selectedDegree),
   };
 
   if (search) {
@@ -102,6 +122,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
 
   const students = await StudentDetails.findAll({
     where: studentWhere,
+<<<<<<< HEAD
     include: [{
       model: User,
       as: "studentUser",
@@ -110,6 +131,15 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
       attributes: [],
     }],
     attributes: ["registerNumber", "studentName"],
+=======
+    attributes: ["registerNumber", "studentName", "Userid"],
+    include: [{
+      model: User,
+      as: "studentUser",
+      required: false,
+      attributes: ["userName"],
+    }],
+>>>>>>> 9fa05dd3ac1acb791f39accf6a5da4667bb9d148
     order: [["registerNumber", "ASC"]],
   });
 
@@ -133,7 +163,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
       courses,
       students: students.map((s) => ({
         regno: s.registerNumber,
-        name: s.studentName || s.registerNumber || "",
+        name: s.studentName || s.studentUser?.userName || s.registerNumber || "",
       })),
       enrollments,
     },

@@ -68,6 +68,9 @@ const StaffCard = ({
                     <div className="px-4 py-3">
                       <div className="flex flex-wrap gap-2 mb-3 text-xs text-gray-600">
                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-indigo-50 text-indigo-700">
+                          Degree: {course.degree || 'N/A'}
+                        </span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-indigo-50 text-indigo-700">
                           Section: {course.batch}
                         </span>
                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-50 text-green-700">

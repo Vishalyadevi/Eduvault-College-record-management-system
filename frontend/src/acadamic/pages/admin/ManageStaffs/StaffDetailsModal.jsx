@@ -166,6 +166,9 @@ const StaffDetailsModal = ({
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-2 mb-4 pl-[52px]">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
+                       <GraduationCap className="w-3 h-3" /> Degree {course.degree || 'N/A'}
+                    </div>
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">
                        <Layers className="w-3 h-3" /> Section {course.batch}
                     </div>

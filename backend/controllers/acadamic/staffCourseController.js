@@ -55,7 +55,15 @@ export const getUsers = catchAsync(async (req, res) => {
         model: Course,
         where: { isActive: 'YES' },
         required: false, // Left join
-        attributes: ['courseId', 'courseCode', 'courseTitle', 'semesterId']
+        attributes: ['courseId', 'courseCode', 'courseTitle', 'semesterId'],
+        include: [{
+          model: Semester,
+          attributes: ['semesterNumber', 'batchId'],
+          include: [{
+            model: Batch,
+            attributes: ['degree', 'branch', 'batch', 'batchYears']
+          }]
+        }]
       },
       {
         model: Section,
@@ -75,15 +83,23 @@ export const getUsers = catchAsync(async (req, res) => {
     }
 
     // Filter allocations for this user
-    const userAllocations = allocations.filter(a => a.Userid === u.userId).map(ta => ({
-      staffCourseId: ta.staffCourseId,
-      courseId: ta.courseId,
-      courseCode: ta.Course?.courseCode || "N/A",
-      courseTitle: ta.Course?.courseTitle || "Unknown",
-      sectionId: ta.sectionId,
-      sectionName: ta.Section?.sectionName ? `Section ${ta.Section.sectionName}` : "N/A",
-      semesterId: ta.Course?.semesterId || null,
-    }));
+    const userAllocations = allocations.filter(a => a.Userid === u.userId).map(ta => {
+      const batch = ta.Course?.Semester?.Batch;
+      return {
+        staffCourseId: ta.staffCourseId,
+        courseId: ta.courseId,
+        courseCode: ta.Course?.courseCode || "N/A",
+        courseTitle: ta.Course?.courseTitle || "Unknown",
+        sectionId: ta.sectionId,
+        sectionName: ta.Section?.sectionName ? `Section ${ta.Section.sectionName}` : "N/A",
+        semesterId: ta.Course?.semesterId || null,
+        semesterNumber: ta.Course?.Semester?.semesterNumber || null,
+        degree: batch?.degree || null,
+        branch: batch?.branch || null,
+        batch: batch?.batch || null,
+        batchYears: batch?.batchYears || null,
+      };
+    });
 
     const departmentName = u.department?.departmentName || u.departmentName || "Unknown";
 

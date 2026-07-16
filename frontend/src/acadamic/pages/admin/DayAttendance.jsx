@@ -187,6 +187,7 @@ export default function DayAttendance() {
 
     const primaryCourse = courses[0];
     const { courseId, sectionId, courseTitle, courseCode } = primaryCourse;
+    const batchData = batches.find((b) => b.batchId === parseInt(selectedBatch, 10));
 
     try {
       const dayOfWeek = new Date(date).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
@@ -197,6 +198,9 @@ export default function DayAttendance() {
             date,
             departmentId: selectedDepartment,
             semesterId: selectedSemester,
+            degree: selectedDegree,
+            batch: batchData?.batch,
+            branch: batchData?.branch,
           },
         }
       );
@@ -245,6 +249,7 @@ export default function DayAttendance() {
           fullDay: true,
           departmentId: selectedDepartment,
           semesterId: selectedSemester,
+          degree: selectedDegree,
         }
       );
 
