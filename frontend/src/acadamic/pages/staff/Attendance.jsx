@@ -16,6 +16,8 @@ import { useAuth } from "../auth/AuthContext";
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
 export default function AttendanceGenerator() {
   const { user } = useAuth();
@@ -41,11 +43,8 @@ export default function AttendanceGenerator() {
 
   useEffect(() => {
     if (!fromDate) {
-      const today = new Date();
-      setFromDate(today.toISOString().split("T")[0]);
-      const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 6);
-      setToDate(nextWeek.toISOString().split("T")[0]);
+      setFromDate(TODAY);
+      setToDate(TODAY);
     }
   }, []);
 
@@ -181,6 +180,7 @@ export default function AttendanceGenerator() {
   };
 
   const handleCourseClick = async (courseId, sectionId, date, periodNumber) => {
+    if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
     setError(null);
     setStudents([]);
     setNextPeriodStudents([]);
@@ -367,6 +367,7 @@ export default function AttendanceGenerator() {
               </label>
               <input
                 type="date"
+                max={TODAY}
                 className="border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all w-48"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
@@ -378,6 +379,7 @@ export default function AttendanceGenerator() {
               </label>
               <input
                 type="date"
+                max={TODAY}
                 className="border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all w-48"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}

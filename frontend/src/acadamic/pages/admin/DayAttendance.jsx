@@ -6,6 +6,8 @@ import { Loader2, Search, Calendar } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
 const PeriodCell = ({ date, periodNumber, courses, selectedSlot, onSelect }) => {
   const uniqueCourseIds = [...new Set(courses.map((c) => c.courseId).filter(Boolean))];
@@ -59,9 +61,8 @@ export default function DayAttendance() {
 
   useEffect(() => {
     if (!fromDate) {
-      const today = new Date().toISOString().split("T")[0];
-      setFromDate(today);
-      setToDate(today);
+      setFromDate(TODAY);
+      setToDate(TODAY);
     }
   }, [fromDate]);
 
@@ -179,6 +180,7 @@ export default function DayAttendance() {
   };
 
   const handlePeriodSelect = async (courses, date, periodNumber) => {
+    if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
     if (courses.length === 0) return;
     if (!selectedDepartment || !selectedSemester) {
       toast.error("Please select department and semester");
@@ -332,6 +334,7 @@ export default function DayAttendance() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">From</label>
               <input
                 type="date"
+                max={TODAY}
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
@@ -342,6 +345,7 @@ export default function DayAttendance() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To</label>
               <input
                 type="date"
+                max={TODAY}
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"

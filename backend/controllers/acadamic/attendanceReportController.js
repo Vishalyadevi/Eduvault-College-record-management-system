@@ -20,6 +20,11 @@ const {
 } = db;
 const markCache = (res) => (status) => res.set("X-Cache", status);
 
+function getTodayDateString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 // ==========================================
 // HELPERS
 // ==========================================
@@ -179,6 +184,10 @@ export const getSubjectWiseAttendance = async (req, res) => {
     if (!degree || !batchId || !departmentId || !semesterId || !fromDate || !toDate) {
       return res.status(400).json({ success: false, error: "Missing required parameters" });
     }
+    if (fromDate > toDate) {
+      return res.status(400).json({ success: false, error: "fromDate cannot be later than toDate" });
+    }
+    const effectiveToDate = toDate > getTodayDateString() ? getTodayDateString() : toDate;
 
     const normalizedDeptId = parseInt(departmentId, 10);
     if (Number.isNaN(normalizedDeptId)) {
@@ -300,7 +309,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
         timetableSlotRows.forEach((r) => {
           const code = courseCodeById.get(r.courseId);
           if (!code) return;
-          const dayCount = countDaysInRange(fromDate, toDate, r.dayOfWeek);
+          const dayCount = fromDate <= effectiveToDate ? countDaysInRange(fromDate, effectiveToDate, r.dayOfWeek) : 0;
           courseConductedMap[code] = (courseConductedMap[code] || 0) + dayCount;
         });
 
@@ -311,7 +320,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
             status: { [Op.in]: ["P", "OD"] },
             regno: { [Op.in]: selectedRegNos },
             courseId: { [Op.in]: orderedCourseIds },
-            attendanceDate: { [Op.between]: [fromDate, toDate] },
+            attendanceDate: { [Op.between]: [fromDate, effectiveToDate] },
           },
           attributes: ["regno", "courseId", "attendanceDate", "periodNumber"],
           include: [
@@ -601,7 +610,7 @@ export const getStudentAttendanceReport = async (req, res) => {
       where: {
         regno: { [Op.in]: selectedRegNos },
         courseId: { [Op.in]: timetableCourseIds },
-        attendanceDate: { [Op.between]: [fromDate, toDate] },
+        attendanceDate: { [Op.between]: [fromDate, toDate > getTodayDateString() ? getTodayDateString() : toDate] },
         ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
         ...(semesterInfo ? { semesterNumber: semesterInfo.semesterNumber } : {}),
         ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
@@ -658,6 +667,12 @@ export const getStudentAttendanceReport = async (req, res) => {
             return;
           }
 
+
+          if (slot.date > getTodayDateString()) {
+            attendanceByDate[slot.key] = "UNASSIGNED";
+            return;
+          }
+
           totalAllocatedPeriods += 1;
           const status = attendanceByStudent[regNo]?.[slot.key] || "A";
           attendanceByDate[slot.key] = status;
@@ -701,6 +716,10 @@ export const getUnmarkedAttendanceReport = async (req, res) => {
     if (!batchId || !semesterId || !fromDate || !toDate) {
       return res.status(400).json({ success: false, error: "Missing required parameters" });
     }
+    if (fromDate > toDate) {
+      return res.status(400).json({ success: false, error: "fromDate cannot be later than toDate" });
+    }
+    const effectiveToDate = toDate > getTodayDateString() ? getTodayDateString() : toDate;
 
     const normalizedDeptId = Number.isNaN(parseInt(departmentId, 10)) ? null : parseInt(departmentId, 10);
     const key = makeCacheKey("attendanceReports:unmarked", {
@@ -768,7 +787,7 @@ export const getUnmarkedAttendanceReport = async (req, res) => {
         const markedAttendance = await PeriodAttendance.findAll({
           where: {
             courseId: { [Op.in]: courseIds },
-            attendanceDate: { [Op.between]: [fromDate, toDate] },
+            attendanceDate: { [Op.between]: [fromDate, effectiveToDate] },
           },
           attributes: ["courseId", "sectionId", "attendanceDate", "periodNumber"],
           raw: true,
@@ -823,7 +842,7 @@ export const getUnmarkedAttendanceReport = async (req, res) => {
         const emitted = new Set();
 
         for (const slot of timetableRows) {
-          const dates = getDatesForDay(fromDate, toDate, slot.dayOfWeek);
+          const dates = fromDate <= effectiveToDate ? getDatesForDay(fromDate, effectiveToDate, slot.dayOfWeek) : [];
           const courseMeta = courseMetaMap[slot.courseId] || {};
           const sectionId = slot.sectionId || null;
           const sectionName = slot.Section?.sectionName || "-";

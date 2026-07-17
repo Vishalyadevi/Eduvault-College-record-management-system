@@ -502,10 +502,12 @@ export default function StudentAttendanceReport() {
                       {(slots.length ? slots : dates.map((date) => ({ key: date, date }))).map((column) => {
                         const key = column.key || column.date;
                         const value = student.attendanceByDate?.[key] ?? "A";
-                        const color = value === "P" ? "text-emerald-600" : value === "OD" ? "text-sky-600" : "text-rose-600";
+                        const isUnassigned = value === "UNASSIGNED";
+                        const displayValue = isUnassigned ? "UA" : value;
+                        const color = value === "P" ? "text-emerald-600" : value === "OD" ? "text-sky-600" : isUnassigned ? "text-slate-400" : "text-rose-600";
                         return (
                           <td key={`${student.registerNumber}-${key}`} className="table-cell font-semibold">
-                            <span className={color}>{value}</span>
+                            <span className={color} title={isUnassigned ? "Unassigned (future date)" : undefined}>{displayValue}</span>
                           </td>
                         );
                       })}

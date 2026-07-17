@@ -7,6 +7,8 @@ import { Loader2, Search, Calendar, ChevronDown } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
 const PortalDropdown = ({ isOpen, onClose, rect, children }) => {
   if (!isOpen || !rect) return null;
@@ -135,9 +137,8 @@ export default function AdminAttendanceGenerator() {
 
   useEffect(() => {
     if (!fromDate) {
-      const today = new Date().toISOString().split("T")[0];
-      setFromDate(today);
-      setToDate(today);
+      setFromDate(TODAY);
+      setToDate(TODAY);
     }
   }, [fromDate]);
 
@@ -268,6 +269,7 @@ export default function AdminAttendanceGenerator() {
 
   const handleCourseSelect = async (courseData) => {
     const { courseId, sectionId, sectionName, periodNumber, courseTitle, courseCode, date } = courseData;
+    if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
 
     try {
       const batchData = batches.find((b) => b.batchId === parseInt(selectedBatch, 10));
@@ -430,6 +432,7 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">From</label>
               <input
                 type="date"
+                max={TODAY}
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
@@ -440,6 +443,7 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To</label>
               <input
                 type="date"
+                max={TODAY}
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"

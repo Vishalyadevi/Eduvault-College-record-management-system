@@ -176,6 +176,15 @@ function generateDates(start, end) {
   return dates;
 }
 
+function getTodayDateString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function isFutureDate(date) {
+  return typeof date === "string" && date > getTodayDateString();
+}
+
 // Helper to get dayOfWeek (1 = Monday, 7 = Sunday)
 function getDayOfWeek(dateStr) {
   const day = new Date(dateStr).getDay(); // 0 = Sunday
@@ -400,7 +409,10 @@ export async function getTimetableAdmin(req, res, next) {
 export async function getStudentsForPeriodAdmin(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
-    const { date = new Date().toISOString().split("T")[0], departmentId: queryDeptId, semesterId: querySemesterId, batch: queryBatch, degree: queryDegree, branch: queryBranch } = req.query;
+    const { date = getTodayDateString(), departmentId: queryDeptId, semesterId: querySemesterId, batch: queryBatch, degree: queryDegree, branch: queryBranch } = req.query;
+    if (isFutureDate(date)) {
+      return res.status(400).json({ status: "error", message: "Attendance cannot be accessed for a future date" });
+    }
     const authDeptId = req.user.departmentId || null;
     const safeSectionId = Number.isNaN(parseInt(sectionId, 10)) ? null : parseInt(sectionId, 10);
     const normalizedDeptId = parseInt(queryDeptId, 10);
@@ -606,6 +618,10 @@ export async function markAttendanceAdmin(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date, attendances, fullDay = false, departmentId: bodyDeptId, semesterId: bodySemesterId } = req.body;
+    if (!date || isFutureDate(date)) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
+    }
     const adminUser = await getInternalAdminUser(req.user);
     const adminUserId = adminUser.userId;
     const deptId = adminUser.departmentId || 1;
@@ -1097,6 +1113,11 @@ export async function markStudentStatus(req, res) {
       : [];
     const absentEntries = [];
 
+    if (isFutureDate(date)) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
+    }
+
     if (!student?.rollnumber || !date) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "Student roll number and date are required" });
@@ -1268,6 +1289,12 @@ export async function markFullDayOD(req, res) {
     if (start > end) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "End date must be on or after start date" });
+    }
+
+
+    if (endDate > getTodayDateString()) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for future dates" });
     }
 
     let processedDates = 0;

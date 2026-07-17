@@ -43,6 +43,15 @@ const dayMap = {
   1: "MON", 2: "TUE", 3: "WED", 4: "THU", 5: "FRI", 6: "SAT", 7: "SUN"
 };
 
+function getTodayDateString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function isFutureDate(date) {
+  return typeof date === "string" && date > getTodayDateString();
+}
+
 function getDisplayStudentName(studentRecord) {
   const candidateName =
     studentRecord?.studentName ||
@@ -208,6 +217,10 @@ export async function getTimetable(req, res, next) {
       return res.status(400).json({ status: "error", message: "Dates required" });
     }
 
+    if (startDate > endDate) {
+      return res.status(400).json({ status: "error", message: "Start date cannot be later than end date" });
+    }
+
     const user = await getInternalUser(req.user);
 
     // Fetch periods where staff is assigned.
@@ -292,6 +305,9 @@ export async function getStudentsForPeriod(req, res, next) {
 
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const date = req.query.date || new Date().toISOString().split("T")[0];
+    if (isFutureDate(date)) {
+      return res.status(400).json({ status: "error", message: "Attendance cannot be accessed for a future date" });
+    }
     const user = await getInternalUser(req.user);
     const requestedCourseId = parseInt(courseId, 10);
     const safeSectionId = Number.isNaN(parseInt(sectionId, 10)) ? null : parseInt(sectionId, 10);
@@ -509,6 +525,10 @@ export async function markAttendance(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date, attendances } = req.body;
+    if (!date || isFutureDate(date)) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
+    }
     const user = await getInternalUser(req.user);
     const deptId = user.departmentId || 1;
 
