@@ -409,3 +409,13 @@ export const getAttendanceShortage = async (courseCode, sectionIds, minPercentag
     throw new Error(error.response?.data?.message || 'Failed to fetch shortage students');
   }
 };
+
+export const getStaffAttendanceReportFilters = async () => {
+  const response = await api.get('/attendance/report/filters');
+  return response.data?.data || [];
+};
+
+export const generateStaffAttendanceReport = async (params) => {
+  const response = await api.get('/attendance/report', { params });
+  return response.data || { data: [], summary: {} };
+};

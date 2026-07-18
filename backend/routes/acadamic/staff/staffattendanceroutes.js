@@ -6,6 +6,8 @@ import {
   markAttendance,
   getSkippedStudents,
   getAttendanceShortageForStaff,
+  getStaffAttendanceReportFilters,
+  generateStaffAttendanceReport,
 } from "../../../controllers/acadamic/attendanceController.js";
 
 // FIXED IMPORT: Changed 'protect' to 'requireAuth'
@@ -26,6 +28,8 @@ router.get(
   getSkippedStudents
 );
 router.get("/shortage/:courseCode", getAttendanceShortageForStaff);
+router.get("/report/filters", getStaffAttendanceReportFilters);
+router.get("/report", generateStaffAttendanceReport);
 router.post(
   "/mark/:courseId/:sectionId/:dayOfWeek/:periodNumber",
   markAttendance

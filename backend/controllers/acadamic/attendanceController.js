@@ -826,3 +826,130 @@ export async function getAttendanceShortageForStaff(req, res) {
   }
 }
 
+/** Staff-owned attendance report metadata. */
+export async function getStaffAttendanceReportFilters(req, res) {
+  try {
+    const user = await getInternalUser(req.user);
+    const assignments = await StaffCourse.findAll({
+      where: { Userid: user.userId },
+      attributes: ['courseId', 'sectionId'],
+      include: [
+        {
+          model: Course,
+          required: true,
+          attributes: ['courseId', 'courseCode', 'courseTitle', 'semesterId'],
+          include: [{
+            model: Semester,
+            attributes: ['semesterId', 'semesterNumber', 'batchId'],
+            include: [{ model: db.Batch, attributes: ['batchId', 'degree', 'branch', 'batch', 'batchYears'] }]
+          }]
+        },
+        { model: Section, attributes: ['sectionId', 'sectionName'] }
+      ]
+    });
+
+    const data = assignments.map((row) => ({
+      courseId: row.courseId,
+      courseCode: row.Course?.courseCode || '',
+      courseTitle: row.Course?.courseTitle || '',
+      sectionId: row.sectionId,
+      sectionName: row.Section?.sectionName || '',
+      semesterId: row.Course?.Semester?.semesterId || null,
+      semesterNumber: row.Course?.Semester?.semesterNumber || null,
+      batchId: row.Course?.Semester?.Batch?.batchId || null,
+      batch: row.Course?.Semester?.Batch?.batch || '',
+      batchYears: row.Course?.Semester?.Batch?.batchYears || '',
+      degree: row.Course?.Semester?.Batch?.degree || '',
+      branch: row.Course?.Semester?.Batch?.branch || ''
+    }));
+
+    res.json({ status: 'success', data });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+}
+
+/** Generate a student-level report, limited to the logged-in staff member's allocations. */
+export async function generateStaffAttendanceReport(req, res) {
+  try {
+    const { fromDate, toDate, courseId, sectionId, batchId, status = 'ALL', threshold = 75 } = req.query;
+    if (!fromDate || !toDate || fromDate > toDate) {
+      return res.status(400).json({ status: 'error', message: 'A valid From Date and To Date are required' });
+    }
+    const cutoff = Number(threshold);
+    if (!Number.isFinite(cutoff) || cutoff < 0 || cutoff > 100) {
+      return res.status(400).json({ status: 'error', message: 'Threshold must be between 0 and 100' });
+    }
+    const selectedStatus = String(status).toUpperCase();
+    if (!['ALL', 'P', 'A', 'OD'].includes(selectedStatus)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid attendance status' });
+    }
+
+    const user = await getInternalUser(req.user);
+    const assignments = await StaffCourse.findAll({
+      where: {
+        Userid: user.userId,
+        ...(courseId ? { courseId: Number(courseId) } : {}),
+        ...(sectionId ? { sectionId: Number(sectionId) } : {})
+      },
+      attributes: ['courseId', 'sectionId'],
+      include: [{
+        model: Course,
+        required: true,
+        attributes: ['courseId', 'courseCode', 'courseTitle'],
+        include: [{ model: Semester, attributes: ['semesterNumber', 'batchId'] }]
+      }, { model: Section, attributes: ['sectionName'] }]
+    });
+    const allowed = assignments.filter((a) => !batchId || Number(a.Course?.Semester?.batchId) === Number(batchId));
+    if (!allowed.length) return res.json({ status: 'success', data: [], summary: { students: 0, belowThreshold: 0 } });
+
+    const scopeKeys = new Set(allowed.map((a) => `${a.courseId}_${a.sectionId}`));
+    const courseIds = [...new Set(allowed.map((a) => a.courseId))];
+    const sectionIds = [...new Set(allowed.map((a) => a.sectionId))];
+    const attendance = await PeriodAttendance.findAll({
+      where: {
+        courseId: { [Op.in]: courseIds }, sectionId: { [Op.in]: sectionIds },
+        attendanceDate: { [Op.between]: [fromDate, toDate] }
+      },
+      attributes: [
+        'regno', 'courseId', 'sectionId',
+        [sequelize.fn('COUNT', sequelize.col('periodAttendanceId')), 'totalClasses'],
+        [sequelize.literal("SUM(CASE WHEN status='P' THEN 1 ELSE 0 END)"), 'present'],
+        [sequelize.literal("SUM(CASE WHEN status='A' THEN 1 ELSE 0 END)"), 'absent'],
+        [sequelize.literal("SUM(CASE WHEN status='OD' THEN 1 ELSE 0 END)"), 'od']
+      ],
+      group: ['regno', 'courseId', 'sectionId'], raw: true
+    });
+    const scoped = attendance.filter((r) => scopeKeys.has(`${r.courseId}_${r.sectionId}`));
+    const names = await buildStudentNameMap(scoped.map((r) => r.regno));
+    const assignmentByKey = new Map(allowed.map((a) => [`${a.courseId}_${a.sectionId}`, a]));
+    const statusField = { P: 'present', A: 'absent', OD: 'od' }[selectedStatus];
+    const data = scoped.map((row) => {
+      const assignment = assignmentByKey.get(`${row.courseId}_${row.sectionId}`);
+      const present = Number(row.present || 0), absent = Number(row.absent || 0), od = Number(row.od || 0);
+      const totalClasses = Number(row.totalClasses || 0);
+      const attended = present + od;
+      const percentage = totalClasses ? Number(((attended / totalClasses) * 100).toFixed(2)) : 0;
+      return {
+        regno: row.regno, name: names.get(String(row.regno).trim()) || 'N/A',
+        courseId: Number(row.courseId), courseCode: assignment?.Course?.courseCode || '',
+        courseTitle: assignment?.Course?.courseTitle || '', sectionId: Number(row.sectionId),
+        sectionName: assignment?.Section?.sectionName || '', semesterNumber: assignment?.Course?.Semester?.semesterNumber || null,
+        totalClasses, present, absent, od, attended, percentage, belowThreshold: percentage < cutoff
+      };
+    }).filter((row) => !statusField || row[statusField] > 0)
+      .sort((a, b) => a.courseCode.localeCompare(b.courseCode) || a.sectionName.localeCompare(b.sectionName) || a.regno.localeCompare(b.regno));
+
+    res.json({
+      status: 'success', data,
+      summary: {
+        students: data.length, belowThreshold: data.filter((r) => r.belowThreshold).length,
+        present: data.reduce((n, r) => n + r.present, 0), absent: data.reduce((n, r) => n + r.absent, 0),
+        od: data.reduce((n, r) => n + r.od, 0), threshold: cutoff
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+}
+

@@ -194,6 +194,7 @@ const Sidebar = () => {
   const staffAcadamicItems = [
     { to: "/staff/dashboard", icon: <FaTachometerAlt />, label: "Dashboard" },
     { to: "/staff/attendance", icon: <FaClipboardCheck />, label: "Attendance" },
+    { to: "/staff/attendance-report", icon: <FaChartPie />, label: "Generate Report" },
   ];
 
   const studentAcadamicItems = [
