@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import db from '../../models/acadamic/index.js';
 import { getOrSetCache, makeCacheKey, ttl } from "../../utils/cache.js";
 import { sendUnmarkedAttendanceReminderEmails } from "../../services/attendanceNotificationService.js";
+import { isAcademicHoliday, thirdSaturdaySql } from '../../utils/academicCalendar.js';
 
 const { 
   sequelize, 
@@ -38,7 +39,8 @@ function countDaysInRange(from, to, dayOfWeek) {
   let cur = new Date(from);
   const end = new Date(to);
   while (cur <= end) {
-    if (cur.getDay() === target) count++;
+    const dateString = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+    if (cur.getDay() === target && !isAcademicHoliday(dateString)) count++;
     cur.setDate(cur.getDate() + 1);
   }
   return count;
@@ -321,6 +323,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
             regno: { [Op.in]: selectedRegNos },
             courseId: { [Op.in]: orderedCourseIds },
             attendanceDate: { [Op.between]: [fromDate, effectiveToDate] },
+            [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))],
           },
           attributes: ["regno", "courseId", "attendanceDate", "periodNumber"],
           include: [
@@ -578,6 +581,7 @@ export const getStudentAttendanceReport = async (req, res) => {
 
     const visibleSlotMap = new Map();
     dates.forEach((date) => {
+      if (isAcademicHoliday(date)) return;
       const dayOfWeek = getDayCode(date);
       timetableRows.forEach((slot) => {
         if (slot.dayOfWeek !== dayOfWeek) return;
@@ -611,6 +615,7 @@ export const getStudentAttendanceReport = async (req, res) => {
         regno: { [Op.in]: selectedRegNos },
         courseId: { [Op.in]: timetableCourseIds },
         attendanceDate: { [Op.between]: [fromDate, toDate > getTodayDateString() ? getTodayDateString() : toDate] },
+        [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))],
         ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
         ...(semesterInfo ? { semesterNumber: semesterInfo.semesterNumber } : {}),
         ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
@@ -788,6 +793,7 @@ export const getUnmarkedAttendanceReport = async (req, res) => {
           where: {
             courseId: { [Op.in]: courseIds },
             attendanceDate: { [Op.between]: [fromDate, effectiveToDate] },
+            [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))],
           },
           attributes: ["courseId", "sectionId", "attendanceDate", "periodNumber"],
           raw: true,

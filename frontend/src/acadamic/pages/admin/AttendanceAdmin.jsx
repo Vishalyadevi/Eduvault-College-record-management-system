@@ -4,6 +4,7 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Loader2, Search, Calendar, ChevronDown } from "lucide-react";
+import { isAcademicHoliday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
@@ -498,7 +499,9 @@ export default function AdminAttendanceGenerator() {
                         </div>
                       </td>
 
-                      {timeSlots.slice(0, configuredPeriodCount).map((slot) => {
+                      {isAcademicHoliday(date) ? (
+                        <td colSpan={configuredPeriodCount} className="h-20 bg-amber-50 text-center text-xs font-bold uppercase tracking-widest text-amber-700">Holiday — Sunday / Third Saturday</td>
+                      ) : timeSlots.slice(0, configuredPeriodCount).map((slot) => {
                         const coursesInSlot = (timetable[date] || [])
                           .filter((p) => p.periodNumber === slot.periodNumber)
                           .map((p) => ({ ...p, date }));

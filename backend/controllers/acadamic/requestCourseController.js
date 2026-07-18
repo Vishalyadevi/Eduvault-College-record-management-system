@@ -89,7 +89,7 @@ const resolveDepartmentFilter = async (deptValue, fallbackDepartmentId) => {
 
 // 1. Get Available Courses
 export const getAvailableCoursesForStaff = catchAsync(async (req, res) => {
-  const { semester, branch, batch, type, dept } = req.query;
+  const { semester, branch, batch, type, dept, degree } = req.query;
 
   const { userId, departmentId: staffDeptId } = await getUserContext(req);
   if (!userId) {
@@ -121,7 +121,8 @@ export const getAvailableCoursesForStaff = catchAsync(async (req, res) => {
         required: true,
         where: {
           ...(branchFilter && { branch: branchFilter }),
-          ...(batch && { batch })
+          ...(batch && { batch }),
+          ...(degree && { degree })
         },
         include: [{
           model: Regulation,
@@ -138,7 +139,7 @@ export const getAvailableCoursesForStaff = catchAsync(async (req, res) => {
 
 // 2. Get All Courses with Status Labels
 export const getAllCoursesForStaff = catchAsync(async (req, res) => {
-  const { semester, branch, batch, type, dept } = req.query;
+  const { semester, branch, batch, type, dept, degree } = req.query;
   const { userId, departmentId: staffDeptId } = await getUserContext(req);
   if (!userId) {
     return res.status(401).json({ status: 'error', message: 'Authentication required' });
@@ -193,7 +194,8 @@ export const getAllCoursesForStaff = catchAsync(async (req, res) => {
         required: true,
         where: {
           ...(branchFilter && { branch: branchFilter }),
-          ...(batch && { batch })
+          ...(batch && { batch }),
+          ...(degree && { degree })
         },
         include: [{
           model: Regulation,
@@ -327,7 +329,7 @@ export const resendRejectedRequest = catchAsync(async (req, res) => {
 
 // 7. Get Pending Requests (For Admin)
 export const getPendingRequestsForAdmin = catchAsync(async (req, res) => {
-  const { semester, branch, dept, batch, type } = req.query;
+  const { semester, branch, dept, batch, type, degree } = req.query;
 
   const semesterNumber = semester ? parseInt(semester, 10) : null;
   const departmentId = dept ? parseInt(dept, 10) : null;
@@ -341,6 +343,7 @@ export const getPendingRequestsForAdmin = catchAsync(async (req, res) => {
   const batchWhere = {};
   if (branch) batchWhere.branch = branch;
   if (batch) batchWhere.batch = batch;
+  if (degree) batchWhere.degree = degree;
 
   const regulationWhere = {};
   if (departmentId) regulationWhere.departmentId = departmentId;

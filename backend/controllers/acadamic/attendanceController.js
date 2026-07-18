@@ -2,6 +2,7 @@
 import { Op } from 'sequelize';
 import db from '../../models/acadamic/index.js';
 import { sendAbsentAttendanceEmails } from '../../services/attendanceNotificationService.js';
+import { isAcademicHoliday, thirdSaturdaySql } from '../../utils/academicCalendar.js';
 
 const { 
   sequelize, 
@@ -258,6 +259,10 @@ export async function getTimetable(req, res, next) {
     const timetable = {};
 
     dates.forEach((date) => {
+      if (isAcademicHoliday(date)) {
+        timetable[date] = [];
+        return;
+      }
       const dayStr = dayMap[getDayOfWeek(date)];
       timetable[date] = dayStr ? periods
         .filter(p => p.dayOfWeek === dayStr)
@@ -305,6 +310,9 @@ export async function getStudentsForPeriod(req, res, next) {
 
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const date = req.query.date || new Date().toISOString().split("T")[0];
+    if (isAcademicHoliday(date)) {
+      return res.status(400).json({ status: "error", message: "Attendance is unavailable on Sundays and third-Saturday holidays" });
+    }
     if (isFutureDate(date)) {
       return res.status(400).json({ status: "error", message: "Attendance cannot be accessed for a future date" });
     }
@@ -525,6 +533,10 @@ export async function markAttendance(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date, attendances } = req.body;
+    if (isAcademicHoliday(date)) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked on Sundays or third-Saturday holidays" });
+    }
     if (!date || isFutureDate(date)) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
@@ -701,7 +713,7 @@ export const getCourseWiseAttendance = async (req, res) => {
         [sequelize.literal("SUM(CASE WHEN status='P' THEN 1 ELSE 0 END)"), 'AttendedPeriods']
       ],
       include: [{ model: Course, attributes: [] }],
-      where: { attendanceDate: { [Op.between]: [fromDate, toDate] } },
+      where: { attendanceDate: { [Op.between]: [fromDate, toDate] }, [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))] },
       group: ['regno', 'Course.courseCode'],
       raw: true
     });
@@ -780,6 +792,7 @@ export async function getAttendanceShortageForStaff(req, res) {
       where: {
         regno: { [Op.in]: regnos },
         courseId: { [Op.in]: courseIds },
+        [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))],
         ...(allowedSectionIds.length ? { sectionId: { [Op.in]: allowedSectionIds } } : {})
       },
       group: ['regno', 'courseId', 'sectionId'],
@@ -872,7 +885,7 @@ export async function getStaffAttendanceReportFilters(req, res) {
 /** Generate a student-level report, limited to the logged-in staff member's allocations. */
 export async function generateStaffAttendanceReport(req, res) {
   try {
-    const { fromDate, toDate, courseId, sectionId, batchId, status = 'ALL', threshold = 75 } = req.query;
+    const { fromDate, toDate, courseId, sectionId, batchId, degree, status = 'ALL', threshold = 75 } = req.query;
     if (!fromDate || !toDate || fromDate > toDate) {
       return res.status(400).json({ status: 'error', message: 'A valid From Date and To Date are required' });
     }
@@ -900,7 +913,15 @@ export async function generateStaffAttendanceReport(req, res) {
         include: [{ model: Semester, attributes: ['semesterNumber', 'batchId'] }]
       }, { model: Section, attributes: ['sectionName'] }]
     });
-    const allowed = assignments.filter((a) => !batchId || Number(a.Course?.Semester?.batchId) === Number(batchId));
+    const batchRows = await db.Batch.findAll({
+      where: { batchId: { [Op.in]: [...new Set(assignments.map((a) => a.Course?.Semester?.batchId).filter(Boolean))] } },
+      attributes: ['batchId', 'degree'], raw: true
+    });
+    const degreeByBatch = new Map(batchRows.map((b) => [Number(b.batchId), b.degree]));
+    const allowed = assignments.filter((a) =>
+      (!batchId || Number(a.Course?.Semester?.batchId) === Number(batchId)) &&
+      (!degree || String(degreeByBatch.get(Number(a.Course?.Semester?.batchId)) || '').toUpperCase() === String(degree).toUpperCase())
+    );
     if (!allowed.length) return res.json({ status: 'success', data: [], summary: { students: 0, belowThreshold: 0 } });
 
     const scopeKeys = new Set(allowed.map((a) => `${a.courseId}_${a.sectionId}`));
@@ -909,7 +930,8 @@ export async function generateStaffAttendanceReport(req, res) {
     const attendance = await PeriodAttendance.findAll({
       where: {
         courseId: { [Op.in]: courseIds }, sectionId: { [Op.in]: sectionIds },
-        attendanceDate: { [Op.between]: [fromDate, toDate] }
+        attendanceDate: { [Op.between]: [fromDate, toDate] },
+        [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))]
       },
       attributes: [
         'regno', 'courseId', 'sectionId',

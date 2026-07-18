@@ -3,6 +3,7 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { CheckSquare, Square, Users, AlertCircle, Loader2, Search, ChevronDown } from "lucide-react";
+import { isAcademicHoliday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
@@ -28,9 +29,7 @@ const isWeekendDate = (dateString) => {
 };
 
 const isSundayDate = (dateString) => {
-  if (!dateString) return false;
-  const day = new Date(dateString).getDay();
-  return day === 0;
+  return isAcademicHoliday(dateString);
 };
 
 const getStudentDisplayName = (student = {}) =>

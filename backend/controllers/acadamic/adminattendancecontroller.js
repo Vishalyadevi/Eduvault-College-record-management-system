@@ -1,5 +1,6 @@
 // attendancecontroller.js
 import { Op } from 'sequelize';
+import { isAcademicHoliday } from '../../utils/academicCalendar.js';
 import db from '../../models/acadamic/index.js';
 import { sendAbsentAttendanceEmails } from '../../services/attendanceNotificationService.js';
 
@@ -367,6 +368,10 @@ export async function getTimetableAdmin(req, res, next) {
 
     const timetable = {};
     dates.forEach((date) => {
+      if (isAcademicHoliday(date)) {
+        timetable[date] = [];
+        return;
+      }
       const dayOfWeekNum = getDayOfWeek(date);
       const dayOfWeekStr = dayMap[dayOfWeekNum];
       let periodsForDay = [];
@@ -618,6 +623,10 @@ export async function markAttendanceAdmin(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date, attendances, fullDay = false, departmentId: bodyDeptId, semesterId: bodySemesterId } = req.body;
+    if (isAcademicHoliday(date)) {
+      await t.rollback();
+      return res.status(400).json({ status: "error", message: "Attendance cannot be marked on Sundays or third-Saturday holidays" });
+    }
     if (!date || isFutureDate(date)) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
@@ -1306,7 +1315,7 @@ export async function markFullDayOD(req, res) {
         .toLocaleDateString("en-US", { weekday: "short" })
         .toUpperCase();
 
-      if (dayOfWeek === "SUN") {
+      if (isAcademicHoliday(currentDate)) {
         continue;
       }
 

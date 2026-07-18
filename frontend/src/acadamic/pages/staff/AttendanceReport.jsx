@@ -3,13 +3,14 @@ import { AlertTriangle, Download, FileBarChart, Filter } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import { generateStaffAttendanceReport, getStaffAttendanceReportFilters } from '../../services/staffService';
+import { ACADEMIC_DEGREES } from '../../utils/academicCalendar';
 
 const today = new Date().toISOString().slice(0, 10);
 const firstOfMonth = `${today.slice(0, 8)}01`;
 
 export default function StaffAttendanceReport() {
   const [allocations, setAllocations] = useState([]);
-  const [filters, setFilters] = useState({ fromDate: firstOfMonth, toDate: today, courseId: '', sectionId: '', batchId: '', status: 'ALL', threshold: 75 });
+  const [filters, setFilters] = useState({ fromDate: firstOfMonth, toDate: today, degree: '', courseId: '', sectionId: '', batchId: '', status: 'ALL', threshold: 75 });
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,13 +19,14 @@ export default function StaffAttendanceReport() {
     getStaffAttendanceReportFilters().then(setAllocations).catch((e) => toast.error(e.message || 'Unable to load assigned subjects'));
   }, []);
 
-  const courses = useMemo(() => [...new Map(allocations.map((a) => [a.courseId, a])).values()], [allocations]);
-  const batches = useMemo(() => [...new Map(allocations.filter((a) => a.batchId).map((a) => [a.batchId, a])).values()], [allocations]);
+  const degreeAllocations = useMemo(() => allocations.filter((a) => !filters.degree || String(a.degree).toUpperCase() === filters.degree.toUpperCase()), [allocations, filters.degree]);
+  const courses = useMemo(() => [...new Map(degreeAllocations.map((a) => [a.courseId, a])).values()], [degreeAllocations]);
+  const batches = useMemo(() => [...new Map(degreeAllocations.filter((a) => a.batchId).map((a) => [a.batchId, a])).values()], [degreeAllocations]);
   const sections = useMemo(() => [...new Map(allocations
     .filter((a) => !filters.courseId || String(a.courseId) === filters.courseId)
     .map((a) => [a.sectionId, a])).values()], [allocations, filters.courseId]);
 
-  const update = (key, value) => setFilters((old) => ({ ...old, [key]: value, ...(key === 'courseId' ? { sectionId: '' } : {}) }));
+  const update = (key, value) => setFilters((old) => ({ ...old, [key]: value, ...(key === 'courseId' ? { sectionId: '' } : {}), ...(key === 'degree' ? { courseId: '', sectionId: '', batchId: '' } : {}) }));
   const generate = async () => {
     if (!filters.fromDate || !filters.toDate || filters.fromDate > filters.toDate) return toast.error('Select a valid date range');
     if (Number(filters.threshold) < 0 || Number(filters.threshold) > 100) return toast.error('Threshold must be between 0 and 100');
@@ -45,7 +47,14 @@ export default function StaffAttendanceReport() {
       [`Below ${filters.threshold}%`]: r.belowThreshold ? 'YES' : 'NO'
     }));
     const sheet = XLSX.utils.json_to_sheet(exportRows);
-    const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, 'Attendance Report');
+    sheet['!cols'] = [14, 24, 34, 10, 10, 10, 10, 10, 14, 18].map((wch) => ({ wch }));
+    const details = XLSX.utils.aoa_to_sheet([
+      ['Faculty Attendance Report'], ['From Date', filters.fromDate], ['To Date', filters.toDate],
+      ['Degree', filters.degree || 'All assigned degrees'], ['Threshold', `${filters.threshold}%`],
+      ['Students', summary?.students || 0], ['Below Threshold', summary?.belowThreshold || 0],
+      ['Note', 'OD is counted as attended. Sundays and third Saturdays are excluded.']
+    ]);
+    const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, details, 'Report Details'); XLSX.utils.book_append_sheet(book, sheet, 'Attendance Report');
     XLSX.writeFile(book, `Staff_Attendance_${filters.fromDate}_to_${filters.toDate}.xlsx`);
   };
 
@@ -60,6 +69,7 @@ export default function StaffAttendanceReport() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Field label="From Date"><input type="date" max={today} value={filters.fromDate} onChange={(e) => update('fromDate', e.target.value)} /></Field>
         <Field label="To Date"><input type="date" min={filters.fromDate} max={today} value={filters.toDate} onChange={(e) => update('toDate', e.target.value)} /></Field>
+        <Field label="Degree"><select value={filters.degree} onChange={(e) => update('degree', e.target.value)}><option value="">All assigned degrees</option>{ACADEMIC_DEGREES.map((degree) => <option key={degree} value={degree}>{degree}</option>)}</select></Field>
         <Field label="Subject"><select value={filters.courseId} onChange={(e) => update('courseId', e.target.value)}><option value="">All assigned subjects</option>{courses.map((c) => <option key={c.courseId} value={c.courseId}>{c.courseCode} - {c.courseTitle}</option>)}</select></Field>
         <Field label="Section"><select value={filters.sectionId} onChange={(e) => update('sectionId', e.target.value)}><option value="">All assigned sections</option>{sections.map((s) => <option key={s.sectionId} value={s.sectionId}>{s.sectionName}</option>)}</select></Field>
         <Field label="Batch"><select value={filters.batchId} onChange={(e) => update('batchId', e.target.value)}><option value="">All assigned batches</option>{batches.map((b) => <option key={b.batchId} value={b.batchId}>{b.degree} {b.branch} - {b.batchYears || b.batch}</option>)}</select></Field>

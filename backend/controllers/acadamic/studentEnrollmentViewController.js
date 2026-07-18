@@ -25,7 +25,7 @@ export const getStudentEnrollments = catchAsync(async (req, res) => {
     });
   }
 
-  const { batch, dept, sem } = req.query;
+  const { batch, dept, sem, degree } = req.query;
 
   // ... (Validation logic remains the same) ...
 
@@ -37,7 +37,8 @@ export const getStudentEnrollments = catchAsync(async (req, res) => {
         required: true,
         where: {
           ...(batch && { batch }),
-          ...(sem && { semester: sem })
+          ...(sem && { semester: sem }),
+          ...(degree && { course: degree })
         },
         include: [
           { 

@@ -13,6 +13,7 @@ import {
   Filter,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { isAcademicHoliday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
@@ -426,6 +427,7 @@ export default function AttendanceGenerator() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {dates.map((date) => {
+                    const holiday = isAcademicHoliday(date);
                     const dayName = new Date(date).toLocaleDateString("en-US", {
                       weekday: "long",
                     });
@@ -446,6 +448,9 @@ export default function AttendanceGenerator() {
                           </div>
                         </td>
                         {timeSlots.map(({ periodNumber }) => {
+                          if (holiday) return periodNumber === timeSlots[0]?.periodNumber ? (
+                            <td key={periodNumber} colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">Holiday — Sunday / Third Saturday</td>
+                          ) : null;
                           const coursesInPeriod = periods[periodNumber] || [];
                           if (coursesInPeriod.length === 0)
                             return (

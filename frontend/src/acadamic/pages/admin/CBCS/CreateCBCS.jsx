@@ -67,7 +67,7 @@ const CreateCBCS = () => {
   ];
 
   // Degree Options (Matching your requirement: Be, BTech)
-  const degreeOptions = ["BE", "BTech", "ME", "MTech", "MBA", "MCA"];
+  const degreeOptions = ["BE", "ME", "BTech", "MTech"];
 
   // Fetch batches on component mount
   useEffect(() => {

@@ -13,7 +13,7 @@ const RequestCoursesAdmin = () => {
   const [requests, setRequests] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ dept: '', branch: '', semester: '', batch: '', name: '', type: '' });
+  const [filters, setFilters] = useState({ degree: '', dept: '', branch: '', semester: '', batch: '', name: '', type: '' });
   const [staffNameQuery, setStaffNameQuery] = useState('');
   const [branches, setBranches] = useState([]);
   const [depts, setDepts] = useState([]);
@@ -101,6 +101,7 @@ const RequestCoursesAdmin = () => {
     try {
       const params = new URLSearchParams({
         dept: filters.dept,
+        degree: filters.degree,
         branch: filters.branch,
         semester: filters.semester,
         batch: filters.batch,

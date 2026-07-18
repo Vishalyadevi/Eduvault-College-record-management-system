@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import db from "../../models/acadamic/index.js"; 
 import catchAsync from "../../utils/catchAsync.js";
 import { getOrSetCache, makeCacheKey, ttl } from "../../utils/cache.js";
+import { thirdSaturdaySql } from '../../utils/academicCalendar.js';
 
 const { 
   User, StudentDetails, Department, Batch, Course, Semester, 
@@ -612,7 +613,7 @@ export const getAttendanceSummary = catchAsync(async (req, res) => {
   const sem = await Semester.findByPk(semesterId);
 
   const stats = await DayAttendance.findAll({
-    where: { regno: user.studentProfile.registerNumber, semesterNumber: sem.semesterNumber },
+    where: { regno: user.studentProfile.registerNumber, semesterNumber: sem.semesterNumber, [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))] },
     attributes: [
       [sequelize.fn('COUNT', sequelize.col('dayAttendanceId')), 'totalDays'],
       [sequelize.literal("SUM(CASE WHEN status = 'P' THEN 1 ELSE 0 END)"), 'daysPresent']
@@ -650,7 +651,8 @@ export const getSubjectwiseAttendance = catchAsync(async (req, res) => {
   const rows = await PeriodAttendance.findAll({
     where: {
       regno: user.studentProfile.registerNumber,
-      semesterNumber: sem.semesterNumber
+      semesterNumber: sem.semesterNumber,
+      [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))]
     },
     include: [{
       model: Course,

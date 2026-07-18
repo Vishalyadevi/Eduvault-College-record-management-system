@@ -1,7 +1,8 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { ACADEMIC_DEGREES } from '../../../utils/academicCalendar';
 
-const Filters = ({ filters, setFilters, semesters, courseTypes, departments, degrees = [] }) => {
+const Filters = ({ filters, setFilters, semesters, courseTypes, departments, degrees = ACADEMIC_DEGREES }) => {
   const deptOptions = Array.isArray(departments) && departments.length > 0
     ? departments.map((dept) => {
         const deptId =

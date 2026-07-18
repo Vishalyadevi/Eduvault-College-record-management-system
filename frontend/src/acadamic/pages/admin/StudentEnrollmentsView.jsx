@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/authService'; // Adjust path as needed
 import { Search, Download, Users, BookOpen, Filter } from 'lucide-react';
 import { branchMap } from "../../pages/admin/ManageSemesters/branchMap";
+import { ACADEMIC_DEGREES } from '../../utils/academicCalendar';
 
 // Simple CSV string generator (no external deps)
 const generateCSV = (data, fields) => {
@@ -21,7 +22,7 @@ const generateCSV = (data, fields) => {
 };
 
 const StudentEnrollmentsView = () => {
-  const [filters, setFilters] = useState({ batch: '', dept: '', sem: '' });
+  const [filters, setFilters] = useState({ degree: '', batch: '', dept: '', sem: '' });
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +67,7 @@ const StudentEnrollmentsView = () => {
   useEffect(() => {
     fetchData();
     
-  }, [filters.batch, filters.dept, filters.sem]);
+  }, [filters.degree, filters.batch, filters.dept, filters.sem]);
 
   // Client-side filtering based on selected field and query
   useEffect(() => {
@@ -114,7 +115,14 @@ const StudentEnrollmentsView = () => {
           <Search className="w-5 h-5 text-gray-500" />
           <h2 className="text-xl font-bold text-gray-800">Student Enrollments View</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
+            <select value={filters.degree} onChange={(e) => setFilters({ ...filters, degree: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+              <option value="">Select Degree</option>
+              {ACADEMIC_DEGREES.map((degree) => <option key={degree} value={degree}>{degree}</option>)}
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Batch Year</label>
             <input

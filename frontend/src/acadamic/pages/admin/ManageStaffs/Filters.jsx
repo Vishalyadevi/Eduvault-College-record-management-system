@@ -1,8 +1,10 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { ACADEMIC_DEGREES } from '../../../utils/academicCalendar';
 
 const Filters = ({ filters, setFilters, nameSearch, setNameSearch, sortBy, handleSort, departments, semesters, staffList }) => {
   const degreeOptions = [...new Set([
+    ...ACADEMIC_DEGREES,
     ...semesters.map(sem => sem.degree || sem.Batch?.degree),
     ...staffList.flatMap(staff => staff.allocatedCourses.map(course => course.degree))
   ])].filter(Boolean).sort();

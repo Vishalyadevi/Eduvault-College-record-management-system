@@ -19,7 +19,7 @@ const RequestCoursesStaff = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [requestWindowOpen, setRequestWindowOpen] = useState(false);
-  const [filters, setFilters] = useState({ dept: '', branch: '', semester: '', batch: '', name: '', type: '' });
+  const [filters, setFilters] = useState({ degree: '', dept: '', branch: '', semester: '', batch: '', name: '', type: '' });
   
   const { user } = useAuth();
   const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'EXPERIENTIAL LEARNING'];
@@ -72,7 +72,7 @@ const RequestCoursesStaff = () => {
 
   useEffect(() => {
     fetchAvailableCourses();
-  }, [filters.dept, filters.branch, filters.semester, filters.batch, filters.type]);
+  }, [filters.degree, filters.dept, filters.branch, filters.semester, filters.batch, filters.type]);
 
   useEffect(() => {
     const deptId = filters.dept || user?.departmentId || '';
@@ -81,7 +81,7 @@ const RequestCoursesStaff = () => {
       return;
     }
     fetchSemesterOptions(deptId);
-  }, [filters.dept, user?.departmentId]);
+  }, [filters.dept, filters.degree, user?.departmentId]);
 
   const fetchAvailableCourses = async () => {
     try {
@@ -94,6 +94,7 @@ const RequestCoursesStaff = () => {
       params.append('dept', userDeptId);
 
       if (filters.branch) params.append('branch', filters.branch);
+      if (filters.degree) params.append('degree', filters.degree);
       if (filters.semester) params.append('semester', filters.semester);
       if (filters.batch) params.append('batch', filters.batch);
       if (filters.type) params.append('type', filters.type);
@@ -107,7 +108,9 @@ const RequestCoursesStaff = () => {
 
   const fetchSemesterOptions = async (deptId) => {
     try {
-      const res = await api.get(`/staff/all-courses?dept=${encodeURIComponent(deptId)}`);
+      const params = new URLSearchParams({ dept: deptId });
+      if (filters.degree) params.append('degree', filters.degree);
+      const res = await api.get(`/staff/all-courses?${params.toString()}`);
       const data = res.data.data || [];
       const uniqueMap = new Map();
       data.forEach(course => {
