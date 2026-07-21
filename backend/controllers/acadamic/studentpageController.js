@@ -8,9 +8,14 @@ const {
   User, StudentDetails, Department, Batch, Course, Semester, 
   ElectiveBucket, ElectiveBucketCourse, StudentElectiveSelection, 
   RegulationCourse, VerticalCourse, Vertical, NptelCreditTransfer, NptelCourse, StudentNptelEnrollment,
-  DayAttendance, PeriodAttendance, Section, StudentCourse, sequelize 
+  DayAttendance, PeriodAttendance, Section, StudentCourse, StaffCourse, sequelize 
 } = db;
 const markCache = (res) => (status) => res.set("X-Cache", status);
+const studentProfileInclude = {
+  model: StudentDetails,
+  as: "studentProfile",
+  attributes: { exclude: ["course"] }
+};
 
 // Helper to safely get user ID from req.user (handles both id and userId)
 const getCurrentUserId = (req) => req.user?.id || req.user?.userId;
@@ -83,7 +88,29 @@ const resolveStudentBatch = async (profile) => {
 
 const validateStudentSemester = async (profile, semesterId) => {
   const batch = await resolveStudentBatch(profile);
-  if (!batch) return { batch: null, semester: null };
+  if (!batch) {
+    const dept = profile.departmentId
+      ? await Department.findByPk(profile.departmentId, { attributes: ["departmentAcr"] })
+      : null;
+    if (!dept?.departmentAcr) return { batch: null, semester: null };
+
+    const semester = await Semester.findOne({
+      where: { semesterId: Number(semesterId), isActive: "YES" },
+      attributes: ["semesterId", "batchId", "semesterNumber"],
+      include: [{
+        model: Batch,
+        required: true,
+        where: {
+          batch: profile.batch,
+          branch: dept.departmentAcr,
+          isActive: "YES"
+        },
+        attributes: ["batchId", "degree", "branch", "batch", "regulationId"]
+      }]
+    });
+
+    return { batch: semester?.Batch || null, semester };
+  }
 
   const semester = await Semester.findOne({
     where: { semesterId: Number(semesterId), batchId: batch.batchId, isActive: "YES" },
@@ -105,9 +132,8 @@ export const getStudentAcademicIds = catchAsync(async (req, res) => {
     async () => {
       const student = await User.findByPk(userId, {
         include: [{
-          model: StudentDetails,
-          as: 'studentProfile',
-          attributes: ['departmentId', 'batch', 'semester', 'course']
+          ...studentProfileInclude,
+          attributes: ['departmentId', 'batch', 'semester']
         }]
       });
 
@@ -282,8 +308,7 @@ export const getStudentDetails = catchAsync(async (req, res) => {
   const student = await User.findOne({
     where: { userId, status: 'Active' },
     include: [{
-      model: StudentDetails,
-      as: 'studentProfile',
+      ...studentProfileInclude,
       include: [
         { model: Department, as: 'department' },
       ]
@@ -304,7 +329,7 @@ export const getElectiveBuckets = catchAsync(async (req, res) => {
     return res.status(401).json({ status: "failure", message: "User not authenticated" });
   }
 
-  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: "studentProfile" }] });
+  const user = await User.findByPk(userId, { include: [studentProfileInclude] });
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
   }
@@ -467,7 +492,7 @@ export const allocateElectives = catchAsync(async (req, res) => {
     return res.status(401).json({ status: "failure", message: "User not authenticated" });
   }
 
-  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: "studentProfile" }] });
+  const user = await User.findByPk(userId, { include: [studentProfileInclude] });
 
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
@@ -604,7 +629,7 @@ export const getAttendanceSummary = catchAsync(async (req, res) => {
   }
 
   const { semesterId } = req.query;
-  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: 'studentProfile' }] });
+  const user = await User.findByPk(userId, { include: [studentProfileInclude] });
 
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
@@ -637,34 +662,82 @@ export const getSubjectwiseAttendance = catchAsync(async (req, res) => {
   }
 
   const user = await User.findByPk(userId, {
-    include: [{ model: StudentDetails, as: 'studentProfile' }]
+    include: [studentProfileInclude]
   });
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
   }
 
-  const sem = await Semester.findByPk(semesterId, { attributes: ['semesterNumber'] });
-  if (!sem) {
-    return res.status(404).json({ status: "failure", message: "Semester not found" });
+  const { semester } = await validateStudentSemester(user.studentProfile, semesterId);
+  if (!semester) {
+    return res.status(403).json({
+      status: "failure",
+      message: "The selected semester does not belong to your degree, branch, and batch."
+    });
+  }
+
+  const enrolledCourses = await StudentCourse.findAll({
+    where: { regno: user.studentProfile.registerNumber },
+    include: [{
+      model: Course,
+      attributes: ['courseId', 'courseCode', 'courseTitle'],
+      where: { semesterId: Number(semesterId), isActive: 'YES' },
+      required: true
+    }],
+    attributes: ['courseId', 'sectionId']
+  });
+
+  const enrolledCourseIds = [...new Set(enrolledCourses.map((row) => Number(row.courseId)).filter(Boolean))];
+  const enrolledSectionIds = [...new Set(enrolledCourses.map((row) => Number(row.sectionId)).filter(Boolean))];
+  const staffAssignments = enrolledCourseIds.length && enrolledSectionIds.length
+    ? await StaffCourse.findAll({
+        where: {
+          courseId: { [Op.in]: enrolledCourseIds },
+          sectionId: { [Op.in]: enrolledSectionIds }
+        },
+        attributes: ['courseId', 'sectionId'],
+        raw: true
+      })
+    : [];
+  const assignedPairs = new Set(
+    staffAssignments.map((row) => `${Number(row.courseId)}:${Number(row.sectionId)}`)
+  );
+
+  const courseMap = new Map();
+  const attendanceScope = [];
+  for (const row of enrolledCourses) {
+    const courseId = Number(row.courseId);
+    const sectionId = Number(row.sectionId);
+    if (!courseId || !sectionId) continue;
+    if (!assignedPairs.has(`${courseId}:${sectionId}`)) continue;
+
+    if (!courseMap.has(courseId)) {
+      courseMap.set(courseId, {
+        courseId,
+        courseCode: row.Course?.courseCode || 'NA',
+        courseTitle: row.Course?.courseTitle || 'Unknown Course'
+      });
+    }
+    attendanceScope.push({ courseId, sectionId });
+  }
+
+  if (attendanceScope.length === 0) {
+    return res.status(200).json({ status: "success", data: [] });
   }
 
   const rows = await PeriodAttendance.findAll({
     where: {
       regno: user.studentProfile.registerNumber,
-      semesterNumber: sem.semesterNumber,
+      semesterNumber: semester.semesterNumber,
+      [Op.or]: attendanceScope,
       [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))]
     },
-    include: [{
-      model: Course,
-      attributes: ['courseId', 'courseCode', 'courseTitle'],
-      required: false
-    }],
     attributes: [
       'courseId',
       [sequelize.fn('COUNT', sequelize.col('PeriodAttendance.periodAttendanceId')), 'totalPeriods'],
       [sequelize.fn('SUM', sequelize.literal("CASE WHEN PeriodAttendance.status IN ('P','OD') THEN 1 ELSE 0 END")), 'presentPeriods']
     ],
-    group: ['courseId', 'Course.courseId', 'Course.courseCode', 'Course.courseTitle'],
+    group: ['courseId'],
     order: [[sequelize.literal('presentPeriods / NULLIF(totalPeriods, 0)'), 'DESC']]
   });
 
@@ -672,10 +745,11 @@ export const getSubjectwiseAttendance = catchAsync(async (req, res) => {
     const total = Number(r.get('totalPeriods') || 0);
     const present = Number(r.get('presentPeriods') || 0);
     const percentage = total > 0 ? Number(((present / total) * 100).toFixed(1)) : 0;
+    const course = courseMap.get(Number(r.courseId)) || {};
     return {
       courseId: r.courseId,
-      courseCode: r.Course?.courseCode || 'NA',
-      courseTitle: r.Course?.courseTitle || 'Unknown Course',
+      courseCode: course.courseCode || 'NA',
+      courseTitle: course.courseTitle || 'Unknown Course',
       totalPeriods: total,
       presentPeriods: present,
       percentage
@@ -693,7 +767,7 @@ export const getStudentEnrolledCourses = catchAsync(async (req, res) => {
   }
 
   const { semesterId } = req.query;
-  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: 'studentProfile' }] });
+  const user = await User.findByPk(userId, { include: [studentProfileInclude] });
 
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
@@ -714,7 +788,7 @@ export const getMandatoryCourses = catchAsync(async (req, res) => {
   if (!userId || !semesterId) {
     return res.status(userId ? 400 : 401).json({ status: "failure", message: userId ? "semesterId is required" : "User not authenticated" });
   }
-  const user = await User.findByPk(userId, { include: [{ model: StudentDetails, as: "studentProfile" }] });
+  const user = await User.findByPk(userId, { include: [studentProfileInclude] });
   if (!user?.studentProfile) {
     return res.status(404).json({ status: "failure", message: "Student profile not found" });
   }
@@ -739,7 +813,10 @@ export const getSemesters = catchAsync(async (req, res) => {
     key,
     async () => {
       const user = await User.findByPk(userId, {
-        include: [{ model: StudentDetails, as: 'studentProfile', attributes: ['batch', 'departmentId', 'course'] }]
+        include: [{
+          ...studentProfileInclude,
+          attributes: ['batch', 'departmentId']
+        }]
       });
 
       if (!user?.studentProfile) {
