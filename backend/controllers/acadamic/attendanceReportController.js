@@ -54,15 +54,18 @@ function getDayCode(dateString) {
 }
 
 function getDisplayStudentName(studentRecord) {
+  const plain = typeof studentRecord?.get === "function"
+    ? studentRecord.get({ plain: true })
+    : studentRecord;
   const candidateName =
-    studentRecord?.studentName ||
-    studentRecord?.StudentName ||
+    plain?.studentName ||
+    plain?.StudentName ||
     studentRecord?.get?.("studentName") ||
     studentRecord?.get?.("StudentName") ||
-    studentRecord?.studentUser?.userName ||
-    studentRecord?.user?.userName ||
-    studentRecord?.User?.userName ||
-    studentRecord?.userAccount?.userName;
+    plain?.studentUser?.userName ||
+    plain?.user?.userName ||
+    plain?.User?.userName ||
+    plain?.userAccount?.userName;
 
   if (typeof candidateName === "string" && candidateName.trim()) {
     return candidateName.trim();
@@ -524,6 +527,14 @@ export const getStudentAttendanceReport = async (req, res) => {
     const students = await StudentDetails.findAll({
       where: whereStudent,
       attributes: ["registerNumber", "studentName", "Userid"],
+      include: [
+        {
+          model: User,
+          as: "studentUser",
+          required: false,
+          attributes: ["userName"],
+        },
+      ],
       order: [["registerNumber", "ASC"]],
     });
 
