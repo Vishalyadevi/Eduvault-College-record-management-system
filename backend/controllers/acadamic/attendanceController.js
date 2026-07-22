@@ -257,6 +257,20 @@ export async function getTimetable(req, res, next) {
 
     const dates = generateDates(startDate, endDate);
     const timetable = {};
+    const courseIds = [...new Set(periods.map((p) => p.courseId).filter(Boolean))];
+    const periodNumbers = [...new Set(periods.map((p) => p.periodNumber).filter(Boolean))];
+    const markedAttendanceRows = courseIds.length && periodNumbers.length
+      ? await PeriodAttendance.findAll({
+          where: {
+            attendanceDate: { [Op.in]: dates },
+            courseId: { [Op.in]: courseIds },
+            periodNumber: { [Op.in]: periodNumbers }
+          },
+          attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber'],
+          group: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber'],
+          raw: true
+        })
+      : [];
 
     dates.forEach((date) => {
       if (isAcademicHoliday(date)) {
@@ -266,19 +280,30 @@ export async function getTimetable(req, res, next) {
       const dayStr = dayMap[getDayOfWeek(date)];
       timetable[date] = dayStr ? periods
         .filter(p => p.dayOfWeek === dayStr)
-        .map(p => ({
-          timetableId: p.timetableId,
-          courseId: p.courseId,
-          courseCode: p.Course.courseCode,
-          sectionId: p.sectionId,
-          dayOfWeek: p.dayOfWeek,
-          periodNumber: p.periodNumber,
-          courseTitle: p.Course.courseTitle,
-          sectionName: p.Section?.sectionName,
-          semesterId: p.semesterId,
-          departmentCode: p.department?.departmentAcr,
-          isStaffCourse: true
-        })) : [];
+        .map(p => {
+          const isMarked = markedAttendanceRows.some((row) =>
+            row.attendanceDate === date &&
+            Number(row.courseId) === Number(p.courseId) &&
+            row.dayOfWeek === p.dayOfWeek &&
+            Number(row.periodNumber) === Number(p.periodNumber) &&
+            (!p.sectionId || Number(row.sectionId) === Number(p.sectionId))
+          );
+
+          return {
+            timetableId: p.timetableId,
+            courseId: p.courseId,
+            courseCode: p.Course.courseCode,
+            sectionId: p.sectionId,
+            dayOfWeek: p.dayOfWeek,
+            periodNumber: p.periodNumber,
+            courseTitle: p.Course.courseTitle,
+            sectionName: p.Section?.sectionName,
+            semesterId: p.semesterId,
+            departmentCode: p.department?.departmentAcr,
+            isStaffCourse: true,
+            isMarked
+          };
+        }) : [];
     });
 
     const semesterIds = [...new Set(periods.map((p) => p.semesterId).filter(Boolean))];

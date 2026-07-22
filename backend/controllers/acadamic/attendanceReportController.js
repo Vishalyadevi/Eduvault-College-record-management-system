@@ -88,8 +88,23 @@ function degreeAliases(value) {
 }
 
 function buildStudentDegreeWhere(value) {
-  const aliases = degreeAliases(value);
-  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+  return {};
+}
+
+function parsePeriodNumbers(value) {
+  const rawValues = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(
+    rawValues
+      .map((item) => parseInt(item, 10))
+      .filter((period) => Number.isInteger(period) && period >= 1 && period <= 8)
+  )].sort((a, b) => a - b);
+}
+
+function chooseAttendanceStatus(existing, nextStatus) {
+  const status = nextStatus || "A";
+  if (existing === "P" || status === "P") return "P";
+  if (existing === "OD" || status === "OD") return "OD";
+  return status;
 }
 
 // ==========================================
@@ -423,6 +438,8 @@ export const getStudentAttendanceReport = async (req, res) => {
     semesterId,
     sectionId,
     courseId,
+    reportBy,
+    periods,
     fromDate,
     toDate,
   } = req.query;
@@ -446,6 +463,18 @@ export const getStudentAttendanceReport = async (req, res) => {
     const normalizedSectionId = sectionId && sectionId !== "Select Section" ? parseInt(sectionId, 10) : null;
     const normalizedCourseId = courseId && courseId !== "Select Course" ? parseInt(courseId, 10) : null;
     const normalizedDegree = degree && degree !== "Select Degree" ? degree : null;
+    const normalizedReportBy = ["course", "section", "class"].includes(String(reportBy || "").toLowerCase())
+      ? String(reportBy).toLowerCase()
+      : normalizedCourseId
+        ? "course"
+        : normalizedSectionId
+          ? "section"
+          : "class";
+    const selectedPeriodNumbers = parsePeriodNumbers(periods);
+
+    if (normalizedReportBy === "class" && !selectedPeriodNumbers.length) {
+      return res.status(400).json({ success: false, error: "Select at least one period for class-wise report" });
+    }
 
     const whereStudent = {};
     let batchInfo = null;
@@ -495,14 +524,6 @@ export const getStudentAttendanceReport = async (req, res) => {
     const students = await StudentDetails.findAll({
       where: whereStudent,
       attributes: ["registerNumber", "studentName", "Userid"],
-      include: [
-        {
-          model: User,
-          as: "studentUser",
-          required: false,
-          attributes: ["userName"],
-        },
-      ],
       order: [["registerNumber", "ASC"]],
     });
 
@@ -533,7 +554,9 @@ export const getStudentAttendanceReport = async (req, res) => {
       enrollmentByRegNo[regno].add(`${row.courseId}-${row.sectionId || 0}`);
     });
 
-    const selectedRegNos = studentRegNos.filter((regno) => selectedRegNoSet.has(regno));
+    const selectedRegNos = normalizedReportBy === "class"
+      ? studentRegNos
+      : studentRegNos.filter((regno) => selectedRegNoSet.has(regno));
     if (!selectedRegNos.length) {
       return res.json({ success: true, report: [], slots: [] });
     }
@@ -546,14 +569,21 @@ export const getStudentAttendanceReport = async (req, res) => {
       current.setDate(current.getDate() + 1);
     }
 
+    const timetableWhere = {
+      isActive: "YES",
+      ...(normalizedReportBy === "class"
+        ? { courseId: { [Op.ne]: null } }
+        : { courseId: { [Op.in]: [...enrolledCourseIds] } }),
+      ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
+      ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
+      ...(normalizedSemesterId ? { semesterId: normalizedSemesterId } : {}),
+      ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
+      ...(normalizedReportBy === "class" ? { periodNumber: { [Op.in]: selectedPeriodNumbers } } : {}),
+    };
+
     const timetableRows = await Timetable.findAll({
       where: {
-        isActive: "YES",
-        courseId: { [Op.in]: [...enrolledCourseIds] },
-        ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
-        ...(normalizedDepartmentId ? { departmentId: normalizedDepartmentId } : {}),
-        ...(normalizedSemesterId ? { semesterId: normalizedSemesterId } : {}),
-        ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
+        ...timetableWhere,
       },
       attributes: ["courseId", "sectionId", "dayOfWeek", "periodNumber"],
       raw: true,
@@ -579,6 +609,7 @@ export const getStudentAttendanceReport = async (req, res) => {
         .map((slot) => `${slot.courseId}-${slot.dayOfWeek}-${slot.periodNumber}`)
     );
 
+    const classSlotOptions = new Map();
     const visibleSlotMap = new Map();
     dates.forEach((date) => {
       if (isAcademicHoliday(date)) return;
@@ -586,7 +617,13 @@ export const getStudentAttendanceReport = async (req, res) => {
       timetableRows.forEach((slot) => {
         if (slot.dayOfWeek !== dayOfWeek) return;
         const meta = courseMetaMap.get(slot.courseId) || {};
-        const key = `${date}-${slot.periodNumber}-${slot.courseId}-${slot.sectionId || 0}`;
+        const key = normalizedReportBy === "class"
+          ? `${date}-${slot.periodNumber}`
+          : `${date}-${slot.periodNumber}-${slot.courseId}-${slot.sectionId || 0}`;
+        if (normalizedReportBy === "class") {
+          if (!classSlotOptions.has(key)) classSlotOptions.set(key, []);
+          classSlotOptions.get(key).push(slot);
+        }
         visibleSlotMap.set(key, {
           key,
           date,
@@ -620,6 +657,7 @@ export const getStudentAttendanceReport = async (req, res) => {
         ...(semesterInfo ? { semesterNumber: semesterInfo.semesterNumber } : {}),
         ...(normalizedSectionId ? { [Op.or]: [{ sectionId: normalizedSectionId }, { sectionId: null }, { sectionId: 0 }] } : {}),
         ...(normalizedCourseId ? { courseId: normalizedCourseId } : {}),
+        ...(normalizedReportBy === "class" ? { periodNumber: { [Op.in]: selectedPeriodNumbers } } : {}),
       },
       attributes: ["regno", "courseId", "sectionId", "attendanceDate", "periodNumber", "status"],
       raw: true,
@@ -631,11 +669,13 @@ export const getStudentAttendanceReport = async (req, res) => {
       if (!attendanceByStudent[regno]) attendanceByStudent[regno] = {};
       const key = `${row.attendanceDate}-${row.periodNumber}-${row.courseId}-${row.sectionId || 0}`;
       const genericKey = `${row.attendanceDate}-${row.periodNumber}-${row.courseId}-0`;
+      const classKey = `${row.attendanceDate}-${row.periodNumber}`;
       const existing = attendanceByStudent[regno][key];
       const status = row.status || "A";
       if (existing === "P") return;
       if (existing === "OD" && status === "A") return;
       attendanceByStudent[regno][key] = status;
+      attendanceByStudent[regno][classKey] = chooseAttendanceStatus(attendanceByStudent[regno][classKey], status);
       if (row.sectionId) {
         const genericExisting = attendanceByStudent[regno][genericKey];
         if (genericExisting !== "P" && !(genericExisting === "OD" && status === "A")) {
@@ -656,16 +696,18 @@ export const getStudentAttendanceReport = async (req, res) => {
         let totalAllocatedPeriods = 0;
 
         slots.forEach((slot) => {
-          const enrollmentKey = `${slot.courseId}-${slot.sectionId || 0}`;
-          const isAllocated =
-            (
+          const classOptions = normalizedReportBy === "class" ? classSlotOptions.get(slot.key) || [] : [slot];
+          const matchingSlot = classOptions.find((option) => {
+            const enrollmentKey = `${option.courseId}-${option.sectionId || 0}`;
+            const isStudentEnrolled =
               enrolledSlots.has(enrollmentKey) ||
-              (!slot.sectionId && [...enrolledSlots].some((item) => item.startsWith(`${slot.courseId}-`)))
-            ) &&
-            (
-              timetableSlotSet.has(`${slot.courseId}-${slot.sectionId || 0}-${slot.dayOfWeek}-${slot.periodNumber}`) ||
-              genericTimetableSlotSet.has(`${slot.courseId}-${slot.dayOfWeek}-${slot.periodNumber}`)
-            );
+              (!option.sectionId && [...enrolledSlots].some((item) => item.startsWith(`${option.courseId}-`)));
+            const isTimetabled =
+              timetableSlotSet.has(`${option.courseId}-${option.sectionId || 0}-${option.dayOfWeek}-${option.periodNumber}`) ||
+              genericTimetableSlotSet.has(`${option.courseId}-${option.dayOfWeek}-${option.periodNumber}`);
+            return isStudentEnrolled && isTimetabled;
+          });
+          const isAllocated = Boolean(matchingSlot);
 
           if (!isAllocated) {
             attendanceByDate[slot.key] = "";
@@ -679,7 +721,9 @@ export const getStudentAttendanceReport = async (req, res) => {
           }
 
           totalAllocatedPeriods += 1;
-          const status = attendanceByStudent[regNo]?.[slot.key] || "A";
+          const status = normalizedReportBy === "class"
+            ? attendanceByStudent[regNo]?.[slot.key] || "A"
+            : attendanceByStudent[regNo]?.[slot.key] || "A";
           attendanceByDate[slot.key] = status;
           if (status === "P") presentCount += 1;
           else if (status === "OD") odCount += 1;
@@ -701,9 +745,9 @@ export const getStudentAttendanceReport = async (req, res) => {
           attendancePercentage,
         };
       })
-      .filter((student) => selectedRegNoSet.has(student.registerNumber));
+      .filter((student) => normalizedReportBy === "class" || selectedRegNoSet.has(student.registerNumber));
 
-    return res.json({ success: true, report, slots });
+    return res.json({ success: true, report, slots, reportBy: normalizedReportBy });
   } catch (error) {
     console.error("Error in getStudentAttendanceReport:", error);
     res.status(500).json({ success: false, error: "Internal server error" });

@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
+const PERIOD_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 const formatDisplayDate = (dateString) => {
   if (!dateString) return "";
@@ -20,7 +21,10 @@ const getDayLabel = (dateString) => {
   return date.toLocaleDateString("en-US", { weekday: "short" });
 };
 
-const getSlotLabel = (slot) => [slot?.courseCode, slot?.periodNumber ? `P${slot.periodNumber}` : ""].filter(Boolean).join(" ");
+const getSlotLabel = (slot, reportBy) => {
+  if (reportBy === "class") return slot?.periodNumber ? `P${slot.periodNumber}` : "";
+  return [slot?.courseCode, slot?.periodNumber ? `P${slot.periodNumber}` : ""].filter(Boolean).join(" ");
+};
 
 const getSectionLabel = (section = {}) => {
   if (section.displayName) return section.displayName;
@@ -52,6 +56,7 @@ export default function StudentAttendanceReport() {
     reportBy: "course",
     section: "",
     course: "",
+    periods: PERIOD_OPTIONS,
     fromDate: new Date().toISOString().split("T")[0],
     toDate: new Date().toISOString().split("T")[0],
   });
@@ -63,6 +68,7 @@ export default function StudentAttendanceReport() {
   const [report, setReport] = useState([]);
   const [dates, setDates] = useState([]);
   const [slots, setSlots] = useState([]);
+  const [generatedReportBy, setGeneratedReportBy] = useState("course");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -243,9 +249,37 @@ export default function StudentAttendanceReport() {
       } else if (name === "reportBy") {
         next.section = "";
         next.course = "";
+        if (value === "class" && !next.periods.length) next.periods = PERIOD_OPTIONS;
       }
       return next;
     });
+  };
+
+  const handlePeriodToggle = (period) => {
+    setFilters((prev) => {
+      const hasPeriod = prev.periods.includes(period);
+      const periods = hasPeriod
+        ? prev.periods.filter((item) => item !== period)
+        : [...prev.periods, period].sort((a, b) => a - b);
+      return { ...prev, periods };
+    });
+  };
+
+  const handleSelectAllPeriods = (checked) => {
+    setFilters((prev) => ({ ...prev, periods: checked ? PERIOD_OPTIONS : [] }));
+  };
+
+  const getStudentDatePercentage = (student, date) => {
+    const dateSlots = slots.filter((slot) => slot.date === date);
+    let total = 0;
+    let attended = 0;
+    dateSlots.forEach((slot) => {
+      const value = student.attendanceByDate?.[slot.key];
+      if (!value || value === "UNASSIGNED") return;
+      total += 1;
+      if (value === "P" || value === "OD") attended += 1;
+    });
+    return total ? ((attended / total) * 100).toFixed(2) : "0.00";
   };
 
   const handleGenerateReport = async () => {
@@ -261,10 +295,14 @@ export default function StudentAttendanceReport() {
     if (filters.reportBy === "section" && !filters.section) {
       return toast.error("Please select a section for section-wise report.");
     }
+    if (filters.reportBy === "class" && !filters.periods.length) {
+      return toast.error("Please select at least one period for class-wise report.");
+    }
     setLoading(true);
     setError(null);
     setReport([]);
     setSlots([]);
+    setGeneratedReportBy(filters.reportBy);
 
     try {
       const res = await axios.get(`${API_BASE_URL}/api/admin/attendanceReports/student-attendance`, {
@@ -275,6 +313,8 @@ export default function StudentAttendanceReport() {
           semesterId: filters.semester || undefined,
           sectionId: filters.reportBy === "section" ? filters.section || undefined : undefined,
           courseId: filters.reportBy === "course" ? filters.course || undefined : undefined,
+          reportBy: filters.reportBy,
+          periods: filters.reportBy === "class" ? filters.periods.join(",") : undefined,
           fromDate: filters.fromDate,
           toDate: filters.toDate,
           _: Date.now(),
@@ -284,6 +324,7 @@ export default function StudentAttendanceReport() {
       if (res.data.success) {
         setReport(res.data.report || []);
         setSlots(res.data.slots || []);
+        setGeneratedReportBy(res.data.reportBy || filters.reportBy);
       } else {
         setError(res.data.error || "Unable to generate report.");
       }
@@ -295,12 +336,61 @@ export default function StudentAttendanceReport() {
   };
 
   const handleDownloadExcel = () => {
+    if (generatedReportBy === "class") {
+      const classDates = [...new Set(slots.map((slot) => slot.date))];
+      const headerRowOne = ["Register Number", "Student Name"];
+      const headerRowTwo = ["", ""];
+      const merges = [
+        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },
+        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },
+      ];
+      let columnIndex = 2;
+
+      classDates.forEach((date) => {
+        const dateSlots = slots.filter((slot) => slot.date === date);
+        headerRowOne.push(formatDisplayDate(date), ...Array(dateSlots.length).fill(""));
+        headerRowTwo.push(...dateSlots.map((slot) => `P${slot.periodNumber}`), "Present %");
+        merges.push({ s: { r: 0, c: columnIndex }, e: { r: 0, c: columnIndex + dateSlots.length } });
+        columnIndex += dateSlots.length + 1;
+      });
+
+      headerRowOne.push("Present", "Absent", "OD", "Allocated", "Attendance %");
+      headerRowTwo.push("", "", "", "", "");
+      for (let i = 0; i < 5; i += 1) {
+        merges.push({ s: { r: 0, c: columnIndex + i }, e: { r: 1, c: columnIndex + i } });
+      }
+
+      const worksheetData = [
+        headerRowOne,
+        headerRowTwo,
+        ...report.map((row) => {
+          const rowData = [row.registerNumber, row.name];
+          classDates.forEach((date) => {
+            const dateSlots = slots.filter((slot) => slot.date === date);
+            dateSlots.forEach((slot) => {
+              rowData.push(row.attendanceByDate?.[slot.key] ?? "A");
+            });
+            rowData.push(`${getStudentDatePercentage(row, date)}%`);
+          });
+          rowData.push(row.presentCount, row.absentCount, row.odCount, row.totalAllocatedPeriods, `${row.attendancePercentage}%`);
+          return rowData;
+        }),
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      worksheet["!merges"] = merges;
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Class Attendance");
+      XLSX.writeFile(workbook, `classwise-attendance-report-${filters.fromDate}-to-${filters.toDate}.xlsx`);
+      return;
+    }
+
     const worksheetData = report.map((row) => {
       const rowCopy = { "Register Number": row.registerNumber, "Student Name": row.name };
       const columns = slots.length ? slots : dates.map((date) => ({ key: date, date }));
       columns.forEach((column) => {
         const key = column.key || column.date;
-        const header = slots.length ? `${column.date} ${getSlotLabel(column)}` : column.date;
+        const header = slots.length ? `${column.date} ${getSlotLabel(column, generatedReportBy)}` : column.date;
         rowCopy[header] = row.attendanceByDate?.[key] ?? "A";
       });
       rowCopy.Present = row.presentCount;
@@ -376,6 +466,7 @@ export default function StudentAttendanceReport() {
               <select name="reportBy" value={filters.reportBy} onChange={handleChange} className="field-input">
                 <option value="course">Course Wise</option>
                 <option value="section">Section Wise</option>
+                <option value="class">Class Wise</option>
               </select>
             </Field>
 
@@ -385,7 +476,7 @@ export default function StudentAttendanceReport() {
                 value={filters.section}
                 onChange={handleChange}
                 className="field-input"
-                disabled={!filters.semester || filters.reportBy === "course"}
+                disabled={!filters.semester || filters.reportBy !== "section"}
               >
                 <option value="">Select Section</option>
                 {sections.map((section) => (
@@ -402,7 +493,7 @@ export default function StudentAttendanceReport() {
                 value={filters.course}
                 onChange={handleChange}
                 className="field-input"
-                disabled={!filters.semester || filters.reportBy === "section"}
+                disabled={!filters.semester || filters.reportBy !== "course"}
               >
                 <option value="">Select Course</option>
                 {courses.map((course) => (
@@ -440,6 +531,36 @@ export default function StudentAttendanceReport() {
               </button>
             </div>
           </div>
+
+          {filters.reportBy === "class" && (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Periods</p>
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={filters.periods.length === PERIOD_OPTIONS.length}
+                    onChange={(e) => handleSelectAllPeriods(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                  />
+                  Select All
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+                {PERIOD_OPTIONS.map((period) => (
+                  <label key={period} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={filters.periods.includes(period)}
+                      onChange={() => handlePeriodToggle(period)}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                    />
+                    Period {period}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {report.length > 0 && (
@@ -449,7 +570,7 @@ export default function StudentAttendanceReport() {
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Student Attendance Matrix</p>
                 <p className="mt-1 text-sm text-slate-700">
                   {report.length} students from {filters.fromDate} to {filters.toDate}
-                  {slots.length ? ` | ${slots.length} allocated periods` : ""}
+                  {slots.length ? ` | ${slots.length} ${generatedReportBy === "class" ? "selected period columns" : "allocated periods"}` : ""}
                 </p>
               </div>
               <button
@@ -478,7 +599,7 @@ export default function StudentAttendanceReport() {
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-slate-900">{formatDisplayDate(column.date)}</span>
                           <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                            {slots.length ? `${getDayLabel(column.date)} ${getSlotLabel(column)}` : getDayLabel(column.date)}
+                            {slots.length ? `${getDayLabel(column.date)} ${getSlotLabel(column, generatedReportBy)}` : getDayLabel(column.date)}
                           </span>
                         </div>
                       </th>

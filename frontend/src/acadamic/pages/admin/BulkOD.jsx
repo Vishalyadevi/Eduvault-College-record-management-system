@@ -54,6 +54,15 @@ const generateDateRange = (from, to) => {
   return dates;
 };
 
+const hasFutureNonODSelection = (students = [], dates = []) =>
+  students.some((student) =>
+    dates.some((date) => {
+      if (date <= TODAY) return false;
+      const status = String(student.dateStatuses?.[date] || "").trim().toUpperCase();
+      return status && status !== "OD";
+    })
+  );
+
 export default function AdminAttendanceGenerator() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -339,7 +348,7 @@ export default function AdminAttendanceGenerator() {
   };
 
   const handleStudentDateStatusChange = async (roll, date, status) => {
-    if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
+    if (date > TODAY && status !== "OD") return toast.error("Only OD can be marked for a future date");
     const student = students.find((s) => s.rollnumber === roll);
     if (!student) return;
 
@@ -430,7 +439,9 @@ export default function AdminAttendanceGenerator() {
     if (new Date(startDate) > new Date(endDate)) {
       return toast.error("End date must be on or after start date");
     }
-    if (endDate > TODAY) return toast.error("Attendance cannot be marked for future dates");
+    if (endDate > TODAY && hasFutureNonODSelection(selectedList, dates)) {
+      return toast.error("Only OD can be marked for future dates");
+    }
 
     setSaving(true);
     try {
@@ -547,7 +558,6 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">From</label>
               <input
                 type="date"
-                max={TODAY}
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
@@ -558,7 +568,6 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To</label>
               <input
                 type="date"
-                max={TODAY}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"

@@ -20,6 +20,9 @@ axios.defaults.withCredentials = true;
 const now = new Date();
 const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
+const getSlotKey = ({ date, periodNumber, courseId, sectionId }) =>
+  `${date}-${periodNumber}-${courseId}-${sectionId || "null"}`;
+
 export default function AttendanceGenerator() {
   const { user } = useAuth();
   // --- ALL LOGIC REMAINS EXACTLY AS PROVIDED ---
@@ -199,18 +202,25 @@ export default function AttendanceGenerator() {
         { params: { date } }
       );
       if (res.data.data) {
+        const selectedPeriod = (timetable[date] || []).find(
+          (p) =>
+            p.courseId === courseId &&
+            p.periodNumber === periodNumber &&
+            (p.sectionId || null) === (safeSectionId || null)
+        );
         setStudents(
           res.data.data.map((s) => ({ ...s, status: s.status || "" }))
         );
         setSelectedCourse({
           courseId,
-          courseCode: (timetable[date] || []).find(
-            (p) => p.courseId === courseId
-          )?.courseCode,
+          courseCode: selectedPeriod?.courseCode,
           sectionId: safeSectionId,
           date,
           periodNumber,
           dayOfWeek,
+          isMarked:
+            Boolean(selectedPeriod?.isMarked) ||
+            res.data.data.some((s) => Boolean(s.status)),
         });
       }
       const skippedRes = await axios.get(
@@ -293,7 +303,21 @@ export default function AttendanceGenerator() {
         `${API_BASE_URL}/api/staff/attendance/mark/${selectedCourse.courseId}/${selectedCourse.sectionId}/${selectedCourse.dayOfWeek}/${selectedCourse.periodNumber}`,
         { date: selectedCourse.date, attendances: payload }
       );
-      toast.success("Attendance Saved");
+      setTimetable((prev) => ({
+        ...prev,
+        [selectedCourse.date]: (prev[selectedCourse.date] || []).map((period) =>
+          getSlotKey({
+            date: selectedCourse.date,
+            periodNumber: period.periodNumber,
+            courseId: period.courseId,
+            sectionId: period.sectionId,
+          }) === getSlotKey(selectedCourse)
+            ? { ...period, isMarked: true }
+            : period
+        ),
+      }));
+      setSelectedCourse((prev) => (prev ? { ...prev, isMarked: true } : prev));
+      toast.success(selectedCourse.isMarked ? "Attendance Updated" : "Attendance Saved");
     } catch (err) {
       toast.error("Save Failed");
     } finally {
@@ -471,12 +495,21 @@ export default function AttendanceGenerator() {
                                   <button
                                     key={`${period.timetableId}-${period.courseId}-${period.sectionId || "all"}`}
                                     onClick={() => handleCourseClick(period.courseId, period.sectionId, date, period.periodNumber)}
-                                    className="w-full py-2 px-2 text-[10.5px] font-bold bg-white border border-slate-200 rounded-xl hover:border-slate-400 hover:shadow-sm transition-all text-slate-700 uppercase"
+                                    className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${
+                                      period.isMarked
+                                        ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
+                                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
+                                    }`}
                                   >
                                     {period.courseCode}
                                     <div className="text-[9px] font-semibold text-slate-400 mt-0.5 normal-case">
                                       {period.courseTitle || "General"}
                                     </div>
+                                    {period.isMarked && (
+                                      <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-emerald-600">
+                                        Marked
+                                      </div>
+                                    )}
                                   </button>
                                 ))}
                               </div>
@@ -628,7 +661,7 @@ export default function AttendanceGenerator() {
                 disabled={saving}
                 className="bg-[#0f172a] text-white px-12 py-3.5 rounded-xl font-bold uppercase text-[12px] tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg disabled:opacity-20"
               >
-                {saving ? "Syncing..." : "Save Attendance"}
+                {saving ? "Syncing..." : selectedCourse.isMarked ? "Update Attendance" : "Save Attendance"}
               </button>
             </div>
           </div>
