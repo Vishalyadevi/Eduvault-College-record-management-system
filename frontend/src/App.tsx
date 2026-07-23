@@ -208,6 +208,14 @@ const getCurrentSystem = (pathname: string): string => {
   return 'main';
 };
 
+const isAcademicPath = (pathname: string): boolean =>
+  pathname === '/admin' ||
+  pathname.startsWith('/admin/') ||
+  pathname === '/staff' ||
+  pathname.startsWith('/staff/') ||
+  pathname === '/student' ||
+  pathname.startsWith('/student/');
+
 // Protected Route Component
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -1062,15 +1070,21 @@ const AppRoutes: React.FC = () => {
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const shouldShowPreloader = !isAcademicPath(window.location.pathname);
 
   useEffect(() => {
+    if (!shouldShowPreloader) {
+      setLoading(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
       setLoading(false);
     }, 4800); // Show preloader for 4.8 seconds
     return () => clearTimeout(timer);
-  }, []);
+  }, [shouldShowPreloader]);
 
-  if (loading) return <Preloader />;
+  if (shouldShowPreloader && loading) return <Preloader />;
 
   return (
     <GoogleOAuthProvider clientId="493948268457-pop93h1dek4qf9tdnqancgrtcetrg1n7.apps.googleusercontent.com">
