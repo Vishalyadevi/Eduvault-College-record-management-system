@@ -20,6 +20,42 @@ axios.defaults.withCredentials = true;
 const now = new Date();
 const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
+const ATTENDANCE_STATUS_OPTIONS = [
+  {
+    value: "P",
+    label: "Present",
+    activeClass:
+      "border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-100 scale-105 focus:ring-emerald-200",
+    bulkClass:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100 focus:ring-emerald-200",
+    summaryClass: "border-emerald-200 bg-emerald-50/70",
+    badgeClass: "bg-emerald-600 text-white",
+    textClass: "text-emerald-700",
+  },
+  {
+    value: "A",
+    label: "Absent",
+    activeClass:
+      "border-rose-600 bg-rose-600 text-white shadow-md shadow-rose-100 scale-105 focus:ring-rose-200",
+    bulkClass:
+      "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-400 hover:bg-rose-100 focus:ring-rose-200",
+    summaryClass: "border-rose-200 bg-rose-50/70",
+    badgeClass: "bg-rose-600 text-white",
+    textClass: "text-rose-700",
+  },
+  {
+    value: "OD",
+    label: "On Duty",
+    activeClass:
+      "border-sky-600 bg-sky-600 text-white shadow-md shadow-sky-100 scale-105 focus:ring-sky-200",
+    bulkClass:
+      "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-400 hover:bg-sky-100 focus:ring-sky-200",
+    summaryClass: "border-sky-200 bg-sky-50/70",
+    badgeClass: "bg-sky-600 text-white",
+    textClass: "text-sky-700",
+  },
+];
+
 const getSlotKey = ({ date, periodNumber, courseId, sectionId }) =>
   `${date}-${periodNumber}-${courseId}-${sectionId || "null"}`;
 
@@ -328,6 +364,7 @@ export default function AttendanceGenerator() {
   };
 
   const handleAttendanceChange = (rollnumber, status) => {
+    setBulkStatus("");
     setStudents((prev) =>
       prev.map((s) => (s.rollnumber === rollnumber ? { ...s, status } : s))
     );
@@ -404,13 +441,21 @@ export default function AttendanceGenerator() {
   };
 
   const attendanceSummary = students.reduce(
-    (acc, s) => {
-      if (s.status === "P") acc.present++;
-      else if (s.status === "A") acc.absent++;
-      else if (s.status === "OD") acc.onDuty++;
+    (acc, student) => {
+      const statusSummary = acc[student.status];
+      if (statusSummary) {
+        statusSummary.count += 1;
+        if (student.status !== "P" && student.rollnumber) {
+          statusSummary.rollNumbers.push(String(student.rollnumber));
+        }
+      }
       return acc;
     },
-    { present: 0, absent: 0, onDuty: 0 }
+    {
+      P: { count: 0, rollNumbers: [] },
+      A: { count: 0, rollNumbers: [] },
+      OD: { count: 0, rollNumbers: [] },
+    }
   );
 
   const dates = generateDates();
@@ -422,7 +467,7 @@ export default function AttendanceGenerator() {
         <td
           key={cell.key}
           colSpan={cell.colSpan}
-          className="p-5 border-l border-slate-100 text-center text-slate-200"
+          className="border-l border-slate-100 p-3 text-center text-slate-300"
         >
           â€”
         </td>
@@ -433,21 +478,21 @@ export default function AttendanceGenerator() {
       <td
         key={cell.key}
         colSpan={cell.colSpan}
-        className="p-3 border-l border-slate-100 text-center"
+        className="border-l border-slate-100 p-2.5 text-center align-top"
       >
         <div className="space-y-2">
           {cell.groups.map((period) => (
             <button
               key={`${cell.key}-${period.groupKey}`}
               onClick={() => handleCourseClick(period, date)}
-              className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${
+              className={`flex min-h-[108px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-center text-xs font-bold uppercase leading-4 transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 ${
                 period.isMarked
                   ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
                   : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
               }`}
             >
-              <div>{period.courseCode}</div>
-              <div className="text-[9px] font-semibold text-slate-400 mt-0.5 normal-case">
+              <div className="break-words">{period.courseCode}</div>
+              <div className="mt-1 max-w-full break-words text-[10px] font-semibold normal-case leading-4 text-slate-500">
                 {period.courseTitle || "General"}
               </div>
               {cell.periodNumbers.length > 1 && (
@@ -564,19 +609,19 @@ export default function AttendanceGenerator() {
               </h3>
             </div>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[1280px] table-fixed text-sm">
                 <thead>
                   <tr className="bg-white text-slate-400 border-b border-slate-100">
-                    <th className="p-5 font-bold text-left uppercase text-[10px] tracking-widest w-44">
+                    <th className="sticky left-0 z-10 w-40 bg-white p-4 text-left text-[10px] font-bold uppercase tracking-widest">
                       Timeline
                     </th>
                     {timeSlots.map((slot) => (
                       <th
                         key={slot.periodNumber}
-                        className="p-5 font-bold text-center border-l border-slate-100 uppercase text-[10px] tracking-widest"
+                        className="border-l border-slate-100 p-4 text-center text-[10px] font-bold uppercase tracking-widest"
                       >
-                        P{slot.periodNumber} <br />
-                        <span className="font-medium normal-case text-slate-400">
+                        <span className="text-xs text-slate-600">P{slot.periodNumber}</span>
+                        <span className="mt-1 block whitespace-nowrap text-[9px] font-medium normal-case tracking-normal text-slate-400">
                           {slot.time}
                         </span>
                       </th>
@@ -600,7 +645,7 @@ export default function AttendanceGenerator() {
                         key={date}
                         className="hover:bg-slate-50/50 transition-colors"
                       >
-                        <td className="p-5 border-r border-slate-100">
+                        <td className="sticky left-0 z-[5] border-r border-slate-100 bg-white p-4">
                           <div className="font-bold text-[#1e293b]">{date}</div>
                           <div className="text-[10px] font-bold uppercase text-slate-400">
                             {dayName}
@@ -740,20 +785,27 @@ export default function AttendanceGenerator() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2">
-                  Quick Action:
+              <div className="w-full md:w-auto">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 md:text-right">
+                  Set status for all students
                 </div>
-                <select
-                  value={bulkStatus}
-                  onChange={(e) => handleBulkStatusChange(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-bold uppercase px-3 py-2 rounded-lg outline-none cursor-pointer"
-                >
-                  <option value="">Status for All</option>
-                  <option value="P">Present</option>
-                  <option value="A">Absent</option>
-                  <option value="OD">On-Duty</option>
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleBulkStatusChange(option.value)}
+                      aria-pressed={bulkStatus === option.value}
+                      className={`min-w-[76px] rounded-lg border px-3 py-2 text-[11px] font-bold transition focus:outline-none focus:ring-2 ${
+                        bulkStatus === option.value
+                          ? option.activeClass
+                          : option.bulkClass
+                      }`}
+                    >
+                      All {option.value}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -804,19 +856,23 @@ export default function AttendanceGenerator() {
                               Admin Locked
                             </span>
                           ) : (
-                            ['P', 'A', 'OD'].map((status) => (
+                            ATTENDANCE_STATUS_OPTIONS.map((option) => (
                               <button
-                                key={status}
+                                key={option.value}
+                                type="button"
                                 onClick={() =>
-                                  handleAttendanceChange(student.rollnumber, status)
+                                  handleAttendanceChange(student.rollnumber, option.value)
                                 }
-                                className={`w-10 h-10 rounded-xl text-[11px] font-bold transition-all border ${
-                                  student.status === status
-                                    ? 'bg-[#10b981] text-white border-[#10b981] shadow-md scale-105'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+                                aria-label={`Mark ${student.name || student.rollnumber} as ${option.label}`}
+                                aria-pressed={student.status === option.value}
+                                title={option.label}
+                                className={`h-11 min-w-11 rounded-xl border px-3 text-[11px] font-bold transition-all focus:outline-none focus:ring-2 ${
+                                  student.status === option.value
+                                    ? option.activeClass
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
                                 }`}
                               >
-                                {status}
+                                {option.value}
                               </button>
                             ))
                           )}
@@ -843,17 +899,20 @@ export default function AttendanceGenerator() {
                       {isSkipped ? (
                         <div className="col-span-3 rounded-lg bg-slate-100 px-3 py-2 text-center text-xs font-bold uppercase text-slate-600">Admin Locked</div>
                       ) : (
-                        ['P', 'A', 'OD'].map((status) => (
+                        ATTENDANCE_STATUS_OPTIONS.map((option) => (
                           <button
-                            key={status}
-                            onClick={() => handleAttendanceChange(student.rollnumber, status)}
-                            className={`h-10 rounded-lg border text-xs font-bold ${
-                              student.status === status
-                                ? 'bg-[#10b981] text-white border-[#10b981]'
-                                : 'bg-white text-slate-500 border-slate-200'
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleAttendanceChange(student.rollnumber, option.value)}
+                            aria-label={`Mark ${student.name || student.rollnumber} as ${option.label}`}
+                            aria-pressed={student.status === option.value}
+                            className={`h-11 rounded-lg border text-xs font-bold transition focus:outline-none focus:ring-2 ${
+                              student.status === option.value
+                                ? option.activeClass
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
                             }`}
                           >
-                            {status}
+                            {option.value}
                           </button>
                         ))
                       )}
@@ -863,40 +922,67 @@ export default function AttendanceGenerator() {
               })}
             </div>
 
-            <div className="p-4 bg-slate-50/50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 sm:p-8">
-              <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 sm:flex sm:gap-8 sm:text-[11px]">
-                <div className="flex items-center gap-2">
-                  PRESENT:{" "}
-                  <span className="text-black bg-white px-2.5 py-1 rounded border border-slate-200">
-                    {attendanceSummary.present}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  ABSENT:{" "}
-                  <span className="text-black bg-white px-2.5 py-1 rounded border border-slate-200">
-                    {attendanceSummary.absent}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  OD:{" "}
-                  <span className="text-black bg-white px-2.5 py-1 rounded border border-slate-200">
-                    {attendanceSummary.onDuty}
-                  </span>
-                </div>
+            <div className="border-t border-slate-200 bg-slate-50/70 p-4 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  Attendance summary
+                </span>
+                {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+                  <div
+                    key={option.value}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 ${option.summaryClass}`}
+                  >
+                    <span className={`text-[10px] font-bold uppercase ${option.textClass}`}>
+                      {option.label}
+                    </span>
+                    <span className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold ${option.badgeClass}`}>
+                      {attendanceSummary[option.value].count}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-[#0f172a] text-white px-6 py-3.5 rounded-xl font-bold uppercase text-[12px] tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg disabled:opacity-20 sm:px-12"
-              >
-                {saving ? "Syncing..." : selectedCourse.isMarked ? "Update Attendance" : "Save Attendance"}
-              </button>
+              <div className="mb-5 grid gap-2 md:grid-cols-2">
+                {ATTENDANCE_STATUS_OPTIONS
+                  .filter((option) => option.value !== "P")
+                  .map((option) => (
+                    <AttendanceRollList
+                      key={option.value}
+                      option={option}
+                      rollNumbers={attendanceSummary[option.value].rollNumbers}
+                    />
+                  ))}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full rounded-xl bg-[#0f172a] px-6 py-3.5 text-[12px] font-bold uppercase tracking-widest text-white shadow-lg transition-all hover:bg-black active:scale-[0.99] disabled:opacity-20 sm:w-auto sm:px-12"
+                >
+                  {saving ? "Syncing..." : selectedCourse.isMarked ? "Update Attendance" : "Save Attendance"}
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       <ToastContainer theme="dark" position="bottom-right" autoClose={2500} />
+    </div>
+  );
+}
+
+function AttendanceRollList({ option, rollNumbers }) {
+  return (
+    <div className={`flex min-w-0 items-start gap-2 rounded-lg border px-3 py-2.5 ${option.summaryClass}`}>
+      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide ${option.textClass}`}>
+        {option.label}:
+      </span>
+      <div
+        className="max-h-12 min-w-0 overflow-y-auto break-words text-xs font-semibold leading-5 text-slate-700"
+        title={rollNumbers.join(", ")}
+      >
+        {rollNumbers.length ? rollNumbers.join(", ") : "None"}
+      </div>
     </div>
   );
 }
