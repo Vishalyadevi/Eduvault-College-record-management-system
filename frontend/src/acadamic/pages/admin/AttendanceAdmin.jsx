@@ -395,15 +395,15 @@ export default function AdminAttendanceGenerator() {
   }, [students]);
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-6 md:px-8">
+    <div className="min-h-screen bg-slate-100 px-3 py-4 sm:px-4 sm:py-6 md:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-5">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subject-wise Attendance</h1>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Admin Attendance</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-8">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
             <FilterField label="Degree" value={selectedDegree} onChange={setSelectedDegree} className="xl:col-span-1">
               <option value="">Select</option>
               {degrees.map((d) => (
@@ -482,7 +482,8 @@ export default function AdminAttendanceGenerator() {
           </div>
 
           {Object.keys(timetable).length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1024px] border-collapse">
                 <thead className="bg-slate-50">
                   <tr>
@@ -534,6 +535,57 @@ export default function AdminAttendanceGenerator() {
                 </tbody>
               </table>
             </div>
+            <div className="space-y-4 p-4 md:hidden">
+              {dates.map((date) => {
+                const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
+                if (isAcademicHoliday(date)) {
+                  return (
+                    <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="font-semibold text-slate-900">{date}</div>
+                      <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
+                      <div className="mt-3 rounded-lg bg-amber-50 p-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">Holiday - Sunday / Third Saturday</div>
+                    </div>
+                  );
+                }
+
+                const daySlots = timeSlots.slice(0, configuredPeriodCount)
+                  .map((slot) => ({
+                    slot,
+                    courses: (timetable[date] || [])
+                      .filter((p) => p.periodNumber === slot.periodNumber)
+                      .map((p) => ({ ...p, date })),
+                  }))
+                  .filter((item) => item.courses.length > 0);
+
+                return (
+                  <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3">
+                      <div className="font-semibold text-slate-900">{date}</div>
+                      <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
+                    </div>
+                    <div className="space-y-2">
+                      {daySlots.map(({ slot, courses }) => (
+                        <div key={`${date}-${slot.periodNumber}`} className="rounded-xl border border-slate-200 p-3">
+                          <div className="mb-2 flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-500">
+                            <span>P{slot.periodNumber}</span>
+                            <span className="normal-case text-slate-400">{slot.time}</span>
+                          </div>
+                          <CourseSlot
+                            courses={courses}
+                            date={date}
+                            periodNumber={slot.periodNumber}
+                            selectedCourse={selectedCourse}
+                            onSelect={handleCourseSelect}
+                          />
+                        </div>
+                      ))}
+                      {!daySlots.length && <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs font-semibold text-slate-400">No periods</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            </>
           ) : (
             <div className="flex h-56 flex-col items-center justify-center text-slate-400">
               <Calendar size={42} strokeWidth={1.3} />
@@ -570,7 +622,7 @@ export default function AdminAttendanceGenerator() {
               </div>
             </div>
 
-            <div className="max-h-[500px] overflow-y-auto">
+            <div className="hidden max-h-[500px] overflow-y-auto md:block">
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-slate-50">
                   <tr>
@@ -627,8 +679,47 @@ export default function AdminAttendanceGenerator() {
                 </tbody>
               </table>
             </div>
+            <div className="space-y-3 p-4 md:hidden">
+              {groupedStudents.map((group) => (
+                <div key={group.sectionName} className="space-y-3">
+                  <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Section: {group.sectionName} | Staff: {group.staffName || "Not Assigned"}
+                  </div>
+                  {group.students.map((s) => (
+                    <div key={s.rollnumber} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="font-semibold text-slate-700">{s.rollnumber}</div>
+                      <div className="mt-1 break-words text-sm text-slate-900">{s.name}</div>
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        {[
+                          { key: "P", active: "bg-emerald-500 border-emerald-500 text-white" },
+                          { key: "A", active: "bg-rose-500 border-rose-500 text-white" },
+                          { key: "OD", active: "bg-sky-500 border-sky-500 text-white" },
+                        ].map((st) => (
+                          <button
+                            key={st.key}
+                            onClick={() => updateStatus(s.rollnumber, st.key)}
+                            className={`h-10 rounded-lg border text-xs font-semibold transition ${
+                              s.status === st.key
+                                ? st.active
+                                : "border-slate-200 bg-white text-slate-500"
+                            }`}
+                          >
+                            {st.key}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {students.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
+                  No students enrolled in this course/section.
+                </div>
+              )}
+            </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
                 Present: <span className="text-slate-900">{stats.P}</span> | Absent: <span className="text-slate-900">{stats.A}</span> | OD: <span className="text-slate-900">{stats.OD}</span>
               </div>

@@ -475,7 +475,7 @@ export default function AttendanceGenerator() {
   return (
     <div className="min-h-screen bg-[#f9fafc] text-slate-900 font-sans">
       {/* Header Section - Matching your Image Style */}
-      <div className="bg-white border-b border-slate-200 py-6 px-8 flex items-center gap-6">
+      <div className="bg-white border-b border-slate-200 px-4 py-5 flex items-center gap-4 sm:px-8 sm:py-6 sm:gap-6">
         <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
           <ChevronLeft size={20} className="text-slate-600" />
         </button>
@@ -493,7 +493,7 @@ export default function AttendanceGenerator() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-4 sm:p-8">
         {error && (
           <div className="mb-8 p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
@@ -512,14 +512,14 @@ export default function AttendanceGenerator() {
         )}
 
         {/* Filters Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 mb-8 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-8 shadow-sm sm:p-8">
           <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
             <Filter size={16} className="text-slate-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
               Filter Schedule
             </h2>
           </div>
-          <div className="flex flex-wrap items-end gap-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end lg:gap-8">
             <div className="flex flex-col gap-2">
               <label className="text-[11px] font-bold uppercase text-slate-400 flex items-center gap-2 tracking-widest">
                 <Calendar size={13} /> Start Date
@@ -527,7 +527,7 @@ export default function AttendanceGenerator() {
               <input
                 type="date"
                 max={TODAY}
-                className="border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all w-48"
+                className="w-full border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all lg:w-48"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
               />
@@ -539,7 +539,7 @@ export default function AttendanceGenerator() {
               <input
                 type="date"
                 max={TODAY}
-                className="border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all w-48"
+                className="w-full border border-slate-200 bg-slate-50/50 p-2.5 rounded-lg text-sm focus:ring-1 focus:ring-black outline-none font-semibold transition-all lg:w-48"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 min={fromDate}
@@ -548,7 +548,7 @@ export default function AttendanceGenerator() {
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className="px-8 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-all hover:bg-slate-50 hover:shadow-md disabled:opacity-50"
+              className="px-8 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-all hover:bg-slate-50 hover:shadow-md disabled:opacity-50 sm:col-span-2 lg:col-span-1"
             >
               {loading ? "Fetching..." : "View Timetable"}
             </button>
@@ -563,7 +563,7 @@ export default function AttendanceGenerator() {
                 <Clock size={16} /> Weekly Overview
               </h3>
             </div>
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-white text-slate-400 border-b border-slate-100">
@@ -662,13 +662,70 @@ export default function AttendanceGenerator() {
                 </tbody>
               </table>
             </div>
+            <div className="space-y-4 p-4 md:hidden">
+              {dates.map((date) => {
+                const holiday = isAcademicHoliday(date);
+                const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
+                const periods = (timetable[date] || []).reduce((acc, p) => {
+                  if (!acc[p.periodNumber]) acc[p.periodNumber] = [];
+                  acc[p.periodNumber].push(p);
+                  return acc;
+                }, {});
+                const mergedCells = buildMergedPeriodCells(timeSlots, periods);
+                return (
+                  <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-bold text-slate-900">{date}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{dayName}</div>
+                      </div>
+                    </div>
+                    {holiday ? (
+                      <div className="rounded-lg bg-amber-50 p-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">
+                        Holiday - Sunday / Third Saturday
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {mergedCells
+                          .filter((cell) => cell.type !== "empty")
+                          .flatMap((cell) => cell.groups.map((period) => (
+                            <button
+                              key={`${cell.key}-${period.groupKey}`}
+                              onClick={() => handleCourseClick(period, date)}
+                              className={`w-full rounded-xl border p-3 text-left text-xs font-bold uppercase transition ${
+                                period.isMarked
+                                  ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                                  : "border-slate-200 bg-white text-slate-700"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div>{period.courseCode}</div>
+                                  <div className="mt-1 text-[11px] font-semibold normal-case text-slate-500">{period.courseTitle || "General"}</div>
+                                </div>
+                                <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] text-slate-600">
+                                  P{cell.periodNumbers.join(" + P")}
+                                </div>
+                              </div>
+                              {period.isMarked && <div className="mt-2 text-[10px] text-emerald-600">Marked</div>}
+                            </button>
+                          )))}
+                        {!mergedCells.some((cell) => cell.type !== "empty") && (
+                          <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs font-semibold text-slate-400">No periods</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
         {/* Attendance Card */}
         {selectedCourse && (
           <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
-            <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 sm:p-8">
               <div>
                 <h2 className="text-xl font-bold text-[#0f172a]">
                   {selectedCourse.courseCode}
@@ -700,7 +757,7 @@ export default function AttendanceGenerator() {
               </div>
             </div>
 
-            <div className="p-0 overflow-hidden">
+            <div className="hidden p-0 overflow-hidden md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 border-b border-slate-100">
@@ -770,9 +827,44 @@ export default function AttendanceGenerator() {
                 </tbody>
               </table>
             </div>
+            <div className="space-y-3 p-4 md:hidden">
+              {students.map((student, idx) => {
+                const isSkipped = skippedStudents.some((sk) => sk.rollnumber === student.rollnumber);
+                return (
+                  <div key={student.rollnumber || idx} className={`rounded-xl border border-slate-200 bg-white p-4 ${isSkipped ? "opacity-80" : ""}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs font-bold text-slate-500">{student.rollnumber}</div>
+                        <div className="mt-1 break-words font-semibold text-slate-800">{student.name}</div>
+                      </div>
+                      {isSkipped && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-500">Admin Locked</span>}
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {isSkipped ? (
+                        <div className="col-span-3 rounded-lg bg-slate-100 px-3 py-2 text-center text-xs font-bold uppercase text-slate-600">Admin Locked</div>
+                      ) : (
+                        ['P', 'A', 'OD'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => handleAttendanceChange(student.rollnumber, status)}
+                            className={`h-10 rounded-lg border text-xs font-bold ${
+                              student.status === status
+                                ? 'bg-[#10b981] text-white border-[#10b981]'
+                                : 'bg-white text-slate-500 border-slate-200'
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-            <div className="p-8 bg-slate-50/50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8">
-              <div className="flex gap-8 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+            <div className="p-4 bg-slate-50/50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 sm:p-8">
+              <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 sm:flex sm:gap-8 sm:text-[11px]">
                 <div className="flex items-center gap-2">
                   PRESENT:{" "}
                   <span className="text-black bg-white px-2.5 py-1 rounded border border-slate-200">
@@ -795,7 +887,7 @@ export default function AttendanceGenerator() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-[#0f172a] text-white px-12 py-3.5 rounded-xl font-bold uppercase text-[12px] tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg disabled:opacity-20"
+                className="bg-[#0f172a] text-white px-6 py-3.5 rounded-xl font-bold uppercase text-[12px] tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg disabled:opacity-20 sm:px-12"
               >
                 {saving ? "Syncing..." : selectedCourse.isMarked ? "Update Attendance" : "Save Attendance"}
               </button>

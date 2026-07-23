@@ -910,18 +910,38 @@ export async function getStaffAttendanceReportFilters(req, res) {
 /** Generate a student-level report, limited to the logged-in staff member's allocations. */
 export async function generateStaffAttendanceReport(req, res) {
   try {
-    const { fromDate, toDate, courseId, sectionId, batchId, degree, status = 'ALL', threshold = 75 } = req.query;
+    const {
+      fromDate,
+      toDate,
+      courseId,
+      sectionId,
+      batchId,
+      degree,
+      status = 'ALL',
+      threshold = 75,
+      percentageFilter = 'false',
+      percentageOperator = '<',
+      percentageValue
+    } = req.query;
     if (!fromDate || !toDate || fromDate > toDate) {
       return res.status(400).json({ status: 'error', message: 'A valid From Date and To Date are required' });
-    }
-    const cutoff = Number(threshold);
-    if (!Number.isFinite(cutoff) || cutoff < 0 || cutoff > 100) {
-      return res.status(400).json({ status: 'error', message: 'Threshold must be between 0 and 100' });
     }
     const selectedStatus = String(status).toUpperCase();
     if (!['ALL', 'P', 'A', 'OD'].includes(selectedStatus)) {
       return res.status(400).json({ status: 'error', message: 'Invalid attendance status' });
     }
+    const shouldFilterPercentage = String(percentageFilter).toLowerCase() === 'true';
+    const selectedPercentageOperator = ['<', '>', '='].includes(String(percentageOperator)) ? String(percentageOperator) : '<';
+    const cutoff = shouldFilterPercentage ? Number(percentageValue ?? threshold) : Number(threshold);
+    if (shouldFilterPercentage && (!Number.isFinite(cutoff) || cutoff < 0 || cutoff > 100)) {
+      return res.status(400).json({ status: 'error', message: 'Attendance percentage must be between 0 and 100' });
+    }
+    const matchesPercentageFilter = (percentage) => {
+      if (!shouldFilterPercentage) return true;
+      if (selectedPercentageOperator === '>') return percentage > cutoff;
+      if (selectedPercentageOperator === '=') return percentage === cutoff;
+      return percentage < cutoff;
+    };
 
     const user = await getInternalUser(req.user);
     const assignments = await StaffCourse.findAll({
@@ -1071,6 +1091,7 @@ export async function generateStaffAttendanceReport(req, res) {
         totalClasses, present, absent, od, attended, percentage, belowThreshold: percentage < cutoff
       };
     }).filter((row) => !statusField || row[statusField] > 0)
+      .filter((row) => matchesPercentageFilter(row.percentage))
       .sort((a, b) => a.courseCode.localeCompare(b.courseCode) || a.sectionName.localeCompare(b.sectionName) || a.regno.localeCompare(b.regno));
 
     res.json({
@@ -1078,7 +1099,10 @@ export async function generateStaffAttendanceReport(req, res) {
       summary: {
         students: data.length, belowThreshold: data.filter((r) => r.belowThreshold).length,
         present: data.reduce((n, r) => n + r.present, 0), absent: data.reduce((n, r) => n + r.absent, 0),
-        od: data.reduce((n, r) => n + r.od, 0), threshold: cutoff
+        od: data.reduce((n, r) => n + r.od, 0),
+        threshold: cutoff,
+        percentageFilter: shouldFilterPercentage,
+        percentageOperator: selectedPercentageOperator
       }
     });
   } catch (err) {
