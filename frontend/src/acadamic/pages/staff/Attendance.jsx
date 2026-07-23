@@ -308,6 +308,7 @@ export default function AttendanceGenerator() {
     setStudents([]);
     setSelectedCourse(null);
     setBulkStatus("");
+    setSkippedStudents([]);
     const safeSectionId =
       sectionId && !isNaN(parseInt(sectionId)) ? parseInt(sectionId) : null;
     try {
@@ -355,7 +356,16 @@ export default function AttendanceGenerator() {
           skippedRes.data.data.forEach((student) => skippedByRoll.set(student.rollnumber, student));
         }
       });
-      setSkippedStudents([...skippedByRoll.values()]);
+      const adminMarkedStudents = [...skippedByRoll.values()];
+      setSkippedStudents(adminMarkedStudents);
+      setStudents((currentStudents) =>
+        currentStudents.map((student) => {
+          const adminMarked = skippedByRoll.get(student.rollnumber);
+          return adminMarked?.status
+            ? { ...student, status: adminMarked.status }
+            : student;
+        })
+      );
     } catch (err) {
       const message = err?.response?.data?.message || "Error loading students";
       console.error("Staff period student fetch error:", err?.response?.data || err);
@@ -826,15 +836,16 @@ export default function AttendanceGenerator() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {students.map((student, idx) => {
-                    const isSkipped =
-                      skippedStudents.some(
-                        (sk) => sk.rollnumber === student.rollnumber
-                      );
+                    const adminMarked = skippedStudents.find(
+                      (sk) => sk.rollnumber === student.rollnumber
+                    );
+                    const isSkipped = Boolean(adminMarked);
+                    const displayedStatus = adminMarked?.status || student.status;
                     return (
                       <tr
                         key={idx}
                         className={`hover:bg-slate-50 transition-colors ${
-                          isSkipped ? "bg-slate-50/70 opacity-80" : ""
+                          isSkipped ? "bg-sky-50/40" : ""
                         }`}
                       >
                         <td className="p-5 font-mono font-bold text-xs text-slate-500">
@@ -844,38 +855,39 @@ export default function AttendanceGenerator() {
                           <div className="flex items-center gap-2">
                             <span>{student.name}</span>
                             {isSkipped && (
-                              <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                Admin Locked
+                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+                                Set by admin
                               </span>
                             )}
                           </div>
                         </td>
                         <td className="p-5 flex justify-center gap-3">
-                          {isSkipped ? (
-                            <span className="text-[10px] font-bold bg-slate-200/80 text-slate-600 px-4 py-1.5 rounded-full uppercase tracking-widest">
-                              Admin Locked
-                            </span>
-                          ) : (
-                            ATTENDANCE_STATUS_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() =>
-                                  handleAttendanceChange(student.rollnumber, option.value)
-                                }
-                                aria-label={`Mark ${student.name || student.rollnumber} as ${option.label}`}
-                                aria-pressed={student.status === option.value}
-                                title={option.label}
-                                className={`h-11 min-w-11 rounded-xl border px-3 text-[11px] font-bold transition-all focus:outline-none focus:ring-2 ${
-                                  student.status === option.value
-                                    ? option.activeClass
+                          {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              disabled={isSkipped}
+                              onClick={() =>
+                                handleAttendanceChange(student.rollnumber, option.value)
+                              }
+                              aria-label={
+                                isSkipped
+                                  ? `${option.label}; attendance set by admin and cannot be edited`
+                                  : `Mark ${student.name || student.rollnumber} as ${option.label}`
+                              }
+                              aria-pressed={displayedStatus === option.value}
+                              title={isSkipped ? `${option.label} — set by admin` : option.label}
+                              className={`h-11 min-w-11 rounded-xl border px-3 text-[11px] font-bold transition-all focus:outline-none focus:ring-2 ${
+                                displayedStatus === option.value
+                                  ? option.activeClass
+                                  : isSkipped
+                                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 opacity-60'
                                     : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
-                                }`}
-                              >
-                                {option.value}
-                              </button>
-                            ))
-                          )}
+                              } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
+                            >
+                              {option.value}
+                            </button>
+                          ))}
                         </td>
                       </tr>
                     );
@@ -885,37 +897,43 @@ export default function AttendanceGenerator() {
             </div>
             <div className="space-y-3 p-4 md:hidden">
               {students.map((student, idx) => {
-                const isSkipped = skippedStudents.some((sk) => sk.rollnumber === student.rollnumber);
+                const adminMarked = skippedStudents.find((sk) => sk.rollnumber === student.rollnumber);
+                const isSkipped = Boolean(adminMarked);
+                const displayedStatus = adminMarked?.status || student.status;
                 return (
-                  <div key={student.rollnumber || idx} className={`rounded-xl border border-slate-200 bg-white p-4 ${isSkipped ? "opacity-80" : ""}`}>
+                  <div key={student.rollnumber || idx} className={`rounded-xl border bg-white p-4 ${isSkipped ? "border-sky-200 bg-sky-50/30" : "border-slate-200"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-mono text-xs font-bold text-slate-500">{student.rollnumber}</div>
                         <div className="mt-1 break-words font-semibold text-slate-800">{student.name}</div>
                       </div>
-                      {isSkipped && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-500">Admin Locked</span>}
+                      {isSkipped && <span className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold uppercase text-sky-700">Set by admin</span>}
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      {isSkipped ? (
-                        <div className="col-span-3 rounded-lg bg-slate-100 px-3 py-2 text-center text-xs font-bold uppercase text-slate-600">Admin Locked</div>
-                      ) : (
-                        ATTENDANCE_STATUS_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => handleAttendanceChange(student.rollnumber, option.value)}
-                            aria-label={`Mark ${student.name || student.rollnumber} as ${option.label}`}
-                            aria-pressed={student.status === option.value}
-                            className={`h-11 rounded-lg border text-xs font-bold transition focus:outline-none focus:ring-2 ${
-                              student.status === option.value
-                                ? option.activeClass
+                      {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={isSkipped}
+                          onClick={() => handleAttendanceChange(student.rollnumber, option.value)}
+                          aria-label={
+                            isSkipped
+                              ? `${option.label}; attendance set by admin and cannot be edited`
+                              : `Mark ${student.name || student.rollnumber} as ${option.label}`
+                          }
+                          aria-pressed={displayedStatus === option.value}
+                          title={isSkipped ? `${option.label} — set by admin` : option.label}
+                          className={`h-11 rounded-lg border text-xs font-bold transition focus:outline-none focus:ring-2 ${
+                            displayedStatus === option.value
+                              ? option.activeClass
+                              : isSkipped
+                                ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 opacity-60'
                                 : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
-                            }`}
-                          >
-                            {option.value}
-                          </button>
-                        ))
-                      )}
+                          } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
+                        >
+                          {option.value}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 );
