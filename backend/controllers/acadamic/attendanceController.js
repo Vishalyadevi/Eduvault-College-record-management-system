@@ -266,8 +266,7 @@ export async function getTimetable(req, res, next) {
             courseId: { [Op.in]: courseIds },
             periodNumber: { [Op.in]: periodNumbers }
           },
-          attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber'],
-          group: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber'],
+          attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber', 'status', 'updatedBy'],
           raw: true
         })
       : [];
@@ -286,7 +285,8 @@ export async function getTimetable(req, res, next) {
             Number(row.courseId) === Number(p.courseId) &&
             row.dayOfWeek === p.dayOfWeek &&
             Number(row.periodNumber) === Number(p.periodNumber) &&
-            (!p.sectionId || Number(row.sectionId) === Number(p.sectionId))
+            (!p.sectionId || Number(row.sectionId) === Number(p.sectionId)) &&
+            !(row.updatedBy === 'admin' && row.status === 'OD')
           );
 
           return {
@@ -949,12 +949,84 @@ export async function generateStaffAttendanceReport(req, res) {
     );
     if (!allowed.length) return res.json({ status: 'success', data: [], summary: { students: 0, belowThreshold: 0 } });
 
-    const scopeKeys = new Set(allowed.map((a) => `${a.courseId}_${a.sectionId}`));
     const courseIds = [...new Set(allowed.map((a) => a.courseId))];
-    const sectionIds = [...new Set(allowed.map((a) => a.sectionId))];
+    const allowedPairs = allowed.map((assignment) => ({
+      courseId: Number(assignment.courseId),
+      sectionId: assignment.sectionId == null ? null : Number(assignment.sectionId),
+    }));
+    const allocationWhere = {
+      [Op.or]: allowedPairs.map((pair) => ({
+        courseId: pair.courseId,
+        ...(pair.sectionId == null ? {} : { sectionId: pair.sectionId }),
+      })),
+    };
+    const studentCourses = await StudentCourse.findAll({
+      where: allocationWhere,
+      include: [
+        {
+          model: StudentDetails,
+          required: true,
+          on: {
+            regno: sequelize.where(
+              sequelize.col('StudentCourse.regno'),
+              '=',
+              sequelize.col('StudentDetail.registerNumber')
+            )
+          },
+          attributes: ['registerNumber', 'studentName', 'Userid'],
+          include: [{
+            model: User,
+            as: 'studentUser',
+            where: { status: 'Active' },
+            required: true,
+            attributes: []
+          }]
+        }
+      ],
+      attributes: ['regno', 'courseId', 'sectionId'],
+    });
+
+    const isPairAllowed = (course, section) =>
+      allowedPairs.some((pair) =>
+        Number(pair.courseId) === Number(course) &&
+        (pair.sectionId == null || Number(pair.sectionId) === Number(section || 0))
+      );
+    const getAssignmentFor = (course, section) =>
+      allowed.find((assignment) =>
+        Number(assignment.courseId) === Number(course) &&
+        (
+          assignment.sectionId == null ||
+          Number(assignment.sectionId) === Number(section || 0)
+        )
+      );
+
+    const rosterMap = new Map();
+    studentCourses.forEach((row) => {
+      const regno = String(row.regno || '').trim();
+      if (!regno || !isPairAllowed(row.courseId, row.sectionId)) return;
+      const key = `${regno}_${row.courseId}_${row.sectionId || 0}`;
+      if (!rosterMap.has(key)) {
+        rosterMap.set(key, {
+          regno,
+          courseId: Number(row.courseId),
+          sectionId: Number(row.sectionId || 0),
+          totalClasses: 0,
+          present: 0,
+          absent: 0,
+          od: 0
+        });
+      }
+    });
+
+    if (!rosterMap.size) {
+      return res.json({ status: 'success', data: [], summary: { students: 0, belowThreshold: 0, present: 0, absent: 0, od: 0, threshold: cutoff } });
+    }
+
+    const enrolledRegnos = [...new Set([...rosterMap.values()].map((row) => row.regno))];
     const attendance = await PeriodAttendance.findAll({
       where: {
-        courseId: { [Op.in]: courseIds }, sectionId: { [Op.in]: sectionIds },
+        regno: { [Op.in]: enrolledRegnos },
+        courseId: { [Op.in]: courseIds },
         attendanceDate: { [Op.between]: [fromDate, toDate] },
         [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))]
       },
@@ -967,12 +1039,26 @@ export async function generateStaffAttendanceReport(req, res) {
       ],
       group: ['regno', 'courseId', 'sectionId'], raw: true
     });
-    const scoped = attendance.filter((r) => scopeKeys.has(`${r.courseId}_${r.sectionId}`));
-    const names = await buildStudentNameMap(scoped.map((r) => r.regno));
-    const assignmentByKey = new Map(allowed.map((a) => [`${a.courseId}_${a.sectionId}`, a]));
+
+    attendance.forEach((row) => {
+      const regno = String(row.regno || '').trim();
+      const course = Number(row.courseId);
+      const section = Number(row.sectionId || 0);
+      if (!isPairAllowed(course, section)) return;
+
+      const rosterRow = rosterMap.get(`${regno}_${course}_${section}`);
+      if (!rosterRow) return;
+
+      rosterRow.totalClasses = Number(row.totalClasses || 0);
+      rosterRow.present = Number(row.present || 0);
+      rosterRow.absent = Number(row.absent || 0);
+      rosterRow.od = Number(row.od || 0);
+    });
+
+    const names = await buildStudentNameMap(enrolledRegnos);
     const statusField = { P: 'present', A: 'absent', OD: 'od' }[selectedStatus];
-    const data = scoped.map((row) => {
-      const assignment = assignmentByKey.get(`${row.courseId}_${row.sectionId}`);
+    const data = [...rosterMap.values()].map((row) => {
+      const assignment = getAssignmentFor(row.courseId, row.sectionId);
       const present = Number(row.present || 0), absent = Number(row.absent || 0), od = Number(row.od || 0);
       const totalClasses = Number(row.totalClasses || 0);
       const attended = present + od;

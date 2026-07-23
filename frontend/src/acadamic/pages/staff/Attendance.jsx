@@ -297,9 +297,7 @@ export default function AttendanceGenerator() {
           periodNumbers,
           periodTargets,
           dayOfWeek,
-          isMarked:
-            Boolean(courseGroup.isMarked) ||
-            res.data.data.some((s) => Boolean(s.status)),
+          isMarked: Boolean(courseGroup.isMarked),
         });
       }
 
