@@ -39,6 +39,22 @@ function normalizeAttendanceDate(rawDate) {
   return date.toISOString().split('T')[0];
 }
 
+function areAllSubmittedStatusesOD(attendances = []) {
+  return Array.isArray(attendances) &&
+    attendances.length > 0 &&
+    attendances.every((attendance) => String(attendance?.status || '').trim().toUpperCase() === 'OD');
+}
+
+function hasOnlyFutureODChanges(students = [], dates = []) {
+  return Array.isArray(students) && students.every((student) =>
+    dates.every((date) => {
+      if (!isFutureDate(date)) return true;
+      const status = String(student?.dateStatuses?.[date] || '').trim().toUpperCase();
+      return !status || status === 'OD';
+    })
+  );
+}
+
 async function resolveSectionIdForStudent({ slot, student, transaction, actor = 'admin' }) {
   if (!slot || !slot.courseId) return null;
 
@@ -415,9 +431,6 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
   try {
     const { courseId, sectionId, dayOfWeek, periodNumber } = req.params;
     const { date = getTodayDateString(), departmentId: queryDeptId, semesterId: querySemesterId, batch: queryBatch, degree: queryDegree, branch: queryBranch } = req.query;
-    if (isFutureDate(date)) {
-      return res.status(400).json({ status: "error", message: "Attendance cannot be accessed for a future date" });
-    }
     const authDeptId = req.user.departmentId || null;
     const safeSectionId = Number.isNaN(parseInt(sectionId, 10)) ? null : parseInt(sectionId, 10);
     const normalizedDeptId = parseInt(queryDeptId, 10);
@@ -627,9 +640,9 @@ export async function markAttendanceAdmin(req, res, next) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "Attendance cannot be marked on Sundays or third-Saturday holidays" });
     }
-    if (!date || isFutureDate(date)) {
+    if (!date || (isFutureDate(date) && !areAllSubmittedStatusesOD(attendances))) {
       await t.rollback();
-      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
+      return res.status(400).json({ status: "error", message: "Only OD can be marked for a future date" });
     }
     const adminUser = await getInternalAdminUser(req.user);
     const adminUserId = adminUser.userId;
@@ -1122,9 +1135,9 @@ export async function markStudentStatus(req, res) {
       : [];
     const absentEntries = [];
 
-    if (isFutureDate(date)) {
+    if (isFutureDate(date) && normalizedStatus !== "OD") {
       await t.rollback();
-      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for a future date" });
+      return res.status(400).json({ status: "error", message: "Only OD can be marked for a future date" });
     }
 
     if (!student?.rollnumber || !date) {
@@ -1300,10 +1313,14 @@ export async function markFullDayOD(req, res) {
       return res.status(400).json({ status: "error", message: "End date must be on or after start date" });
     }
 
+    const datesInRange = [];
+    for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+      datesInRange.push(current.toISOString().split("T")[0]);
+    }
 
-    if (endDate > getTodayDateString()) {
+    if (endDate > getTodayDateString() && !hasOnlyFutureODChanges(students, datesInRange)) {
       await t.rollback();
-      return res.status(400).json({ status: "error", message: "Attendance cannot be marked for future dates" });
+      return res.status(400).json({ status: "error", message: "Only OD can be marked for future dates" });
     }
 
     let processedDates = 0;

@@ -20,6 +20,105 @@ axios.defaults.withCredentials = true;
 const now = new Date();
 const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
+const getSlotKey = ({ date, periodNumber, courseId, sectionId }) =>
+  `${date}-${periodNumber}-${courseId}-${sectionId || "null"}`;
+
+const normalizeCourseText = (value) =>
+  String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+
+const getCourseGroupKey = (course = {}) =>
+  `${normalizeCourseText(course.courseCode)}|${normalizeCourseText(course.courseTitle)}`;
+
+const sameCourseGroups = (left = [], right = []) => {
+  if (left.length !== right.length) return false;
+  const leftKeys = left.map((group) => group.groupKey).sort();
+  const rightKeys = right.map((group) => group.groupKey).sort();
+  return leftKeys.every((key, index) => key === rightKeys[index]);
+};
+
+const groupCoursesForPeriod = (courses = []) => {
+  const grouped = new Map();
+
+  courses.forEach((course) => {
+    const groupKey = getCourseGroupKey(course);
+    const existing = grouped.get(groupKey);
+
+    if (!existing) {
+      grouped.set(groupKey, {
+        ...course,
+        groupKey,
+        courseIds: [course.courseId],
+        sectionIds: [course.sectionId || null],
+        isMarked: Boolean(course.isMarked),
+      });
+      return;
+    }
+
+    existing.courseIds = [...new Set([...existing.courseIds, course.courseId])];
+    existing.sectionIds = [...new Set([...existing.sectionIds, course.sectionId || null])];
+    existing.isMarked = existing.isMarked || Boolean(course.isMarked);
+  });
+
+  return [...grouped.values()];
+};
+
+const buildMergedPeriodCells = (timeSlots, periodsByNumber) => {
+  const cells = [];
+  let index = 0;
+
+  while (index < timeSlots.length) {
+    const slot = timeSlots[index];
+    const groups = groupCoursesForPeriod(periodsByNumber[slot.periodNumber] || []);
+
+    if (groups.length === 0) {
+      cells.push({ type: "empty", key: `empty-${slot.periodNumber}`, periodNumbers: [slot.periodNumber], colSpan: 1 });
+      index += 1;
+      continue;
+    }
+
+    const periodNumbers = [slot.periodNumber];
+    let colSpan = 1;
+    let nextIndex = index + 1;
+
+    while (nextIndex < timeSlots.length) {
+      const nextSlot = timeSlots[nextIndex];
+      const nextGroups = groupCoursesForPeriod(periodsByNumber[nextSlot.periodNumber] || []);
+      if (!sameCourseGroups(groups, nextGroups)) break;
+
+      periodNumbers.push(nextSlot.periodNumber);
+      colSpan += 1;
+      nextIndex += 1;
+    }
+
+    cells.push({
+      type: "course",
+      key: `course-${periodNumbers.join("-")}-${groups.map((group) => group.groupKey).join("_")}`,
+      periodNumbers,
+      colSpan,
+      groups: groups.map((group) => ({
+        ...group,
+        periodNumbers,
+        periodTargets: periodNumbers
+          .map((periodNumber) =>
+            (periodsByNumber[periodNumber] || []).find((period) =>
+              getCourseGroupKey(period) === group.groupKey
+            )
+          )
+          .filter(Boolean),
+        isMarked: periodNumbers.some((periodNumber) =>
+          (periodsByNumber[periodNumber] || []).some((period) =>
+            getCourseGroupKey(period) === group.groupKey && period.isMarked
+          )
+        ),
+      })),
+    });
+
+    index += colSpan;
+  }
+
+  return cells;
+};
+
 export default function AttendanceGenerator() {
   const { user } = useAuth();
   // --- ALL LOGIC REMAINS EXACTLY AS PROVIDED ---
@@ -27,18 +126,12 @@ export default function AttendanceGenerator() {
   const [toDate, setToDate] = useState("");
   const [timetable, setTimetable] = useState({});
   const [students, setStudents] = useState([]);
-  const [nextPeriodStudents, setNextPeriodStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [bulkStatus, setBulkStatus] = useState("");
   const [skippedStudents, setSkippedStudents] = useState([]);
-  const [nextPeriodSkippedStudents, setNextPeriodSkippedStudents] = useState(
-    []
-  );
-  const [appendPeriods, setAppendPeriods] = useState({});
-  const [isAppendMode, setIsAppendMode] = useState(false);
   const [periodSlots, setPeriodSlots] = useState([]);
   const [configuredPeriodCount, setConfiguredPeriodCount] = useState(8);
 
@@ -98,39 +191,6 @@ export default function AttendanceGenerator() {
     }
   }, [fromDate, toDate]);
 
-  useEffect(() => {
-    const identifyConsecutivePeriods = () => {
-      const append = {};
-      Object.keys(timetable).forEach((date) => {
-        const periods = timetable[date] || [];
-        periods.sort((a, b) => a.periodNumber - b.periodNumber);
-        for (let i = 0; i < periods.length - 1; i++) {
-          const current = periods[i];
-          const next = periods[i + 1];
-          if (
-            next.periodNumber === current.periodNumber + 1 &&
-            current.courseId === next.courseId &&
-            current.sectionId === next.sectionId
-          ) {
-            const key = `${date}-${current.periodNumber}-${current.courseId}-${
-              current.sectionId || "null"
-            }`;
-            append[key] = {
-              nextPeriodNumber: next.periodNumber,
-              nextDayOfWeek: new Date(date)
-                .toLocaleDateString("en-US", { weekday: "short" })
-                .toUpperCase(),
-              nextCourseId: next.courseId,
-              nextSectionId: next.sectionId,
-            };
-          }
-        }
-      });
-      setAppendPeriods(append);
-    };
-    if (Object.keys(timetable).length > 0) identifyConsecutivePeriods();
-  }, [timetable]);
-
   const generateDates = () => {
     if (!fromDate || !toDate) return [];
     const dates = [];
@@ -159,7 +219,6 @@ export default function AttendanceGenerator() {
     setError(null);
     setSelectedCourse(null);
     setStudents([]);
-    setNextPeriodStudents([]);
     setTimetable({});
     if (!fromDate || !toDate) return;
     setLoading(true);
@@ -180,14 +239,39 @@ export default function AttendanceGenerator() {
     }
   };
 
-  const handleCourseClick = async (courseId, sectionId, date, periodNumber) => {
+  const handleCourseClick = async (courseGroup, date, legacyDate, legacyPeriodNumber) => {
+    if (typeof courseGroup !== "object") {
+      const legacyCourseId = courseGroup;
+      const legacySectionId = date;
+      const legacySelectedDate = legacyDate;
+      const legacySelectedPeriodNumber = legacyPeriodNumber;
+      const legacyPeriod = (timetable[legacySelectedDate] || []).find(
+        (period) =>
+          period.courseId === legacyCourseId &&
+          period.periodNumber === legacySelectedPeriodNumber &&
+          (period.sectionId || null) === (legacySectionId || null)
+      );
+
+      courseGroup = legacyPeriod || {
+        courseId: legacyCourseId,
+        sectionId: legacySectionId,
+        periodNumber: legacySelectedPeriodNumber,
+      };
+      date = legacySelectedDate;
+    }
+
+    const periodTargets = Array.isArray(courseGroup.periodTargets) && courseGroup.periodTargets.length
+      ? courseGroup.periodTargets
+      : [courseGroup];
+    const primaryTarget = periodTargets[0];
+    const { courseId, sectionId, periodNumber } = primaryTarget;
+    const periodNumbers = periodTargets.map((target) => target.periodNumber);
+
     if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
     setError(null);
     setStudents([]);
-    setNextPeriodStudents([]);
     setSelectedCourse(null);
     setBulkStatus("");
-    setIsAppendMode(false);
     const safeSectionId =
       sectionId && !isNaN(parseInt(sectionId)) ? parseInt(sectionId) : null;
     try {
@@ -204,43 +288,38 @@ export default function AttendanceGenerator() {
         );
         setSelectedCourse({
           courseId,
-          courseCode: (timetable[date] || []).find(
-            (p) => p.courseId === courseId
-          )?.courseCode,
+          courseCode: courseGroup.courseCode,
+          courseTitle: courseGroup.courseTitle,
+          courseIds: courseGroup.courseIds || [courseId],
           sectionId: safeSectionId,
           date,
           periodNumber,
+          periodNumbers,
+          periodTargets,
           dayOfWeek,
+          isMarked: Boolean(courseGroup.isMarked),
         });
       }
-      const skippedRes = await axios.get(
-        `${API_BASE_URL}/api/staff/attendance/skipped/${courseId}/${safeSectionId}/${dayOfWeek}/${periodNumber}`,
-        { params: { date } }
-      );
-      if (skippedRes.data.status === "success")
-        setSkippedStudents(skippedRes.data.data);
 
-      const key = `${date}-${periodNumber}-${courseId}-${
-        safeSectionId || "null"
-      }`;
-      const appendData = appendPeriods[key];
-      if (appendData) {
-        setIsAppendMode(true);
-        const nextRes = await axios.get(
-          `${API_BASE_URL}/api/staff/attendance/students/${appendData.nextCourseId}/${appendData.nextSectionId}/${appendData.nextDayOfWeek}/${appendData.nextPeriodNumber}`,
-          { params: { date } }
-        );
-        if (nextRes.data.status === "success")
-          setNextPeriodStudents(
-            nextRes.data.data.map((s) => ({ ...s, status: s.status || "" }))
+      const skippedResponses = await Promise.all(
+        periodTargets.map((target) => {
+          const targetSectionId =
+            target.sectionId && !isNaN(parseInt(target.sectionId))
+              ? parseInt(target.sectionId)
+              : null;
+          return axios.get(
+            `${API_BASE_URL}/api/staff/attendance/skipped/${target.courseId}/${targetSectionId}/${dayOfWeek}/${target.periodNumber}`,
+            { params: { date } }
           );
-        const nextSkippedRes = await axios.get(
-          `${API_BASE_URL}/api/staff/attendance/skipped/${appendData.nextCourseId}/${appendData.nextSectionId}/${appendData.nextDayOfWeek}/${appendData.nextPeriodNumber}`,
-          { params: { date } }
-        );
-        if (nextSkippedRes.data.status === "success")
-          setNextPeriodSkippedStudents(nextSkippedRes.data.data);
-      }
+        })
+      );
+      const skippedByRoll = new Map();
+      skippedResponses.forEach((skippedRes) => {
+        if (skippedRes.data.status === "success") {
+          skippedRes.data.data.forEach((student) => skippedByRoll.set(student.rollnumber, student));
+        }
+      });
+      setSkippedStudents([...skippedByRoll.values()]);
     } catch (err) {
       const message = err?.response?.data?.message || "Error loading students";
       console.error("Staff period student fetch error:", err?.response?.data || err);
@@ -252,10 +331,6 @@ export default function AttendanceGenerator() {
     setStudents((prev) =>
       prev.map((s) => (s.rollnumber === rollnumber ? { ...s, status } : s))
     );
-    if (isAppendMode)
-      setNextPeriodStudents((prev) =>
-        prev.map((s) => (s.rollnumber === rollnumber ? { ...s, status } : s))
-      );
   };
 
   const handleBulkStatusChange = (status) => {
@@ -264,13 +339,6 @@ export default function AttendanceGenerator() {
     setStudents((prev) =>
       prev.map((s) =>
         skippedStudents.some((sk) => sk.rollnumber === s.rollnumber)
-          ? s
-          : { ...s, status }
-      )
-    );
-    setNextPeriodStudents((prev) =>
-      prev.map((s) =>
-        nextPeriodSkippedStudents.some((sk) => sk.rollnumber === s.rollnumber)
           ? s
           : { ...s, status }
       )
@@ -289,11 +357,45 @@ export default function AttendanceGenerator() {
           status: s.status,
           courseId: s.courseId || selectedCourse.courseId
         }));
-      await axios.post(
-        `${API_BASE_URL}/api/staff/attendance/mark/${selectedCourse.courseId}/${selectedCourse.sectionId}/${selectedCourse.dayOfWeek}/${selectedCourse.periodNumber}`,
-        { date: selectedCourse.date, attendances: payload }
+      const saveTargets = selectedCourse.periodTargets?.length
+        ? selectedCourse.periodTargets
+        : [selectedCourse];
+
+      await Promise.all(
+        saveTargets.map((target) => {
+          const targetSectionId =
+            target.sectionId && !isNaN(parseInt(target.sectionId))
+              ? parseInt(target.sectionId)
+              : null;
+          const targetPayload = payload.map((attendance) => ({
+            ...attendance,
+            courseId: selectedCourse.courseIds?.length > 1
+              ? target.courseId
+              : attendance.courseId,
+          }));
+          return axios.post(
+            `${API_BASE_URL}/api/staff/attendance/mark/${target.courseId}/${targetSectionId}/${selectedCourse.dayOfWeek}/${target.periodNumber}`,
+            { date: selectedCourse.date, attendances: targetPayload }
+          );
+        })
       );
-      toast.success("Attendance Saved");
+      setTimetable((prev) => ({
+        ...prev,
+        [selectedCourse.date]: (prev[selectedCourse.date] || []).map((period) =>
+          saveTargets.some((target) =>
+            getSlotKey({
+              date: selectedCourse.date,
+              periodNumber: period.periodNumber,
+              courseId: period.courseId,
+              sectionId: period.sectionId,
+            }) === getSlotKey({ ...target, date: selectedCourse.date })
+          )
+            ? { ...period, isMarked: true }
+            : period
+        ),
+      }));
+      setSelectedCourse((prev) => (prev ? { ...prev, isMarked: true } : prev));
+      toast.success(selectedCourse.isMarked ? "Attendance Updated" : "Attendance Saved");
     } catch (err) {
       toast.error("Save Failed");
     } finally {
@@ -313,6 +415,62 @@ export default function AttendanceGenerator() {
 
   const dates = generateDates();
   const timeSlots = generateTimeSlots().slice(0, configuredPeriodCount);
+
+  const renderMergedCell = (cell, date) => {
+    if (cell.type === "empty") {
+      return (
+        <td
+          key={cell.key}
+          colSpan={cell.colSpan}
+          className="p-5 border-l border-slate-100 text-center text-slate-200"
+        >
+          â€”
+        </td>
+      );
+    }
+
+    return (
+      <td
+        key={cell.key}
+        colSpan={cell.colSpan}
+        className="p-3 border-l border-slate-100 text-center"
+      >
+        <div className="space-y-2">
+          {cell.groups.map((period) => (
+            <button
+              key={`${cell.key}-${period.groupKey}`}
+              onClick={() => handleCourseClick(period, date)}
+              className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${
+                period.isMarked
+                  ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
+              }`}
+            >
+              <div>{period.courseCode}</div>
+              <div className="text-[9px] font-semibold text-slate-400 mt-0.5 normal-case">
+                {period.courseTitle || "General"}
+              </div>
+              {cell.periodNumbers.length > 1 && (
+                <div className={`mt-1 text-[8px] font-bold uppercase tracking-wider ${period.isMarked ? "text-emerald-600" : "text-slate-400"}`}>
+                  P{cell.periodNumbers.join(" + P")}
+                </div>
+              )}
+              {period.courseIds.length > 1 && (
+                <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-sky-600">
+                  {period.courseIds.length} batches
+                </div>
+              )}
+              {period.isMarked && (
+                <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-emerald-600">
+                  Marked
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </td>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#f9fafc] text-slate-900 font-sans">
@@ -436,6 +594,7 @@ export default function AttendanceGenerator() {
                       acc[p.periodNumber].push(p);
                       return acc;
                     }, {});
+                    const mergedCells = buildMergedPeriodCells(timeSlots, periods);
                     return (
                       <tr
                         key={date}
@@ -447,7 +606,12 @@ export default function AttendanceGenerator() {
                             {dayName}
                           </div>
                         </td>
-                        {timeSlots.map(({ periodNumber }) => {
+                        {holiday ? (
+                          <td colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">Holiday - Sunday / Third Saturday</td>
+                        ) : (
+                          mergedCells.map((cell) => renderMergedCell(cell, date))
+                        )}
+                        {false && timeSlots.map(({ periodNumber }) => {
                           if (holiday) return periodNumber === timeSlots[0]?.periodNumber ? (
                             <td key={periodNumber} colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">Holiday — Sunday / Third Saturday</td>
                           ) : null;
@@ -471,12 +635,21 @@ export default function AttendanceGenerator() {
                                   <button
                                     key={`${period.timetableId}-${period.courseId}-${period.sectionId || "all"}`}
                                     onClick={() => handleCourseClick(period.courseId, period.sectionId, date, period.periodNumber)}
-                                    className="w-full py-2 px-2 text-[10.5px] font-bold bg-white border border-slate-200 rounded-xl hover:border-slate-400 hover:shadow-sm transition-all text-slate-700 uppercase"
+                                    className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${
+                                      period.isMarked
+                                        ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
+                                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
+                                    }`}
                                   >
                                     {period.courseCode}
                                     <div className="text-[9px] font-semibold text-slate-400 mt-0.5 normal-case">
                                       {period.courseTitle || "General"}
                                     </div>
+                                    {period.isMarked && (
+                                      <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-emerald-600">
+                                        Marked
+                                      </div>
+                                    )}
                                   </button>
                                 ))}
                               </div>
@@ -505,8 +678,8 @@ export default function AttendanceGenerator() {
                     <Calendar size={12} /> {selectedCourse.date}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Clock size={12} /> Period {selectedCourse.periodNumber}{" "}
-                    {isAppendMode && "& Next"}
+                    <Clock size={12} /> Period{" "}
+                    {(selectedCourse.periodNumbers || [selectedCourse.periodNumber]).join(" + ")}
                   </span>
                 </div>
               </div>
@@ -547,11 +720,7 @@ export default function AttendanceGenerator() {
                     const isSkipped =
                       skippedStudents.some(
                         (sk) => sk.rollnumber === student.rollnumber
-                      ) ||
-                      (isAppendMode &&
-                        nextPeriodSkippedStudents.some(
-                          (sk) => sk.rollnumber === student.rollnumber
-                        ));
+                      );
                     return (
                       <tr
                         key={idx}
@@ -628,7 +797,7 @@ export default function AttendanceGenerator() {
                 disabled={saving}
                 className="bg-[#0f172a] text-white px-12 py-3.5 rounded-xl font-bold uppercase text-[12px] tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg disabled:opacity-20"
               >
-                {saving ? "Syncing..." : "Save Attendance"}
+                {saving ? "Syncing..." : selectedCourse.isMarked ? "Update Attendance" : "Save Attendance"}
               </button>
             </div>
           </div>

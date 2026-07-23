@@ -270,7 +270,6 @@ export default function AdminAttendanceGenerator() {
 
   const handleCourseSelect = async (courseData) => {
     const { courseId, sectionId, sectionName, periodNumber, courseTitle, courseCode, date } = courseData;
-    if (date > TODAY) return toast.error("Attendance cannot be marked for a future date");
 
     try {
       const batchData = batches.find((b) => b.batchId === parseInt(selectedBatch, 10));
@@ -288,7 +287,7 @@ export default function AdminAttendanceGenerator() {
       );
 
       if (res.data.data) {
-        setStudents(res.data.data.map((s) => ({ ...s, status: s.status || "P" })));
+        setStudents(res.data.data.map((s) => ({ ...s, status: s.status || (date > TODAY ? "OD" : "P") })));
         setSelectedCourse({
           courseId,
           courseTitle,
@@ -314,6 +313,12 @@ export default function AdminAttendanceGenerator() {
         status: s.status,
         courseId: s.courseId || selectedCourse.courseId,
       }));
+
+      if (selectedCourse.date > TODAY && attendances.some((attendance) => attendance.status !== "OD")) {
+        toast.error("Only OD can be marked for a future date");
+        setSaving(false);
+        return;
+      }
 
       const dayOfWeek = new Date(selectedCourse.date).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
       const saveRes = await axios.post(
@@ -343,10 +348,18 @@ export default function AdminAttendanceGenerator() {
   };
 
   const updateStatus = (roll, status) => {
+    if (selectedCourse?.date > TODAY && status !== "OD") {
+      toast.error("Only OD can be marked for a future date");
+      return;
+    }
     setStudents((prev) => prev.map((s) => (s.rollnumber === roll ? { ...s, status } : s)));
   };
 
   const markAllAs = (status) => {
+    if (selectedCourse?.date > TODAY && status !== "OD") {
+      toast.error("Only OD can be marked for a future date");
+      return;
+    }
     setStudents((prev) => prev.map((s) => ({ ...s, status })));
   };
 
@@ -433,7 +446,6 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">From</label>
               <input
                 type="date"
-                max={TODAY}
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
@@ -444,7 +456,6 @@ export default function AdminAttendanceGenerator() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To</label>
               <input
                 type="date"
-                max={TODAY}
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
