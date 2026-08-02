@@ -26,18 +26,25 @@ const {
 
 function generateDates(start, end) {
   const dates = [];
-  let current = new Date(start);
-  const endDate = new Date(end);
+  const [y1, m1, d1] = start.split('-').map(Number);
+  const [y2, m2, d2] = end.split('-').map(Number);
+  let current = new Date(Date.UTC(y1, m1 - 1, d1));
+  const endDate = new Date(Date.UTC(y2, m2 - 1, d2));
   while (current <= endDate) {
-    dates.push(current.toISOString().split("T")[0]);
-    current.setDate(current.getDate() + 1);
+    const year = current.getUTCFullYear();
+    const month = String(current.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(current.getUTCDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    current.setUTCDate(current.getUTCDate() + 1);
   }
   return dates;
 }
 
 function getDayOfWeek(dateStr) {
-  const day = new Date(dateStr).getDay(); 
-  return day === 0 ? 7 : day; 
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = date.getUTCDay(); 
+  return dayOfWeek === 0 ? 7 : dayOfWeek; 
 }
 
 const dayMap = {
@@ -54,18 +61,24 @@ function isFutureDate(date) {
 }
 
 function getDisplayStudentName(studentRecord) {
+  const plain = typeof studentRecord?.get === 'function'
+    ? studentRecord.get({ plain: true })
+    : studentRecord;
   const candidateName =
-    studentRecord?.studentName ||
-    studentRecord?.StudentDetail?.studentName ||
-    studentRecord?.StudentDetails?.studentName ||
-    studentRecord?.studentUser?.userName ||
-    studentRecord?.user?.userName ||
-    studentRecord?.User?.userName ||
-    studentRecord?.userAccount?.userName ||
-    studentRecord?.StudentDetail?.studentUser?.userName ||
-    studentRecord?.StudentDetail?.user?.userName ||
-    studentRecord?.StudentDetails?.studentUser?.userName ||
-    studentRecord?.StudentDetails?.user?.userName;
+    plain?.studentName ||
+    plain?.StudentDetail?.studentName ||
+    plain?.StudentDetails?.studentName ||
+    plain?.studentUser?.userName ||
+    plain?.user?.userName ||
+    plain?.User?.userName ||
+    plain?.userAccount?.userName ||
+    plain?.StudentDetail?.studentUser?.userName ||
+    plain?.StudentDetail?.user?.userName ||
+    plain?.StudentDetails?.studentUser?.userName ||
+    plain?.StudentDetails?.user?.userName ||
+    studentRecord?.get?.('studentName') ||
+    studentRecord?.StudentDetail?.get?.('studentName') ||
+    studentRecord?.StudentDetails?.get?.('studentName');
 
   return typeof candidateName === 'string' && candidateName.trim()
     ? candidateName.trim()
@@ -387,7 +400,7 @@ export async function getStudentsForPeriod(req, res, next) {
             as: 'studentUser',
             where: { status: 'Active' },
             required: true,
-            attributes: []
+            attributes: ['userName']
           }]
         },
         {
@@ -443,7 +456,7 @@ export async function getStudentsForPeriod(req, res, next) {
             as: 'studentUser',
             where: { status: 'Active' },
             required: true,
-            attributes: []
+            attributes: ['userName']
           }],
           attributes: ['registerNumber', 'studentName'],
           order: [['registerNumber', 'ASC']]
@@ -656,7 +669,7 @@ export async function markAttendance(req, res, next) {
         continue;
       }
 
-      // Check Admin lock: only lock if Admin marked OD
+      // OD can be changed only through the dedicated OD workflow.
       const existing = await findAttendanceRecord({
         regno: att.rollnumber,
         courseId: effectiveCourseId,
@@ -667,8 +680,8 @@ export async function markAttendance(req, res, next) {
         transaction: t,
       });
 
-      if (existing?.updatedBy === 'admin' && existing.status === 'OD') {
-        skipped.push({ rollnumber: att.rollnumber, reason: "Locked by Admin" });
+      if (existing?.status === 'OD') {
+        skipped.push({ rollnumber: att.rollnumber, reason: "OD locked" });
         continue;
       }
 

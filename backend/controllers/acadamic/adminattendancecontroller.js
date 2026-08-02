@@ -39,6 +39,29 @@ function normalizeAttendanceDate(rawDate) {
   return date.toISOString().split('T')[0];
 }
 
+function isYes(value) {
+  return String(value || '').trim().toLowerCase() === 'yes';
+}
+
+function isLateralSemesterThree(student, semesterNumber) {
+  return isYes(student?.lateral_entry) && Number(semesterNumber) === 3;
+}
+
+function isBeforeLateralJoiningDate(student, attendanceDate, semesterNumber) {
+  if (!isLateralSemesterThree(student, semesterNumber)) return false;
+  const joiningDate = normalizeAttendanceDate(student?.date_of_joining);
+  return Boolean(joiningDate && attendanceDate && attendanceDate < joiningDate);
+}
+
+async function getStudentJoiningContext(regno, transaction) {
+  if (!regno) return null;
+  return StudentDetails.findOne({
+    where: { registerNumber: regno },
+    attributes: ['registerNumber', 'lateral_entry', 'date_of_joining'],
+    transaction
+  });
+}
+
 function areAllSubmittedStatusesOD(attendances = []) {
   return Array.isArray(attendances) &&
     attendances.length > 0 &&
@@ -509,7 +532,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
                 ...(queryBatch ? { batch: queryBatch } : {}),
                 ...studentDegreeWhere
               },
-            attributes: ['registerNumber', 'studentName', 'Userid'],
+            attributes: ['registerNumber', 'studentName', 'Userid', 'lateral_entry', 'date_of_joining'],
             include: [
               {
                 model: User,
@@ -547,7 +570,9 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
           sectionId: sc.sectionId,
           sectionName: sc.Section?.sectionName,
           courseId: sc.courseId,
-          staffName: sectionStaffMap.get(`${sc.courseId}-${sc.sectionId}`) || "Not Assigned"
+          staffName: sectionStaffMap.get(`${sc.courseId}-${sc.sectionId}`) || "Not Assigned",
+          lateral_entry: sc.StudentDetail?.lateral_entry || null,
+          date_of_joining: normalizeAttendanceDate(sc.StudentDetail?.date_of_joining)
         };
       }));
     } else {
@@ -568,7 +593,7 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
                 ...(queryBatch ? { batch: queryBatch } : {}),
                 ...studentDegreeWhere
               },
-            attributes: ["registerNumber", "studentName", "section", "Userid"],
+            attributes: ["registerNumber", "studentName", "section", "Userid", "lateral_entry", "date_of_joining"],
             include: [
               {
                 model: User,
@@ -609,7 +634,9 @@ export async function getStudentsForPeriodAdmin(req, res, next) {
           staffName:
             sectionStaffMap.get(
               `${requestedCourseId}-${enrollment.sectionId || safeSectionId || ""}`
-            ) || "Not Assigned"
+            ) || "Not Assigned",
+          lateral_entry: enrollment.StudentDetail?.lateral_entry || null,
+          date_of_joining: normalizeAttendanceDate(enrollment.StudentDetail?.date_of_joining)
         };
       }));
     }
@@ -1014,7 +1041,9 @@ export async function getStudentsBySemester(req, res) {
         ['registerNumber', 'rollnumber'],
         ['studentName', 'name'],
         ['section', 'section'],
-        ['Userid', 'userid']
+        ['Userid', 'userid'],
+        ['lateral_entry', 'lateral_entry'],
+        ['date_of_joining', 'date_of_joining']
       ],
       include: [
         {
@@ -1031,7 +1060,9 @@ export async function getStudentsBySemester(req, res) {
     const formattedStudents = students.map(s => ({
       rollnumber: s.get('rollnumber'),
       name: getDisplayStudentName(s),
-      section: s.get('section') || null
+      section: s.get('section') || null,
+      lateral_entry: s.get('lateral_entry') || null,
+      date_of_joining: normalizeAttendanceDate(s.get('date_of_joining'))
     }));
 
     res.json({ status: "success", data: formattedStudents });
@@ -1143,6 +1174,15 @@ export async function markStudentStatus(req, res) {
     if (!student?.rollnumber || !date) {
       await t.rollback();
       return res.status(400).json({ status: "error", message: "Student roll number and date are required" });
+    }
+
+    const studentJoiningContext = await getStudentJoiningContext(student.rollnumber, t);
+    if (isBeforeLateralJoiningDate(studentJoiningContext, date, effectiveSemesterNumber)) {
+      await t.rollback();
+      return res.status(400).json({
+        status: "error",
+        message: `Attendance for ${student.rollnumber} starts from ${normalizeAttendanceDate(studentJoiningContext.date_of_joining)}`
+      });
     }
 
     if (isUnassigned) {
@@ -1358,6 +1398,11 @@ export async function markFullDayOD(req, res) {
       let dateHadChanges = false;
 
       for (const student of students) {
+        const studentJoiningContext = await getStudentJoiningContext(student?.rollnumber, t);
+        if (isBeforeLateralJoiningDate(studentJoiningContext, currentDate, effectiveSemesterNumber)) {
+          continue;
+        }
+
         const statusValueRaw = student?.dateStatuses?.[currentDate];
         const normalizedStatus = String(statusValueRaw || "").trim().toUpperCase();
 

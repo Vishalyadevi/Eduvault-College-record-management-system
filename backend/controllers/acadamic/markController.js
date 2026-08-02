@@ -381,7 +381,7 @@ export const getStudentMarksForTool = catchAsync(async (req, res) => {
   const { toolId } = req.params;
   const rows = await StudentCOTool.findAll({
     where: { toolId },
-    include: [{ model: StudentDetails }],
+    include: [{ model: StudentDetails, include: [activeStudentUserInclude()] }],
     order: [['studentToolId', 'DESC']]
   });
   // If legacy duplicates exist, keep the latest row per student (highest studentToolId).
@@ -492,7 +492,7 @@ export const exportCoWiseCsv = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: co.courseId } }, activeStudentUserInclude()] });
   const header = [{ id: 'regno', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...tools.map(t => ({ id: t.toolName, title: t.toolName })), { id: 'con', title: 'Consolidated' }];
   const data = await Promise.all(students.map(async s => {
-    const row = { regno: s.registerNumber, name: s.studentName };
+    const row = { regno: s.registerNumber, name: resolveStudentDisplayName(s) };
     for (const t of tools) {
       const sm = await StudentCOTool.findOne({ where: { regno: s.registerNumber, toolId: t.toolId } });
       row[t.toolName] = sm?.marksObtained || 0;
@@ -920,7 +920,7 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
     `${e.StudentDetail?.registerNumber}-${e.sectionId}`,
     {
       regno: e.StudentDetail?.registerNumber,
-      name: e.StudentDetail?.studentName,
+      name: resolveStudentDisplayName(e.StudentDetail),
       studentId: e.StudentDetail?.studentId,
       courseId: e.courseId,
       sectionId: e.sectionId
@@ -939,7 +939,7 @@ export const exportCourseWiseCsv = catchAsync(async (req, res) => {
   const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: course.courseId, sectionId: { [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${staffId} AND courseId = ${course.courseId})`) } } }, activeStudentUserInclude()] });
   const header = [{ id: 'regNo', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...cos.map(co => ({ id: co.coNumber, title: co.coNumber })), { id: 'finalAvg', title: 'Final Avg' }];
   const data = await Promise.all(students.map(async s => {
-    const row = { regNo: s.registerNumber, name: s.studentName };
+    const row = { regNo: s.registerNumber, name: resolveStudentDisplayName(s) };
     let sum = 0;
     for (const co of cos) {
       const m = await StudentCoMarks.findOne({ where: { regno: s.registerNumber, coId: co.coId } });
@@ -1029,6 +1029,7 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
           model: StudentDetails,
           as: 'StudentDetail',
           attributes: ['registerNumber', 'studentName'],
+          include: [activeStudentUserInclude()],
           required: true,
         }],
       });
@@ -1038,7 +1039,7 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
         if (regno && !studentsMap.has(regno)) {
           studentsMap.set(regno, {
             regno,
-            name: en.StudentDetail.studentName || 'Unknown',
+            name: resolveStudentDisplayName(en.StudentDetail),
           });
         }
       });

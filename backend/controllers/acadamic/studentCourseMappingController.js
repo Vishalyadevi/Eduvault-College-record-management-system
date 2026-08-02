@@ -1,6 +1,7 @@
 import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
 import { Op } from "sequelize";
+import { resolveStudentDisplayName } from "./studentNameResolver.js";
 
 const {
   StudentDetails,
@@ -127,7 +128,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
       as: "studentUser",
       where: { status: "Active" },
       required: true,
-      attributes: [],
+      attributes: ["userName"],
     }],
     attributes: ["registerNumber", "studentName"],
     order: [["registerNumber", "ASC"]],
@@ -153,7 +154,7 @@ export const getStudentCourseMatrix = catchAsync(async (req, res) => {
       courses,
       students: students.map((s) => ({
         regno: s.registerNumber,
-        name: s.studentName || s.studentUser?.userName || s.registerNumber || "",
+        name: resolveStudentDisplayName(s),
       })),
       enrollments,
     },

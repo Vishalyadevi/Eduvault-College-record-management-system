@@ -77,6 +77,8 @@ const isPlaceholderCourseHeader = (header) => {
   return /^course\d+$/.test(h) || /^subject\d+$/.test(h) || /^c\d+$/.test(h);
 };
 
+const isYes = (value) => String(value || '').trim().toLowerCase() === 'yes';
+
 const resolveDepartmentByBranch = async (branch) => {
   const raw = String(branch ?? '').trim();
   if (!raw) return null;
@@ -286,6 +288,13 @@ const parseGradeFile = async (filePath, originalName) => {
 };
 
 const buildSemesterPerformance = async (regno, transaction) => {
+  const student = await StudentDetails.findOne({
+    where: { registerNumber: regno },
+    attributes: ['registerNumber', 'lateral_entry'],
+    transaction
+  });
+  const isLateralEntry = isYes(student?.lateral_entry);
+
   const gradeRows = await StudentGrade.findAll({
     where: { regno },
     include: [
@@ -430,7 +439,9 @@ const buildSemesterPerformance = async (regno, transaction) => {
     // - Once arrears are cleared (via arrear upload), recompute from earned credits.
     let cgpa = null;
     let cgpaFrozen = false;
-    if (sem.semesterNumber > 1) {
+    if (isLateralEntry && Number(sem.semesterNumber) === 3) {
+      cgpa = null;
+    } else if (sem.semesterNumber > 1) {
       if (hasAnyOutstandingFail) {
         cgpa = lastValidCgpa;
         cgpaFrozen = true;
@@ -457,6 +468,17 @@ const validateSemesterProgressionForRegularUpload = async (records, requestedSem
 
   const regnos = [...new Set(records.map((r) => r.regno))];
   if (!regnos.length) return null;
+
+  const students = await StudentDetails.findAll({
+    where: { registerNumber: { [Op.in]: regnos } },
+    attributes: ['registerNumber', 'lateral_entry'],
+    transaction
+  });
+  const lateralRegnos = new Set(
+    students
+      .filter((student) => isYes(student.lateral_entry))
+      .map((student) => student.registerNumber)
+  );
 
   const rows = await StudentGrade.findAll({
     where: { regno: { [Op.in]: regnos } },
@@ -485,7 +507,8 @@ const validateSemesterProgressionForRegularUpload = async (records, requestedSem
   for (const reg of regnos) {
     const completed = completedSemsByRegno.get(reg) || new Set();
     const missing = [];
-    for (let semNo = 1; semNo < requestedSemesterNumber; semNo += 1) {
+    const firstRequiredSemester = lateralRegnos.has(reg) ? 3 : 1;
+    for (let semNo = firstRequiredSemester; semNo < requestedSemesterNumber; semNo += 1) {
       if (!completed.has(semNo)) missing.push(semNo);
     }
     if (missing.length) invalid.push({ regno: reg, missing });

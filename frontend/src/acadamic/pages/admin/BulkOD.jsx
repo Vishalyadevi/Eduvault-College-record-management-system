@@ -63,6 +63,16 @@ const hasFutureNonODSelection = (students = [], dates = []) =>
     })
   );
 
+const isYes = (value) => String(value || "").trim().toLowerCase() === "yes";
+
+const isLateralSemesterThree = (student, semesterNumber) =>
+  isYes(student?.lateral_entry) && Number(semesterNumber) === 3;
+
+const isBeforeJoiningDate = (student, date, semesterNumber) => {
+  if (!isLateralSemesterThree(student, semesterNumber) || !student?.date_of_joining || !date) return false;
+  return date < String(student.date_of_joining).slice(0, 10);
+};
+
 export default function AdminAttendanceGenerator() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -91,6 +101,10 @@ export default function AdminAttendanceGenerator() {
   const periodDropdownRef = useRef(null);
 
   const periodOptions = ["all", ...Array.from({ length: 8 }, (_, index) => String(index + 1))];
+  const selectedSemesterNumber = useMemo(() => {
+    const semester = semesters.find((s) => String(s.semesterId) === String(selectedSemester));
+    return Number(semester?.semesterNumber || selectedSemester || 0);
+  }, [selectedSemester, semesters]);
 
   useEffect(() => {
     if (!startDate) setStartDate(TODAY);
@@ -405,6 +419,7 @@ export default function AdminAttendanceGenerator() {
     setStudents((prev) =>
       prev.map((s) => {
         if (activeRollNumbers.size > 0 && !activeRollNumbers.has(s.rollnumber)) return s;
+        if (isBeforeJoiningDate(s, date, selectedSemesterNumber)) return s;
         return {
           ...s,
           dateStatuses: { ...(s.dateStatuses || {}), [date]: status },
@@ -421,7 +436,10 @@ export default function AdminAttendanceGenerator() {
         if (activeRollNumbers.size > 0 && !activeRollNumbers.has(s.rollnumber)) return s;
         return {
           ...s,
-          dateStatuses: dates.reduce((acc, date) => ({ ...acc, [date]: status }), {}),
+          dateStatuses: dates.reduce((acc, date) => {
+            if (isBeforeJoiningDate(s, date, selectedSemesterNumber)) return acc;
+            return { ...acc, [date]: status };
+          }, {}),
         };
       })
     );
@@ -719,21 +737,27 @@ export default function AdminAttendanceGenerator() {
                           style={{ width: '140px', minWidth: '140px' }}
                         >
                           <div className="flex flex-col items-center gap-1">
-                            {attendanceStatusOptions.map((status) => (
-                              <button
-                                key={`${date}-${status.key}`}
-                                type="button"
-                                onClick={() => markAllForDate(date, status.value)}
-                                disabled={isSundayDate(date)}
-                                className={`h-8 min-w-[34px] rounded-full border text-[11px] font-semibold transition ${
-                                  isSundayDate(date)
-                                    ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                }`}
-                              >
-                                {status.label}
-                              </button>
-                            ))}
+                            <select
+                              defaultValue=""
+                              onChange={(e) => {
+                                if (!e.target.value) return;
+                                markAllForDate(date, e.target.value);
+                                e.target.value = "";
+                              }}
+                              disabled={isSundayDate(date)}
+                              className={`h-9 w-full rounded-xl border px-2 text-[11px] font-semibold outline-none transition ${
+                                isSundayDate(date)
+                                  ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:border-slate-400'
+                              }`}
+                            >
+                              <option value="">All</option>
+                              {attendanceStatusOptions.map((status) => (
+                                <option key={`${date}-${status.key}`} value={status.value}>
+                                  {status.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </th>
                       ))}
@@ -759,6 +783,8 @@ export default function AdminAttendanceGenerator() {
                         {dates.map((date) => {
                           const status = s.dateStatuses?.[date] || "";
                           const weekend = isWeekendDate(date);
+                          const lockedBeforeJoin = isBeforeJoiningDate(s, date, selectedSemesterNumber);
+                          const activeStatusOption = attendanceStatusOptions.find((option) => option.value === status);
                           return (
                             <td
                               key={`${s.rollnumber}-${date}`}
@@ -766,21 +792,29 @@ export default function AdminAttendanceGenerator() {
                               style={{ width: '140px', minWidth: '140px' }}
                             >
                               <div className="flex flex-col items-center gap-2">
-                                {attendanceStatusOptions.map((statusOption) => (
-                                  <button
-                                    key={`${s.rollnumber}-${date}-${statusOption.key}`}
-                                    type="button"
-                                    onClick={() => handleStudentDateStatusChange(s.rollnumber, date, statusOption.value)}
-                                    disabled={isSundayDate(date) || savingStudentKey === `${s.rollnumber}-${date}`}
-                                    className={`h-9 w-full rounded-xl border px-2 text-[11px] font-semibold transition ${
-                                      status === statusOption.value
-                                        ? `${statusOption.colorClass} shadow-sm`
-                                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                                    } ${isSundayDate(date) || savingStudentKey === `${s.rollnumber}-${date}` ? 'cursor-not-allowed opacity-60' : ''}`}
-                                  >
-                                    {savingStudentKey === `${s.rollnumber}-${date}` ? 'Saving...' : statusOption.label}
-                                  </button>
-                                ))}
+                                <select
+                                  value={status}
+                                  onChange={(e) => handleStudentDateStatusChange(s.rollnumber, date, e.target.value)}
+                                  disabled={isSundayDate(date) || lockedBeforeJoin || savingStudentKey === `${s.rollnumber}-${date}`}
+                                  title={lockedBeforeJoin ? `Starts from ${s.date_of_joining}` : undefined}
+                                  className={`h-10 w-full rounded-xl border px-2 text-[11px] font-semibold outline-none transition ${
+                                    activeStatusOption
+                                      ? `${activeStatusOption.colorClass} shadow-sm`
+                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 focus:border-slate-400'
+                                  } ${isSundayDate(date) || lockedBeforeJoin || savingStudentKey === `${s.rollnumber}-${date}` ? 'cursor-not-allowed opacity-60' : ''}`}
+                                >
+                                  <option value="">
+                                    {savingStudentKey === `${s.rollnumber}-${date}` ? 'Saving...' : lockedBeforeJoin ? 'Not joined' : 'Unassigned'}
+                                  </option>
+                                  {attendanceStatusOptions
+                                    .filter((statusOption) => statusOption.value !== "UNASSIGNED")
+                                    .map((statusOption) => (
+                                      <option key={`${s.rollnumber}-${date}-${statusOption.key}`} value={statusOption.value}>
+                                        {statusOption.label}
+                                      </option>
+                                    ))}
+                                  <option value="UNASSIGNED">Unassigned</option>
+                                </select>
                               </div>
                             </td>
                           );

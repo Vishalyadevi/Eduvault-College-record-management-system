@@ -155,8 +155,40 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
   };
 
   const handleDownloadExcel = () => {
-    if (report.length === 0) {
+    if (report.length === 0 && unmarkedReport.length === 0) {
       alert("No report data to export!");
+      return;
+    }
+
+    if (unmarkedReport.length > 0) {
+      const headers = [
+        "Date",
+        "Day",
+        "Period Number",
+        "Course Code",
+        "Course Title",
+        "Section",
+        "Staff Name",
+        "Staff ID",
+        "Staff Email",
+      ];
+      const rows = unmarkedReport.map((entry) => [
+        entry.Date,
+        entry.Day,
+        entry.PeriodNumber,
+        entry.CourseCode,
+        entry.CourseTitle,
+        entry.Section,
+        entry.StaffName,
+        entry.StaffNumber,
+        entry.StaffEmail,
+      ]);
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      worksheet["!cols"] = headers.map((header) => ({ wch: Math.max(12, header.length + 2) }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Black Box Report");
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      saveAs(new Blob([excelBuffer], { type: "application/octet-stream" }), `Blackbox_Report_${filters.fromDate}_to_${filters.toDate}.xlsx`);
       return;
     }
 
@@ -430,7 +462,7 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
               Black Box Report
             </ActionButton>
 
-            <ActionButton onClick={handleDownloadExcel} disabled={report.length === 0 || loading} variant="success">
+            <ActionButton onClick={handleDownloadExcel} disabled={(report.length === 0 && unmarkedReport.length === 0) || loading} variant="success">
               <Download size={14} />
               Download Excel
             </ActionButton>

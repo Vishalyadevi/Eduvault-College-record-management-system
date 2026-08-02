@@ -15,12 +15,6 @@ const looksLikeRegisterNumber = (value, registerNumber, regno) => {
 const resolveStudentDisplayName = (student = {}) => {
   const registerNumber = normalizeName(student?.registerNumber || student?.regno);
   const fallbackNames = [
-    student?.user?.userName,
-    student?.userAccount?.userName,
-    student?.studentUser?.userName,
-    student?.studentProfile?.userName,
-    student?.User?.userName,
-    student?.userName,
     student?.studentName,
     student?.StudentName,
     student?.student_name,
@@ -29,6 +23,12 @@ const resolveStudentDisplayName = (student = {}) => {
     student?.fullname,
     student?.displayName,
     student?.Name,
+    student?.user?.userName,
+    student?.userAccount?.userName,
+    student?.studentUser?.userName,
+    student?.studentProfile?.userName,
+    student?.User?.userName,
+    student?.userName,
   ];
 
   for (const candidate of fallbackNames) {

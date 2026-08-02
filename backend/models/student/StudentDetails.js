@@ -48,16 +48,14 @@ const StudentDetails = sequelize.define(
       type: DataTypes.INTEGER,
     },
 
-    // Academic programme/degree (BE, BTech, ME, MTech).  Several academic
-    // queries already use this legacy database column as `course`; declaring
-    // it here ensures it is also loaded on student profile reads.
+    semester: {
+      type: DataTypes.STRING(255),
+    },
+
     course: {
       type: DataTypes.STRING(50),
       allowNull: true,
-    },
-
-    semester: {
-      type: DataTypes.STRING(255),
+      defaultValue: "B.E",
     },
 
     staffId: {
@@ -166,7 +164,7 @@ const StudentDetails = sequelize.define(
     caste: DataTypes.STRING,
 
     community: {
-      type: DataTypes.ENUM("General", "OBC", "SC", "ST", "Others"),
+      type: DataTypes.STRING,
     },
 
     gender: {
