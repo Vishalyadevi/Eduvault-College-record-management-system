@@ -298,12 +298,13 @@ function getTodayDateString() {
               .map((c) => c.courseCode)
           );
 
+          // Fetch student enrollments including sectionId for section-aware conducted periods
           const studentCourseRows = await StudentCourse.findAll({
             where: {
               regno: { [Op.in]: selectedRegNos },
               courseId: { [Op.in]: orderedCourseIds },
             },
-            attributes: ["regno", "courseId"],
+            attributes: ["regno", "courseId", "sectionId"],
             raw: true,
           });
 
@@ -317,7 +318,19 @@ function getTodayDateString() {
           });
           const hasCourseEnrollmentData = studentCourseRows.length > 0;
 
-          // 4. Conducted slots are unique per (course, dayOfWeek, period) for selected dept+semester
+          // Build student-section map: studentSectionMap[regno][courseCode] = sectionId
+          const studentSectionMap = {};
+          studentCourseRows.forEach((row) => {
+            const regno = String(row.regno || "").trim();
+            const courseCode = courseCodeById.get(row.courseId);
+            if (!regno || !courseCode) return;
+            if (!studentSectionMap[regno]) studentSectionMap[regno] = {};
+            studentSectionMap[regno][courseCode] = row.sectionId;
+          });
+
+          // 4. Conducted slots — fetch with sectionId for section-aware scheduling.
+          // With independent section scheduling, different sections may have different
+          // timetable slots, so conducted periods differ per section.
           const timetableSlotRows = await Timetable.findAll({
             where: {
               semesterId,
@@ -325,18 +338,42 @@ function getTodayDateString() {
               courseId: { [Op.in]: orderedCourseIds },
               isActive: 'YES'
             },
-            attributes: ['courseId', 'dayOfWeek', 'periodNumber'],
-            group: ['courseId', 'dayOfWeek', 'periodNumber']
+            attributes: ['courseId', 'sectionId', 'dayOfWeek', 'periodNumber'],
+            group: ['courseId', 'sectionId', 'dayOfWeek', 'periodNumber']
           });
 
-          // 5. Compute total conducted periods map
+          // 5. Compute conducted periods per (courseCode, sectionId) and a fallback
+          // "all sections union" map for students without section enrollment data.
+          // conductedBySectionMap[courseCode][sectionId] = total conducted count
+          // courseConductedMap[courseCode] = union of all sections' conducted count (fallback)
+          const conductedBySectionMap = {};
           const courseConductedMap = {};
           timetableSlotRows.forEach((r) => {
             const code = courseCodeById.get(r.courseId);
             if (!code) return;
             const dayCount = fromDate <= effectiveToDate ? countDaysInRange(fromDate, effectiveToDate, r.dayOfWeek) : 0;
+            const secId = r.sectionId || '__all__';
+
+            if (!conductedBySectionMap[code]) conductedBySectionMap[code] = {};
+            conductedBySectionMap[code][secId] = (conductedBySectionMap[code][secId] || 0) + dayCount;
+
+            // Union fallback (unique day-period slots across all sections)
             courseConductedMap[code] = (courseConductedMap[code] || 0) + dayCount;
           });
+
+          // Helper: get conducted periods for a student's specific section, or fallback
+          const getConductedForStudent = (courseCode, regno) => {
+            const sectionId = studentSectionMap[regno]?.[courseCode];
+            if (sectionId && conductedBySectionMap[courseCode]?.[sectionId] !== undefined) {
+              return conductedBySectionMap[courseCode][sectionId];
+            }
+            // Fallback: if no section-specific slot, use __all__ (null sectionId entries)
+            // or the overall courseConductedMap
+            if (conductedBySectionMap[courseCode]?.['__all__'] !== undefined) {
+              return conductedBySectionMap[courseCode]['__all__'];
+            }
+            return courseConductedMap[courseCode] || 0;
+          };
 
           // 6. Fetch raw attendance rows and aggregate by courseCode.
           const selectedRegNoSet = new Set(selectedRegNos.map((r) => String(r).trim()));
@@ -384,7 +421,7 @@ function getTodayDateString() {
             });
           });
 
-          // 7. Build the final report
+          // 7. Build the final report — use section-aware conducted periods
           const report = students.map((s) => {
             const regNo = String(s.get("RegisterNumber")).trim();
             let totalConducted = 0;
@@ -408,7 +445,8 @@ function getTodayDateString() {
                 return;
               }
 
-              const conducted = courseConductedMap[courseCode] || 0;
+              // Use section-specific conducted periods when available
+              const conducted = getConductedForStudent(courseCode, regNo);
               const attended = attendanceMap[regNo]?.[courseCode] || 0;
 
               studentData[`${courseCode} Conducted Periods`] = conducted;
