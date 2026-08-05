@@ -44,11 +44,26 @@ const normalizeHeader = (value) =>
     .replace(/[^a-z0-9]/g, '');
 
 const normalizeCode = (value) => String(value ?? '').trim().toUpperCase();
+
 const normalizeGrade = (value) => {
   const raw = String(value ?? '').trim().toUpperCase();
   if (!raw) return null;
 
   const compact = raw.replace(/\s+/g, '');
+  
+  // Try to parse as numeric points (e.g. 10, 9, 8, 6.5, etc.)
+  const num = parseFloat(compact);
+  if (!isNaN(num)) {
+    const rounded = Math.round(num);
+    if (rounded >= 10) return 'O';
+    if (rounded === 9) return 'A+';
+    if (rounded === 8) return 'A';
+    if (rounded === 7) return 'B+';
+    if (rounded === 6) return 'B';
+    if (rounded === 5) return 'C';
+    return 'U';
+  }
+
   const gradeAliases = {
     O: 'O',
     APLUS: 'A+',
@@ -66,6 +81,7 @@ const normalizeGrade = (value) => {
 
   return gradeAliases[compact] || null;
 };
+
 const roundToTwo = (value) => Number.parseFloat(Number(value).toFixed(2));
 
 const isRegHeader = (header) => REG_KEYS.has(normalizeHeader(header));
@@ -152,6 +168,21 @@ const extractRecordsFromRows = (rows) => {
   const gradeKey = findKeyByMatcher(rows[0], isGradeHeader);
   const isNarrow = Boolean(regKey && courseKey && gradeKey);
 
+  const nameKey = Object.keys(rows[0] || {}).find(k => {
+    const norm = normalizeHeader(k);
+    return norm.includes('name') || norm.includes('candidate');
+  });
+
+  const isNameHeader = (k) => {
+    const norm = normalizeHeader(k);
+    return norm.includes('name') || norm.includes('candidate');
+  };
+
+  const isGpaHeader = (k) => {
+    const norm = normalizeHeader(k);
+    return norm === 'gpa' || norm === 'cgpa';
+  };
+
   const records = [];
 
   if (isNarrow) {
@@ -160,6 +191,9 @@ const extractRecordsFromRows = (rows) => {
       const courseCode = normalizeCode(row[courseKey]);
       const grade = normalizeGrade(row[gradeKey]);
       if (regno && courseCode && grade && VALID_GRADES.has(grade)) {
+        const studentName = nameKey ? String(row[nameKey] ?? '').trim() : 'Unknown';
+        console.log(`[XLSX Upload] Processing Student - RegNo: ${regno}, Name: ${studentName}`);
+        console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
         records.push({ regno, courseCode, grade });
       }
     }
@@ -190,14 +224,18 @@ const extractRecordsFromRows = (rows) => {
     const regno = normalizeCode(row[dynamicRegKey]);
     if (!regno) continue;
 
+    const studentName = nameKey ? String(row[nameKey] ?? '').trim() : 'Unknown';
+    console.log(`[XLSX Upload] Processing Student - RegNo: ${regno}, Name: ${studentName}`);
+
     for (const [key, value] of Object.entries(row)) {
-      if (key === dynamicRegKey || isSnoHeader(key)) continue;
+      if (key === dynamicRegKey || isSnoHeader(key) || isNameHeader(key) || isGpaHeader(key)) continue;
       const grade = normalizeGrade(value);
       if (!grade || !VALID_GRADES.has(grade)) continue;
       const courseCode = codeMapByPlaceholder
         ? normalizeCode(codeMapByPlaceholder.get(key))
         : normalizeCode(key);
       if (!courseCode) continue;
+      console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
       records.push({ regno, courseCode, grade });
     }
   }
@@ -208,7 +246,23 @@ const extractRecordsFromRows = (rows) => {
 const extractRecordsFromMatrix = (matrix) => {
   if (!Array.isArray(matrix) || matrix.length < 2) return [];
 
-  const headers = matrix[0].map((header) => String(header ?? '').trim());
+  // Find the header row dynamically by looking for a row that has a cell matching a registration number key
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(matrix.length, 25); i++) {
+    const row = matrix[i];
+    if (Array.isArray(row)) {
+      if (row.some(cell => cell && isRegHeader(String(cell)))) {
+        headerRowIdx = i;
+        break;
+      }
+    }
+  }
+
+  // If no register number header found, fall back to row 0
+  const actualHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
+  const cleanMatrix = matrix.slice(actualHeaderIdx);
+
+  const headers = cleanMatrix[0].map((header) => String(header ?? '').trim());
   const regIdx = headers.findIndex(isRegHeader);
   const snoIdx = headers.findIndex(isSnoHeader);
   if (regIdx === -1) return [];
@@ -226,25 +280,47 @@ const extractRecordsFromMatrix = (matrix) => {
   let courseCodeByCol = null;
   let startRow = 1;
 
-  if (!isNarrow && placeholderCols && matrix.length > 2) {
+  // Detect if the row immediately below the header has no registration number, indicating a multi-row header
+  const isMultiRowHeader = cleanMatrix[1] && !normalizeCode(cleanMatrix[1][regIdx]);
+  if (isMultiRowHeader) {
+    startRow = 2;
+  }
+
+  if (!isNarrow && placeholderCols && cleanMatrix.length > 2) {
     courseCodeByCol = new Map();
     for (let col = 0; col < headers.length; col += 1) {
       if (col === regIdx || col === snoIdx) continue;
-      const maybeCode = normalizeCode(matrix[1]?.[col]);
+      const maybeCode = normalizeCode(cleanMatrix[1]?.[col]);
       if (maybeCode) courseCodeByCol.set(col, maybeCode);
     }
     startRow = 2;
   }
 
-  for (let i = startRow; i < matrix.length; i += 1) {
-    const row = matrix[i] || [];
+  const isNameHeader = (h) => {
+    const norm = normalizeHeader(h);
+    return norm.includes('name') || norm.includes('candidate');
+  };
+
+  const isGpaHeader = (h) => {
+    const norm = normalizeHeader(h);
+    return norm === 'gpa' || norm === 'cgpa';
+  };
+
+  const nameIdx = headers.findIndex(isNameHeader);
+
+  for (let i = startRow; i < cleanMatrix.length; i += 1) {
+    const row = cleanMatrix[i] || [];
     const regno = normalizeCode(row[regIdx]);
     if (!regno) continue;
+
+    const studentName = nameIdx !== -1 ? String(row[nameIdx] ?? '').trim() : 'Unknown';
+    console.log(`[XLSX Upload] Processing Student - RegNo: ${regno}, Name: ${studentName}`);
 
     if (isNarrow) {
       const courseCode = normalizeCode(row[courseIdx]);
       const grade = normalizeGrade(row[gradeIdx]);
       if (courseCode && grade && VALID_GRADES.has(grade)) {
+        console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
         records.push({ regno, courseCode, grade });
       }
       continue;
@@ -252,11 +328,20 @@ const extractRecordsFromMatrix = (matrix) => {
 
     for (let col = 0; col < headers.length; col += 1) {
       if (col === regIdx || col === snoIdx) continue;
+      
+      let headerName = headers[col];
+      if (isMultiRowHeader && cleanMatrix[1] && (!headerName || /semester/i.test(headerName))) {
+        headerName = String(cleanMatrix[1][col] ?? '').trim();
+      }
+
+      if (!headerName || isNameHeader(headerName) || isGpaHeader(headerName)) continue;
+
       const courseCode = courseCodeByCol
         ? normalizeCode(courseCodeByCol.get(col))
-        : normalizeCode(headers[col]);
+        : normalizeCode(headerName);
       const grade = normalizeGrade(row[col]);
       if (!courseCode || !grade || !VALID_GRADES.has(grade)) continue;
+      console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
       records.push({ regno, courseCode, grade });
     }
   }
@@ -269,11 +354,8 @@ const parseGradeFile = async (filePath, originalName) => {
   if (isXlsx) {
     const wb = XLSX.readFile(filePath);
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    const fromRows = extractRecordsFromRows(rows);
-    const fromMatrix = extractRecordsFromMatrix(matrix);
-    return fromRows.length >= fromMatrix.length ? fromRows : fromMatrix;
+    return extractRecordsFromMatrix(matrix);
   }
 
   const csvRows = [];

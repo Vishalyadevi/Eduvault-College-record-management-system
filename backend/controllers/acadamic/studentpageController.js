@@ -1,14 +1,14 @@
 import { Op } from "sequelize";
-import db from "../../models/acadamic/index.js"; 
+import db from "../../models/acadamic/index.js";
 import catchAsync from "../../utils/catchAsync.js";
 import { getOrSetCache, makeCacheKey, ttl } from "../../utils/cache.js";
 import { thirdSaturdaySql } from '../../utils/academicCalendar.js';
 
-const { 
-  User, StudentDetails, Department, Batch, Course, Semester, 
-  ElectiveBucket, ElectiveBucketCourse, StudentElectiveSelection, 
+const {
+  User, StudentDetails, Department, Batch, Course, Semester,
+  ElectiveBucket, ElectiveBucketCourse, StudentElectiveSelection,
   RegulationCourse, VerticalCourse, Vertical, NptelCreditTransfer, NptelCourse, StudentNptelEnrollment,
-  DayAttendance, PeriodAttendance, Section, StudentCourse, StaffCourse, sequelize 
+  DayAttendance, PeriodAttendance, Section, StudentCourse, StaffCourse, sequelize
 } = db;
 const markCache = (res) => (status) => res.set("X-Cache", status);
 const studentProfileInclude = {
@@ -19,6 +19,13 @@ const studentProfileInclude = {
 
 // Helper to safely get user ID from req.user (handles both id and userId)
 const getCurrentUserId = (req) => req.user?.id || req.user?.userId;
+const isYes = (val) => String(val || "").trim().toUpperCase() === "YES";
+const normalizeAttendanceDate = (rawDate) => {
+  if (!rawDate) return "";
+  const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return String(rawDate);
+  return date.toISOString().split("T")[0];
+};
 const RESELECTION_KEY = "electiveReselectionRequests";
 const FINALIZED_KEY = "electiveFinalizedSemesters";
 
@@ -194,14 +201,14 @@ export const getOecPecProgress = catchAsync(async (req, res) => {
     regno = req.user.userNumber;
   } else {
     // Fallback: fetch from users table
-    const currentUser = await User.findByPk(userId, { 
-      attributes: ['userNumber'] 
+    const currentUser = await User.findByPk(userId, {
+      attributes: ['userNumber']
     });
-    
+
     if (!currentUser || !currentUser.userNumber) {
-      return res.status(404).json({ 
-        status: "failure", 
-        message: "User or register number not found" 
+      return res.status(404).json({
+        status: "failure",
+        message: "User or register number not found"
       });
     }
     regno = currentUser.userNumber;
@@ -214,25 +221,25 @@ export const getOecPecProgress = catchAsync(async (req, res) => {
   });
 
   if (!student) {
-    return res.status(404).json({ 
-      status: "failure", 
-      message: `Student profile not found for register number ${regno}` 
+    return res.status(404).json({
+      status: "failure",
+      message: `Student profile not found for register number ${regno}`
     });
   }
 
   // Step 3: Now safely get batch using student's data
-  const batch = await Batch.findOne({ 
-    where: { 
-      batch: student.batch, 
+  const batch = await Batch.findOne({
+    where: {
+      batch: student.batch,
       branch: student.department?.departmentAcr || '',
-      isActive: 'YES' 
-    } 
+      isActive: 'YES'
+    }
   });
 
   if (!batch || !batch.regulationId) {
-    return res.status(404).json({ 
-      status: "failure", 
-      message: "Batch or regulation not assigned for this student" 
+    return res.status(404).json({
+      status: "failure",
+      message: "Batch or regulation not assigned for this student"
     });
   }
 
@@ -413,13 +420,13 @@ export const getElectiveBuckets = catchAsync(async (req, res) => {
     const selectedCourse = selectedByBucket.get(Number(b.bucketId));
     const courses = (isFinalized && !canReselectNow)
       ? (selectedCourse ? [{
-          courseId: selectedCourse.courseId,
-          courseCode: selectedCourse.courseCode,
-          courseTitle: selectedCourse.courseTitle,
-          credits: selectedCourse.credits,
-          category: selectedCourse.category,
-          verticalName: null
-        }] : [])
+        courseId: selectedCourse.courseId,
+        courseCode: selectedCourse.courseCode,
+        courseTitle: selectedCourse.courseTitle,
+        credits: selectedCourse.credits,
+        category: selectedCourse.category,
+        verticalName: null
+      }] : [])
       : allCourses;
 
     return {
@@ -637,8 +644,22 @@ export const getAttendanceSummary = catchAsync(async (req, res) => {
 
   const sem = await Semester.findByPk(semesterId);
 
+  const isLateral = isYes(user.studentProfile.lateral_entry);
+  const joiningDate = normalizeAttendanceDate(user.studentProfile.date_of_joining);
+  const isSem3 = Number(sem?.semesterNumber) === 3;
+
+  const dayAttendanceWhere = {
+    regno: user.studentProfile.registerNumber,
+    semesterNumber: sem.semesterNumber,
+    [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))]
+  };
+
+  if (isLateral && isSem3 && joiningDate) {
+    dayAttendanceWhere.attendanceDate = { [Op.gte]: joiningDate };
+  }
+
   const stats = await DayAttendance.findAll({
-    where: { regno: user.studentProfile.registerNumber, semesterNumber: sem.semesterNumber, [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))] },
+    where: dayAttendanceWhere,
     attributes: [
       [sequelize.fn('COUNT', sequelize.col('dayAttendanceId')), 'totalDays'],
       [sequelize.literal("SUM(CASE WHEN status = 'P' THEN 1 ELSE 0 END)"), 'daysPresent']
@@ -691,13 +712,13 @@ export const getSubjectwiseAttendance = catchAsync(async (req, res) => {
   const enrolledSectionIds = [...new Set(enrolledCourses.map((row) => Number(row.sectionId)).filter(Boolean))];
   const staffAssignments = enrolledCourseIds.length && enrolledSectionIds.length
     ? await StaffCourse.findAll({
-        where: {
-          courseId: { [Op.in]: enrolledCourseIds },
-          sectionId: { [Op.in]: enrolledSectionIds }
-        },
-        attributes: ['courseId', 'sectionId'],
-        raw: true
-      })
+      where: {
+        courseId: { [Op.in]: enrolledCourseIds },
+        sectionId: { [Op.in]: enrolledSectionIds }
+      },
+      attributes: ['courseId', 'sectionId'],
+      raw: true
+    })
     : [];
   const assignedPairs = new Set(
     staffAssignments.map((row) => `${Number(row.courseId)}:${Number(row.sectionId)}`)
@@ -725,13 +746,23 @@ export const getSubjectwiseAttendance = catchAsync(async (req, res) => {
     return res.status(200).json({ status: "success", data: [] });
   }
 
+  const isLateral = isYes(user.studentProfile.lateral_entry);
+  const joiningDate = normalizeAttendanceDate(user.studentProfile.date_of_joining);
+  const isSem3 = Number(semester?.semesterNumber) === 3;
+
+  const periodAttendanceWhere = {
+    regno: user.studentProfile.registerNumber,
+    semesterNumber: semester.semesterNumber,
+    [Op.or]: attendanceScope,
+    [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))]
+  };
+
+  if (isLateral && isSem3 && joiningDate) {
+    periodAttendanceWhere.attendanceDate = { [Op.gte]: joiningDate };
+  }
+
   const rows = await PeriodAttendance.findAll({
-    where: {
-      regno: user.studentProfile.registerNumber,
-      semesterNumber: semester.semesterNumber,
-      [Op.or]: attendanceScope,
-      [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))]
-    },
+    where: periodAttendanceWhere,
     attributes: [
       'courseId',
       [sequelize.fn('COUNT', sequelize.col('PeriodAttendance.periodAttendanceId')), 'totalPeriods'],
@@ -796,8 +827,8 @@ export const getMandatoryCourses = catchAsync(async (req, res) => {
   if (!semester) {
     return res.status(403).json({ status: "failure", message: "The selected semester does not belong to your degree, branch, and batch." });
   }
-  const courses = await Course.findAll({ 
-    where: { semesterId, isActive: 'YES', category: { [Op.notIn]: ['PEC', 'OEC'] } } 
+  const courses = await Course.findAll({
+    where: { semesterId, isActive: 'YES', category: { [Op.notIn]: ['PEC', 'OEC'] } }
   });
   res.status(200).json({ status: "success", data: courses });
 });
@@ -858,10 +889,9 @@ export const getUserId = catchAsync(async (req, res) => {
 });
 
 export const getElectiveSelections = catchAsync(async (req, res) => {
-  const selections = await StudentElectiveSelection.findAll({ 
-    where: { status: 'allocated' }, 
-    include: [Course] 
+  const selections = await StudentElectiveSelection.findAll({
+    where: { status: 'allocated' },
+    include: [Course]
   });
   res.status(200).json({ status: "success", data: selections });
 });
-

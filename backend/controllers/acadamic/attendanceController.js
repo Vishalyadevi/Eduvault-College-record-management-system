@@ -4,17 +4,17 @@ import db from '../../models/acadamic/index.js';
 import { sendAbsentAttendanceEmails } from '../../services/attendanceNotificationService.js';
 import { isAcademicHoliday, thirdSaturdaySql } from '../../utils/academicCalendar.js';
 
-const { 
-  sequelize, 
-  User, 
-  Timetable, 
-  Course, 
-  StaffCourse, 
-  Section, 
-  Department, 
-  Semester, 
-  StudentCourse, 
-  StudentDetails, 
+const {
+  sequelize,
+  User,
+  Timetable,
+  Course,
+  StaffCourse,
+  Section,
+  Department,
+  Semester,
+  StudentCourse,
+  StudentDetails,
   DayAttendance,
   PeriodAttendance,
   AppSetting
@@ -43,8 +43,8 @@ function generateDates(start, end) {
 function getDayOfWeek(dateStr) {
   const [year, month, day] = dateStr.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  const dayOfWeek = date.getUTCDay(); 
-  return dayOfWeek === 0 ? 7 : dayOfWeek; 
+  const dayOfWeek = date.getUTCDay();
+  return dayOfWeek === 0 ? 7 : dayOfWeek;
 }
 
 const dayMap = {
@@ -58,6 +58,17 @@ function getTodayDateString() {
 
 function isFutureDate(date) {
   return typeof date === "string" && date > getTodayDateString();
+}
+
+function isYes(val) {
+  return String(val || "").trim().toUpperCase() === "YES";
+}
+
+function normalizeAttendanceDate(rawDate) {
+  if (!rawDate) return "";
+  const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return String(rawDate);
+  return date.toISOString().split("T")[0];
 }
 
 function getDisplayStudentName(studentRecord) {
@@ -274,14 +285,14 @@ export async function getTimetable(req, res, next) {
     const periodNumbers = [...new Set(periods.map((p) => p.periodNumber).filter(Boolean))];
     const markedAttendanceRows = courseIds.length && periodNumbers.length
       ? await PeriodAttendance.findAll({
-          where: {
-            attendanceDate: { [Op.in]: dates },
-            courseId: { [Op.in]: courseIds },
-            periodNumber: { [Op.in]: periodNumbers }
-          },
-          attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber', 'status', 'updatedBy'],
-          raw: true
-        })
+        where: {
+          attendanceDate: { [Op.in]: dates },
+          courseId: { [Op.in]: courseIds },
+          periodNumber: { [Op.in]: periodNumbers }
+        },
+        attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber', 'status', 'updatedBy'],
+        raw: true
+      })
       : [];
 
     dates.forEach((date) => {
@@ -368,10 +379,10 @@ export async function getStudentsForPeriod(req, res, next) {
 
     // Auth Check
     const isAssigned = await StaffCourse.findOne({
-      where: { 
-        Userid: user.userId, 
-        courseId: requestedCourseId, 
-        ...(!isElective && safeSectionId ? { sectionId: safeSectionId } : {}) 
+      where: {
+        Userid: user.userId,
+        courseId: requestedCourseId,
+        ...(!isElective && safeSectionId ? { sectionId: safeSectionId } : {})
       }
     });
 
@@ -379,13 +390,13 @@ export async function getStudentsForPeriod(req, res, next) {
 
     // Fetch Students
     let students = await StudentCourse.findAll({
-      where: { 
+      where: {
         courseId: { [Op.in]: targetCourseIds },
         ...(targetSectionIds.length ? { sectionId: { [Op.in]: targetSectionIds } } : {})
       },
       include: [
-        { 
-          model: StudentDetails, 
+        {
+          model: StudentDetails,
           required: true,
           on: {
             regno: sequelize.where(
@@ -807,9 +818,9 @@ export async function getAttendanceShortageForStaff(req, res) {
         ...(allowedSectionIds.length ? { sectionId: { [Op.in]: allowedSectionIds } } : {})
       },
       include: [
-        { model: StudentDetails, attributes: ['registerNumber', 'studentName'] },
+        { model: StudentDetails, attributes: ['registerNumber', 'studentName', 'lateral_entry', 'date_of_joining'] },
         { model: Section, attributes: ['sectionName'] },
-        { model: Course, attributes: ['courseCode', 'courseTitle'] }
+        { model: Course, attributes: ['courseCode', 'courseTitle'], include: [{ model: Semester, attributes: ['semesterNumber'] }] }
       ],
       attributes: ['regno', 'courseId', 'sectionId']
     });
@@ -819,31 +830,55 @@ export async function getAttendanceShortageForStaff(req, res) {
       return res.json({ status: 'success', data: [] });
     }
 
+    // Build lateral entry joining date map
+    const lateralJoiningMap = new Map();
+    studentCourses.forEach(sc => {
+      const sd = sc.StudentDetail;
+      if (sd && isYes(sd.lateral_entry) && sd.date_of_joining) {
+        lateralJoiningMap.set(String(sc.regno).trim(), normalizeAttendanceDate(sd.date_of_joining));
+      }
+    });
+
+    // Build semester number map per courseId
+    const semesterByCourse = new Map();
+    staffCourses.forEach(sc => {
+      if (sc.Course?.Semester?.semesterNumber) {
+        semesterByCourse.set(sc.courseId, Number(sc.Course.Semester.semesterNumber));
+      }
+    });
+
     const attendanceRows = await PeriodAttendance.findAll({
-      attributes: [
-        'regno',
-        'courseId',
-        'sectionId',
-        [sequelize.fn('COUNT', sequelize.col('periodAttendanceId')), 'totalClasses'],
-        [sequelize.literal("SUM(CASE WHEN status IN ('P','OD') THEN 1 ELSE 0 END)"), 'presentClasses']
-      ],
+      attributes: ['regno', 'courseId', 'sectionId', 'attendanceDate', 'status'],
       where: {
         regno: { [Op.in]: regnos },
         courseId: { [Op.in]: courseIds },
         [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))],
         ...(allowedSectionIds.length ? { sectionId: { [Op.in]: allowedSectionIds } } : {})
       },
-      group: ['regno', 'courseId', 'sectionId'],
       raw: true
     });
 
     const statsByKey = new Map();
     attendanceRows.forEach((row) => {
-      const key = `${row.regno}_${row.courseId}_${row.sectionId}`;
-      statsByKey.set(key, {
-        totalClasses: Number(row.totalClasses || 0),
-        presentClasses: Number(row.presentClasses || 0)
-      });
+      const regno = String(row.regno || '').trim();
+      const joiningDate = lateralJoiningMap.get(regno);
+      const semNum = semesterByCourse.get(row.courseId);
+
+      // Skip records before joining date for lateral entry students in semester 3
+      if (joiningDate && semNum === 3) {
+        const attDate = normalizeAttendanceDate(row.attendanceDate);
+        if (attDate && attDate < joiningDate) return;
+      }
+
+      const key = `${regno}_${row.courseId}_${row.sectionId}`;
+      if (!statsByKey.has(key)) {
+        statsByKey.set(key, { totalClasses: 0, presentClasses: 0 });
+      }
+      const stats = statsByKey.get(key);
+      stats.totalClasses += 1;
+      if (row.status === 'P' || row.status === 'OD') {
+        stats.presentClasses += 1;
+      }
     });
 
     const minPercentage = Number(min) || 75;
@@ -1006,7 +1041,7 @@ export async function generateStaffAttendanceReport(req, res) {
               sequelize.col('StudentDetail.registerNumber')
             )
           },
-          attributes: ['registerNumber', 'studentName', 'Userid'],
+          attributes: ['registerNumber', 'studentName', 'Userid', 'lateral_entry', 'date_of_joining'],
           include: [{
             model: User,
             as: 'studentUser',
@@ -1055,37 +1090,57 @@ export async function generateStaffAttendanceReport(req, res) {
       return res.json({ status: 'success', data: [], summary: { students: 0, belowThreshold: 0, present: 0, absent: 0, od: 0, threshold: cutoff } });
     }
 
+    // Build lateral entry joining date map
+    const lateralJoiningMap = new Map();
+    studentCourses.forEach(sc => {
+      const sd = sc.StudentDetail;
+      if (sd && isYes(sd.lateral_entry) && sd.date_of_joining) {
+        lateralJoiningMap.set(String(sc.regno).trim(), normalizeAttendanceDate(sd.date_of_joining));
+      }
+    });
+
+    // Build semester number map per courseId from assignments
+    const semesterByCourse = new Map();
+    allowed.forEach(a => {
+      if (a.Course?.Semester?.semesterNumber) {
+        semesterByCourse.set(a.courseId, Number(a.Course.Semester.semesterNumber));
+      }
+    });
+
     const enrolledRegnos = [...new Set([...rosterMap.values()].map((row) => row.regno))];
-    const attendance = await PeriodAttendance.findAll({
+    const attendanceRaw = await PeriodAttendance.findAll({
       where: {
         regno: { [Op.in]: enrolledRegnos },
         courseId: { [Op.in]: courseIds },
         attendanceDate: { [Op.between]: [fromDate, toDate] },
         [Op.and]: [sequelize.literal(thirdSaturdaySql('attendanceDate'))]
       },
-      attributes: [
-        'regno', 'courseId', 'sectionId',
-        [sequelize.fn('COUNT', sequelize.col('periodAttendanceId')), 'totalClasses'],
-        [sequelize.literal("SUM(CASE WHEN status='P' THEN 1 ELSE 0 END)"), 'present'],
-        [sequelize.literal("SUM(CASE WHEN status='A' THEN 1 ELSE 0 END)"), 'absent'],
-        [sequelize.literal("SUM(CASE WHEN status='OD' THEN 1 ELSE 0 END)"), 'od']
-      ],
-      group: ['regno', 'courseId', 'sectionId'], raw: true
+      attributes: ['regno', 'courseId', 'sectionId', 'attendanceDate', 'status'],
+      raw: true
     });
 
-    attendance.forEach((row) => {
+    attendanceRaw.forEach((row) => {
       const regno = String(row.regno || '').trim();
       const course = Number(row.courseId);
       const section = Number(row.sectionId || 0);
       if (!isPairAllowed(course, section)) return;
 
+      const joiningDate = lateralJoiningMap.get(regno);
+      const semNum = semesterByCourse.get(course);
+
+      // Skip records before joining date for lateral entry students in semester 3
+      if (joiningDate && semNum === 3) {
+        const attDate = normalizeAttendanceDate(row.attendanceDate);
+        if (attDate && attDate < joiningDate) return;
+      }
+
       const rosterRow = rosterMap.get(`${regno}_${course}_${section}`);
       if (!rosterRow) return;
 
-      rosterRow.totalClasses = Number(row.totalClasses || 0);
-      rosterRow.present = Number(row.present || 0);
-      rosterRow.absent = Number(row.absent || 0);
-      rosterRow.od = Number(row.od || 0);
+      rosterRow.totalClasses += 1;
+      if (row.status === 'P') rosterRow.present += 1;
+      else if (row.status === 'A') rosterRow.absent += 1;
+      else if (row.status === 'OD') rosterRow.od += 1;
     });
 
     const names = await buildStudentNameMap(enrolledRegnos);
@@ -1122,4 +1177,3 @@ export async function generateStaffAttendanceReport(req, res) {
     res.status(500).json({ status: 'error', message: err.message });
   }
 }
-

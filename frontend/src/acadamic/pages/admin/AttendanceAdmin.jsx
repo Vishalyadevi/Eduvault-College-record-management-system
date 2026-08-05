@@ -4,7 +4,7 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Loader2, Search, Calendar, ChevronDown } from "lucide-react";
-import { isAcademicHoliday } from '../../utils/academicCalendar';
+import { isAcademicHoliday, isThirdSaturday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
@@ -59,11 +59,10 @@ const CourseSlot = ({ courses, date, periodNumber, selectedCourse, onSelect }) =
     return (
       <button
         onClick={() => onSelect(course)}
-        className={`h-full w-full rounded-lg border p-2 text-left transition ${
-          selected
+        className={`h-full w-full rounded-lg border p-2 text-left transition ${selected
             ? "border-slate-900 bg-slate-900 text-white"
             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-        }`}
+          }`}
       >
         <div className="truncate text-[11px] font-bold">{course.courseCode}</div>
         <div className={`truncate text-[10px] ${selected ? "text-slate-300" : "text-slate-400"}`}>{course.courseTitle}</div>
@@ -81,11 +80,10 @@ const CourseSlot = ({ courses, date, periodNumber, selectedCourse, onSelect }) =
       <button
         ref={buttonRef}
         onClick={() => setOpen(true)}
-        className={`h-full w-full rounded-lg border p-2 text-center transition ${
-          isSelected
+        className={`h-full w-full rounded-lg border p-2 text-center transition ${isSelected
             ? "border-slate-900 bg-slate-900 text-white"
             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-        }`}
+          }`}
       >
         <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
           {courses.length} Options <ChevronDown size={12} />
@@ -168,21 +166,21 @@ export default function AdminAttendanceGenerator() {
 
         const periods = Array.isArray(periodRes?.data?.data)
           ? periodRes.data.data
-              .map((p) => ({
-                periodNumber: Number(p.id),
-                time: p.startTime && p.endTime ? `${p.startTime} - ${p.endTime}` : "Time not set",
-              }))
-              .filter((p) => Number.isInteger(p.periodNumber))
-              .sort((a, b) => a.periodNumber - b.periodNumber)
+            .map((p) => ({
+              periodNumber: Number(p.id),
+              time: p.startTime && p.endTime ? `${p.startTime} - ${p.endTime}` : "Time not set",
+            }))
+            .filter((p) => Number.isInteger(p.periodNumber))
+            .sort((a, b) => a.periodNumber - b.periodNumber)
           : [];
 
         setTimeSlots(
           periods.length > 0
             ? periods
             : Array.from({ length: 8 }, (_, i) => ({
-                periodNumber: i + 1,
-                time: "Time not set",
-              }))
+              periodNumber: i + 1,
+              time: "Time not set",
+            }))
         );
       } catch (e) {
         console.error(e);
@@ -483,108 +481,108 @@ export default function AdminAttendanceGenerator() {
 
           {Object.keys(timetable).length > 0 ? (
             <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1024px] border-collapse">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="border-b border-r border-slate-200 px-6 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Date
-                    </th>
-                    {timeSlots.slice(0, configuredPeriodCount).map((slot) => (
-                      <th
-                        key={slot.periodNumber}
-                        className="border-b border-r border-slate-200 px-2 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500"
-                      >
-                        <div>P{slot.periodNumber}</div>
-                        <div className="text-[10px] font-normal text-slate-400">{slot.time}</div>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[1024px] border-collapse">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="border-b border-r border-slate-200 px-6 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Date
                       </th>
+                      {timeSlots.slice(0, configuredPeriodCount).map((slot) => (
+                        <th
+                          key={slot.periodNumber}
+                          className="border-b border-r border-slate-200 px-2 py-4 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                          <div>P{slot.periodNumber}</div>
+                          <div className="text-[10px] font-normal text-slate-400">{slot.time}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dates.map((date) => (
+                      <tr key={date} className="border-b border-slate-100">
+                        <td className="border-r border-slate-200 px-6 py-4">
+                          <div className="text-sm font-semibold text-slate-900">{date}</div>
+                          <div className="text-xs uppercase tracking-[0.12em] text-slate-400">
+                            {new Date(date).toLocaleDateString("en-US", { weekday: "long" })}
+                          </div>
+                        </td>
+
+                        {isAcademicHoliday(date) ? (
+                          <td colSpan={configuredPeriodCount} className="h-20 bg-amber-50 text-center text-xs font-bold uppercase tracking-widest text-amber-700">{isThirdSaturday(date) ? "Holiday - Third Saturday" : "Holiday - Sunday"}</td>
+                        ) : timeSlots.slice(0, configuredPeriodCount).map((slot) => {
+                          const coursesInSlot = (timetable[date] || [])
+                            .filter((p) => p.periodNumber === slot.periodNumber)
+                            .map((p) => ({ ...p, date }));
+
+                          return (
+                            <td key={slot.periodNumber} className="h-20 border-r border-slate-200 p-2 align-middle">
+                              <CourseSlot
+                                courses={coursesInSlot}
+                                date={date}
+                                periodNumber={slot.periodNumber}
+                                selectedCourse={selectedCourse}
+                                onSelect={handleCourseSelect}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dates.map((date) => (
-                    <tr key={date} className="border-b border-slate-100">
-                      <td className="border-r border-slate-200 px-6 py-4">
-                        <div className="text-sm font-semibold text-slate-900">{date}</div>
-                        <div className="text-xs uppercase tracking-[0.12em] text-slate-400">
-                          {new Date(date).toLocaleDateString("en-US", { weekday: "long" })}
-                        </div>
-                      </td>
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-4 p-4 md:hidden">
+                {dates.map((date) => {
+                  const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
+                  if (isAcademicHoliday(date)) {
+                    return (
+                      <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="font-semibold text-slate-900">{date}</div>
+                        <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
+                        <div className="mt-3 rounded-lg bg-amber-50 p-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">{isThirdSaturday(date) ? "Holiday - Third Saturday" : "Holiday - Sunday"}</div>
+                      </div>
+                    );
+                  }
 
-                      {isAcademicHoliday(date) ? (
-                        <td colSpan={configuredPeriodCount} className="h-20 bg-amber-50 text-center text-xs font-bold uppercase tracking-widest text-amber-700">Holiday — Sunday / Third Saturday</td>
-                      ) : timeSlots.slice(0, configuredPeriodCount).map((slot) => {
-                        const coursesInSlot = (timetable[date] || [])
-                          .filter((p) => p.periodNumber === slot.periodNumber)
-                          .map((p) => ({ ...p, date }));
+                  const daySlots = timeSlots.slice(0, configuredPeriodCount)
+                    .map((slot) => ({
+                      slot,
+                      courses: (timetable[date] || [])
+                        .filter((p) => p.periodNumber === slot.periodNumber)
+                        .map((p) => ({ ...p, date })),
+                    }))
+                    .filter((item) => item.courses.length > 0);
 
-                        return (
-                          <td key={slot.periodNumber} className="h-20 border-r border-slate-200 p-2 align-middle">
+                  return (
+                    <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="mb-3">
+                        <div className="font-semibold text-slate-900">{date}</div>
+                        <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
+                      </div>
+                      <div className="space-y-2">
+                        {daySlots.map(({ slot, courses }) => (
+                          <div key={`${date}-${slot.periodNumber}`} className="rounded-xl border border-slate-200 p-3">
+                            <div className="mb-2 flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-500">
+                              <span>P{slot.periodNumber}</span>
+                              <span className="normal-case text-slate-400">{slot.time}</span>
+                            </div>
                             <CourseSlot
-                              courses={coursesInSlot}
+                              courses={courses}
                               date={date}
                               periodNumber={slot.periodNumber}
                               selectedCourse={selectedCourse}
                               onSelect={handleCourseSelect}
                             />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="space-y-4 p-4 md:hidden">
-              {dates.map((date) => {
-                const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
-                if (isAcademicHoliday(date)) {
-                  return (
-                    <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
-                      <div className="font-semibold text-slate-900">{date}</div>
-                      <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
-                      <div className="mt-3 rounded-lg bg-amber-50 p-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">Holiday - Sunday / Third Saturday</div>
+                          </div>
+                        ))}
+                        {!daySlots.length && <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs font-semibold text-slate-400">No periods</div>}
+                      </div>
                     </div>
                   );
-                }
-
-                const daySlots = timeSlots.slice(0, configuredPeriodCount)
-                  .map((slot) => ({
-                    slot,
-                    courses: (timetable[date] || [])
-                      .filter((p) => p.periodNumber === slot.periodNumber)
-                      .map((p) => ({ ...p, date })),
-                  }))
-                  .filter((item) => item.courses.length > 0);
-
-                return (
-                  <div key={date} className="rounded-xl border border-slate-200 bg-white p-4">
-                    <div className="mb-3">
-                      <div className="font-semibold text-slate-900">{date}</div>
-                      <div className="text-xs uppercase tracking-[0.12em] text-slate-400">{dayName}</div>
-                    </div>
-                    <div className="space-y-2">
-                      {daySlots.map(({ slot, courses }) => (
-                        <div key={`${date}-${slot.periodNumber}`} className="rounded-xl border border-slate-200 p-3">
-                          <div className="mb-2 flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-500">
-                            <span>P{slot.periodNumber}</span>
-                            <span className="normal-case text-slate-400">{slot.time}</span>
-                          </div>
-                          <CourseSlot
-                            courses={courses}
-                            date={date}
-                            periodNumber={slot.periodNumber}
-                            selectedCourse={selectedCourse}
-                            onSelect={handleCourseSelect}
-                          />
-                        </div>
-                      ))}
-                      {!daySlots.length && <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs font-semibold text-slate-400">No periods</div>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                })}
+              </div>
             </>
           ) : (
             <div className="flex h-56 flex-col items-center justify-center text-slate-400">
@@ -653,11 +651,10 @@ export default function AdminAttendanceGenerator() {
                                 <button
                                   key={st.key}
                                   onClick={() => updateStatus(s.rollnumber, st.key)}
-                                  className={`h-9 min-w-[42px] rounded-lg border text-xs font-semibold transition ${
-                                    s.status === st.key
+                                  className={`h-9 min-w-[42px] rounded-lg border text-xs font-semibold transition ${s.status === st.key
                                       ? st.active
                                       : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                  }`}
+                                    }`}
                                 >
                                   {st.key}
                                 </button>
@@ -698,11 +695,10 @@ export default function AdminAttendanceGenerator() {
                           <button
                             key={st.key}
                             onClick={() => updateStatus(s.rollnumber, st.key)}
-                            className={`h-10 rounded-lg border text-xs font-semibold transition ${
-                              s.status === st.key
+                            className={`h-10 rounded-lg border text-xs font-semibold transition ${s.status === st.key
                                 ? st.active
                                 : "border-slate-200 bg-white text-slate-500"
-                            }`}
+                              }`}
                           >
                             {st.key}
                           </button>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
@@ -9,11 +8,10 @@ import {
   User,
   BookOpen,
   Info,
-  ChevronLeft,
   Filter,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { isAcademicHoliday } from '../../utils/academicCalendar';
+import { isAcademicHoliday, isThirdSaturday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";
 axios.defaults.withCredentials = true;
@@ -184,24 +182,24 @@ export default function AttendanceGenerator() {
         const res = await axios.get(`${API_BASE_URL}/api/admin/timetable-periods`);
         const slots = Array.isArray(res?.data?.data)
           ? res.data.data
-              .map((p) => ({
-                periodNumber: Number(p.id),
-                time:
-                  p.startTime && p.endTime
-                    ? `${p.startTime} - ${p.endTime}`
-                    : "Time not set",
-              }))
-              .filter((p) => Number.isInteger(p.periodNumber))
-              .sort((a, b) => a.periodNumber - b.periodNumber)
+            .map((p) => ({
+              periodNumber: Number(p.id),
+              time:
+                p.startTime && p.endTime
+                  ? `${p.startTime} - ${p.endTime}`
+                  : "Time not set",
+            }))
+            .filter((p) => Number.isInteger(p.periodNumber))
+            .sort((a, b) => a.periodNumber - b.periodNumber)
           : [];
 
         setPeriodSlots(
           slots.length > 0
             ? slots
             : Array.from({ length: 8 }, (_, i) => ({
-                periodNumber: i + 1,
-                time: "Time not set",
-              }))
+              periodNumber: i + 1,
+              time: "Time not set",
+            }))
         );
       } catch {
         setPeriodSlots(
@@ -495,11 +493,10 @@ export default function AttendanceGenerator() {
             <button
               key={`${cell.key}-${period.groupKey}`}
               onClick={() => handleCourseClick(period, date)}
-              className={`flex min-h-[108px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-center text-xs font-bold uppercase leading-4 transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 ${
-                period.isMarked
+              className={`flex min-h-[108px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-center text-xs font-bold uppercase leading-4 transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 ${period.isMarked
                   ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
                   : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
-              }`}
+                }`}
             >
               <div className="break-words">{period.courseCode}</div>
               <div className="mt-1 max-w-full break-words text-[10px] font-semibold normal-case leading-4 text-slate-500">
@@ -531,9 +528,6 @@ export default function AttendanceGenerator() {
     <div className="min-h-screen bg-[#f9fafc] text-slate-900 font-sans">
       {/* Header Section - Matching your Image Style */}
       <div className="bg-white border-b border-slate-200 px-4 py-5 flex items-center gap-4 sm:px-8 sm:py-6 sm:gap-6">
-        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
-          <ChevronLeft size={20} className="text-slate-600" />
-        </button>
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">
             Attendance Management
@@ -662,13 +656,13 @@ export default function AttendanceGenerator() {
                           </div>
                         </td>
                         {holiday ? (
-                          <td colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">Holiday - Sunday / Third Saturday</td>
+                          <td colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">{isThirdSaturday(date) ? "Holiday - Third Saturday" : "Holiday - Sunday"}</td>
                         ) : (
                           mergedCells.map((cell) => renderMergedCell(cell, date))
                         )}
                         {false && timeSlots.map(({ periodNumber }) => {
                           if (holiday) return periodNumber === timeSlots[0]?.periodNumber ? (
-                            <td key={periodNumber} colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">Holiday — Sunday / Third Saturday</td>
+                            <td key={periodNumber} colSpan={timeSlots.length} className="p-5 text-center text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-50">{isThirdSaturday(date) ? "Holiday - Third Saturday" : "Holiday - Sunday"}</td>
                           ) : null;
                           const coursesInPeriod = periods[periodNumber] || [];
                           if (coursesInPeriod.length === 0)
@@ -690,11 +684,10 @@ export default function AttendanceGenerator() {
                                   <button
                                     key={`${period.timetableId}-${period.courseId}-${period.sectionId || "all"}`}
                                     onClick={() => handleCourseClick(period.courseId, period.sectionId, date, period.periodNumber)}
-                                    className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${
-                                      period.isMarked
+                                    className={`w-full py-2 px-2 text-[10.5px] font-bold border rounded-xl hover:shadow-sm transition-all uppercase ${period.isMarked
                                         ? "bg-emerald-50 border-emerald-400 text-emerald-700 hover:border-emerald-500"
                                         : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
-                                    }`}
+                                      }`}
                                   >
                                     {period.courseCode}
                                     <div className="text-[9px] font-semibold text-slate-400 mt-0.5 normal-case">
@@ -737,7 +730,7 @@ export default function AttendanceGenerator() {
                     </div>
                     {holiday ? (
                       <div className="rounded-lg bg-amber-50 p-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">
-                        Holiday - Sunday / Third Saturday
+                        {isThirdSaturday(date) ? "Holiday - Third Saturday" : "Holiday - Sunday"}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -747,11 +740,10 @@ export default function AttendanceGenerator() {
                             <button
                               key={`${cell.key}-${period.groupKey}`}
                               onClick={() => handleCourseClick(period, date)}
-                              className={`w-full rounded-xl border p-3 text-left text-xs font-bold uppercase transition ${
-                                period.isMarked
+                              className={`w-full rounded-xl border p-3 text-left text-xs font-bold uppercase transition ${period.isMarked
                                   ? "border-emerald-400 bg-emerald-50 text-emerald-700"
                                   : "border-slate-200 bg-white text-slate-700"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -806,11 +798,10 @@ export default function AttendanceGenerator() {
                       type="button"
                       onClick={() => handleBulkStatusChange(option.value)}
                       aria-pressed={bulkStatus === option.value}
-                      className={`min-w-[76px] rounded-lg border px-3 py-2 text-[11px] font-bold transition focus:outline-none focus:ring-2 ${
-                        bulkStatus === option.value
+                      className={`min-w-[76px] rounded-lg border px-3 py-2 text-[11px] font-bold transition focus:outline-none focus:ring-2 ${bulkStatus === option.value
                           ? option.activeClass
                           : option.bulkClass
-                      }`}
+                        }`}
                     >
                       All {option.value}
                     </button>
@@ -844,9 +835,8 @@ export default function AttendanceGenerator() {
                     return (
                       <tr
                         key={idx}
-                        className={`hover:bg-slate-50 transition-colors ${
-                          isSkipped ? "bg-sky-50/40" : ""
-                        }`}
+                        className={`hover:bg-slate-50 transition-colors ${isSkipped ? "bg-sky-50/40" : ""
+                          }`}
                       >
                         <td className="p-5 font-mono font-bold text-xs text-slate-500">
                           {student.rollnumber}
@@ -877,13 +867,12 @@ export default function AttendanceGenerator() {
                               }
                               aria-pressed={displayedStatus === option.value}
                               title={isSkipped ? `${option.label} — set by admin` : option.label}
-                              className={`h-11 min-w-11 rounded-xl border px-3 text-[11px] font-bold transition-all focus:outline-none focus:ring-2 ${
-                                displayedStatus === option.value
+                              className={`h-11 min-w-11 rounded-xl border px-3 text-[11px] font-bold transition-all focus:outline-none focus:ring-2 ${displayedStatus === option.value
                                   ? option.activeClass
                                   : isSkipped
                                     ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 opacity-60'
                                     : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
-                              } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
+                                } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
                             >
                               {option.value}
                             </button>
@@ -923,13 +912,12 @@ export default function AttendanceGenerator() {
                           }
                           aria-pressed={displayedStatus === option.value}
                           title={isSkipped ? `${option.label} — set by admin` : option.label}
-                          className={`h-11 rounded-lg border text-xs font-bold transition focus:outline-none focus:ring-2 ${
-                            displayedStatus === option.value
+                          className={`h-11 rounded-lg border text-xs font-bold transition focus:outline-none focus:ring-2 ${displayedStatus === option.value
                               ? option.activeClass
                               : isSkipped
                                 ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 opacity-60'
                                 : 'border-slate-200 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50'
-                          } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
+                            } ${isSkipped && displayedStatus === option.value ? 'cursor-not-allowed opacity-80 saturate-75' : ''}`}
                         >
                           {option.value}
                         </button>
