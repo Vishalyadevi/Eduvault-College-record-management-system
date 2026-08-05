@@ -38,6 +38,10 @@ const Timetable = () => {
   const [bucketCourses, setBucketCourses] = useState([]);
   const [bucketsLoading, setBucketsLoading] = useState(false);
 
+  // Section/Batch selection for independent scheduling
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [courseSections, setCourseSections] = useState([]);
+
   // A course linked to an elective bucket must only be assignable through the
   // bucket workflow. Keep the complete semester response for bucket/course
   // management pages, but expose a strictly separated list in this page.
@@ -254,6 +258,8 @@ const Timetable = () => {
     setAllocationMode(""); // reset mode
     setCustomCourseInput(""); // reset input
     setSelectedBucketIds([]); // reset buckets
+    setSelectedSectionId(""); // reset section
+    setCourseSections([]); // reset sections
     setShowCourseModal(true); // open modal
   };
 
@@ -279,6 +285,8 @@ const Timetable = () => {
         // If regular, send courseId. If manual, we handle differently or send null.
         courseId: allocationMode === "select" ? +value : null,
         courseTitle: allocationMode === "manual" ? value : null,
+        // Include sectionId for independent batch scheduling
+        sectionId: selectedSectionId ? +selectedSectionId : null,
       };
 
       // Point this to the new allocate API
@@ -373,7 +381,9 @@ const Timetable = () => {
     );
     const uniqueCourseIds = [...new Set(entries.map((e) => e.courseId).filter(Boolean))];
     const isParallelSectionClass = entries.length > 1 && uniqueCourseIds.length === 1;
-    const uniqueSectionNames = [...new Set(entries.map((e) => e.sectionName).filter(Boolean))];
+    const uniqueSectionNames = [...new Set(entries.map((e) => e.sectionName).filter((n) => n && n !== 'No Section'))];
+    // Detect independently scheduled sections (different sections of same course)
+    const hasSectionScheduling = entries.some((e) => e.sectionId && e.sectionId !== 0);
     const mergedStaffs = [
       ...new Map(
         entries
@@ -405,9 +415,14 @@ const Timetable = () => {
                 <div className="text-xs text-gray-600 truncate">
                   {entries[0].courseCode || "Regular Course"}
                 </div>
-                {isParallelSectionClass && (
+                {isParallelSectionClass && uniqueSectionNames.length > 0 && (
                   <div className="text-[10px] text-blue-600 font-semibold truncate">
-                    {uniqueSectionNames.length} batches: {uniqueSectionNames.join(", ")}
+                    {uniqueSectionNames.length} batches: {uniqueSectionNames.join(" / ")}
+                  </div>
+                )}
+                {!isParallelSectionClass && hasSectionScheduling && entries.length === 1 && uniqueSectionNames.length > 0 && (
+                  <div className="text-[10px] text-teal-600 font-semibold truncate">
+                    {uniqueSectionNames[0]}
                   </div>
                 )}
                 {mergedStaffs.length > 0 && (
@@ -732,18 +747,58 @@ const Timetable = () => {
               </select>
 
               {allocationMode === "select" && (
-                <select
-                  value={customCourseInput}
-                  onChange={(e) => setCustomCourseInput(e.target.value)}
-                  className="w-full p-4 border-2 border-gray-300 rounded-lg"
-                >
-                  <option value="">Select a course...</option>
-                  {regularCourses.map((c) => (
-                    <option key={c.courseId} value={c.courseId}>
-                      {c.courseCode} - {c.courseTitle}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={customCourseInput}
+                    onChange={(e) => {
+                      setCustomCourseInput(e.target.value);
+                      setSelectedSectionId("");
+                      setCourseSections([]);
+                      // Fetch sections for the selected course
+                      const courseIdVal = e.target.value;
+                      if (courseIdVal) {
+                        axios.get(`${API_BASE_URL}/api/admin/courses/${courseIdVal}/sections`)
+                          .then((res) => {
+                            const sections = res.data?.data || [];
+                            setCourseSections(sections);
+                          })
+                          .catch(() => setCourseSections([]));
+                      }
+                    }}
+                    className="w-full p-4 border-2 border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select a course...</option>
+                    {regularCourses.map((c) => (
+                      <option key={c.courseId} value={c.courseId}>
+                        {c.courseCode} - {c.courseTitle}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Section/Batch selector for independent scheduling */}
+                  {customCourseInput && courseSections.length > 0 && (
+                    <div className="p-4 border-2 border-teal-200 bg-teal-50 rounded-lg">
+                      <label className="block text-sm font-semibold text-teal-800 mb-2">
+                        Assign to specific batch/section (optional)
+                      </label>
+                      <select
+                        value={selectedSectionId}
+                        onChange={(e) => setSelectedSectionId(e.target.value)}
+                        className="w-full p-3 border-2 border-teal-300 rounded-lg bg-white"
+                      >
+                        <option value="">All Sections (whole class)</option>
+                        {courseSections.map((s) => (
+                          <option key={s.sectionId} value={s.sectionId}>
+                            {s.sectionName}{s.courseCode ? ` — ${s.courseCode}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-teal-600">
+                        Select a specific batch to schedule it independently. Each batch can have its own time slot.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {allocationMode === "manual" && (

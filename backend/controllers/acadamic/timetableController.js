@@ -427,20 +427,31 @@ export const createTimetableEntry = catchAsync(async (req, res) => {
       );
     }
 
-    // 4. BATCH SLOT CHECK (Prevent two subjects in the SAME batch's slot)
+    // 4. BATCH/SECTION SLOT CHECK
+    // When a specific sectionId is provided, only check for conflicts within
+    // that section — this allows different sections of the same course to be
+    // scheduled in different slots independently.
+    // When sectionId is null (whole-class allocation, e.g. theory), apply the
+    // broader check across the entire semester+department slot.
+    const slotConflictWhere = {
+      semesterId,
+      departmentId,
+      dayOfWeek,
+      periodNumber,
+      isActive: 'YES'
+    };
+    if (sectionId) {
+      // Section-scoped: only block if this specific section already has a course in this slot
+      slotConflictWhere.sectionId = sectionId;
+    }
     const batchConflict = await Timetable.findOne({
-      where: {
-        semesterId,
-        departmentId,
-        dayOfWeek,
-        periodNumber,
-        isActive: 'YES'
-      },
+      where: slotConflictWhere,
       transaction
     });
 
     if (batchConflict) {
-      throw new Error('This Batch already has a course assigned to this slot.');
+      const conflictLabel = sectionId ? 'This section/batch' : 'This class';
+      throw new Error(`${conflictLabel} already has a course assigned to this slot.`);
     }
 
     // 5. PERFORM ALLOCATION (Loop through courses)
@@ -504,13 +515,34 @@ export const updateTimetableEntry = catchAsync(async (req, res) => {
       }
     }
 
-    // 2. Perform Update
+    // 2. Section-scoped slot conflict check (excluding current entry)
+    const slotConflictWhere = {
+      semesterId,
+      departmentId,
+      dayOfWeek,
+      periodNumber,
+      isActive: 'YES',
+      timetableId: { [Op.ne]: Number(timetableId) }
+    };
+    if (sectionId) {
+      slotConflictWhere.sectionId = sectionId;
+    }
+    const slotConflict = await Timetable.findOne({
+      where: slotConflictWhere,
+      transaction
+    });
+    if (slotConflict) {
+      const conflictLabel = sectionId ? 'This section/batch' : 'This class';
+      throw new Error(`${conflictLabel} already has a course assigned to this slot.`);
+    }
+
+    // 3. Perform Update
     await entry.update({
       courseId,
       sectionId: sectionId || null,
       dayOfWeek,
       periodNumber,
-      departmentId, // Optional: Usually Dept doesn't change on edit, but included if needed
+      departmentId,
       semesterId,
       updatedBy: userEmail
     }, { transaction });
