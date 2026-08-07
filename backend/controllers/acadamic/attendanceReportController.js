@@ -806,6 +806,7 @@ export const getStudentAttendanceReport = async (req, res) => {
               genericTimetableSlotSet.has(`${option.courseId}-${option.dayOfWeek}-${option.periodNumber}`);
             return isStudentEnrolled && isTimetabled;
           });
+          const isAllocated = !!matchingSlot;
           const isLateral = isYes(student.lateral_entry);
           const joiningDate = normalizeAttendanceDate(student.date_of_joining);
           const isSem3 = Number(semesterInfo?.semesterNumber) === 3;

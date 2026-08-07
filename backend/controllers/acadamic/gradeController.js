@@ -95,6 +95,27 @@ const isPlaceholderCourseHeader = (header) => {
 
 const isYes = (value) => String(value || '').trim().toLowerCase() === 'yes';
 
+function normalizeDegree(value) {
+  return String(value || "").trim().toUpperCase().replace(/[\s.]/g, "");
+}
+
+function degreeAliases(value) {
+  const normalized = normalizeDegree(value);
+  const aliases = {
+    BE: ["B.E", "BE"],
+    ME: ["M.E", "ME"],
+    BTECH: ["B.Tech", "BTech", "BTECH"],
+    MTECH: ["M.Tech", "MTech", "MTECH"],
+  };
+
+  return aliases[normalized] || (value ? [String(value).trim()] : []);
+}
+
+function buildStudentDegreeWhere(value) {
+  const aliases = degreeAliases(value);
+  return aliases.length ? { course: { [Op.in]: aliases } } : {};
+}
+
 const resolveDepartmentByBranch = async (branch) => {
   const raw = String(branch ?? '').trim();
   if (!raw) return null;
@@ -508,8 +529,8 @@ const buildSemesterPerformance = async (regno, transaction) => {
   let lastValidCgpa = null;
 
   for (const sem of semesters) {
-    // Compute GPA against total semester credits so failures (U) are reflected as 0-point courses.
-    const gpa = sem.semTotalCredits > 0 ? roundToTwo(sem.semPoints / sem.semTotalCredits) : null;
+    // Compute GPA against earned semester credits so failures (U) are excluded from the denominator.
+    const gpa = sem.semEarnedCredits > 0 ? roundToTwo(sem.semPoints / sem.semEarnedCredits) : null;
 
     cumulativePoints += sem.semPoints;
     cumulativeEarnedCredits += sem.semEarnedCredits;
@@ -640,18 +661,24 @@ const getCurrentCgpa = async (regno, semesterId) => {
   return row?.cgpa === null || row?.cgpa === undefined ? null : roundToTwo(row.cgpa);
 };
 
-const getGradeStudentsByFilters = async ({ branch, batch }) => {
+const getGradeStudentsByFilters = async ({ branch, batch, degree }) => {
   const department = await resolveDepartmentByBranch(branch);
 
   if (branch && !department) {
     return { error: 'Department not found for selected branch' };
   }
 
+  const where = {
+    ...(batch ? { batch } : {}),
+    ...(department ? { departmentId: department.departmentId } : {})
+  };
+
+  if (degree) {
+    Object.assign(where, buildStudentDegreeWhere(degree));
+  }
+
   const rows = await StudentDetails.findAll({
-    where: {
-      ...(batch ? { batch } : {}),
-      ...(department ? { departmentId: department.departmentId } : {})
-    },
+    where,
     include: [
       {
         model: User,
@@ -875,8 +902,8 @@ export const viewCGPA = catchAsync(async (req, res) => {
 });
 
 export const getStudentsForGrade = catchAsync(async (req, res) => {
-  const { branch, batch, semesterId } = req.query;
-  const { students, error } = await getGradeStudentsByFilters({ branch, batch });
+  const { branch, batch, semesterId, degree } = req.query;
+  const { students, error } = await getGradeStudentsByFilters({ branch, batch, degree });
   if (error) {
     return res.status(404).json({ status: 'error', message: error });
   }
@@ -894,7 +921,7 @@ export const getStudentsForGrade = catchAsync(async (req, res) => {
 });
 
 export const recalculateAllGrades = catchAsync(async (req, res) => {
-  const { branch, batch, semesterId } = req.body;
+  const { branch, batch, semesterId, degree } = req.body;
 
   if (!branch || !batch || !semesterId) {
     return res.status(400).json({
@@ -903,7 +930,7 @@ export const recalculateAllGrades = catchAsync(async (req, res) => {
     });
   }
 
-  const { students, error } = await getGradeStudentsByFilters({ branch, batch });
+  const { students, error } = await getGradeStudentsByFilters({ branch, batch, degree });
   if (error) {
     return res.status(404).json({ status: 'error', message: error });
   }

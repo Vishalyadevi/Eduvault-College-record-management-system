@@ -172,7 +172,8 @@ const CgpaAllocation = () => {
       const res = await api.post('/admin/grades/recalculate-all', {
         branch: filters.branch,
         batch: filters.batch,
-        semesterId: currentSemesterId
+        semesterId: currentSemesterId,
+        degree: filters.degree
       });
 
       setStudents(
