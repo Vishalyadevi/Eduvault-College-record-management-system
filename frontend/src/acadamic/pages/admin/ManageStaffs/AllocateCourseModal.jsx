@@ -184,6 +184,19 @@ const AllocateCourseModal = React.memo(({
           <div className="flex flex-col sm:flex-row gap-3">
              <div className="flex-1 relative">
                 <select
+                  value={courseFilters.batch}
+                  onChange={e => setCourseFilters({ ...courseFilters, batch: e.target.value })}
+                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none appearance-none"
+                  disabled={operationLoading}
+                >
+                  <option value="">All Batches</option>
+                  {batchOptions.map(batch => <option key={batch} value={batch}>{batch}</option>)}
+                </select>
+                <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+             </div>
+
+             <div className="flex-1 relative">
+                <select
                   value={courseFilters.degree}
                   onChange={e => setCourseFilters({ ...courseFilters, degree: e.target.value, batch: '' })}
                   className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none appearance-none"
@@ -221,19 +234,6 @@ const AllocateCourseModal = React.memo(({
                 >
                   <option value="">All Semesters</option>
                   {semesterOptions.map(sem => <option key={sem} value={sem}>Semester {sem}</option>)}
-                </select>
-                <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-             </div>
-
-             <div className="flex-1 relative">
-                <select
-                  value={courseFilters.batch}
-                  onChange={e => setCourseFilters({ ...courseFilters, batch: e.target.value })}
-                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none appearance-none"
-                  disabled={operationLoading}
-                >
-                  <option value="">All Batches</option>
-                  {batchOptions.map(batch => <option key={batch} value={batch}>{batch}</option>)}
                 </select>
                 <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
              </div>

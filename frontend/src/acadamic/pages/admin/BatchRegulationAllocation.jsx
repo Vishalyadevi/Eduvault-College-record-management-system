@@ -143,6 +143,22 @@ const BatchRegulationAllocation = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm mb-6 mt-4">
           <div className="flex flex-wrap gap-4 items-end justify-center">
             <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+              <select
+                value={selectedBatch}
+                onChange={(e) => setSelectedBatch(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                disabled={!selectedBranch}
+              >
+                <option value="">Select Batch</option>
+                {filteredBatches.map(batch => (
+                  <option key={batch.batchId} value={batch.batchId}>
+                    {batch.batch} - {batch.branch} ({batch.degree})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
               <select
                 value={selectedDegree}
@@ -178,22 +194,6 @@ const BatchRegulationAllocation = () => {
                 {filteredBranches.map(branch => (
                   <option key={branch} value={branch}>
                     {branch}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-              <select
-                value={selectedBatch}
-                onChange={(e) => setSelectedBatch(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                disabled={!selectedBranch}
-              >
-                <option value="">Select Batch</option>
-                {filteredBatches.map(batch => (
-                  <option key={batch.batchId} value={batch.batchId}>
-                    {batch.batch} - {batch.branch} ({batch.degree})
                   </option>
                 ))}
               </select>

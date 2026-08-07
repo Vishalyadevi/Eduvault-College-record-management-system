@@ -292,6 +292,17 @@ export default function DayAttendance() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-8">
+            <FilterField label="Batch" value={selectedBatch} onChange={setSelectedBatch} className="xl:col-span-1">
+              <option value="">Select</option>
+              {batches
+                .filter((b) => !selectedDegree || b.degree === selectedDegree)
+                .map((b) => (
+                  <option key={b.batchId} value={b.batchId}>
+                    {b.batchYears || b.batch} - {b.branch} ({b.degree})
+                  </option>
+                ))}
+            </FilterField>
+
             <FilterField label="Degree" value={selectedDegree} onChange={setSelectedDegree} className="xl:col-span-1">
               <option value="">Select</option>
               {degrees.map((d) => (
@@ -299,17 +310,6 @@ export default function DayAttendance() {
                   {d}
                 </option>
               ))}
-            </FilterField>
-
-            <FilterField label="Batch" value={selectedBatch} onChange={setSelectedBatch} className="xl:col-span-1">
-              <option value="">Select</option>
-              {batches
-                .filter((b) => b.degree === selectedDegree)
-                .map((b) => (
-                  <option key={b.batchId} value={b.batchId}>
-                    {b.batchYears || b.batch} - {b.branch} ({b.degree})
-                  </option>
-                ))}
             </FilterField>
 
             <FilterField label="Department" value={selectedDepartment} onChange={setSelectedDepartment} className="xl:col-span-2">

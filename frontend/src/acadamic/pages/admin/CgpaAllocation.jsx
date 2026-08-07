@@ -305,6 +305,20 @@ const CgpaAllocation = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <select
+            value={filters.batch}
+            onChange={(e) => setFilters({ ...filters, batch: e.target.value, semester: '' })}
+            className="px-4 py-2 border rounded-lg"
+            disabled={!filters.branch}
+          >
+            <option value="">Select Batch</option>
+            {batches.map((b) => (
+              <option key={b.batchId} value={b.batch}>
+                {b.batchYears || b.batch} ({b.degree || filters.degree})
+              </option>
+            ))}
+          </select>
+
+          <select
             value={filters.degree}
             onChange={(e) =>
               setFilters({ ...filters, degree: e.target.value, branch: '', batch: '', semester: '' })
@@ -331,20 +345,6 @@ const CgpaAllocation = () => {
                   {v}
                 </option>
               ))}
-          </select>
-
-          <select
-            value={filters.batch}
-            onChange={(e) => setFilters({ ...filters, batch: e.target.value, semester: '' })}
-            className="px-4 py-2 border rounded-lg"
-            disabled={!filters.branch}
-          >
-            <option value="">Select Batch</option>
-            {batches.map((b) => (
-              <option key={b.batchId} value={b.batch}>
-                {b.batchYears || b.batch} ({b.degree || filters.degree})
-              </option>
-            ))}
           </select>
 
           <select

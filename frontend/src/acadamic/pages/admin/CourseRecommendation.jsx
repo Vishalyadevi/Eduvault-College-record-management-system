@@ -503,6 +503,31 @@ const CourseRecommendation = () => {
       <Card className="mb-6">
         <Space wrap>
           <div>
+            <label className="block mb-1 font-medium">Batch</label>
+            <Select
+              value={selectedBatch}
+              onChange={(value) => {
+                console.log('Selected Batch:', value);
+                setSelectedBatch(value);
+                setSelectedSemester('');
+                setSelectedRegulationId('');
+                setSelectedSemesterNumber('');
+                setSemesters([]);
+                setElectives([]);
+                setVerticals([]);
+              }}
+              disabled={loading}
+              style={{ width: 200 }}
+              placeholder="Select Batch"
+            >
+              {batches.map(b => (
+                <Option key={b} value={b}>
+                  {b}
+                </Option>
+              ))}
+            </Select>
+          </div>
+          <div>
             <label className="block mb-1 font-medium">Degree</label>
             <Select
               value={selectedDegree}
@@ -551,31 +576,6 @@ const CourseRecommendation = () => {
               {Object.entries(branchMap).map(([acronym, deptname]) => (
                 <Option key={acronym} value={acronym}>
                   {deptname}
-                </Option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="block mb-1 font-medium">Batch</label>
-            <Select
-              value={selectedBatch}
-              onChange={(value) => {
-                console.log('Selected Batch:', value);
-                setSelectedBatch(value);
-                setSelectedSemester('');
-                setSelectedRegulationId('');
-                setSelectedSemesterNumber('');
-                setSemesters([]);
-                setElectives([]);
-                setVerticals([]);
-              }}
-              disabled={loading || !selectedDegree || !selectedDept}
-              style={{ width: 200 }}
-              placeholder="Select Batch"
-            >
-              {batches.map(b => (
-                <Option key={b} value={b}>
-                  {b}
                 </Option>
               ))}
             </Select>

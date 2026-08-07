@@ -18,6 +18,16 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Batch Year</label>
+          <input
+            type="text"
+            placeholder="e.g., 2023"
+            value={searchQuery.batch}
+            onChange={(e) => setSearchQuery({ ...searchQuery, batch: e.target.value })}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
           <select
             value={searchQuery.degree}
@@ -50,16 +60,6 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => {
               <option key={deg} value={deg}>{deg}</option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Batch Year</label>
-          <input
-            type="text"
-            placeholder="e.g., 2023"
-            value={searchQuery.batch}
-            onChange={(e) => setSearchQuery({ ...searchQuery, batch: e.target.value })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>

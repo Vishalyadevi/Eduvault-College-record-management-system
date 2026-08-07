@@ -402,15 +402,6 @@ export default function AdminAttendanceGenerator() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-            <FilterField label="Degree" value={selectedDegree} onChange={setSelectedDegree} className="xl:col-span-1">
-              <option value="">Select</option>
-              {degrees.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </FilterField>
-
             <FilterField label="Batch" value={selectedBatch} onChange={setSelectedBatch} className="xl:col-span-1">
               <option value="">Select</option>
               {batches
@@ -420,6 +411,15 @@ export default function AdminAttendanceGenerator() {
                     {b.batchYears || b.batch} - {b.branch} ({b.degree})
                   </option>
                 ))}
+            </FilterField>
+
+            <FilterField label="Degree" value={selectedDegree} onChange={setSelectedDegree} className="xl:col-span-1">
+              <option value="">Select</option>
+              {degrees.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
             </FilterField>
 
             <FilterField label="Department" value={selectedDepartment} onChange={setSelectedDepartment} className="xl:col-span-2">

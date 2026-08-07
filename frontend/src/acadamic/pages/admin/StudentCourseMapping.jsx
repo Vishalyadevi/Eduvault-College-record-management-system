@@ -246,6 +246,24 @@ const StudentCourseMapping = () => {
           <Spin spinning={loading}>
             <Form layout="vertical">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <Form.Item label="Batch">
+                  <Select
+                    placeholder="Select Batch"
+                    value={selectedBatch}
+                    onChange={setSelectedBatch}
+                    size="large"
+                  >
+                    {[...new Set(
+                      batches
+                        .filter((b) => !selectedDegree || b.degree === selectedDegree)
+                        .map((b) => b.batch)
+                        .filter(Boolean)
+                    )].map((b) => (
+                      <Option key={b} value={b}>{b}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+
                 <Form.Item label="Degree">
                   <Select
                     showSearch
@@ -277,24 +295,6 @@ const StudentCourseMapping = () => {
                       <Option key={d.departmentId} value={d.departmentId}>
                         {d.Deptname} ({d.Deptacronym})
                       </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-
-                <Form.Item label="Batch">
-                  <Select
-                    placeholder="Select Batch"
-                    value={selectedBatch}
-                    onChange={setSelectedBatch}
-                    size="large"
-                  >
-                    {[...new Set(
-                      batches
-                        .filter((b) => !selectedDegree || b.degree === selectedDegree)
-                        .map((b) => b.batch)
-                        .filter(Boolean)
-                    )].map((b) => (
-                      <Option key={b} value={b}>{b}</Option>
                     ))}
                   </Select>
                 </Form.Item>

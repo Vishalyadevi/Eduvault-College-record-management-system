@@ -31,6 +31,17 @@ const Filters = ({ filters, setFilters, nameSearch, setNameSearch, sortBy, handl
           </div>
         </div>
         <div className="flex-1 min-w-[180px]">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Batch</label>
+          <select
+            value={filters.batch}
+            onChange={e => setFilters({ ...filters, batch: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+          >
+            <option value="">All Batches</option>
+            {batchOptions.map(batch => <option key={batch} value={batch}>{batch}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[180px]">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Degree</label>
           <select
             value={filters.degree}
@@ -61,17 +72,6 @@ const Filters = ({ filters, setFilters, nameSearch, setNameSearch, sortBy, handl
           >
             <option value="">All Semesters</option>
             {semesterOptions.map(sem => <option key={sem} value={sem}>Semester {sem}</option>)}
-          </select>
-        </div>
-        <div className="flex-1 min-w-[180px]">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Batch</label>
-          <select
-            value={filters.batch}
-            onChange={e => setFilters({ ...filters, batch: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-          >
-            <option value="">All Batches</option>
-            {batchOptions.map(batch => <option key={batch} value={batch}>{batch}</option>)}
           </select>
         </div>
         <div className="flex-1 min-w-[180px]">

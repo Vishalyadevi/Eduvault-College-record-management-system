@@ -114,18 +114,13 @@ const UpdateStudentSem = () => {
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-5">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <select
-            value={filters.departmentId}
-            onChange={(e) => setFilters((prev) => ({ ...prev, departmentId: e.target.value }))}
+          <input
+            type="text"
+            placeholder="Batch year (e.g., 2023)"
+            value={filters.batch}
+            onChange={(e) => setFilters((prev) => ({ ...prev, batch: e.target.value }))}
             className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <option value="">All Departments</option>
-            {departments.map((d) => (
-              <option key={d.departmentId} value={d.departmentId}>
-                {d.Deptacronym} - {d.Deptname}
-              </option>
-            ))}
-          </select>
+          />
 
           <select
             value={filters.degree}
@@ -138,13 +133,18 @@ const UpdateStudentSem = () => {
             ))}
           </select>
 
-          <input
-            type="text"
-            placeholder="Batch year (e.g., 2023)"
-            value={filters.batch}
-            onChange={(e) => setFilters((prev) => ({ ...prev, batch: e.target.value }))}
+          <select
+            value={filters.departmentId}
+            onChange={(e) => setFilters((prev) => ({ ...prev, departmentId: e.target.value }))}
             className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
+          >
+            <option value="">All Departments</option>
+            {departments.map((d) => (
+              <option key={d.departmentId} value={d.departmentId}>
+                {d.Deptacronym} - {d.Deptname}
+              </option>
+            ))}
+          </select>
 
           <input
             type="text"

@@ -417,18 +417,8 @@ export default function StudentAttendanceReport() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-9">
-            <Field label="Degree">
-              <select name="degree" value={filters.degree} onChange={handleChange} className="field-input">
-                <option value="">Select Degree</option>
-                <option value="BE">BE</option>
-                <option value="BTech">BTech</option>
-                <option value="ME">ME</option>
-                <option value="MTech">MTech</option>
-              </select>
-            </Field>
-
             <Field label="Batch">
-              <select name="batch" value={filters.batch} onChange={handleChange} className="field-input" disabled={!filters.degree}>
+              <select name="batch" value={filters.batch} onChange={handleChange} className="field-input">
                 <option value="">Select Batch</option>
                 {batches
                   .filter((b) => !filters.degree || b.degree === filters.degree)
@@ -437,6 +427,16 @@ export default function StudentAttendanceReport() {
                       {batch.batchYears || batch.batch} - {batch.branch} ({batch.degree})
                     </option>
                   ))}
+              </select>
+            </Field>
+
+            <Field label="Degree">
+              <select name="degree" value={filters.degree} onChange={handleChange} className="field-input">
+                <option value="">Select Degree</option>
+                <option value="BE">BE</option>
+                <option value="BTech">BTech</option>
+                <option value="ME">ME</option>
+                <option value="MTech">MTech</option>
               </select>
             </Field>
 
