@@ -39,6 +39,21 @@ const StudentFilters = ({ filters, setFilters, searchTerm, setSearchTerm, degree
           />
         </div>
         <select
+          value={filters.batch}
+          onChange={(e) => {
+            console.log('Batch filter changed:', e.target.value);
+            setFilters({ ...filters, batch: e.target.value });
+          }}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">All Batches</option>
+          {filteredBatches.map((batch) => (
+            <option key={batch.batchId} value={batch.batch}>
+              {`${batch.batch} (${batch.batchYears})`}
+            </option>
+          ))}
+        </select>
+        <select
           value={filters.degree}
           onChange={(e) => {
             const nextDegree = e.target.value;
@@ -88,21 +103,6 @@ const StudentFilters = ({ filters, setFilters, searchTerm, setSearchTerm, degree
           {filteredSemesters.map((sem) => (
             <option key={sem} value={sem}>
               {sem}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filters.batch}
-          onChange={(e) => {
-            console.log('Batch filter changed:', e.target.value);
-            setFilters({ ...filters, batch: e.target.value });
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">All Batches</option>
-          {filteredBatches.map((batch) => (
-            <option key={batch.batchId} value={batch.batch}>
-              {`${batch.batch} (${batch.batchYears})`}
             </option>
           ))}
         </select>

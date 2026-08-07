@@ -295,6 +295,31 @@ export async function getTimetable(req, res, next) {
       })
       : [];
 
+    // Fetch enrolled student counts per (courseId, sectionId) to determine if ALL students are marked
+    const sectionIds = [...new Set(periods.map((p) => p.sectionId).filter(Boolean))];
+    const enrolledCountRows = courseIds.length
+      ? await StudentCourse.findAll({
+          where: {
+            courseId: { [Op.in]: courseIds },
+            ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {})
+          },
+          attributes: [
+            'courseId',
+            'sectionId',
+            [sequelize.fn('COUNT', sequelize.col('regno')), 'studentCount']
+          ],
+          group: ['courseId', 'sectionId'],
+          raw: true
+        })
+      : [];
+    // Map: "courseId_sectionId" -> count
+    const enrolledCountMap = new Map(
+      enrolledCountRows.map((row) => [
+        `${row.courseId}_${row.sectionId ?? ''}`,
+        Number(row.studentCount)
+      ])
+    );
+
     dates.forEach((date) => {
       if (isAcademicHoliday(date)) {
         timetable[date] = [];
@@ -304,14 +329,18 @@ export async function getTimetable(req, res, next) {
       timetable[date] = dayStr ? periods
         .filter(p => p.dayOfWeek === dayStr)
         .map(p => {
-          const isMarked = markedAttendanceRows.some((row) =>
+          // Count how many students have been given a valid status for this exact period
+          const markedForPeriod = markedAttendanceRows.filter((row) =>
             row.attendanceDate === date &&
             Number(row.courseId) === Number(p.courseId) &&
             row.dayOfWeek === p.dayOfWeek &&
             Number(row.periodNumber) === Number(p.periodNumber) &&
             (!p.sectionId || Number(row.sectionId) === Number(p.sectionId)) &&
-            !(row.updatedBy === 'admin' && row.status === 'OD')
+            ['P', 'A', 'OD'].includes(row.status)
           );
+          const enrolledKey = `${p.courseId}_${p.sectionId ?? ''}`;
+          const totalEnrolled = enrolledCountMap.get(enrolledKey) ?? 0;
+          const isMarked = totalEnrolled > 0 && markedForPeriod.length >= totalEnrolled;
 
           return {
             timetableId: p.timetableId,

@@ -446,24 +446,6 @@ const CreateCBCS = () => {
         >
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4"> {/* Increased cols for Degree */}
             
-            {/* Degree Select */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Shield className="inline w-4 h-4 mr-1" />
-                Degree
-              </label>
-              <select
-                value={filters.degree}
-                onChange={(e) => setFilters({ ...filters, degree: e.target.value, batchId: '', semesterId: '' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-              >
-                <option value="">Select Degree</option>
-                {degreeOptions.map(deg => (
-                  <option key={deg} value={deg}>{deg}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Batch Select */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -481,6 +463,24 @@ const CreateCBCS = () => {
                   <option key={batch.batchId || batch.id} value={batch.batchId || batch.id}>
                     {`${batch.batch || ''} - ${batch.branch || ''} (${batch.batchYears || ''})`}
                   </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Degree Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Shield className="inline w-4 h-4 mr-1" />
+                Degree
+              </label>
+              <select
+                value={filters.degree}
+                onChange={(e) => setFilters({ ...filters, degree: e.target.value, batchId: '', semesterId: '' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
+              >
+                <option value="">Select Degree</option>
+                {degreeOptions.map(deg => (
+                  <option key={deg} value={deg}>{deg}</option>
                 ))}
               </select>
             </div>

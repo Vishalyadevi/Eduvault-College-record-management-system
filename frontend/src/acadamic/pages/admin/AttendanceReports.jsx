@@ -333,6 +333,24 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-7">
+            <Field label="Batch">
+              <select
+                name="batch"
+                value={filters.batch}
+                onChange={handleInputChange}
+                className="field-input"
+              >
+                <option value="">Select Batch</option>
+                {batches
+                  .filter((b) => !filters.degree || b.degree === filters.degree)
+                  .map((batch) => (
+                    <option key={batch.batchId} value={batch.batchId}>
+                      {batch.batchYears || batch.batch} - {batch.branch} ({batch.degree})
+                    </option>
+                  ))}
+              </select>
+            </Field>
+
             <Field label="Degree">
               <select
                 name="degree"
@@ -345,25 +363,6 @@ const isoNextWeek = nextWeek.toISOString().split("T")[0];
                 <option value="BTech">BTech</option>
                 <option value="ME">ME</option>
                 <option value="MTech">MTech</option>
-              </select>
-            </Field>
-
-            <Field label="Batch">
-              <select
-                name="batch"
-                value={filters.batch}
-                onChange={handleInputChange}
-                disabled={!filters.degree}
-                className="field-input"
-              >
-                <option value="">Select Batch</option>
-                {batches
-                  .filter((b) => !filters.degree || b.degree === filters.degree)
-                  .map((batch) => (
-                    <option key={batch.batchId} value={batch.batchId}>
-                      {batch.batchYears || batch.batch} - {batch.branch} ({batch.degree})
-                    </option>
-                  ))}
               </select>
             </Field>
 

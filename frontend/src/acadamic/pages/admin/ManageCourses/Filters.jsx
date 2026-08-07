@@ -45,6 +45,20 @@ const Filters = ({ filters, setFilters, semesters, courseTypes, departments, deg
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
       <div className="flex flex-wrap gap-4 items-end justify-center">
+        {/* Batch Filter */}
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+          <select
+            value={filters.batch}
+            onChange={(e) => setFilters({ ...filters, batch: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Batches</option>
+            {batchOptions.map(batch => (
+              <option key={batch} value={batch}>{batch}</option>
+            ))}
+          </select>
+        </div>
         {/* Degree Filter */}
         <div className="flex-1 min-w-[130px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
@@ -82,19 +96,6 @@ const Filters = ({ filters, setFilters, semesters, courseTypes, departments, deg
             <option value="">All Semesters</option>
             {semesterOptions.map(num => (
               <option key={num} value={num}>Semester {num}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-          <select
-            value={filters.batch}
-            onChange={(e) => setFilters({ ...filters, batch: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Batches</option>
-            {batchOptions.map(batch => (
-              <option key={batch} value={batch}>{batch}</option>
             ))}
           </select>
         </div>

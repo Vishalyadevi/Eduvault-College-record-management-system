@@ -550,6 +550,30 @@ const Timetable = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Batch
+            </label>
+            <select
+              value={selectedBatch}
+              onChange={(e) => {
+                setSelectedBatch(e.target.value);
+                setSelectedDept("");
+                setSelectedSem("");
+              }}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="">Select Batch</option>
+              {batches
+                .filter((b) => !selectedDegree || b.degree === selectedDegree)
+                .map((b) => (
+                  <option key={b.batchId} value={b.batchId}>
+                    {b.branch} — {b.batchYears || b.batch} ({b.degree})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Degree
             </label>
             <select
@@ -569,31 +593,6 @@ const Timetable = () => {
                   {d}
                 </option>
               ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Batch
-            </label>
-            <select
-              value={selectedBatch}
-              onChange={(e) => {
-                setSelectedBatch(e.target.value);
-                setSelectedDept("");
-                setSelectedSem("");
-              }}
-              disabled={!selectedDegree}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="">Select Batch</option>
-              {batches
-                .filter((b) => b.degree === selectedDegree)
-                .map((b) => (
-                  <option key={b.batchId} value={b.batchId}>
-                    {b.branch} — {b.batchYears || b.batch} ({b.degree})
-                  </option>
-                ))}
             </select>
           </div>
 

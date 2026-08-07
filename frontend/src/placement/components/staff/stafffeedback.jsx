@@ -491,6 +491,17 @@ const StaffPlacementFeedback = () => {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 2024"
+                    value={filters.batch}
+                    onChange={(e) => handleFilterChange('batch', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                   <select
                     value={filters.department}
@@ -506,17 +517,6 @@ const StaffPlacementFeedback = () => {
                     <option value="CIVIL">CIVIL</option>
                     <option value="MECH">MECH</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 2024"
-                    value={filters.batch}
-                    onChange={(e) => handleFilterChange('batch', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
                 </div>
 
 

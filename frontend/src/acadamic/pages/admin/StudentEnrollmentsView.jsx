@@ -117,13 +117,6 @@ const StudentEnrollmentsView = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
-            <select value={filters.degree} onChange={(e) => setFilters({ ...filters, degree: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-              <option value="">Select Degree</option>
-              {ACADEMIC_DEGREES.map((degree) => <option key={degree} value={degree}>{degree}</option>)}
-            </select>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Batch Year</label>
             <input
               type="text"
@@ -132,6 +125,13 @@ const StudentEnrollmentsView = () => {
               onChange={(e) => setFilters({ ...filters, batch: e.target.value.trim() })}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
+            <select value={filters.degree} onChange={(e) => setFilters({ ...filters, degree: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+              <option value="">Select Degree</option>
+              {ACADEMIC_DEGREES.map((degree) => <option key={degree} value={degree}>{degree}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
