@@ -230,7 +230,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid departmentId" });
     }
 
-    const key = makeCacheKey("attendanceReports:subjectWise", {
+    const key = makeCacheKey("attendanceReports:subjectWise:v2", {
       degree,
       batchId,
       departmentId: normalizedDeptId,
@@ -308,12 +308,16 @@ export const getSubjectWiseAttendance = async (req, res) => {
 
         const orderedCourseIds = courses.map((c) => c.courseId);
         const courseCodes = [...new Set(courses.map((c) => c.courseCode))];
-        const courseCodeById = new Map(courses.map((c) => [c.courseId, c.courseCode]));
-        const electiveCourseCodes = new Set(
-          courses
-            .filter((c) => ["OEC", "PEC"].includes((c.category || "").trim().toUpperCase()))
-            .map((c) => c.courseCode)
+        const courseCodeById = new Map(
+          courses.map((c) => [String(c.courseId), c.courseCode])
         );
+        const courseIdsByCode = new Map();
+        courses.forEach((course) => {
+          if (!courseIdsByCode.has(course.courseCode)) {
+            courseIdsByCode.set(course.courseCode, []);
+          }
+          courseIdsByCode.get(course.courseCode).push(String(course.courseId));
+        });
 
         // Fetch student enrollments including sectionId for section-aware conducted periods
         const studentCourseRows = await StudentCourse.findAll({
@@ -323,26 +327,6 @@ export const getSubjectWiseAttendance = async (req, res) => {
           },
           attributes: ["regno", "courseId", "sectionId"],
           raw: true,
-        });
-
-        const courseEnrollmentMap = {};
-        studentCourseRows.forEach((row) => {
-          const regno = String(row.regno || "").trim();
-          const courseCode = courseCodeById.get(row.courseId);
-          if (!regno || !courseCode) return;
-          if (!courseEnrollmentMap[regno]) courseEnrollmentMap[regno] = new Set();
-          courseEnrollmentMap[regno].add(courseCode);
-        });
-        const hasCourseEnrollmentData = studentCourseRows.length > 0;
-
-        // Build student-section map: studentSectionMap[regno][courseCode] = sectionId
-        const studentSectionMap = {};
-        studentCourseRows.forEach((row) => {
-          const regno = String(row.regno || "").trim();
-          const courseCode = courseCodeById.get(row.courseId);
-          if (!regno || !courseCode) return;
-          if (!studentSectionMap[regno]) studentSectionMap[regno] = {};
-          studentSectionMap[regno][courseCode] = row.sectionId;
         });
 
         // 4. Conducted slots — fetch with sectionId for section-aware scheduling.
@@ -359,66 +343,97 @@ export const getSubjectWiseAttendance = async (req, res) => {
           group: ['courseId', 'sectionId', 'dayOfWeek', 'periodNumber']
         });
 
-        // 5. Compute conducted periods per (courseCode, sectionId) and a fallback
-        // "all sections union" map for students without section enrollment data.
-        // conductedBySectionMap[courseCode][sectionId] = total conducted count
-        // courseConductedMap[courseCode] = union of all sections' conducted count (fallback)
-        const conductedBySectionMap = {};
-        const courseConductedMap = {};
-        timetableSlotRows.forEach((r) => {
-          const code = courseCodeById.get(r.courseId);
-          if (!code) return;
-          const dayCount = fromDate <= effectiveToDate ? countDaysInRange(fromDate, effectiveToDate, r.dayOfWeek) : 0;
-          const secId = r.sectionId || '__all__';
+        // 5. Keep course/section identity all the way through the report. A split
+        // course can leave historical StudentCourse and PeriodAttendance rows behind;
+        // only an enrollment that still has a matching active timetable section is
+        // considered current for this report.
+        const normalizeId = (value) => {
+          const normalized = Number(value);
+          return Number.isInteger(normalized) && normalized > 0 ? String(normalized) : "";
+        };
+        const normalizeSectionId = (value) => value ? normalizeId(value) : "0";
+        const timetableByCourseId = new Map();
+        const exactTimetableSlotSet = new Set();
+        const genericTimetableSlotSet = new Set();
 
-          if (!conductedBySectionMap[code]) conductedBySectionMap[code] = {};
-          conductedBySectionMap[code][secId] = (conductedBySectionMap[code][secId] || 0) + dayCount;
+        timetableSlotRows.forEach((row) => {
+          const courseId = normalizeId(row.courseId);
+          const sectionId = normalizeSectionId(row.sectionId);
+          const dayOfWeek = String(row.dayOfWeek || "").toUpperCase();
+          const periodNumber = Number(row.periodNumber);
+          if (!courseCodeById.has(courseId) || !dayOfWeek || !Number.isInteger(periodNumber)) return;
 
-          // Union fallback (unique day-period slots across all sections)
-          courseConductedMap[code] = (courseConductedMap[code] || 0) + dayCount;
+          const slot = { courseId, sectionId, dayOfWeek, periodNumber };
+          if (!timetableByCourseId.has(courseId)) timetableByCourseId.set(courseId, []);
+          timetableByCourseId.get(courseId).push(slot);
+
+          if (sectionId === "0") {
+            genericTimetableSlotSet.add(`${courseId}-${dayOfWeek}-${periodNumber}`);
+          } else {
+            exactTimetableSlotSet.add(`${courseId}-${sectionId}-${dayOfWeek}-${periodNumber}`);
+          }
         });
 
-        // Helper: get conducted periods for a student's specific section, or fallback
+        // activeEnrollmentMap[regno][courseId] = Set<sectionId>
+        const activeEnrollmentMap = new Map();
+        studentCourseRows.forEach((row) => {
+          const regno = String(row.regno || "").trim();
+          const courseId = normalizeId(row.courseId);
+          const sectionId = normalizeSectionId(row.sectionId);
+          const matchingSlots = timetableByCourseId.get(courseId) || [];
+          const hasActiveSlot = matchingSlots.some(
+            (slot) => slot.sectionId === "0" || slot.sectionId === sectionId
+          );
+          if (!regno || !hasActiveSlot) return;
+
+          if (!activeEnrollmentMap.has(regno)) activeEnrollmentMap.set(regno, new Map());
+          const studentCourses = activeEnrollmentMap.get(regno);
+          if (!studentCourses.has(courseId)) studentCourses.set(courseId, new Set());
+          studentCourses.get(courseId).add(sectionId);
+        });
+
+        const getActiveCourseIds = (regno, courseCode) =>
+          (courseIdsByCode.get(courseCode) || []).filter(
+            (courseId) => activeEnrollmentMap.get(regno)?.has(courseId)
+          );
+
+        // Count the union of generic and section-specific timetable slots for the
+        // student's exact current course allocation.
         const getConductedForStudent = (courseCode, studentObj) => {
           const regno = String(studentObj.get("RegisterNumber")).trim();
-          const sectionId = studentSectionMap[regno]?.[courseCode];
-
           const isLateral = isYes(studentObj.get("lateral_entry"));
           const joiningDate = normalizeAttendanceDate(studentObj.get("date_of_joining"));
           const isSem3 = Number(semesterInfo.semesterNumber) === 3;
-
           const effectiveFrom = (isLateral && isSem3 && joiningDate && joiningDate > fromDate) ? joiningDate : fromDate;
+          const allocatedSlotMap = new Map();
 
-          if (effectiveFrom === fromDate) {
-            if (sectionId && conductedBySectionMap[courseCode]?.[sectionId] !== undefined) {
-              return conductedBySectionMap[courseCode][sectionId];
-            }
-            if (conductedBySectionMap[courseCode]?.['__all__'] !== undefined) {
-              return conductedBySectionMap[courseCode]['__all__'];
-            }
-            return courseConductedMap[courseCode] || 0;
-          }
-
-          // Recalculate conducted dynamically for this lateral student!
-          let studentConducted = 0;
-          const targetSectionId = sectionId || '__all__';
-
-          timetableSlotRows.forEach((r) => {
-            const code = courseCodeById.get(r.courseId);
-            if (code !== courseCode) return;
-
-            // Only count slots for the student's section or all sections
-            const slotSecId = r.sectionId || '__all__';
-            if (targetSectionId !== '__all__' && slotSecId !== '__all__' && slotSecId !== targetSectionId) {
-              return;
-            }
-
-            const dayCount = effectiveFrom <= effectiveToDate ? countDaysInRange(effectiveFrom, effectiveToDate, r.dayOfWeek) : 0;
-            studentConducted += dayCount;
+          getActiveCourseIds(regno, courseCode).forEach((courseId) => {
+            const enrolledSections = activeEnrollmentMap.get(regno)?.get(courseId) || new Set();
+            (timetableByCourseId.get(courseId) || []).forEach((slot) => {
+              if (slot.sectionId !== "0" && !enrolledSections.has(slot.sectionId)) return;
+              const key = `${courseId}-${slot.dayOfWeek}-${slot.periodNumber}`;
+              allocatedSlotMap.set(key, slot);
+            });
           });
 
-          return studentConducted;
+          let conducted = 0;
+          allocatedSlotMap.forEach((slot) => {
+            conducted += effectiveFrom <= effectiveToDate
+              ? countDaysInRange(effectiveFrom, effectiveToDate, slot.dayOfWeek)
+              : 0;
+          });
+          return conducted;
         };
+
+        const attendanceStartDateByRegno = new Map(
+          students.map((student) => {
+            const regno = String(student.get("RegisterNumber")).trim();
+            const isLateral = isYes(student.get("lateral_entry"));
+            const joiningDate = normalizeAttendanceDate(student.get("date_of_joining"));
+            const isSem3 = Number(semesterInfo.semesterNumber) === 3;
+            return [regno, isLateral && isSem3 && joiningDate && joiningDate > fromDate ? joiningDate : fromDate];
+          })
+        );
 
         // 6. Fetch raw attendance rows and aggregate by courseCode.
         const selectedRegNoSet = new Set(selectedRegNos.map((r) => String(r).trim()));
@@ -428,17 +443,11 @@ export const getSubjectWiseAttendance = async (req, res) => {
             regno: { [Op.in]: selectedRegNos },
             courseId: { [Op.in]: orderedCourseIds },
             attendanceDate: { [Op.between]: [fromDate, effectiveToDate] },
+            departmentId: normalizedDeptId,
+            semesterNumber: semesterInfo.semesterNumber,
             [Op.and]: [sequelize.literal(thirdSaturdaySql('PeriodAttendance.attendanceDate'))],
           },
-          attributes: ["regno", "courseId", "attendanceDate", "periodNumber"],
-          include: [
-            {
-              model: Course,
-              required: true,
-              attributes: ["courseCode"],
-              where: { courseCode: { [Op.in]: courseCodes } },
-            },
-          ],
+          attributes: ["regno", "courseId", "sectionId", "attendanceDate", "periodNumber"],
           raw: true,
         });
 
@@ -447,15 +456,31 @@ export const getSubjectWiseAttendance = async (req, res) => {
         attendanceRows.forEach((row) => {
           const regno = String(row.regno || "").trim();
           if (!selectedRegNoSet.has(regno)) return;
-          const courseCode = row["Course.courseCode"];
+          const courseId = normalizeId(row.courseId);
+          const sectionId = normalizeSectionId(row.sectionId);
+          const courseCode = courseCodeById.get(courseId);
           if (!courseCode) return;
-          if (hasCourseEnrollmentData && !courseEnrollmentMap[regno]?.has(courseCode)) return;
-          if (!hasCourseEnrollmentData && electiveCourseCodes.has(courseCode)) return;
+
+          const enrolledSections = activeEnrollmentMap.get(regno)?.get(courseId);
+          if (!enrolledSections) return;
+
+          const attendanceDate = normalizeAttendanceDate(row.attendanceDate);
+          if (attendanceDate < (attendanceStartDateByRegno.get(regno) || fromDate)) return;
+          const dayOfWeek = getDayCode(attendanceDate);
+          const periodNumber = Number(row.periodNumber);
+          const genericSlotKey = `${courseId}-${dayOfWeek}-${periodNumber}`;
+          const exactSlotKey = `${courseId}-${sectionId}-${dayOfWeek}-${periodNumber}`;
+          const matchesEnrollment = sectionId === "0"
+            ? genericTimetableSlotSet.has(genericSlotKey)
+            : enrolledSections.has(sectionId);
+          const matchesCurrentTimetable =
+            genericTimetableSlotSet.has(genericSlotKey) || exactTimetableSlotSet.has(exactSlotKey);
+          if (!matchesEnrollment || !matchesCurrentTimetable) return;
 
           if (!attendanceSlotMap[regno]) attendanceSlotMap[regno] = {};
           if (!attendanceSlotMap[regno][courseCode]) attendanceSlotMap[regno][courseCode] = new Set();
 
-          attendanceSlotMap[regno][courseCode].add(`${row.attendanceDate}-${row.periodNumber}`);
+          attendanceSlotMap[regno][courseCode].add(`${courseId}-${attendanceDate}-${periodNumber}`);
         });
 
         const attendanceMap = {};
@@ -478,10 +503,7 @@ export const getSubjectWiseAttendance = async (req, res) => {
           };
 
           courseCodes.forEach((courseCode) => {
-            const isElectiveCourse = electiveCourseCodes.has(courseCode);
-            const isEnrolled = hasCourseEnrollmentData
-              ? courseEnrollmentMap[regNo]?.has(courseCode)
-              : !isElectiveCourse;
+            const isEnrolled = getActiveCourseIds(regNo, courseCode).length > 0;
 
             if (!isEnrolled) {
               studentData[`${courseCode} Conducted Periods`] = "";
