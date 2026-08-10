@@ -191,6 +191,7 @@ async function getRelatedStaffCourseScope(userId, course) {
           { courseCode: course.courseCode },
           { courseTitle: course.courseTitle }
         ]
+        
       }
     }]
   });
@@ -290,35 +291,63 @@ export async function getTimetable(req, res, next) {
           courseId: { [Op.in]: courseIds },
           periodNumber: { [Op.in]: periodNumbers }
         },
-        attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber', 'status', 'updatedBy'],
+        attributes: ['attendanceDate', 'courseId', 'sectionId', 'dayOfWeek', 'periodNumber', 'status', 'updatedBy', 'regno'],
         raw: true
       })
       : [];
 
-    // Fetch enrolled student counts per (courseId, sectionId) to determine if ALL students are marked
+    // Count students per sectionId from StudentCourse (for slots with a sectionId)
     const sectionIds = [...new Set(periods.map((p) => p.sectionId).filter(Boolean))];
-    const enrolledCountRows = courseIds.length
+    const enrolledRows = sectionIds.length
       ? await StudentCourse.findAll({
-          where: {
-            courseId: { [Op.in]: courseIds },
-            ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {})
-          },
+          where: { sectionId: { [Op.in]: sectionIds } },
           attributes: [
-            'courseId',
             'sectionId',
             [sequelize.fn('COUNT', sequelize.col('regno')), 'studentCount']
           ],
-          group: ['courseId', 'sectionId'],
+          group: ['sectionId'],
           raw: true
         })
       : [];
-    // Map: "courseId_sectionId" -> count
-    const enrolledCountMap = new Map(
-      enrolledCountRows.map((row) => [
-        `${row.courseId}_${row.sectionId ?? ''}`,
-        Number(row.studentCount)
-      ])
+    // Map: sectionId (string) -> count
+    const expectedCountMap = new Map(
+      enrolledRows.map((row) => [String(row.sectionId), Number(row.studentCount)])
     );
+
+    // For null-sectionId timetable slots: get this staff's assigned sections per course
+    // from StaffCourse, then count only the students in those sections.
+    const nullSectionCourseIds = [...new Set(
+      periods.filter((p) => p.sectionId == null).map((p) => p.courseId)
+    )];
+
+    // staffSectionsByCourse: courseId (number) -> [sectionId, ...]
+    const staffSectionsByCourse = new Map();
+    if (nullSectionCourseIds.length) {
+      const staffAssignments = await StaffCourse.findAll({
+        where: {
+          Userid: user.userId,
+          courseId: { [Op.in]: nullSectionCourseIds }
+        },
+        attributes: ['courseId', 'sectionId'],
+        raw: true
+      });
+      for (const row of staffAssignments) {
+        const key = Number(row.courseId);
+        if (!staffSectionsByCourse.has(key)) staffSectionsByCourse.set(key, []);
+        staffSectionsByCourse.get(key).push(Number(row.sectionId));
+      }
+    }
+
+    // nullSectionCountMap: courseId (number) -> expected student count for THIS staff
+    const nullSectionCountMap = new Map();
+    for (const courseId of nullSectionCourseIds) {
+      const staffSects = staffSectionsByCourse.get(Number(courseId)) || [];
+      if (!staffSects.length) { nullSectionCountMap.set(Number(courseId), 0); continue; }
+      const count = await StudentCourse.count({
+        where: { courseId, sectionId: { [Op.in]: staffSects } }
+      });
+      nullSectionCountMap.set(Number(courseId), count);
+    }
 
     dates.forEach((date) => {
       if (isAcademicHoliday(date)) {
@@ -329,18 +358,30 @@ export async function getTimetable(req, res, next) {
       timetable[date] = dayStr ? periods
         .filter(p => p.dayOfWeek === dayStr)
         .map(p => {
-          // Count how many students have been given a valid status for this exact period
+          // All P/A/OD records for this exact period slot and section
+          const staffSects = p.sectionId == null
+            ? (staffSectionsByCourse.get(Number(p.courseId)) || [])
+            : null;
           const markedForPeriod = markedAttendanceRows.filter((row) =>
             row.attendanceDate === date &&
             Number(row.courseId) === Number(p.courseId) &&
             row.dayOfWeek === p.dayOfWeek &&
             Number(row.periodNumber) === Number(p.periodNumber) &&
-            (!p.sectionId || Number(row.sectionId) === Number(p.sectionId)) &&
+            (p.sectionId != null
+              ? Number(row.sectionId) === Number(p.sectionId)
+              : (staffSects.length === 0 || staffSects.includes(Number(row.sectionId)))
+            ) &&
             ['P', 'A', 'OD'].includes(row.status)
           );
-          const enrolledKey = `${p.courseId}_${p.sectionId ?? ''}`;
-          const totalEnrolled = enrolledCountMap.get(enrolledKey) ?? 0;
-          const isMarked = totalEnrolled > 0 && markedForPeriod.length >= totalEnrolled;
+          // Count unique students marked (handles any duplicate rows)
+          const uniqueMarkedCount = new Set(markedForPeriod.map(r => r.regno)).size;
+          // Expected = total students for this staff in this course/section
+          const expectedCount = p.sectionId != null
+            ? (expectedCountMap.get(String(p.sectionId)) ?? 0)
+            : (nullSectionCountMap.get(Number(p.courseId)) ?? 0);
+          // DEBUG: remove after fixing
+          console.log(`[isMarked] course=${p.courseId} section=${p.sectionId} period=${p.periodNumber} day=${p.dayOfWeek} expected=${expectedCount} marked=${uniqueMarkedCount}`);
+          const isMarked = expectedCount > 0 && uniqueMarkedCount >= expectedCount;
 
           return {
             timetableId: p.timetableId,
@@ -357,6 +398,7 @@ export async function getTimetable(req, res, next) {
             isMarked
           };
         }) : [];
+
     });
 
     const semesterIds = [...new Set(periods.map((p) => p.semesterId).filter(Boolean))];
