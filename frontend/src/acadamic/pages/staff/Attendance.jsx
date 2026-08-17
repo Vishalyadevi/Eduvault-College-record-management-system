@@ -133,12 +133,11 @@ const buildMergedPeriodCells = (timeSlots, periodsByNumber) => {
         ...group,
         periodNumbers,
         periodTargets: periodNumbers
-          .map((periodNumber) =>
-            (periodsByNumber[periodNumber] || []).find((period) =>
+          .flatMap((periodNumber) =>
+            (periodsByNumber[periodNumber] || []).filter((period) =>
               getCourseGroupKey(period) === group.groupKey
             )
-          )
-          .filter(Boolean),
+          ),
         isMarked: periodNumbers.some((periodNumber) =>
           (periodsByNumber[periodNumber] || []).some((period) =>
             getCourseGroupKey(period) === group.groupKey && period.isMarked

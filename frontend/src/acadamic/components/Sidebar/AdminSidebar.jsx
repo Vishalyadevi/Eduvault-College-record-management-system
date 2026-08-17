@@ -57,7 +57,6 @@ const AdminSidebar = () => {
     { to: "/admin/student-attendance-report", icon: CalendarCheck2, label: "Student Attendance Report" },
     { to: "/admin/periodAttendance", icon: CalendarCheck2, label: "Day Attendance" },
     { to: "/admin/consolidated-marks", icon: Calculator, label: "Consolidated Marks" },
-    { to: "/admin/cgpa-allocation", icon: Award, label: "CGPA Allocation" },
     { to: "/admin/subjectwise-marks", icon: BarChart3, label: "Subjectwise Marks" },
     { to: "/admin/course-recommendation", icon: Sparkles, label: "Course Recommendation" },
     { to: "/admin/request-courses", icon: MessageSquarePlus, label: "Request Courses" },

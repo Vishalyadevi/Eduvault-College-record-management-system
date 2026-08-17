@@ -572,13 +572,55 @@ export async function getStudentsForPeriod(req, res, next) {
     }
 
     const studentNameByRegno = await buildStudentNameMap(students.map((s) => s.regno));
+    const studentRows = students.map((student) => ({
+      regno: String(student.regno || '').trim(),
+      courseId: Number(student.courseId),
+      sectionId: student.sectionId == null ? null : Number(student.sectionId),
+    }));
+    const attendanceRows = studentRows.length
+      ? await PeriodAttendance.findAll({
+        where: {
+          regno: { [Op.in]: [...new Set(studentRows.map((s) => s.regno).filter(Boolean))] },
+          courseId: { [Op.in]: targetCourseIds },
+          ...(targetSectionIds.length ? { sectionId: { [Op.in]: targetSectionIds } } : {}),
+          dayOfWeek,
+          periodNumber,
+          attendanceDate: date
+        },
+        attributes: ['regno', 'courseId', 'sectionId', 'status', 'periodAttendanceId'],
+        order: [['periodAttendanceId', 'DESC']],
+        raw: true
+      })
+      : [];
+
+    const latestAttendanceByExactKey = new Map();
+    const latestAttendanceBySectionKey = new Map();
+    attendanceRows.forEach((attendance) => {
+      const regno = String(attendance.regno || '').trim();
+      const exactKey = `${regno}_${Number(attendance.courseId)}_${Number(attendance.sectionId || 0)}`;
+      const sectionKey = `${regno}_${Number(attendance.sectionId || 0)}`;
+      if (!latestAttendanceByExactKey.has(exactKey)) latestAttendanceByExactKey.set(exactKey, attendance);
+      if (!latestAttendanceBySectionKey.has(sectionKey)) latestAttendanceBySectionKey.set(sectionKey, attendance);
+    });
+
+    const getLatestStatusForStudent = (student) => {
+      const regno = String(student.regno || '').trim();
+      const course = Number(student.courseId);
+      const section = Number(student.sectionId || 0);
+      return (
+        latestAttendanceByExactKey.get(`${regno}_${course}_${section}`)?.status ||
+        latestAttendanceBySectionKey.get(`${regno}_${section}`)?.status ||
+        student.PeriodAttendances?.[0]?.status ||
+        ''
+      );
+    };
 
     res.json({
       status: "success",
       data: students.map(s => ({
         rollnumber: s.regno,
         name: getDisplayStudentName(s) || studentNameByRegno.get(String(s.regno).trim()) || 'N/A',
-        status: s.PeriodAttendances?.[0]?.status || '',
+        status: getLatestStatusForStudent(s),
         sectionId: s.sectionId,
         courseId: s.courseId
       })),
@@ -610,24 +652,44 @@ export async function getSkippedStudents(req, res, next) {
     });
     if (!assignment) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
-    const skipped = await PeriodAttendance.findAll({
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ status: "error", message: "Course not found" });
+
+    const relatedScope = await getRelatedStaffCourseScope(user.userId, course);
+    const targetCourseIds = relatedScope.courseIds;
+    const targetSectionIds = relatedScope.sectionIds;
+
+    const isElective = ["OEC", "PEC"].includes(course.category?.trim().toUpperCase());
+
+    let skipped = await PeriodAttendance.findAll({
       where: {
-        courseId,
+        courseId: { [Op.in]: targetCourseIds },
         dayOfWeek,
         periodNumber,
         attendanceDate: date,
         updatedBy: 'admin',
         status: 'OD',
-        sectionId: {
-          [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${user.userId} AND courseId = ${courseId})`)
-        },
-        ...(safeSectionId ? { sectionId: safeSectionId } : {})
+        ...(safeSectionId 
+          ? { sectionId: safeSectionId } 
+          : targetSectionIds.length ? { sectionId: { [Op.in]: targetSectionIds } } : {})
       },
       include: [{
         model: StudentDetails,
         attributes: ['registerNumber', 'studentName', 'Userid']
       }]
     });
+
+    if (isElective) {
+      const enrollments = await StudentCourse.findAll({
+        where: {
+          courseId: { [Op.in]: targetCourseIds },
+          ...(targetSectionIds.length ? { sectionId: { [Op.in]: targetSectionIds } } : {})
+        },
+        attributes: ['regno']
+      });
+      const enrolledRegnos = new Set(enrollments.map(e => e.regno));
+      skipped = skipped.filter(pa => enrolledRegnos.has(pa.regno));
+    }
 
     const studentNameByRegno = await buildStudentNameMap(skipped.map((pa) => pa.regno));
 
@@ -637,7 +699,9 @@ export async function getSkippedStudents(req, res, next) {
         rollnumber: pa.regno,
         status: pa.status,
         name: getDisplayStudentName(pa) || studentNameByRegno.get(String(pa.regno).trim()) || 'N/A',
-        reason: 'Attendance marked by admin'
+        reason: 'Attendance marked by admin',
+        sectionId: pa.sectionId,
+        courseId: pa.courseId
       }))
     });
   } catch (err) {
@@ -710,9 +774,13 @@ export async function markAttendance(req, res, next) {
       }
 
       const attCourseId = parseInt(att.courseId, 10);
-      const effectiveCourseId = Number.isNaN(attCourseId) ? requestedCourseId : attCourseId;
-
-      const sc = await StudentCourse.findOne({ where: { regno: att.rollnumber, courseId: effectiveCourseId } });
+      const sc = await StudentCourse.findOne({
+        where: {
+          regno: att.rollnumber,
+          courseId: { [Op.in]: relatedScope.courseIds }
+        }
+      });
+      const effectiveCourseId = sc ? sc.courseId : (Number.isNaN(attCourseId) ? requestedCourseId : attCourseId);
       let resolvedSectionId = sc?.sectionId || safeSectionId;
 
       if (!sc && requestedIsElective) {
