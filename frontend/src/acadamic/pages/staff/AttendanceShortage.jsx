@@ -137,7 +137,7 @@ const AttendanceShortage = () => {
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Reg No</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Student Name</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Section</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Course</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[10rem]">Course</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">Present / Total</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">Percentage</th>
                   </tr>
@@ -148,8 +148,8 @@ const AttendanceShortage = () => {
                       <td className="px-4 py-3 font-mono text-gray-800">{row.regno}</td>
                       <td className="px-4 py-3 text-gray-800">{row.name}</td>
                       <td className="px-4 py-3 text-gray-700">{row.sectionName || 'N/A'}</td>
-                      <td className="px-4 py-3 text-gray-700">
-                        {row.courseCode} {row.courseTitle ? `- ${row.courseTitle}` : ''}
+                      <td className="px-4 py-3 text-gray-700 break-words whitespace-normal">
+                        {row.courseCode}{row.courseTitle ? ` - ${row.courseTitle}` : ''}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-700">
                         {row.presentClasses} / {row.totalClasses}

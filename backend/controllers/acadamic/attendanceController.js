@@ -901,6 +901,8 @@ export async function getAttendanceShortageForStaff(req, res) {
       return res.json({ status: 'success', data: [] });
     }
 
+    const studentNameMap = await buildStudentNameMap(regnos);
+
     // Build lateral entry joining date map
     const lateralJoiningMap = new Map();
     studentCourses.forEach(sc => {
@@ -963,7 +965,7 @@ export async function getAttendanceShortageForStaff(req, res) {
         const percentage = totalClasses > 0 ? Number(((presentClasses / totalClasses) * 100).toFixed(2)) : 0;
         return {
           regno: sc.regno,
-          name: sc.StudentDetail?.studentName || 'N/A',
+          name: sc.StudentDetail?.studentName || studentNameMap.get(String(sc.regno).trim()) || 'N/A',
           sectionId: sc.sectionId,
           sectionName: sc.Section?.sectionName || 'N/A',
           courseId: sc.courseId,
