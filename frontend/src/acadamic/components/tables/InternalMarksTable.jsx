@@ -159,33 +159,44 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
 
       {/* Table Container */}
       <div className="overflow-x-auto">
-        <table className="min-w-full">
+        <table className="min-w-[1280px] w-full table-fixed">
+          <colgroup>
+            <col className="w-[140px]" />
+            <col className="w-[240px]" />
+            {courseOutcomes.map((co) => (
+              <col key={co.coId} className="w-[110px]" />
+            ))}
+            {partitionCounts.theory > 0 && <col className="w-[130px]" />}
+            {partitionCounts.practical > 0 && <col className="w-[130px]" />}
+            {partitionCounts.experiential > 0 && <col className="w-[130px]" />}
+            <col className="w-[140px]" />
+          </colgroup>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 sticky left-0 bg-gray-50 z-20 min-w-[140px] border-r border-gray-200">
-                <div className="flex items-center">
+              <th className="sticky left-0 z-20 border-r border-gray-200 bg-gray-50 px-4 py-4 text-left text-sm font-semibold text-gray-700">
+                <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
                   Register No.
                 </div>
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 sticky left-[140px] bg-gray-50 z-20 min-w-[220px] border-r border-gray-200">
-                <div className="flex items-center">
+              <th className="sticky left-[140px] z-20 border-r border-gray-200 bg-gray-50 px-4 py-4 text-left text-sm font-semibold text-gray-700">
+                <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 mr-2 text-gray-500" />
                   Student Name
                 </div>
               </th>
               {courseOutcomes.map((co) => (
-                <th key={co.coId} className="px-4 py-4 text-center text-sm font-semibold text-gray-700 border-r border-gray-200 min-w-[110px]">
+                <th key={co.coId} className="border-r border-gray-200 px-2 py-4 text-center text-sm font-semibold text-gray-700">
                   <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 text-blue-600 rounded-lg flex items-center justify-center mb-2 text-xs font-bold">
+                    <div className="text-blue-600 rounded-lg flex items-center justify-center text-xs font-bold leading-none">
                       {co.coNumber}
                     </div>
-                    <span className="text-xs text-gray-500">{co.coType || ''}</span>
+                    <span className="mt-1 text-[11px] text-gray-500 leading-tight">{co.coType || ''}</span>
                   </div>
                 </th>
               ))}
               {partitionCounts.theory > 0 && (
-                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-700 bg-gray-50 border-r border-gray-200 min-w-[130px]">
+                <th className="border-r border-gray-200 bg-gray-50 px-2 py-4 text-center text-sm font-semibold text-gray-700">
                   <div className="flex flex-col items-center">
                     <div className="w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg flex items-center justify-center mb-1 text-xs font-bold">
                       T
@@ -195,7 +206,7 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                 </th>
               )}
               {partitionCounts.practical > 0 && (
-                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-700 bg-gray-50 border-r border-gray-200 min-w-[130px]">
+                <th className="border-r border-gray-200 bg-gray-50 px-2 py-4 text-center text-sm font-semibold text-gray-700">
                   <div className="flex flex-col items-center">
                     <div className="w-7 h-7 bg-violet-100 text-violet-700 rounded-lg flex items-center justify-center mb-1 text-xs font-bold">
                       P
@@ -205,7 +216,7 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                 </th>
               )}
               {partitionCounts.experiential > 0 && (
-                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-700 bg-gray-50 border-r border-gray-200 min-w-[130px]">
+                <th className="border-r border-gray-200 bg-gray-50 px-2 py-4 text-center text-sm font-semibold text-gray-700">
                   <div className="flex flex-col items-center">
                     <div className="w-7 h-7 bg-amber-100 text-amber-700 rounded-lg flex items-center justify-center mb-1 text-xs font-bold">
                       E
@@ -214,7 +225,7 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                   </div>
                 </th>
               )}
-              <th className="px-4 py-4 text-center text-sm font-semibold text-blue-600 min-w-[140px]">
+              <th className="px-2 py-4 text-center text-sm font-semibold text-blue-600">
                 <div className="flex flex-col items-center">
                   <div className="w-8 h-8 bg-blue-600 bg-opacity-20 rounded-lg flex items-center justify-center mb-1">
                     <TrendingUp className="w-4 h-4 text-white" />
@@ -237,23 +248,23 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                     isEvenRow ? 'bg-white' : 'bg-gray-25'
                   }`}
                 >
-                  <td className={`px-6 py-4 text-sm text-gray-900 border-r border-gray-100 sticky left-0 z-10 ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
-                    <div className="flex items-center">
+                  <td className={`sticky left-0 z-10 border-r border-gray-100 px-4 py-4 text-sm text-gray-900 ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
+                    <div className="flex items-center gap-3">
                       <div className="w-8 h-8 text-blue-600 rounded-lg flex items-center justify-center mr-3 text-xs font-semibold">
                         {index + 1}
                       </div>
-                      <span className="font-mono text-gray-700 font-medium">{student.regno || student.rollnumber}</span>
+                      <span className="font-mono text-gray-700 font-medium truncate">{student.regno || student.rollnumber}</span>
                     </div>
                   </td>
-                  <td className={`px-6 py-4 text-sm font-medium text-gray-900 border-r border-gray-100 sticky left-[140px] z-10 ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
-                    {student.name}
+                  <td className={`sticky left-[140px] z-10 border-r border-gray-100 px-4 py-4 text-sm font-medium text-gray-900 ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
+                    <div className="truncate">{student.name}</div>
                   </td>
                   {courseOutcomes.map((co) => {
                     const coMark = averages[co.coId] || 0;
                     const isEditing = editingCell?.regno === (student.regno || student.rollnumber) && editingCell?.coId === co.coId;
                     console.log(`CO mark for ${co.coNumber} (coId: ${co.coId}): ${coMark}`);
                     return (
-                      <td key={co.coId} className="px-4 py-4 text-center border-r border-gray-100">
+                      <td key={co.coId} className="border-r border-gray-100 px-2 py-4 text-center">
                         {isEditing ? (
                           <input
                             type="text"
@@ -261,13 +272,13 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                             onChange={handleInputChange}
                             onBlur={() => handleInputBlur(student.regno || student.rollnumber, co.coId)}
                             onKeyDown={(e) => handleKeyPress(e, student.regno || student.rollnumber, co.coId)}
-                            className="w-14 h-8 text-center text-sm font-semibold border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="mx-auto block h-8 w-14 text-center text-sm font-semibold border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                             autoFocus
                           />
                         ) : (
                           <span
                             onClick={() => handleClick(student.regno || student.rollnumber, co.coId, coMark)}
-                            className={`inline-flex items-center justify-center w-14 h-8 text-sm font-semibold cursor-pointer hover:bg-blue-50 ${
+                            className={`inline-flex items-center justify-center w-14 h-8 text-sm font-semibold cursor-pointer rounded hover:bg-blue-50 ${
                               coMark >= 80
                                 ? 'text-emerald-700'
                                 : coMark >= 70
@@ -286,27 +297,27 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
                     );
                   })}
                   {partitionCounts.theory > 0 && (
-                    <td className="px-4 py-4 text-center border-r border-gray-100">
+                    <td className="border-r border-gray-100 px-2 py-4 text-center">
                       <span className="inline-flex items-center justify-center w-16 h-8 text-emerald-700 text-sm font-semibold">
                         {averages.avgTheory || '0.00'}
                       </span>
                     </td>
                   )}
                   {partitionCounts.practical > 0 && (
-                    <td className="px-4 py-4 text-center border-r border-gray-100">
+                    <td className="border-r border-gray-100 px-2 py-4 text-center">
                       <span className="inline-flex items-center justify-center w-16 h-8 text-violet-700 text-sm font-semibold">
                         {averages.avgPractical || '0.00'}
                       </span>
                     </td>
                   )}
                   {partitionCounts.experiential > 0 && (
-                    <td className="px-4 py-4 text-center border-r border-gray-100">
+                    <td className="border-r border-gray-100 px-2 py-4 text-center">
                       <span className="inline-flex items-center justify-center w-16 h-8 text-amber-700 text-sm font-semibold">
                         {averages.avgExperiential || '0.00'}
                       </span>
                     </td>
                   )}
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-2 py-4 text-center">
                     <span className="inline-flex items-center justify-center w-20 h-10 text-blue-600 text-sm font-bold">
                       {averages.finalAvg || '0.00'}
                     </span>

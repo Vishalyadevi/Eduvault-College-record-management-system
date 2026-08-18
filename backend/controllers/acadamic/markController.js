@@ -1050,7 +1050,7 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
     // ────────────────────────────────────────────────
     // Collect marks keyed by coNumber from ALL courses
     // ────────────────────────────────────────────────
-    const marksByRegNoAndCoNum = new Map(); // regno → coNumber → value
+    const marksByRegNoAndCoNum = new Map(); // regno → coNumber → { value, updatedAt }
 
     for (const course of courses) {
       const cos = await CourseOutcome.findAll({
@@ -1065,6 +1065,7 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
           coId: cos.map(c => c.coId),
           regno: { [Op.in]: allStudents.map(s => s.regno) },
         },
+        order: [['updatedDate', 'DESC'], ['studentCoMarkId', 'DESC']],
       });
 
       marks.forEach(m => {
@@ -1077,11 +1078,16 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
         }
 
         const current = parseFloat(m.consolidatedMark || 0);
-        const existing = parseFloat(marksByRegNoAndCoNum.get(m.regno)[coNum] || 0);
+        const existing = marksByRegNoAndCoNum.get(m.regno)[coNum];
+        const currentUpdatedAt = m.updatedDate ? new Date(m.updatedDate).getTime() : 0;
+        const existingUpdatedAt = existing?.updatedDate ? new Date(existing.updatedDate).getTime() : 0;
 
-        // Prefer non-zero / higher value
-        if (current > existing) {
-          marksByRegNoAndCoNum.get(m.regno)[coNum] = current;
+        // Prefer the latest saved mark, not the highest numeric mark.
+        if (!existing || currentUpdatedAt >= existingUpdatedAt) {
+          marksByRegNoAndCoNum.get(m.regno)[coNum] = {
+            value: current,
+            updatedDate: m.updatedDate || null,
+          };
         }
       });
     }
@@ -1096,7 +1102,7 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
 
       primaryCOs.forEach(co => {
         const coNum = co.coNumber;
-        const val = marksByRegNoAndCoNum.get(regno)?.[coNum] || 0;
+        const val = marksByRegNoAndCoNum.get(regno)?.[coNum]?.value || 0;
 
         marks[coNum] = {
           coId: co.coId,                // primary coId (for reference/update)
