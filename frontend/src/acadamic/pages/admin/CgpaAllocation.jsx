@@ -205,6 +205,7 @@ const CgpaAllocation = () => {
     fd.append('semesterId', currentSemesterId);
     fd.append('isNptel', isNptelImport ? 'true' : 'false');
     fd.append('uploadType', uploadType);
+    fd.append('batch', filters.batch);
 
     setLoading(true);
     try {

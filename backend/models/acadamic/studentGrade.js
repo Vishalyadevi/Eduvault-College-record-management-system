@@ -1,15 +1,22 @@
 // models/studentGrade.js
 export default(sequelize, DataTypes) => {
-  const validGrades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'U'];
+  const validGrades = ['S', 'O', 'A+', 'A', 'B+', 'B', 'C+', 'C', 'U'];
 
   const StudentGrade = sequelize.define('StudentGrade', {
     gradeId: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     regno: { type: DataTypes.STRING(50), allowNull: false },
     courseCode: { type: DataTypes.STRING(20), allowNull: false },
     grade: {
-      type: DataTypes.STRING(3),
+      type: DataTypes.STRING(10),
       allowNull: false,
-      validate: { isIn: [validGrades] }
+      validate: {
+        isValidGrade(value) {
+          const validGrades = ['S', 'O', 'A+', 'A', 'B+', 'B', 'C+', 'C', 'U'];
+          if (!validGrades.includes(value) && isNaN(parseFloat(value))) {
+            throw new Error('Invalid grade value: must be a standard letter grade or numeric value');
+          }
+        }
+      }
     },
   }, {
     tableName: 'StudentGrade',

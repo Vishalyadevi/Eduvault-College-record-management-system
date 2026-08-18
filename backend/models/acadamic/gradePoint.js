@@ -1,16 +1,23 @@
 // models/gradePoint.js
 export default (sequelize, DataTypes) => {
-  const validGrades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'U'];
+  const validGrades = ['S', 'O', 'A+', 'A', 'B+', 'B', 'C+', 'C', 'U'];
 
   const GradePoint = sequelize.define('GradePoint', {
     grade: { 
-        type: DataTypes.STRING(3),
+        type: DataTypes.STRING(10),
         primaryKey: true,
-        validate: { isIn: [validGrades] }
+        validate: {
+          isValidGrade(value) {
+            const validGrades = ['S', 'O', 'A+', 'A', 'B+', 'B', 'C+', 'C', 'U'];
+            if (!validGrades.includes(value) && isNaN(parseFloat(value))) {
+              throw new Error('Invalid grade value: must be a standard letter grade or numeric value');
+            }
+          }
+        }
     },
-    point: { 
-        type: DataTypes.TINYINT, 
-        allowNull: false 
+    point: {
+        type: DataTypes.DECIMAL(4, 2),
+        allowNull: false
     },
   }, { 
     tableName: 'GradePoint', 

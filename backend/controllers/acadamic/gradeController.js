@@ -20,8 +20,11 @@ const {
   StudentSemesterGPA
 } = db;
 
-const VALID_GRADES = new Set(['O', 'A+', 'A', 'B+', 'B', 'C', 'U']);
-const GRADE_POINTS = { O: 10, 'A+': 9, A: 8, 'B+': 7, B: 6, C: 5 };
+const GRADE_SCHEMES = {
+  OLD: { O: 10, 'A+': 9, A: 8, 'B+': 7, B: 6, C: 5, U: 0 },
+  NEW: { S: 10, O: 10, 'A+': 9, A: 8, 'B+': 7, B: 6.5, 'C+': 6, C: 5, U: 0 }
+};
+const VALID_GRADES = new Set([...Object.keys(GRADE_SCHEMES.OLD), ...Object.keys(GRADE_SCHEMES.NEW)]);
 const REG_KEYS = new Set([
   'regno',
   'register_number',
@@ -45,26 +48,52 @@ const normalizeHeader = (value) =>
 
 const normalizeCode = (value) => String(value ?? '').trim().toUpperCase();
 
-const normalizeGrade = (value) => {
-  const raw = String(value ?? '').trim().toUpperCase();
-  if (!raw) return null;
+const extractAcademicYear = (value) => {
+  const match = String(value ?? '').match(/\b(19|20)\d{2}\b/);
+  return match ? Number(match[0]) : null;
+};
 
-  const compact = raw.replace(/\s+/g, '');
-  
-  // Try to parse as numeric points (e.g. 10, 9, 8, 6.5, etc.)
-  const num = parseFloat(compact);
-  if (!isNaN(num)) {
-    const rounded = Math.round(num);
-    if (rounded >= 10) return 'O';
-    if (rounded === 9) return 'A+';
-    if (rounded === 8) return 'A';
-    if (rounded === 7) return 'B+';
-    if (rounded === 6) return 'B';
-    if (rounded === 5) return 'C';
-    return 'U';
+const resolveGradeScheme = ({ batch, semesterNumber, rows }) => {
+  const batchYear = extractAcademicYear(batch);
+  if (batchYear !== null) {
+    return batchYear >= 2025 ? 'NEW' : 'OLD';
   }
 
+  const flattenedGrades = (rows || [])
+    .flatMap((row) => Object.values(row || {}))
+    .map((value) => normalizeGrade(value))
+    .filter(Boolean);
+
+  if (flattenedGrades.some((g) => g === 'S' || g === 'C+')) return 'NEW';
+  if (flattenedGrades.some((g) => g === 'O' || g === 'B' || g === 'C')) return 'OLD';
+
+  if (Number(semesterNumber) >= 1) return 'NEW';
+  return 'OLD';
+};
+
+const logParserTrace = ({ fileName, sheetName, headerRow, dataStartRow, detectedScheme, recordCount, matchedRows }) => {
+  console.log(
+    `[Grade Import] file=${fileName} sheet=${sheetName} headerRow=${headerRow} dataStartRow=${dataStartRow} scheme=${detectedScheme} records=${recordCount} matchedRows=${matchedRows}`
+  );
+};
+
+const normalizeGrade = (value) => {
+  if (value === null || value === undefined) return null;
+  const strValue = String(value).trim();
+  if (!strValue) return null;
+
+  const compact = strValue.replace(/\s+/g, '');
+  const num = parseFloat(compact);
+  if (!isNaN(num) && isFinite(num)) {
+    return String(num);
+  }
+
+  const raw = strValue.toUpperCase();
+  const compactUpper = raw.replace(/\s+/g, '');
+
   const gradeAliases = {
+    S: 'S',
+    OUTSTANDING: 'S',
     O: 'O',
     APLUS: 'A+',
     'A+': 'A+',
@@ -72,6 +101,8 @@ const normalizeGrade = (value) => {
     BPLUS: 'B+',
     'B+': 'B+',
     B: 'B',
+    CPLUS: 'C+',
+    'C+': 'C+',
     C: 'C',
     U: 'U',
     F: 'U',
@@ -79,7 +110,15 @@ const normalizeGrade = (value) => {
     RA: 'U'
   };
 
-  return gradeAliases[compact] || null;
+  return gradeAliases[compactUpper] || null;
+};
+
+const isValidGrade = (grade, scheme = 'NEW') => {
+  if (!grade) return false;
+  const points = GRADE_SCHEMES[scheme] || GRADE_SCHEMES.NEW;
+  if (Object.prototype.hasOwnProperty.call(points, grade)) return true;
+  const num = parseFloat(grade);
+  return !isNaN(num) && isFinite(num);
 };
 
 const roundToTwo = (value) => Number.parseFloat(Number(value).toFixed(2));
@@ -91,6 +130,13 @@ const isGradeHeader = (header) => GRADE_KEYS.has(normalizeHeader(header));
 const isPlaceholderCourseHeader = (header) => {
   const h = normalizeHeader(header);
   return /^course\d+$/.test(h) || /^subject\d+$/.test(h) || /^c\d+$/.test(h);
+};
+const isLikelyCourseCode = (value) => {
+  const code = normalizeCode(value);
+  if (!code) return false;
+  if (isRegHeader(code) || isSnoHeader(code) || isCourseHeader(code) || isGradeHeader(code)) return false;
+  if (/semester|name|candidate|department|branch|degree|batch|result|grade/i.test(code)) return false;
+  return /^[A-Z0-9]+$/.test(code) && /\d/.test(code) && /[A-Z]/.test(code) && code.length >= 5 && code.length <= 12;
 };
 
 const isYes = (value) => String(value || '').trim().toLowerCase() === 'yes';
@@ -141,11 +187,12 @@ let semesterAnalyticsSchemaReady = false;
 const ensureGradeSchemaReady = async (transaction) => {
   if (gradeSchemaReady) return;
 
-  await sequelize.query('ALTER TABLE StudentGrade MODIFY grade VARCHAR(3) NOT NULL', { transaction });
-  await sequelize.query('ALTER TABLE GradePoint MODIFY grade VARCHAR(3) NOT NULL', { transaction });
-  await sequelize.query('ALTER TABLE NptelCreditTransfer MODIFY grade VARCHAR(3) NOT NULL', { transaction });
+  await sequelize.query('ALTER TABLE StudentGrade MODIFY grade VARCHAR(10) NOT NULL', { transaction });
+  await sequelize.query('ALTER TABLE GradePoint MODIFY grade VARCHAR(10) NOT NULL', { transaction });
+  await sequelize.query('ALTER TABLE GradePoint MODIFY point DECIMAL(4,2) NOT NULL', { transaction });
+  await sequelize.query('ALTER TABLE NptelCreditTransfer MODIFY grade VARCHAR(10) NOT NULL', { transaction });
   await sequelize.query(
-    "INSERT INTO GradePoint (grade, point) VALUES ('O',10),('A+',9),('A',8),('B+',7),('B',6),('C',5),('U',0) ON DUPLICATE KEY UPDATE point = VALUES(point)",
+    "INSERT INTO GradePoint (grade, point) VALUES ('S',10),('O',10),('A+',9),('A',8),('B+',7),('B',6.5),('C+',6),('C',5),('U',0) ON DUPLICATE KEY UPDATE point = VALUES(point)",
     { transaction }
   );
 
@@ -181,8 +228,8 @@ const ensureSemesterAnalyticsSchemaReady = async (transaction) => {
 const findKeyByMatcher = (row, matcher) =>
   Object.keys(row).find((key) => matcher(key));
 
-const extractRecordsFromRows = (rows) => {
-  if (!rows?.length) return [];
+const extractRecordsFromRows = (rows, gradeScheme = 'NEW') => {
+  if (!rows?.length) return { records: [], meta: { headerRow: null, dataStartRow: null, matchedRows: 0 } };
 
   const regKey = findKeyByMatcher(rows[0], isRegHeader);
   const courseKey = findKeyByMatcher(rows[0], isCourseHeader);
@@ -211,14 +258,14 @@ const extractRecordsFromRows = (rows) => {
       const regno = normalizeCode(row[regKey]);
       const courseCode = normalizeCode(row[courseKey]);
       const grade = normalizeGrade(row[gradeKey]);
-      if (regno && courseCode && grade && VALID_GRADES.has(grade)) {
+      if (regno && courseCode && grade && isValidGrade(grade, gradeScheme)) {
         const studentName = nameKey ? String(row[nameKey] ?? '').trim() : 'Unknown';
         console.log(`[XLSX Upload] Processing Student - RegNo: ${regno}, Name: ${studentName}`);
         console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
         records.push({ regno, courseCode, grade });
       }
     }
-    return records;
+    return { records, meta: { headerRow: 0, dataStartRow: 1, matchedRows: records.length } };
   }
 
   const allKeys = Object.keys(rows[0] || {});
@@ -251,7 +298,7 @@ const extractRecordsFromRows = (rows) => {
     for (const [key, value] of Object.entries(row)) {
       if (key === dynamicRegKey || isSnoHeader(key) || isNameHeader(key) || isGpaHeader(key)) continue;
       const grade = normalizeGrade(value);
-      if (!grade || !VALID_GRADES.has(grade)) continue;
+      if (!grade || !isValidGrade(grade, gradeScheme)) continue;
       const courseCode = codeMapByPlaceholder
         ? normalizeCode(codeMapByPlaceholder.get(key))
         : normalizeCode(key);
@@ -261,18 +308,37 @@ const extractRecordsFromRows = (rows) => {
     }
   }
 
-  return records;
+  return {
+    records,
+    meta: {
+      headerRow: 0,
+      dataStartRow: 1,
+      matchedRows: records.length
+    }
+  };
 };
 
-const extractRecordsFromMatrix = (matrix) => {
-  if (!Array.isArray(matrix) || matrix.length < 2) return [];
+const extractRecordsFromMatrix = (matrix, gradeScheme = 'NEW') => {
+  if (!Array.isArray(matrix) || matrix.length < 2) {
+    return { records: [], meta: { headerRow: null, dataStartRow: null, matchedRows: 0 } };
+  }
 
-  // Find the header row dynamically by looking for a row that has a cell matching a registration number key
+  // Find the header row dynamically. Some sheets include title rows or merged
+  // headers above the actual table, so we look for a row that contains both a
+  // registration-number column and at least one course/grade-like column.
   let headerRowIdx = -1;
   for (let i = 0; i < Math.min(matrix.length, 25); i++) {
     const row = matrix[i];
     if (Array.isArray(row)) {
-      if (row.some(cell => cell && isRegHeader(String(cell)))) {
+      const cells = row.map((cell) => String(cell ?? '').trim());
+      const hasReg = cells.some((cell) => cell && isRegHeader(cell));
+      const hasCourseish = cells.some(
+        (cell) => isCourseHeader(cell) || isGradeHeader(cell) || isPlaceholderCourseHeader(cell) || isLikelyCourseCode(cell)
+      );
+      const nextRow = matrix[i + 1];
+      const nextRowHasCourseCodes = Array.isArray(nextRow)
+        && nextRow.some((cell) => isLikelyCourseCode(cell) || isPlaceholderCourseHeader(String(cell ?? '').trim()));
+      if ((hasReg && hasCourseish) || (hasReg && nextRowHasCourseCodes)) {
         headerRowIdx = i;
         break;
       }
@@ -286,17 +352,15 @@ const extractRecordsFromMatrix = (matrix) => {
   const headers = cleanMatrix[0].map((header) => String(header ?? '').trim());
   const regIdx = headers.findIndex(isRegHeader);
   const snoIdx = headers.findIndex(isSnoHeader);
-  if (regIdx === -1) return [];
+  if (regIdx === -1) return { records: [], meta: { headerRow: actualHeaderIdx, dataStartRow: null, matchedRows: 0 } };
 
   const courseIdx = headers.findIndex(isCourseHeader);
   const gradeIdx = headers.findIndex(isGradeHeader);
   const isNarrow = courseIdx !== -1 && gradeIdx !== -1;
 
   const records = [];
-  const placeholderCols = headers
-    .map((h, idx) => ({ h, idx }))
-    .filter(({ idx }) => idx !== regIdx && idx !== snoIdx)
-    .every(({ h }) => isPlaceholderCourseHeader(h));
+  const dataHeaders = headers.filter((_, idx) => idx !== regIdx && idx !== snoIdx);
+  const placeholderCols = dataHeaders.length > 0 && dataHeaders.every((h) => isPlaceholderCourseHeader(h));
 
   let courseCodeByCol = null;
   let startRow = 1;
@@ -307,12 +371,16 @@ const extractRecordsFromMatrix = (matrix) => {
     startRow = 2;
   }
 
-  if (!isNarrow && placeholderCols && cleanMatrix.length > 2) {
+  const mappingRow = cleanMatrix[1] || [];
+  const mappingRowHasCourseCodes =
+    mappingRow.filter(Boolean).some((cell) => isLikelyCourseCode(cell) || isPlaceholderCourseHeader(cell));
+
+  if (!isNarrow && cleanMatrix.length > 2 && (placeholderCols || mappingRowHasCourseCodes)) {
     courseCodeByCol = new Map();
     for (let col = 0; col < headers.length; col += 1) {
       if (col === regIdx || col === snoIdx) continue;
-      const maybeCode = normalizeCode(cleanMatrix[1]?.[col]);
-      if (maybeCode) courseCodeByCol.set(col, maybeCode);
+      const maybeCode = normalizeCode(cleanMatrix[1]?.[col] || headers[col]);
+      if (isLikelyCourseCode(maybeCode)) courseCodeByCol.set(col, maybeCode);
     }
     startRow = 2;
   }
@@ -340,7 +408,7 @@ const extractRecordsFromMatrix = (matrix) => {
     if (isNarrow) {
       const courseCode = normalizeCode(row[courseIdx]);
       const grade = normalizeGrade(row[gradeIdx]);
-      if (courseCode && grade && VALID_GRADES.has(grade)) {
+      if (courseCode && grade && isValidGrade(grade, gradeScheme)) {
         console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
         records.push({ regno, courseCode, grade });
       }
@@ -358,25 +426,65 @@ const extractRecordsFromMatrix = (matrix) => {
       if (!headerName || isNameHeader(headerName) || isGpaHeader(headerName)) continue;
 
       const courseCode = courseCodeByCol
-        ? normalizeCode(courseCodeByCol.get(col))
+        ? normalizeCode(courseCodeByCol.get(col) || headerName)
         : normalizeCode(headerName);
+      const courseLooksValid = isLikelyCourseCode(courseCode);
+      if (!courseLooksValid) continue;
       const grade = normalizeGrade(row[col]);
-      if (!courseCode || !grade || !VALID_GRADES.has(grade)) continue;
+      if (!courseCode || !grade || !isValidGrade(grade, gradeScheme)) continue;
       console.log(`   -> Course: ${courseCode}, Grade: ${grade}`);
       records.push({ regno, courseCode, grade });
     }
   }
 
-  return records;
+  return {
+    records,
+    meta: {
+      headerRow: actualHeaderIdx,
+      dataStartRow: startRow,
+      matchedRows: records.length
+    }
+  };
 };
 
-const parseGradeFile = async (filePath, originalName) => {
+const parseGradeFile = async (filePath, originalName, context = {}) => {
   const isXlsx = /\.(xlsx|xls)$/i.test(originalName);
+  const gradeScheme = resolveGradeScheme(context);
   if (isXlsx) {
     const wb = XLSX.readFile(filePath);
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    return extractRecordsFromMatrix(matrix);
+    let best = { records: [], meta: null, sheetName: null };
+
+    for (const sheetName of wb.SheetNames) {
+      const sheet = wb.Sheets[sheetName];
+      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      const result = extractRecordsFromMatrix(matrix, gradeScheme);
+      const records = result.records || [];
+      const meta = result.meta || {};
+
+      logParserTrace({
+        fileName: originalName,
+        sheetName,
+        headerRow: meta.headerRow ?? 'n/a',
+        dataStartRow: meta.dataStartRow ?? 'n/a',
+        detectedScheme: gradeScheme,
+        recordCount: records.length,
+        matchedRows: meta.matchedRows ?? records.length
+      });
+
+      if (records.length > best.records.length) {
+        best = { records, meta, sheetName };
+      }
+    }
+
+    if (best.records.length > 0) {
+      console.log(
+        `[Grade Import] selectedSheet=${best.sheetName} records=${best.records.length} headerRow=${best.meta?.headerRow ?? 'n/a'}`
+      );
+    } else {
+      console.log(`[Grade Import] No valid records detected in any sheet for file=${originalName}`);
+    }
+
+    return best.records;
   }
 
   const csvRows = [];
@@ -387,7 +495,17 @@ const parseGradeFile = async (filePath, originalName) => {
       .on('end', resolve)
       .on('error', reject);
   });
-  return extractRecordsFromRows(csvRows);
+  const result = extractRecordsFromRows(csvRows, gradeScheme);
+  logParserTrace({
+    fileName: originalName,
+    sheetName: 'CSV',
+    headerRow: result.meta?.headerRow ?? 'n/a',
+    dataStartRow: result.meta?.dataStartRow ?? 'n/a',
+    detectedScheme: gradeScheme,
+    recordCount: result.records.length,
+    matchedRows: result.meta?.matchedRows ?? result.records.length
+  });
+  return result.records;
 };
 
 const buildSemesterPerformance = async (regno, transaction) => {
@@ -469,7 +587,7 @@ const buildSemesterPerformance = async (regno, transaction) => {
       return;
     }
 
-    const point = gradePoint ?? GRADE_POINTS[grade];
+    const point = gradePoint ?? (isNaN(parseFloat(grade)) ? (GRADE_SCHEMES.NEW[grade] ?? GRADE_SCHEMES.OLD[grade]) : parseFloat(grade));
     if (point === null || point === undefined) return;
 
     semData.semPoints += point * course.credits;
@@ -714,7 +832,7 @@ const decorateStudentsWithSemesterScores = async (students, semesterId) => Promi
 
 export const uploadGrades = catchAsync(async (req, res) => {
   const { file } = req;
-  const { semesterId, isNptel: isNptelRaw, uploadType: uploadTypeRaw } = req.body;
+  const { semesterId, isNptel: isNptelRaw, uploadType: uploadTypeRaw, batch } = req.body;
   const isNptel = String(isNptelRaw) === 'true';
   const uploadType = String(uploadTypeRaw || 'regular').toLowerCase();
 
@@ -730,7 +848,7 @@ export const uploadGrades = catchAsync(async (req, res) => {
 
   let records = [];
   try {
-    records = await parseGradeFile(file.path, file.originalname);
+    records = await parseGradeFile(file.path, file.originalname, { batch, semesterNumber: semesterId });
   } finally {
     if (fs.existsSync(file.path)) {
       fs.unlinkSync(file.path);
