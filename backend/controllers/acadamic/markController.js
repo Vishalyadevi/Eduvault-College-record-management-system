@@ -165,15 +165,37 @@ const getSemesterIdByToolId = async (toolId) => {
   return tool?.CourseOutcome?.Course?.semesterId ?? null;
 };
 
+const resolveAssignedCourseForStaff = async (courseCode, staffId) => {
+  const normalizedCode = String(courseCode || '').trim().toUpperCase();
+  if (!normalizedCode || !staffId) return null;
+
+  const staffCourses = await StaffCourse.findAll({
+    where: { Userid: staffId },
+    attributes: ['courseId', 'sectionId'],
+    include: [{
+      model: Course,
+      required: true,
+      attributes: ['courseId', 'courseCode', 'courseTitle'],
+      where: {
+        [Op.or]: [
+          sequelize.where(sequelize.fn('UPPER', sequelize.col('Course.courseCode')), normalizedCode),
+          sequelize.where(sequelize.fn('UPPER', sequelize.col('Course.courseTitle')), normalizedCode)
+        ]
+      }
+    }]
+  });
+
+  if (!staffCourses.length) return null;
+
+  return staffCourses[0].Course || null;
+};
+
 // 1. GET COURSE PARTITIONS
 export const getCoursePartitions = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const staffId = getStaffId(req);
 
-  const course = await Course.findOne({
-    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Course.courseCode')), courseCode.toLowerCase()),
-    include: [{ model: StaffCourse, where: { Userid: staffId }, required: true }]
-  });
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
 
   if (!course) return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
 
@@ -192,10 +214,10 @@ export const saveCoursePartitions = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const staffNumber = getStaffNumber(req);
 
-  const course = await Course.findOne({
-    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Course.courseCode')), courseCode.toLowerCase()),
-    include: [{ model: StaffCourse, where: { Userid: staffId }, required: true }]
-  });
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
+  if (!course) {
+    return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
+  }
 
   const t = await sequelize.transaction();
   try {
@@ -252,10 +274,10 @@ export const updateCoursePartitions = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const staffNumber = getStaffNumber(req);
 
-  const course = await Course.findOne({
-    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Course.courseCode')), courseCode.toLowerCase()),
-    include: [{ model: StaffCourse, where: { Userid: staffId }, required: true }]
-  });
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
+  if (!course) {
+    return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
+  }
 
   const t = await sequelize.transaction();
   try {
@@ -295,10 +317,12 @@ export const updateCoursePartitions = catchAsync(async (req, res) => {
 export const getCOsForCourse = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const userId = getStaffId(req);
-  const course = await Course.findOne({
-    where: sequelize.where(sequelize.fn('UPPER', sequelize.col('Course.courseCode')), courseCode.toUpperCase()),
-    include: [{ model: StaffCourse, where: { Userid: userId }, required: true }]
-  });
+  const course = await resolveAssignedCourseForStaff(courseCode, userId);
+
+  if (!course) {
+    return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
+  }
+
   const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType], order: [['coNumber', 'ASC']] });
   res.json({ status: 'success', data: cos });
 });
