@@ -274,6 +274,7 @@ const StudentPersonalDetails = () => {
               <option
                 key={opt}
                 value={
+                  opt === "Select Seat Type" ||
                   opt === "Select Round" ||
                   opt === "Select Admission Quota" ||
                   opt === "Select Address Type"
@@ -324,32 +325,32 @@ const StudentPersonalDetails = () => {
 
       {/* Row 3 */}
       {renderField({ label: "Section", name: "section" })}
-      {renderField({ label: "Tutor Name", name: "staffname", readOnly: true })}
-      {renderField({ label: "Tutor Email", name: "tutorEmail", readOnly: true })}
+      {renderField({ label: "Student Type", name: "student_type", options: ["Day-Scholar", "Hosteller"] })}
+      {renderField({ label: "Gender", name: "gender", options: ["Female", "Male", "Transgender"] })}
       {renderField({ label: "Date of Birth", name: "date_of_birth", type: "date" })}
 
       {/* Row 4 */}
-      {renderField({ label: "Date of Joining", name: "date_of_joining", type: "date" })}
-      {renderField({ label: "Personal Email", name: "personal_email" })}
-      {renderField({ label: "Phone", name: "personal_phone" })}
-      {renderField({ label: "Parents Phone", name: "parents_phone" })}
-
-      {/* Row 5 */}
+      {renderField({ label: "Nationality", name: "nationality" })}
       {renderField({ label: "16-Digit Reg No", name: "sixteen_digit_reg_no" })}
       {renderField({ label: "EMIS Number", name: "umis_number" })}
       {renderField({ label: "ABC ID", name: "abc_id" })}
+
+      {/* Row 5 */}
       {renderField({ label: "NAD ID", name: "nad_id" })}
+      {renderField({ label: "Seat Type", name: "seat_type", options: ["Select Seat Type", "Round 1 - Counselling", "Round 2 - Counselling", "Round 3 - Counselling", "Management"] })}
+      {renderField({ label: "Admission Quota", name: "admission_quota", options: ["Select Admission Quota", "Government Quota", "Management Quota", "7.5% Govt School Quota", "Sports Quota", "NRI Quota"] })}
+      {renderField({ label: "First Graduate", name: "first_graduate", options: ["No", "Yes"] })}
 
       {/* Row 6 */}
-      {renderField({ label: "Aadhar Card No", name: "aadhar_card_no" })}
-      {renderField({ label: "Nationality", name: "nationality" })}
-      {renderField({ label: "Mother Tongue", name: "mother_tongue" })}
-      {renderField({ label: "Caste", name: "caste" })}
+      {renderField({ label: "Lateral Entry", name: "lateral_entry", options: ["No", "Yes"] })}
+      {renderField({ label: "Date of Joining", name: "date_of_joining", type: "date" })}
+      {renderField({ label: "Tutor Name", name: "staffname", readOnly: true })}
+      {renderField({ label: "Tutor Email", name: "tutorEmail", readOnly: true })}
 
       {/* Row 7 */}
-      {renderField({ label: "Seat Type", name: "seat_type", options: ["Counselling", "Management"] })}
-      {renderField({ label: "Counselling Round", name: "counselling_round", options: ["Select Round", "Round 1", "Round 2", "Round 3", "Management"] })}
-      {renderField({ label: "Admission Quota", name: "admission_quota", options: ["Select Admission Quota", "Government Quota", "Management Quota", "7.5% Govt School Quota", "Sports Quota", "NRI Quota"] })}
+      {renderField({ label: "Personal Email", name: "personal_email" })}
+      {renderField({ label: "Phone", name: "personal_phone" })}
+      {renderField({ label: "Parents Phone", name: "parents_phone" })}
       {renderField({ label: "Address Type", name: "address_type", options: ["Select Address Type", "Urban", "Rural", "Semi-Urban"] })}
 
       {/* Row 8 */}
@@ -361,17 +362,14 @@ const StudentPersonalDetails = () => {
       {/* Row 9 */}
       {renderField({ label: "State", name: "student_state" })}
       {renderField({ label: "Pincode", name: "pincode" })}
-      {renderField({ label: "First Graduate", name: "first_graduate", options: ["No", "Yes"] })}
-      {renderField({ label: "Lateral Entry", name: "lateral_entry", options: ["No", "Yes"] })}
+      {renderField({ label: "Aadhaar Card No", name: "aadhar_card_no" })}
+      {renderField({ label: "Blood Group", name: "blood_group", options: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"] })}
 
       {/* Row 10 */}
-      {renderField({ label: "Blood Group", name: "blood_group", options: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"] })}
-      {renderField({ label: "Student Type", name: "student_type", options: ["Day-Scholar", "Hosteller"] })}
+      {renderField({ label: "Mother Tongue", name: "mother_tongue" })}
       {renderField({ label: "Religion", name: "religion", options: ["Hindu", "Muslim", "Christian", "Others"] })}
       {renderField({ label: "Community", name: "community", options: ["OBC", "BC", "MBC", "SC", "ST", "General", "Others"] })}
-
-      {/* Row 11 */}
-      {renderField({ label: "Gender", name: "gender", options: ["Female", "Male", "Transgender"] })}
+      {renderField({ label: "Caste", name: "caste" })}
     </form>
   );
 
