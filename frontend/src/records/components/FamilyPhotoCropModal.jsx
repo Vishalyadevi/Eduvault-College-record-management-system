@@ -293,9 +293,6 @@ const FamilyPhotoCropModal = ({ isOpen, onClose, onSave, initialImage, relationT
                   className="w-[280px] h-[280px] object-cover pointer-events-none rounded-full"
                 />
                 <div className="absolute inset-0 border-4 border-indigo-400/50 rounded-full pointer-events-none group-hover:border-indigo-500 transition"></div>
-                <div className="absolute bottom-3 bg-black/60 text-white text-xs px-3 py-1 rounded-full pointer-events-none shadow-md">
-                  Drag / Pinch or Trackpad scroll to zoom
-                </div>
               </>
             ) : (
               <div
@@ -319,7 +316,7 @@ const FamilyPhotoCropModal = ({ isOpen, onClose, onSave, initialImage, relationT
 
           {/* Controls Bar */}
           {imageSrc && (
-            <div className="w-full mt-6 space-y-4">
+            <div className="w-full mt-5 space-y-3">
               {/* Zoom Slider */}
               <div className="flex items-center space-x-3 bg-gray-50 p-3 rounded-xl border border-gray-200">
                 <FaSearchMinus
@@ -345,6 +342,11 @@ const FamilyPhotoCropModal = ({ isOpen, onClose, onSave, initialImage, relationT
                   {zoomPercent}%
                 </span>
               </div>
+
+              {/* Clear Instruction Tip below Zoom Slider */}
+              <p className="text-center text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 py-1.5 px-3 rounded-lg">
+                💡 Drag image to position • Scroll / Pinch trackpad to zoom
+              </p>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between space-x-2">
