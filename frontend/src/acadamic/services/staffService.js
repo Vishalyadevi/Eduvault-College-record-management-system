@@ -42,6 +42,11 @@ api.interceptors.response.use(
 
 // --- HELPERS ---
 const splitIds = (id) => (id ? String(id).split('_') : []);
+const withSectionScope = (sectionIds, config = {}) => {
+  const sections = splitIds(sectionIds).map(id => id.trim()).filter(Boolean).join('_');
+  if (!sections) return config;
+  return { ...config, params: { ...(config.params || {}), sections } };
+};
 
 // Map each student RegNo to their Course Code to know where to save marks
 const getStudentCourseMap = async (codes, sectionIds) => {
@@ -68,10 +73,14 @@ const getStudentCourseMap = async (codes, sectionIds) => {
 
 // --- MARKS FUNCTIONS ---
 
-export const getStudentCOMarks = async (courseCode) => {
+export const getStudentCOMarks = async (courseCode, sectionIds) => {
   try {
     const codes = splitIds(courseCode);
-    const promises = codes.map(code => api.get(`/marks/co/${code}`));
+    const sections = splitIds(sectionIds);
+    const promises = codes.map((code, index) => api.get(
+      `/marks/co/${code}`,
+      withSectionScope(sections[index] || sections[0])
+    ));
     const responses = await Promise.all(promises);
 
     let allStudents = [];
@@ -97,9 +106,13 @@ export const getStudentCOMarks = async (courseCode) => {
   }
 };
 
-export const updateStudentCOMark = async (courseCode, regno, coId, consolidatedMark) => {
+export const updateStudentCOMark = async (courseCode, regno, coId, consolidatedMark, sectionIds) => {
   try {
-    const response = await api.put(`/marks/co/${regno}/${coId}`, { consolidatedMark });
+    const response = await api.put(
+      `/marks/co/${regno}/${coId}`,
+      { consolidatedMark },
+      withSectionScope(sectionIds)
+    );
     return response.data;
   } catch (error) {
     console.error('Error in updateStudentCOMark:', error);
@@ -109,8 +122,9 @@ export const updateStudentCOMark = async (courseCode, regno, coId, consolidatedM
 
 // --- SYNCED TOOL FUNCTIONS ---
 
-export const saveToolsForCO = async (coId, toolsData, compositeCourseCode) => {
+export const saveToolsForCO = async (coId, toolsData, compositeCourseCode, compositeSectionId) => {
   const codes = splitIds(compositeCourseCode);
+  const sections = splitIds(compositeSectionId);
   const primaryCode = codes[0];
   const tools = Array.isArray(toolsData) ? toolsData : toolsData.tools;
 
@@ -118,13 +132,16 @@ export const saveToolsForCO = async (coId, toolsData, compositeCourseCode) => {
     await api.post(`/tools/${coId}/save`, { tools });
 
     if (codes.length > 1) {
-      const primaryCosRes = await api.get(`/cos/${primaryCode}`);
+      const primaryCosRes = await api.get(`/cos/${primaryCode}`, withSectionScope(sections[0]));
       const primaryCo = (primaryCosRes.data.data || []).find(c => c.coId === coId);
 
       if (primaryCo) {
         for (let i = 1; i < codes.length; i++) {
           const siblingCode = codes[i];
-          const siblingCosRes = await api.get(`/cos/${siblingCode}`);
+          const siblingCosRes = await api.get(
+            `/cos/${siblingCode}`,
+            withSectionScope(sections[i] || sections[0])
+          );
           const siblingCo = (siblingCosRes.data.data || []).find(c => c.coNumber === primaryCo.coNumber);
 
           if (siblingCo) {
@@ -160,9 +177,10 @@ export const saveStudentMarksForTool = async (toolId, marksData, compositeCourse
   try {
     if (codes.length <= 1) {
       const payload = Array.isArray(marksData) ? { marks: marksData } : marksData;
-      await api.post(`/marks/${toolId}`, payload);
+      await api.post(`/marks/${toolId}`, payload, withSectionScope(compositeSectionId));
     } else {
       const primaryCode = codes[0];
+      const sections = splitIds(compositeSectionId);
       const studentMap = await getStudentCourseMap(codes, compositeSectionId);
 
       const marksByCourse = {};
@@ -174,7 +192,7 @@ export const saveStudentMarksForTool = async (toolId, marksData, compositeCourse
         }
       });
 
-      const primaryCosRes = await api.get(`/cos/${primaryCode}`);
+      const primaryCosRes = await api.get(`/cos/${primaryCode}`, withSectionScope(sections[0]));
       const primaryCos = primaryCosRes.data.data || [];
 
       let primaryTool = null;
@@ -198,9 +216,11 @@ export const saveStudentMarksForTool = async (toolId, marksData, compositeCourse
         if (courseMarks.length === 0) continue;
 
         if (code === primaryCode) {
-          await api.post(`/marks/${toolId}`, { marks: courseMarks });
+          await api.post(`/marks/${toolId}`, { marks: courseMarks }, withSectionScope(sections[0]));
         } else {
-          const siblingCosRes = await api.get(`/cos/${code}`);
+          const codeIndex = codes.indexOf(code);
+          const section = sections[codeIndex] || sections[0];
+          const siblingCosRes = await api.get(`/cos/${code}`, withSectionScope(section));
           const siblingCo = (siblingCosRes.data.data || []).find(c => c.coNumber === primaryCo.coNumber);
 
           if (!siblingCo) continue;
@@ -218,7 +238,7 @@ export const saveStudentMarksForTool = async (toolId, marksData, compositeCourse
             siblingTool = { toolId: newId };
           }
 
-          await api.post(`/marks/${siblingTool.toolId}`, { marks: courseMarks });
+          await api.post(`/marks/${siblingTool.toolId}`, { marks: courseMarks }, withSectionScope(section));
         }
       }
     }
@@ -229,17 +249,18 @@ export const saveStudentMarksForTool = async (toolId, marksData, compositeCourse
   }
 };
 
-export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
+export const getStudentMarksForTool = async (toolId, compositeCourseCode, compositeSectionId) => {
   const codes = splitIds(compositeCourseCode);
 
   try {
     if (codes.length <= 1) {
-      const response = await api.get(`/marks/${toolId}`);
+      const response = await api.get(`/marks/${toolId}`, withSectionScope(compositeSectionId));
       return response.data.data || [];
     }
 
     const primaryCode = codes[0];
-    const primaryCosRes = await api.get(`/cos/${primaryCode}`);
+    const sections = splitIds(compositeSectionId);
+    const primaryCosRes = await api.get(`/cos/${primaryCode}`, withSectionScope(sections[0]));
     let primaryToolName = null;
     let primaryCoNum = null;
 
@@ -254,13 +275,14 @@ export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
     }
 
     if (!primaryToolName) {
-      const res = await api.get(`/marks/${toolId}`);
+      const res = await api.get(`/marks/${toolId}`, withSectionScope(compositeSectionId));
       return res.data.data || [];
     }
 
     const marksSets = await Promise.all(
-      codes.map(async (code) => {
-        const coRes = await api.get(`/cos/${code}`);
+      codes.map(async (code, index) => {
+        const section = sections[index] || sections[0];
+        const coRes = await api.get(`/cos/${code}`, withSectionScope(section));
         const co = (coRes.data.data || []).find(c => c.coNumber === primaryCoNum);
         if (!co) return [];
 
@@ -268,7 +290,7 @@ export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
         const tool = (tRes.data.data || []).find(t => t.toolName === primaryToolName);
         if (!tool) return [];
 
-        const mRes = await api.get(`/marks/${tool.toolId}`);
+        const mRes = await api.get(`/marks/${tool.toolId}`, withSectionScope(section));
         return mRes.data.data || [];
       })
     );
@@ -282,29 +304,39 @@ export const getStudentMarksForTool = async (toolId, compositeCourseCode) => {
 };
 
 // --- STANDARD EXPORTS ---
-export const getCoursePartitions = async (courseCode) => {
+export const getCoursePartitions = async (courseCode, sectionIds) => {
   const codes = splitIds(courseCode);
-  const response = await api.get(`/partitions/${codes[0]}`);
+  const response = await api.get(`/partitions/${codes[0]}`, withSectionScope(splitIds(sectionIds)[0]));
   return response.data.data;
 };
 
-export const saveCoursePartitions = async (courseCode, partitions) => {
+export const saveCoursePartitions = async (courseCode, partitions, sectionIds) => {
   const codes = splitIds(courseCode);
-  const promises = codes.map(code => api.post(`/partitions/${code}`, partitions));
+  const sections = splitIds(sectionIds);
+  const promises = codes.map((code, index) => api.post(
+    `/partitions/${code}`,
+    partitions,
+    withSectionScope(sections[index] || sections[0])
+  ));
   const responses = await Promise.all(promises);
   return responses[0].data;
 };
 
-export const updateCoursePartitions = async (courseCode, partitions) => {
+export const updateCoursePartitions = async (courseCode, partitions, sectionIds) => {
   const codes = splitIds(courseCode);
-  const promises = codes.map(code => api.put(`/partitions/${code}`, partitions));
+  const sections = splitIds(sectionIds);
+  const promises = codes.map((code, index) => api.put(
+    `/partitions/${code}`,
+    partitions,
+    withSectionScope(sections[index] || sections[0])
+  ));
   const responses = await Promise.all(promises);
   return responses[0].data;
 };
 
-export const getCOsForCourse = async (courseCode) => {
+export const getCOsForCourse = async (courseCode, sectionIds) => {
   const codes = splitIds(courseCode);
-  const response = await api.get(`/cos/${codes[0]}`);
+  const response = await api.get(`/cos/${codes[0]}`, withSectionScope(splitIds(sectionIds)[0]));
   const cos = response.data.data || [];
   return cos.map((co) => ({
     ...co,
@@ -354,15 +386,18 @@ export const updateTool = async (toolId, tool) => {
   return response.data;
 };
 
-export const importMarksForTool = async (toolId, file) => {
+export const importMarksForTool = async (toolId, file, sectionIds) => {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await api.post(`/marks/${toolId}/import`, formData);
+  const response = await api.post(`/marks/${toolId}/import`, formData, withSectionScope(sectionIds));
   return response.data;
 };
 
-export const exportCoWiseCsv = async (coId) => {
-  const response = await api.get(`/export/co/${coId}`, { responseType: 'blob' });
+export const exportCoWiseCsv = async (coId, sectionIds) => {
+  const response = await api.get(
+    `/export/co/${coId}`,
+    withSectionScope(sectionIds, { responseType: 'blob' })
+  );
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
   link.href = url;
@@ -372,9 +407,12 @@ export const exportCoWiseCsv = async (coId) => {
   document.body.removeChild(link);
 };
 
-export const exportCourseWiseCsv = async (courseCode) => {
+export const exportCourseWiseCsv = async (courseCode, sectionIds) => {
   const codes = splitIds(courseCode);
-  const response = await api.get(`/export/course/${codes[0]}`, { responseType: 'blob' });
+  const response = await api.get(
+    `/export/course/${codes[0]}`,
+    withSectionScope(splitIds(sectionIds)[0], { responseType: 'blob' })
+  );
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
   link.href = url;

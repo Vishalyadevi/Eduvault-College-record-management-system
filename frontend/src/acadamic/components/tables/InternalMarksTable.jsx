@@ -6,7 +6,7 @@ import withReactContent from 'sweetalert2-react-content';
 
 const MySwal = withReactContent(Swal);
 
-const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, refreshData, isLocked = false }) => {
+const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, refreshData, isLocked = false, sectionIds = '' }) => {
   const [editingCell, setEditingCell] = useState(null); // Track editing cell: { regno, coId }
   const [editValue, setEditValue] = useState(''); // Track input value during editing
   const [localMarks, setLocalMarks] = useState({}); // Store local marks for immediate UI updates
@@ -57,7 +57,7 @@ const InternalMarksTable = ({ students, courseOutcomes, calculateInternalMarks, 
 
     try {
       // Update the backend
-      await updateStudentCOMark(null, regno, coId, newMark);
+      await updateStudentCOMark(null, regno, coId, newMark, sectionIds);
       console.log(`Updated mark for regno ${regno}, coId ${coId}: ${newMark}`);
 
       // Update local marks state

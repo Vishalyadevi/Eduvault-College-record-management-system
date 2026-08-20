@@ -15,6 +15,12 @@ import os from 'os';
 import { Readable } from 'stream';
 import catchAsync from '../../utils/catchAsync.js';
 import { resolveStudentDisplayName } from './studentNameResolver.js';
+import {
+  findOutOfScopeRegistrationNumbers,
+  normalizeRegistrationNumber,
+  parseSectionScope,
+  uniqueCourseSectionPairs
+} from '../../utils/marksAccessScope.js';
 
 // --- HELPERS ---
 const getStaffId = (req) => {
@@ -32,6 +38,101 @@ const activeStudentUserInclude = () => ({
   required: true,
   attributes: ['userName']
 });
+
+const getRequestedSectionIds = (req) => parseSectionScope(req.query?.sections);
+
+const getStaffCourseAssignments = async ({ staffId, courseIds = [], courseCodes = [], sectionIds = [] }) => {
+  const ids = [...new Set(courseIds.map(Number).filter(Number.isSafeInteger))];
+  const codes = [...new Set(
+    courseCodes.map(code => String(code || '').trim().toUpperCase()).filter(Boolean)
+  )];
+  const courseFilters = [];
+  if (ids.length) courseFilters.push({ courseId: { [Op.in]: ids } });
+  if (codes.length) courseFilters.push({ courseCode: { [Op.in]: codes } });
+  if (!courseFilters.length) return [];
+
+  return StaffCourse.findAll({
+    where: {
+      Userid: staffId,
+      ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {})
+    },
+    attributes: ['courseId', 'sectionId'],
+    include: [{
+      model: Course,
+      required: true,
+      attributes: ['courseId', 'courseCode', 'courseTitle', 'semesterId'],
+      where: courseFilters.length === 1 ? courseFilters[0] : { [Op.or]: courseFilters }
+    }]
+  });
+};
+
+const getRosterForAssignments = async (assignments) => {
+  const pairs = uniqueCourseSectionPairs(assignments);
+  if (!pairs.length) return [];
+
+  const enrollments = await StudentCourse.findAll({
+    where: { [Op.or]: pairs },
+    include: [{
+      model: StudentDetails,
+      as: 'StudentDetail',
+      attributes: ['registerNumber', 'studentName', 'studentId'],
+      include: [activeStudentUserInclude()],
+      required: true
+    }],
+    order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
+  });
+
+  const roster = new Map();
+  enrollments.forEach((enrollment) => {
+    const student = enrollment.StudentDetail;
+    const regno = student?.registerNumber;
+    const key = normalizeRegistrationNumber(regno);
+    if (!key || roster.has(key)) return;
+    roster.set(key, {
+      regno,
+      name: resolveStudentDisplayName(student),
+      studentId: student.studentId,
+      courseId: enrollment.courseId,
+      sectionId: enrollment.sectionId
+    });
+  });
+  return [...roster.values()];
+};
+
+const getToolAccessContext = async (req, toolId) => {
+  const tool = await COTool.findByPk(toolId, {
+    include: [
+      ToolDetails,
+      {
+        model: CourseOutcome,
+        required: true,
+        include: [{ model: Course, required: true }]
+      }
+    ]
+  });
+  if (!tool?.CourseOutcome?.courseId) return { tool: null, assignments: [], roster: [] };
+
+  const assignments = await getStaffCourseAssignments({
+    staffId: getStaffId(req),
+    courseIds: [tool.CourseOutcome.courseId],
+    sectionIds: getRequestedSectionIds(req)
+  });
+  return { tool, assignments, roster: await getRosterForAssignments(assignments) };
+};
+
+const rejectOutOfScopeMarks = (res, registrationNumbers, roster) => {
+  const outside = findOutOfScopeRegistrationNumbers(
+    registrationNumbers,
+    roster.map(student => student.regno)
+  );
+  if (!outside.length) return false;
+  res.status(403).json({
+    status: 'error',
+    message: 'Some students are outside your selected course/section allocation.',
+    students: outside.slice(0, 10)
+  });
+  return true;
+};
 
 const CONSOLIDATION_LOCK_PREFIX = 'MARKS_LOCK_SEM_';
 const FINALIZED_MARKS_LOCK_VALUE = 'finalized';
@@ -165,24 +266,14 @@ const getSemesterIdByToolId = async (toolId) => {
   return tool?.CourseOutcome?.Course?.semesterId ?? null;
 };
 
-const resolveAssignedCourseForStaff = async (courseCode, staffId) => {
+const resolveAssignedCourseForStaff = async (courseCode, staffId, sectionIds = []) => {
   const normalizedCode = String(courseCode || '').trim().toUpperCase();
   if (!normalizedCode || !staffId) return null;
 
-  const staffCourses = await StaffCourse.findAll({
-    where: { Userid: staffId },
-    attributes: ['courseId', 'sectionId'],
-    include: [{
-      model: Course,
-      required: true,
-      attributes: ['courseId', 'courseCode', 'courseTitle'],
-      where: {
-        [Op.or]: [
-          sequelize.where(sequelize.fn('UPPER', sequelize.col('Course.courseCode')), normalizedCode),
-          sequelize.where(sequelize.fn('UPPER', sequelize.col('Course.courseTitle')), normalizedCode)
-        ]
-      }
-    }]
+  const staffCourses = await getStaffCourseAssignments({
+    staffId,
+    courseCodes: [normalizedCode],
+    sectionIds
   });
 
   if (!staffCourses.length) return null;
@@ -195,7 +286,7 @@ export const getCoursePartitions = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const staffId = getStaffId(req);
 
-  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId, getRequestedSectionIds(req));
 
   if (!course) return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
 
@@ -214,7 +305,7 @@ export const saveCoursePartitions = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const staffNumber = getStaffNumber(req);
 
-  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId, getRequestedSectionIds(req));
   if (!course) {
     return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
   }
@@ -274,7 +365,7 @@ export const updateCoursePartitions = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
   const staffNumber = getStaffNumber(req);
 
-  const course = await resolveAssignedCourseForStaff(courseCode, staffId);
+  const course = await resolveAssignedCourseForStaff(courseCode, staffId, getRequestedSectionIds(req));
   if (!course) {
     return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
   }
@@ -317,7 +408,7 @@ export const updateCoursePartitions = catchAsync(async (req, res) => {
 export const getCOsForCourse = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const userId = getStaffId(req);
-  const course = await resolveAssignedCourseForStaff(courseCode, userId);
+  const course = await resolveAssignedCourseForStaff(courseCode, userId, getRequestedSectionIds(req));
 
   if (!course) {
     return res.status(404).json({ status: 'error', message: 'Course not found or assigned' });
@@ -403,8 +494,16 @@ export const deleteTool = catchAsync(async (req, res) => {
 // 7. MARKS
 export const getStudentMarksForTool = catchAsync(async (req, res) => {
   const { toolId } = req.params;
+  const { tool, assignments, roster } = await getToolAccessContext(req, toolId);
+  if (!tool) return res.status(404).json({ status: 'error', message: 'Assessment tool not found' });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This tool is not assigned to your selected section' });
+  }
+  const rosterRegnos = roster.map(student => student.regno);
+  if (!rosterRegnos.length) return res.json({ status: 'success', data: [] });
+
   const rows = await StudentCOTool.findAll({
-    where: { toolId },
+    where: { toolId, regno: { [Op.in]: rosterRegnos } },
     include: [{ model: StudentDetails, include: [activeStudentUserInclude()] }],
     order: [['studentToolId', 'DESC']]
   });
@@ -422,9 +521,27 @@ export const getStudentMarksForTool = catchAsync(async (req, res) => {
 export const saveStudentMarksForTool = catchAsync(async (req, res) => {
   const { toolId } = req.params;
   const { marks } = req.body;
+  if (!Array.isArray(marks) || !marks.length) {
+    return res.status(400).json({ status: 'error', message: 'Marks are required' });
+  }
+  if (marks.some(mark => !normalizeRegistrationNumber(mark?.regno))) {
+    return res.status(400).json({ status: 'error', message: 'Every mark must include a student registration number' });
+  }
   const staffNumber = getStaffNumber(req);
-  const tool = await COTool.findByPk(toolId, { include: [ToolDetails, CourseOutcome] });
-  const semesterId = await getSemesterIdByToolId(toolId);
+  const { tool, assignments, roster } = await getToolAccessContext(req, toolId);
+  if (!tool) return res.status(404).json({ status: 'error', message: 'Assessment tool not found' });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This tool is not assigned to your selected section' });
+  }
+  if (rejectOutOfScopeMarks(res, marks.map(mark => mark.regno), roster)) return;
+  const rosterRegnos = new Map(
+    roster.map(student => [normalizeRegistrationNumber(student.regno), student.regno])
+  );
+  const scopedMarks = marks.map(mark => ({
+    ...mark,
+    regno: rosterRegnos.get(normalizeRegistrationNumber(mark.regno))
+  }));
+  const semesterId = tool.CourseOutcome?.Course?.semesterId ?? await getSemesterIdByToolId(toolId);
   if (await isMarksLockedForSemester(semesterId)) {
     return res.status(423).json({
       status: 'error',
@@ -434,7 +551,7 @@ export const saveStudentMarksForTool = catchAsync(async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const coTools = await COTool.findAll({ where: { coId: tool.coId }, include: [ToolDetails], transaction: t });
-    for (const m of marks) {
+    for (const m of scopedMarks) {
       const existing = await StudentCOTool.findOne({
         where: { regno: m.regno, toolId },
         order: [['studentToolId', 'DESC']],
@@ -464,8 +581,16 @@ export const saveStudentMarksForTool = catchAsync(async (req, res) => {
 // 8. IMPORT/EXPORT (Staff/CO Wise)
 export const importMarksForTool = catchAsync(async (req, res) => {
   const { toolId } = req.params;
+  if (!req.file?.buffer) {
+    return res.status(400).json({ status: 'error', message: 'A CSV file is required' });
+  }
   const staffNumber = getStaffNumber(req);
-  const semesterId = await getSemesterIdByToolId(toolId);
+  const { tool, assignments, roster } = await getToolAccessContext(req, toolId);
+  if (!tool) return res.status(404).json({ status: 'error', message: 'Assessment tool not found' });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This tool is not assigned to your selected section' });
+  }
+  const semesterId = tool.CourseOutcome?.Course?.semesterId ?? await getSemesterIdByToolId(toolId);
   if (await isMarksLockedForSemester(semesterId)) {
     return res.status(423).json({
       status: 'error',
@@ -475,14 +600,23 @@ export const importMarksForTool = catchAsync(async (req, res) => {
   const results = [];
   const stream = Readable.from(req.file.buffer);
   await new Promise((resolve, reject) => { stream.pipe(csv()).on('data', d => results.push(d)).on('end', resolve).on('error', reject); });
-  const tool = await COTool.findByPk(toolId, { include: [ToolDetails, CourseOutcome] });
+  const parsedMarks = results.map(row => ({
+    regno: row.regNo ?? row.regno ?? row['Reg No'] ?? row['Register Number'],
+    marksObtained: parseFloat(row.marksObtained ?? row.marks ?? row[tool.toolName])
+  })).filter(mark => mark.regno && !Number.isNaN(mark.marksObtained));
+  if (!parsedMarks.length) {
+    return res.status(400).json({ status: 'error', message: `No valid marks were found for ${tool.toolName}` });
+  }
+  if (rejectOutOfScopeMarks(res, parsedMarks.map(mark => mark.regno), roster)) return;
+  const rosterRegnos = new Map(
+    roster.map(student => [normalizeRegistrationNumber(student.regno), student.regno])
+  );
   const t = await sequelize.transaction();
   try {
     const coTools = await COTool.findAll({ where: { coId: tool.coId }, include: [ToolDetails], transaction: t });
-    for (const row of results) {
-      const regno = row.regNo || row.regno;
-      const marks = parseFloat(row.marksObtained ?? row.marks);
-      if (!regno || isNaN(marks)) continue;
+    for (const row of parsedMarks) {
+      const regno = rosterRegnos.get(normalizeRegistrationNumber(row.regno));
+      const marks = row.marksObtained;
       const existing = await StudentCOTool.findOne({
         where: { regno, toolId },
         order: [['studentToolId', 'DESC']],
@@ -505,29 +639,62 @@ export const importMarksForTool = catchAsync(async (req, res) => {
       await StudentCoMarks.upsert({ regno, coId: tool.coId, consolidatedMark: (con * 100).toFixed(2), updatedBy: staffNumber }, { transaction: t });
     }
     await t.commit();
-    res.json({ status: 'success' });
+    res.json({ status: 'success', message: `${parsedMarks.length} student mark(s) imported` });
   } catch (err) { await t.rollback(); throw err; }
 });
 
 export const exportCoWiseCsv = catchAsync(async (req, res) => {
   const { coId } = req.params;
+  const staffId = getStaffId(req);
   const co = await CourseOutcome.findByPk(coId, { include: [Course] });
+  if (!co?.Course) return res.status(404).json({ status: 'error', message: 'Course outcome not found' });
+  const assignments = await getStaffCourseAssignments({
+    staffId,
+    courseIds: [co.courseId],
+    sectionIds: getRequestedSectionIds(req)
+  });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This course outcome is not assigned to your selected section' });
+  }
+
   const tools = await COTool.findAll({ where: { coId }, include: [ToolDetails] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, where: { courseId: co.courseId } }, activeStudentUserInclude()] });
+  const students = await getRosterForAssignments(assignments);
+  const regnos = students.map(student => student.regno);
+  const toolIds = tools.map(tool => tool.toolId);
+  const toolMarks = regnos.length && toolIds.length
+    ? await StudentCOTool.findAll({
+        where: { regno: { [Op.in]: regnos }, toolId: { [Op.in]: toolIds } },
+        order: [['studentToolId', 'DESC']]
+      })
+    : [];
+  const consolidatedMarks = regnos.length
+    ? await StudentCoMarks.findAll({
+        where: { regno: { [Op.in]: regnos }, coId },
+        order: [['updatedDate', 'DESC'], ['studentCoMarkId', 'DESC']]
+      })
+    : [];
+  const toolMarkMap = new Map();
+  toolMarks.forEach(mark => {
+    const key = `${normalizeRegistrationNumber(mark.regno)}:${mark.toolId}`;
+    if (!toolMarkMap.has(key)) toolMarkMap.set(key, mark.marksObtained);
+  });
+  const consolidatedMarkMap = new Map();
+  consolidatedMarks.forEach(mark => {
+    const key = normalizeRegistrationNumber(mark.regno);
+    if (!consolidatedMarkMap.has(key)) consolidatedMarkMap.set(key, mark.consolidatedMark);
+  });
   const header = [{ id: 'regno', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...tools.map(t => ({ id: t.toolName, title: t.toolName })), { id: 'con', title: 'Consolidated' }];
-  const data = await Promise.all(students.map(async s => {
-    const row = { regno: s.registerNumber, name: resolveStudentDisplayName(s) };
+  const data = students.map(student => {
+    const row = { regno: student.regno, name: student.name };
     for (const t of tools) {
-      const sm = await StudentCOTool.findOne({ where: { regno: s.registerNumber, toolId: t.toolId } });
-      row[t.toolName] = sm?.marksObtained || 0;
+      row[t.toolName] = toolMarkMap.get(`${normalizeRegistrationNumber(student.regno)}:${t.toolId}`) ?? 0;
     }
-    const cm = await StudentCoMarks.findOne({ where: { regno: s.registerNumber, coId } });
-    row.con = cm?.consolidatedMark || '0.00';
+    row.con = consolidatedMarkMap.get(normalizeRegistrationNumber(student.regno)) ?? '0.00';
     return row;
-  }));
-  const filePath = path.join(os.tmpdir(), `CO_${coId}.csv`);
+  });
+  const filePath = path.join(os.tmpdir(), `CO_${coId}_${staffId}_${Date.now()}.csv`);
   await createCsvWriter({ path: filePath, header }).writeRecords(data);
-  res.download(filePath, () => fs.unlinkSync(filePath));
+  res.download(filePath, `co_${coId}_marks.csv`, () => fs.unlink(filePath, () => {}));
 });
 
 // 9. STAFF DASHBOARD (My Courses - Grouped Logic)
@@ -862,6 +1029,21 @@ export const getStudentCOMarksBySection = catchAsync(async (req, res) => {
 export const updateStudentCOMarkByCoId = catchAsync(async (req, res) => {
   const { regno, coId } = req.params;
   const { consolidatedMark } = req.body;
+  const co = await CourseOutcome.findByPk(coId, { attributes: ['coId', 'courseId'] });
+  if (!co) return res.status(404).json({ status: 'error', message: 'Course outcome not found' });
+  const assignments = await getStaffCourseAssignments({
+    staffId: getStaffId(req),
+    courseIds: [co.courseId],
+    sectionIds: getRequestedSectionIds(req)
+  });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This course outcome is not assigned to your selected section' });
+  }
+  const roster = await getRosterForAssignments(assignments);
+  if (rejectOutOfScopeMarks(res, [regno], roster)) return;
+  const canonicalRegno = roster.find(
+    student => normalizeRegistrationNumber(student.regno) === normalizeRegistrationNumber(regno)
+  )?.regno;
   const semesterId = await getSemesterIdByCoId(coId);
   if (await isMarksLockedForSemester(semesterId)) {
     return res.status(423).json({
@@ -869,7 +1051,7 @@ export const updateStudentCOMarkByCoId = catchAsync(async (req, res) => {
       message: 'Marks are locked because consolidation has been generated for this semester.'
     });
   }
-  await StudentCoMarks.upsert({ regno, coId, consolidatedMark, updatedBy: getStaffNumber(req) });
+  await StudentCoMarks.upsert({ regno: canonicalRegno, coId, consolidatedMark, updatedBy: getStaffNumber(req) });
   res.json({ status: 'success' });
 });
 
@@ -886,70 +1068,17 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
     .map(code => code.trim().toUpperCase())
     .filter(Boolean);
 
-  const requestedSectionIds = String(sectionId || '')
-    .split('_')
-    .map(id => id.trim())
-    .filter(Boolean);
-
-  const baseCourses = await Course.findAll({
-    where: { courseCode: { [Op.in]: codes } },
-    attributes: ['courseCode', 'courseTitle']
-  });
-
-  const titles = [...new Set(baseCourses.map(course => course.courseTitle).filter(Boolean))];
-
-  const staffCourses = await StaffCourse.findAll({
-    where: {
-      Userid: staffId,
-      sectionId: { [Op.in]: requestedSectionIds }
-    },
-    attributes: ['courseId', 'sectionId'],
-    include: [{
-      model: Course,
-      required: true,
-      attributes: ['courseId', 'courseCode', 'courseTitle'],
-      where: {
-        [Op.or]: [
-          ...(codes.length ? [{ courseCode: { [Op.in]: codes } }] : []),
-          ...(titles.length ? [{ courseTitle: { [Op.in]: titles } }] : [])
-        ]
-      }
-    }]
+  const staffCourses = await getStaffCourseAssignments({
+    staffId,
+    courseCodes: codes,
+    sectionIds: parseSectionScope(sectionId)
   });
 
   if (!staffCourses.length) {
     return res.status(200).json({ status: 'success', data: [] });
   }
 
-  const courseIds = [...new Set(staffCourses.map(row => row.courseId))];
-  const sectionIds = [...new Set(staffCourses.map(row => row.sectionId).filter(Boolean))];
-
-  const enrollments = await StudentCourse.findAll({
-    where: {
-      courseId: { [Op.in]: courseIds },
-      ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {})
-    },
-    include: [
-      {
-        model: StudentDetails,
-        attributes: ['registerNumber', 'studentName', 'studentId'],
-        include: [activeStudentUserInclude()],
-        required: true
-      }
-    ],
-    order: [[sequelize.col('StudentDetail.registerNumber'), 'ASC']]
-  });
-
-  const data = Array.from(new Map(enrollments.map(e => [
-    `${e.StudentDetail?.registerNumber}-${e.sectionId}`,
-    {
-      regno: e.StudentDetail?.registerNumber,
-      name: resolveStudentDisplayName(e.StudentDetail),
-      studentId: e.StudentDetail?.studentId,
-      courseId: e.courseId,
-      sectionId: e.sectionId
-    }
-  ])).values()).filter(student => student.regno);
+  const data = await getRosterForAssignments(staffCourses);
 
   res.status(200).json({ status: 'success', data });
 });
@@ -958,23 +1087,59 @@ export const getStudentsForSection = catchAsync(async (req, res) => {
 export const exportCourseWiseCsv = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const staffId = getStaffId(req);
-  const course = await Course.findOne({ where: { courseCode: courseCode.toUpperCase() } });
-  const cos = await CourseOutcome.findAll({ where: { courseId: course.courseId }, include: [COType], order: [['coNumber', 'ASC']] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: course.courseId, sectionId: { [Op.in]: sequelize.literal(`(SELECT sectionId FROM StaffCourse WHERE Userid = ${staffId} AND courseId = ${course.courseId})`) } } }, activeStudentUserInclude()] });
-  const header = [{ id: 'regNo', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...cos.map(co => ({ id: co.coNumber, title: co.coNumber })), { id: 'finalAvg', title: 'Final Avg' }];
-  const data = await Promise.all(students.map(async s => {
-    const row = { regNo: s.registerNumber, name: resolveStudentDisplayName(s) };
+  const normalizedCode = String(courseCode || '').trim().toUpperCase();
+  const assignments = await getStaffCourseAssignments({
+    staffId,
+    courseCodes: [normalizedCode],
+    sectionIds: getRequestedSectionIds(req)
+  });
+  if (!assignments.length) {
+    return res.status(403).json({ status: 'error', message: 'This course is not assigned to your selected section' });
+  }
+  const courses = [...new Map(
+    assignments.map(row => row.Course).filter(Boolean).map(course => [course.courseId, course])
+  ).values()];
+  const primaryCos = await CourseOutcome.findAll({
+    where: { courseId: courses[0].courseId },
+    include: [COType],
+    order: [['coNumber', 'ASC']]
+  });
+  const allCos = await CourseOutcome.findAll({
+    where: { courseId: { [Op.in]: courses.map(course => course.courseId) } }
+  });
+  const students = await getRosterForAssignments(assignments);
+  const regnos = students.map(student => student.regno);
+  const marks = regnos.length && allCos.length
+    ? await StudentCoMarks.findAll({
+        where: {
+          regno: { [Op.in]: regnos },
+          coId: { [Op.in]: allCos.map(co => co.coId) }
+        },
+        order: [['updatedDate', 'DESC'], ['studentCoMarkId', 'DESC']]
+      })
+    : [];
+  const coById = new Map(allCos.map(co => [co.coId, co]));
+  const marksMap = new Map();
+  marks.forEach(mark => {
+    const coNumber = coById.get(mark.coId)?.coNumber;
+    if (!coNumber) return;
+    const key = `${normalizeRegistrationNumber(mark.regno)}:${coNumber}`;
+    if (!marksMap.has(key)) marksMap.set(key, Number(mark.consolidatedMark || 0));
+  });
+  const header = [{ id: 'regNo', title: 'Reg No' }, { id: 'name', title: 'Name' }, ...primaryCos.map(co => ({ id: co.coNumber, title: co.coNumber })), { id: 'finalAvg', title: 'Final Avg' }];
+  const data = students.map(student => {
+    const row = { regNo: student.regno, name: student.name };
     let sum = 0;
-    for (const co of cos) {
-      const m = await StudentCoMarks.findOne({ where: { regno: s.registerNumber, coId: co.coId } });
-      const val = parseFloat(m?.consolidatedMark || 0);
+    for (const co of primaryCos) {
+      const val = marksMap.get(`${normalizeRegistrationNumber(student.regno)}:${co.coNumber}`) ?? 0;
       row[co.coNumber] = val.toFixed(2); sum += val;
     }
-    row.finalAvg = (sum / cos.length).toFixed(2); return row;
-  }));
-  const fp = path.join(os.tmpdir(), `${courseCode}_marks.csv`);
+    row.finalAvg = primaryCos.length ? (sum / primaryCos.length).toFixed(2) : '0.00';
+    return row;
+  });
+  const fp = path.join(os.tmpdir(), `${normalizedCode}_${staffId}_${Date.now()}_marks.csv`);
   await createCsvWriter({ path: fp, header }).writeRecords(data);
-  res.download(fp, () => fs.unlinkSync(fp));
+  res.download(fp, `${normalizedCode}_marks.csv`, () => fs.unlink(fp, () => {}));
 });
 
 export const getStudentCOMarks = catchAsync(async (req, res) => {
@@ -983,43 +1148,19 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
   const staffId = getStaffId(req);
 
   try {
-    const baseCourses = await Course.findAll({
-      where: { courseCode: normalizedCode },
-      attributes: ['courseId', 'courseCode', 'courseTitle'],
+    const staffCourses = await getStaffCourseAssignments({
+      staffId,
+      courseCodes: [normalizedCode],
+      sectionIds: getRequestedSectionIds(req)
     });
 
-    if (baseCourses.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'No course found with this code' });
-    }
-
-    const relatedTitles = [...new Set(baseCourses.map(course => course.courseTitle).filter(Boolean))];
-    const staffCourses = await StaffCourse.findAll({
-      where: { Userid: staffId },
-      attributes: ['courseId', 'sectionId'],
-      include: [{
-        model: Course,
-        required: true,
-        attributes: ['courseId', 'courseCode', 'courseTitle'],
-        where: {
-          [Op.or]: [
-            { courseCode: normalizedCode },
-            ...(relatedTitles.length ? [{ courseTitle: { [Op.in]: relatedTitles } }] : [])
-          ]
-        }
-      }]
-    });
-
-    const courses = staffCourses.map(row => row.Course).filter(Boolean);
+    const courses = [...new Map(
+      staffCourses.map(row => row.Course).filter(Boolean).map(course => [course.courseId, course])
+    ).values()];
 
     if (courses.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'Course not found or not assigned' });
+      return res.status(404).json({ status: 'error', message: 'Course is not assigned to your selected section' });
     }
-
-    const sectionIdsByCourseId = staffCourses.reduce((acc, row) => {
-      if (!acc[row.courseId]) acc[row.courseId] = new Set();
-      if (row.sectionId) acc[row.courseId].add(row.sectionId);
-      return acc;
-    }, {});
 
     // Use first course as reference for CO numbers & types
     const primaryCourse = courses[0];
@@ -1039,37 +1180,10 @@ export const getStudentCOMarks = catchAsync(async (req, res) => {
     // ────────────────────────────────────────────────
     // Collect unique students from all versions of this course
     // ────────────────────────────────────────────────
-    const studentsMap = new Map(); // regno → student
-
-    for (const course of courses) {
-      const sectionIds = Array.from(sectionIdsByCourseId[course.courseId] || []);
-
-      const enrollments = await StudentCourse.findAll({
-        where: {
-          courseId: course.courseId,
-          ...(sectionIds.length ? { sectionId: { [Op.in]: sectionIds } } : {}),
-        },
-        include: [{
-          model: StudentDetails,
-          as: 'StudentDetail',
-          attributes: ['registerNumber', 'studentName'],
-          include: [activeStudentUserInclude()],
-          required: true,
-        }],
-      });
-
-      enrollments.forEach(en => {
-        const regno = en.StudentDetail.registerNumber;
-        if (regno && !studentsMap.has(regno)) {
-          studentsMap.set(regno, {
-            regno,
-            name: resolveStudentDisplayName(en.StudentDetail),
-          });
-        }
-      });
-    }
-
-    const allStudents = Array.from(studentsMap.values());
+    const allStudents = (await getRosterForAssignments(staffCourses)).map(student => ({
+      regno: student.regno,
+      name: student.name
+    }));
 
     // ────────────────────────────────────────────────
     // Collect marks keyed by coNumber from ALL courses
@@ -1199,9 +1313,16 @@ export const getMarksLockStatusForStaff = catchAsync(async (req, res) => {
 export const getStudentsForCourse = catchAsync(async (req, res) => {
   const { courseCode } = req.params;
   const staffId = getStaffId(req);
-  const staffAssig = await StaffCourse.findAll({ where: { Userid: staffId }, include: [{ model: Course, where: { courseCode: courseCode.toUpperCase() } }] });
-  if (!staffAssig.length) return res.json({ status: 'success', results: 0, data: [] });
-  const students = await StudentDetails.findAll({ include: [{ model: StudentCourse, required: true, where: { courseId: staffAssig[0].courseId, sectionId: { [Op.in]: staffAssig.map(a => a.sectionId) } } }, activeStudentUserInclude()] });
-  res.json({ status: 'success', results: students.length, data: students.map(s => ({ regno: s.registerNumber, name: s.studentName })) });
+  const assignments = await getStaffCourseAssignments({
+    staffId,
+    courseCodes: [String(courseCode || '').trim().toUpperCase()],
+    sectionIds: getRequestedSectionIds(req)
+  });
+  const students = await getRosterForAssignments(assignments);
+  res.json({
+    status: 'success',
+    results: students.length,
+    data: students.map(student => ({ regno: student.regno, name: student.name }))
+  });
 });
 

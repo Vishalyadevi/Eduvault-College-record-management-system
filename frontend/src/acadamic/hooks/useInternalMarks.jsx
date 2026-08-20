@@ -29,7 +29,7 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
         setError('');
         setLoading(true);
 
-        const cos = await getCOsForCourse(courseCode);
+        const cos = await getCOsForCourse(courseCode, compositeSectionIds);
         if (!Array.isArray(cos)) {
           setError('No course outcomes found for this course');
           setCourseOutcomes([]);
@@ -56,7 +56,7 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
           console.warn('No students found in the selected sections');
         }
 
-        const marksData = await getStudentCOMarks(courseCode);
+        const marksData = await getStudentCOMarks(courseCode, compositeSectionIds);
 
         if (!marksData || !Array.isArray(marksData.students)) {
           console.warn('No consolidated marks found for course:', courseCode);
@@ -150,7 +150,7 @@ const useInternalMarks = (courseCode, compositeSectionIds = '') => {
   const handleExportCourseWiseCsv = async () => {
     try {
       setError('');
-      await exportCourseWiseCsv(courseCode);
+      await exportCourseWiseCsv(courseCode, compositeSectionIds);
       MySwal.fire('Success', 'Course-wise CSV exported successfully', 'success');
     } catch (err) {
       console.error('Error exporting course-wise CSV:', err);

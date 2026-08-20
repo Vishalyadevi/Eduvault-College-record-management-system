@@ -55,14 +55,14 @@ const useMarkAllocation = (courseCode, sectionId) => {
         // Handle composite section IDs (e.g. "8_9" → ["8", "9"])
         // ────────────────────────────────────────────────────────────────
         // Fetch partitions (usually same for the course)
-        const parts = await getCoursePartitions(courseCode);
+        const parts = await getCoursePartitions(courseCode, sectionId);
         console.log('getCoursePartitions response:', parts);
         setPartitions(parts);
         setNewPartition(parts);
         setShowPartitionModal(!parts.partitionId);
 
         // Fetch course outcomes
-        const cos = await getCOsForCourse(courseCode);
+        const cos = await getCOsForCourse(courseCode, sectionId);
         console.log('getCOsForCourse response:', cos);
         if (!Array.isArray(cos)) {
           console.error('Error: getCOsForCourse did not return an array:', cos);
@@ -103,7 +103,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
         }
 
         // Fetch CO marks from StudentCOMarks (course-level)
-        const coMarksResponse = await getStudentCOMarks(courseCode);
+        const coMarksResponse = await getStudentCOMarks(courseCode, sectionId);
         console.log('getStudentCOMarks response:', coMarksResponse);
         const coMarks = coMarksResponse?.students || [];
 
@@ -113,7 +113,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
           cosWithTools.flatMap((co) =>
             (co.tools || []).map(async (tool) => {
               try {
-                const marksData = await getStudentMarksForTool(tool.toolId, courseCode);
+                const marksData = await getStudentMarksForTool(tool.toolId, courseCode, sectionId);
                 allToolMarks[tool.toolId] = marksData || [];
               } catch (markErr) {
                 console.warn(`Error fetching marks for tool ${tool.toolId}:`, markErr);
@@ -239,7 +239,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
 
     if (result.isConfirmed) {
       try {
-        const currentPartitions = await getCoursePartitions(courseCode);
+        const currentPartitions = await getCoursePartitions(courseCode, sectionId);
         setPartitions(currentPartitions);
         const saveResult = await handleSavePartitions(currentPartitions.partitionId);
         if (saveResult.success) {
@@ -273,17 +273,17 @@ const useMarkAllocation = (courseCode, sectionId) => {
     }
     try {
       setError('');
-      const currentPartitions = await getCoursePartitions(courseCode);
+      const currentPartitions = await getCoursePartitions(courseCode, sectionId);
       const exists = !!currentPartitions.partitionId;
       let response;
       if (exists) {
-        response = await updateCoursePartitions(courseCode, newPartition);
+        response = await updateCoursePartitions(courseCode, newPartition, sectionId);
       } else {
-        response = await saveCoursePartitions(courseCode, newPartition);
+        response = await saveCoursePartitions(courseCode, newPartition, sectionId);
       }
       setPartitions({ ...newPartition, partitionId: response.data?.partitionId || currentPartitions.partitionId });
       setShowPartitionModal(false);
-      const cos = await getCOsForCourse(courseCode);
+      const cos = await getCOsForCourse(courseCode, sectionId);
       
       const cosWithTools = await Promise.all(
         cos.map(async (co) => {
@@ -325,7 +325,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
       setError('');
       const toolsToSave = tempTools.map(({ uniqueId, ...tool }) => tool);
       
-      await saveToolsForCO(coId, { tools: toolsToSave }, courseCode);
+      await saveToolsForCO(coId, { tools: toolsToSave }, courseCode, sectionId);
       
       const updatedTools = await getToolsForCO(coId);
       setCourseOutcomes((prev) =>
@@ -394,7 +394,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
       setError('');
       await saveStudentMarksForTool(toolId, { marks }, courseCode, sectionId);
       
-      const updatedMarks = await getStudentMarksForTool(toolId, courseCode);
+      const updatedMarks = await getStudentMarksForTool(toolId, courseCode, sectionId);
       
       setStudents((prev) =>
         prev.map((student) => {
@@ -430,9 +430,9 @@ const useMarkAllocation = (courseCode, sectionId) => {
 
     try {
       setError('');
-      const response = await importMarksForTool(selectedTool.toolId, importFile);
+      const response = await importMarksForTool(selectedTool.toolId, importFile, sectionId);
       
-      const updatedMarks = await getStudentMarksForTool(selectedTool.toolId, courseCode);
+      const updatedMarks = await getStudentMarksForTool(selectedTool.toolId, courseCode, sectionId);
       
       setStudents((prev) =>
         prev.map((student) => {
@@ -462,7 +462,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
   const handleExportCoWiseCsv = async (coId) => {
     try {
       setError('');
-      await exportCoWiseCsv(coId);
+      await exportCoWiseCsv(coId, sectionId);
       return { success: true, message: 'CSV exported successfully' };
     } catch (err) {
       console.error('Error exporting CO-wise CSV:', err);
@@ -475,7 +475,7 @@ const useMarkAllocation = (courseCode, sectionId) => {
   const handleExportCourseWiseCsv = async () => {
     try {
       setError('');
-      await exportCourseWiseCsv(courseCode);
+      await exportCourseWiseCsv(courseCode, sectionId);
       return { success: true, message: 'Course-wise CSV exported successfully' };
     } catch (err) {
       console.error('Error exporting course-wise CSV:', err);

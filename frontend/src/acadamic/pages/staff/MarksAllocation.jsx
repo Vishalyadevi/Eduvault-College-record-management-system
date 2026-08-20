@@ -256,7 +256,7 @@ const calculateConsolidated = useCallback((student, co) => {
     if (allSuccess) {
       try {
         // 2. Refetch the calculated consolidated marks from backend
-        const updatedCoMarks = await getStudentCOMarks(courseId);
+        const updatedCoMarks = await getStudentCOMarks(courseId, sectionId);
 
         // 3. Update State Safely
         // Verify that the response structure exists before mapping to avoid crashes

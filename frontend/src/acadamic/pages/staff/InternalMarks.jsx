@@ -288,6 +288,7 @@ const InternalMarks = () => {
               courseOutcomes={courseOutcomes}
               calculateInternalMarks={calculateInternalMarks}
               isLocked={marksLocked}
+              sectionIds={compositeSectionIds}
             />
           </div>
         )}
