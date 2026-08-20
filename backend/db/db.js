@@ -1,0 +1,48 @@
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Database configuration
+const dbConfig = {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    // Connection pool settings
+    waitForConnections: true,
+    connectionLimit: 100,
+    queueLimit: 0,
+    // Timeout settings
+    connectTimeout: 10000,
+    // Retry settings
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+};
+
+// Create connection pool
+const pool = mysql.createPool(dbConfig);
+
+// Test connection function (to be called manually when needed)
+async function testConnection() {
+    try {
+        const connection = await pool.getConnection();
+        console.log('✅ Database connected successfully via pool');
+        connection.release();
+        return true;
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        return false;
+    }
+}
+
+// Don't call testConnection() immediately on import
+// Removed: testConnection();
+
+// Export connection pool and utilities
+export { pool, testConnection };

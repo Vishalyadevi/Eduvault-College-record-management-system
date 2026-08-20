@@ -1,0 +1,300 @@
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Full-screen background */
+.loginpage {
+  background: url("../assets/clg.jpg") no-repeat center center fixed;
+  background-size: cover;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Perfect center container */
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 450px;
+  padding: 20px;
+}
+
+/* Glassy login form container matching the exact image style */
+.container {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 45px 40px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-align: center;
+  width: 100%;
+  position: relative;
+  animation: slideUp 0.8s ease-out;
+}
+
+.container h2 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #333;
+  margin-bottom: 30px;
+  letter-spacing: 0;
+}
+
+/* Glassy input fields matching the exact image */
+.container input[type="text"],
+.container input[type="password"] {
+  width: 100%;
+  padding: 16px 18px;
+  margin: 10px 0;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  color: #333;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.container input[type="text"]:focus,
+.container input[type="password"]:focus {
+  outline: none;
+  border-color: rgba(0, 123, 255, 0.6);
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 0 0 3px rgba(0, 123, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.container input[type="text"]::placeholder,
+.container input[type="password"]::placeholder {
+  color: rgba(0, 0, 0, 0.6);
+  opacity: 1;
+}
+
+.container input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassy blue login button matching the exact image */
+#login {
+  width: 100%;
+  padding: 16px;
+  background: rgba(0, 123, 255, 0.8);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  color: white;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 4px 16px rgba(0, 123, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#login:hover:not(:disabled) {
+  background: rgba(0, 123, 255, 0.9);
+  border-color: rgba(0, 123, 255, 1);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 20px rgba(0, 123, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+#login:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+#login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Glassy error message */
+.error-message {
+  background: rgba(248, 215, 218, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  color: #721c24;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Progress container - enhanced glass effect */
+.progress-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 350px;
+  max-width: 90%;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  z-index: 1000;
+  text-align: center;
+}
+
+.progress-bar {
+  height: 6px;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 3px;
+  transition: width 1.5s ease-out;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.success-message {
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 15px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease-in forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.transparent-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+  border-radius: 12px;
+  animation: lineAnimation 1s ease-out forwards;
+}
+
+@keyframes lineAnimation {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+/* Smooth entrance animation */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .center {
+    max-width: 340px;
+    padding: 16px;
+  }
+
+  .container {
+    padding: 36px 28px;
+  }
+
+  .container h2 {
+    font-size: 1.4rem;
+    margin-bottom: 25px;
+  }
+
+  .progress-container {
+    width: 320px;
+    padding: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .center {
+    max-width: 300px;
+    padding: 12px;
+  }
+
+  .container {
+    padding: 32px 24px;
+  }
+
+  .container h2 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+  }
+
+  .container input[type="text"],
+  .container input[type="password"] {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+
+  #login {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
+
+  .progress-container {
+    width: 280px;
+    padding: 20px;
+  }
+
+  .success-message {
+    font-size: 1rem;
+  }
+}
+
+/* Enhanced glass support for modern browsers */
+@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+  .container {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .container input[type="text"],
+  .container input[type="password"] {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  
+  #login {
+    background: rgba(0, 123, 255, 0.75);
+  }
+}

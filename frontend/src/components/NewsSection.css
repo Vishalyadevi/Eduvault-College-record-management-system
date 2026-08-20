@@ -1,0 +1,593 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
+
+/* ========================================
+   KEYFRAME ANIMATIONS
+   ======================================== */
+
+@keyframes rotateGear1 {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes rotateGear2 {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+@keyframes flipForward {
+  0% {
+    transform: perspective(1200px) rotateY(0deg);
+    transform-origin: left center;
+  }
+  100% {
+    transform: perspective(1200px) rotateY(-180deg);
+    transform-origin: left center;
+  }
+}
+
+@keyframes flipBackward {
+  0% {
+    transform: perspective(1200px) rotateY(-180deg);
+    transform-origin: left center;
+  }
+  100% {
+    transform: perspective(1200px) rotateY(0deg);
+    transform-origin: left center;
+  }
+}
+
+@keyframes titleSlide {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bookFloat {
+  0%, 100% { transform: translateY(0px)  rotateX(2deg); }
+  50%       { transform: translateY(-8px) rotateX(2deg); }
+}
+
+@keyframes curlPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1);   }
+  50%       { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* ========================================
+   WRAPPER  — NEC Engineering Gears BG
+   ======================================== */
+
+.nec-book-wrapper {
+  position: relative;
+  min-height: 100vh;
+  /* identical gradient to Events page */
+  background: linear-gradient(135deg, #d6eaff 0%, #e3f2fd 40%, #f0f7ff 70%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 1.5rem 5rem;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ========================================
+   BACKGROUND GEARS  (SVG, same as Events)
+   ======================================== */
+
+.nec-book-gear-svg {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+/* Gear 1 — Blue, Top Right */
+.nec-book-gear-svg.gear-1 {
+  width: 350px;
+  height: 350px;
+  top: -80px;
+  right: -80px;
+  opacity: 0.06;
+  animation: rotateGear1 25s linear infinite;
+}
+
+/* Gear 2 — Orange, Bottom Left */
+.nec-book-gear-svg.gear-2 {
+  width: 280px;
+  height: 280px;
+  bottom: -60px;
+  left: -60px;
+  opacity: 0.06;
+  animation: rotateGear2 30s linear infinite;
+}
+
+/* Gear 3 — Navy, Mid Right */
+.nec-book-gear-svg.gear-3 {
+  width: 220px;
+  height: 220px;
+  top: 40%;
+  right: 10%;
+  opacity: 0.05;
+  animation: rotateGear1 35s linear infinite;
+}
+
+/* Gear 4 — Blue, Top Left (small) */
+.nec-book-gear-svg.gear-4 {
+  width: 160px;
+  height: 160px;
+  top: 12%;
+  left: 5%;
+  opacity: 0.04;
+  animation: rotateGear2 20s linear infinite;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.nec-book-header {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-bottom: 3.5rem;
+  animation: titleSlide 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nec-book-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 4rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-shadow: 2px 2px 8px rgba(0, 67, 208, 0.1);
+}
+
+.nec-book-title-underline {
+  height: 4px;
+  width: 150px;
+  margin: 1rem auto 0;
+  background: linear-gradient(90deg, #0043d0, #fb923c);
+  border-radius: 2px;
+}
+
+/* ========================================
+   SCENE & BOOK
+   ======================================== */
+
+.nec-book-scene {
+  perspective: 2000px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.nec-book-shadow {
+  position: absolute;
+  width: 460px;
+  height: 40px;
+  background: radial-gradient(ellipse, rgba(0, 67, 208, 0.3) 0%, transparent 70%);
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: blur(15px);
+  z-index: 0;
+}
+
+.nec-book {
+  position: relative;
+  width: 480px;
+  height: 580px;
+  transform-style: preserve-3d;
+  animation: bookFloat 4s ease-in-out infinite;
+}
+
+/* ========================================
+   SPINE
+   ======================================== */
+
+.nec-book-spine {
+  position: absolute;
+  left: -52px;
+  top: 0;
+  width: 50px;
+  height: 100%;
+  background: linear-gradient(180deg, #1e3a8a 0%, #0043d0 50%, #1e3a8a 100%);
+  border-radius: 4px 0 0 4px;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  gap: 8px;
+  z-index: 20;
+}
+
+.nec-book-spine-text {
+  color: #fff;
+  font-family: 'Playfair Display', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  opacity: 0.9;
+}
+
+.nec-book-spine-lines {
+  position: absolute;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 70%;
+}
+
+.nec-book-spine-line {
+  height: 1px;
+  width: 100%;
+  background: #fff;
+}
+
+/* ========================================
+   PAGE STACK
+   ======================================== */
+
+.nec-book-page-stack {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   PAGES
+   ======================================== */
+
+.nec-book-static-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 8px 8px 32px rgba(0, 67, 208, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.nec-book-flipping-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  z-index: 50;
+}
+
+.nec-book-flipping-page--forward {
+  animation: flipForward 0.7s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+}
+
+.nec-book-flipping-page--backward {
+  animation: flipBackward 0.7s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+}
+
+.nec-book-flip-front {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 0 8px 8px 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 8px 8px 32px rgba(0, 67, 208, 0.18);
+}
+
+.nec-book-flip-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #f8faff;
+  border-radius: 0 8px 8px 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  box-shadow: -8px 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* ========================================
+   PAGE CURL
+   ======================================== */
+
+.nec-book-curl {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 67, 208, 0.12) 50%);
+  z-index: 60;
+  border-radius: 0 0 8px 0;
+  animation: curlPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ========================================
+   PAGE INNER CONTENT
+   ======================================== */
+
+.nec-page-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.nec-page-inner--mirrored {
+  transform: scaleX(-1);
+}
+
+.nec-page-category-ribbon {
+  position: absolute;
+  top: 20px;
+  left: -8px;
+  padding: 5px 18px 5px 14px;
+  z-index: 10;
+  clip-path: polygon(0 0, 100% 0, 93% 50%, 100% 100%, 0 100%);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.nec-page-category-text {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.nec-page-image-container {
+  width: 100%;
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.nec-page-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.nec-page-image-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+}
+
+.nec-page-content {
+  padding: 1.5rem 1.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.nec-page-accent-line {
+  height: 3px;
+  width: 50px;
+  border-radius: 2px;
+}
+
+.nec-page-news-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nec-page-date-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nec-page-calendar-icon {
+  font-size: 14px;
+}
+
+.nec-page-date-text {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.nec-page-know-more-btn {
+  margin-top: auto;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  text-transform: uppercase;
+  width: 100%;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.nec-page-know-more-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.nec-page-decor {
+  padding: 0 1.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nec-page-decor-line {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  opacity: 0.3;
+}
+
+/* ========================================
+   CONTROLS
+   ======================================== */
+
+.nec-book-controls {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.nec-book-nav-btn {
+  background: linear-gradient(135deg, #1e3a8a, #0043d0);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 67, 208, 0.25);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.nec-book-nav-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 67, 208, 0.35);
+}
+
+.nec-book-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nec-book-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nec-book-dot {
+  height: 10px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  background: #c7d7f5;
+  border-radius: 50%;
+  width: 10px;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nec-book-dot--active {
+  background: #0043d0;
+  width: 28px;
+  border-radius: 5px;
+  transform: scale(1.4);
+}
+
+.nec-book-page-counter {
+  position: relative;
+  z-index: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 640px) {
+  .nec-book-title {
+    font-size: 2.5rem;
+  }
+
+  .nec-book {
+    width: 320px;
+    height: 480px;
+  }
+
+  .nec-book-shadow {
+    width: 300px;
+  }
+
+  .nec-book-gear-svg {
+    display: none;
+  }
+
+  .nec-page-image-container {
+    height: 180px;
+  }
+
+  .nec-page-news-title {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .nec-book {
+    width: 280px;
+    height: 440px;
+  }
+
+  .nec-book-title {
+    font-size: 2rem;
+  }
+}
+
+/* ========================================
+   REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

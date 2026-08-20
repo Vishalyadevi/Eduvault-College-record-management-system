@@ -1,0 +1,459 @@
+/* ========================================
+   WHY NEC SECTION - NEC PROFESSIONAL THEME
+   For the component with VIDEO
+   ======================================== */
+
+/* Main section styling */
+.w-full.bg-gradient-to-r {
+  position: relative;
+  background: linear-gradient(135deg, #f8fbff 0%, #e3f2fd 50%, #bbdefb 100%) !important;
+  padding: 5rem 2rem !important;
+  overflow: hidden;
+}
+
+/* Background decorative gears */
+.w-full.bg-gradient-to-r::before {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  top: -100px;
+  right: -100px;
+  opacity: 0.08;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%230066cc' d='M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: rotateWhyNECGear 20s linear infinite;
+  pointer-events: none;
+}
+
+.w-full.bg-gradient-to-r::after {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  bottom: -80px;
+  left: 10%;
+  opacity: 0.08;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23fbbf24' d='M495.9 166.6c3.2 8.7.5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6.3-24.5-6.8-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6 4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2 5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8 8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80-80 35.8-80 80 35.8 80 80 80z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: rotateWhyNECGear 25s linear infinite reverse;
+  pointer-events: none;
+}
+
+@keyframes rotateWhyNECGear {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Third gear decoration */
+.w-full.bg-gradient-to-r > .flex::before {
+  content: '';
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  top: 40%;
+  right: 10%;
+  opacity: 0.06;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23003087' d='M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: rotateWhyNECGear 30s linear infinite;
+  pointer-events: none;
+}
+
+/* Container positioning */
+.w-full.bg-gradient-to-r > .flex {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ========================================
+   VIDEO CONTAINER
+   ======================================== */
+
+.w-full.lg\:w-1\/2 {
+  position: relative;
+  z-index: 1;
+}
+
+/* Video styling */
+.rounded-0xl {
+  border-radius: 30px !important;
+  overflow: hidden;
+  border: 3px solid rgba(0, 67, 208, 0.2) !important;
+  box-shadow: 
+    0 20px 60px rgba(0, 48, 135, 0.3),
+    0 10px 30px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);
+}
+
+/* Video 3D transform effect */
+.w-full.lg\:w-1\/2:first-child .rounded-0xl {
+  transform: perspective(1000px) rotateY(-5deg);
+}
+
+.w-full.lg\:w-1\/2:first-child .rounded-0xl:hover {
+  transform: perspective(1000px) rotateY(0deg);
+  box-shadow: 
+    0 30px 80px rgba(0, 48, 135, 0.4),
+    0 15px 40px rgba(0, 0, 0, 0.15) !important;
+  border-color: rgba(0, 67, 208, 0.4) !important;
+}
+
+/* Video element styling */
+.rounded-0xl video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.rounded-0xl:hover video {
+  transform: scale(1.02);
+}
+
+/* Video gradient overlay */
+.rounded-0xl::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 48, 135, 0.1) 0%,
+    rgba(0, 102, 204, 0.05) 50%,
+    rgba(0, 45, 114, 0.1) 100%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.rounded-0xl:hover::after {
+  opacity: 1;
+}
+
+/* ========================================
+   TEXT CONTENT SECTION
+   ======================================== */
+
+.text-gray-800 {
+  padding: 2rem !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* Title styling */
+.text-gray-800 h2 {
+  font-size: 4rem !important;
+  font-weight: 700 !important;
+  color: #002d72 !important;
+  font-family: Georgia, 'Times New Roman', serif !important;
+  margin-bottom: 1.5rem !important;
+  line-height: 1 !important;
+  position: relative;
+  display: inline-block;
+}
+
+/* Animated title parts */
+.text-gray-800 h2::before {
+  content: 'WHY ';
+  color: #002d72;
+  animation: slideInLeft 0.8s ease-out;
+}
+
+.text-gray-800 h2::after {
+  content: ' ?';
+  color: #fbbf24;
+  animation: rotateIn 0.8s ease-out 0.4s backwards;
+  display: inline-block;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes rotateIn {
+  from {
+    opacity: 0;
+    transform: rotate(-180deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/* Title underline */
+.text-gray-800 h2::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 150px;
+  height: 4px;
+  background: linear-gradient(90deg, #0066cc 0%, #fbbf24 100%);
+  border-radius: 2px;
+  animation: expandWidth 1s ease-out 0.6s backwards;
+}
+
+@keyframes expandWidth {
+  from { width: 0; }
+  to { width: 150px; }
+}
+
+/* Highlight "NEC" in title */
+.text-blue-900 {
+  background: linear-gradient(135deg, #0066cc 0%, #237ccf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: slideInUp 0.8s ease-out 0.2s backwards;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Paragraph styling */
+.text-gray-800 p {
+  font-size: 1.1rem !important;
+  line-height: 1.8 !important;
+  color: #1f2937 !important;
+  text-align: justify !important;
+  animation: fadeIn 0.8s ease-out 0.8s backwards;
+  padding-right: 1rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.text-gray-800 p strong {
+  color: #003087;
+  font-weight: 700;
+}
+
+/* Custom scrollbar for text */
+.text-gray-800 p::-webkit-scrollbar {
+  width: 8px;
+}
+
+.text-gray-800 p::-webkit-scrollbar-track {
+  background: rgba(0, 67, 208, 0.05);
+  border-radius: 4px;
+}
+
+.text-gray-800 p::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #0066cc 0%, #237ccf 100%);
+  border-radius: 4px;
+}
+
+.text-gray-800 p::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #003087 0%, #0066cc 100%);
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 1200px) {
+  .w-full.bg-gradient-to-r {
+    padding: 4rem 1.5rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 3.5rem !important;
+  }
+}
+
+@media (max-width: 968px) {
+  .w-full.bg-gradient-to-r {
+    padding: 3.5rem 1.5rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 3rem !important;
+  }
+
+  .text-gray-800 p {
+    font-size: 1.05rem !important;
+  }
+
+  .w-full.lg\:w-1\/2:first-child .rounded-0xl {
+    transform: perspective(1000px) rotateY(-2deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .w-full.bg-gradient-to-r {
+    padding: 3rem 1.25rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 2.75rem !important;
+  }
+
+  .text-gray-800 {
+    padding: 1.5rem !important;
+  }
+
+  .rounded-0xl {
+    border-radius: 24px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .w-full.bg-gradient-to-r {
+    padding: 2.5rem 1rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 2.5rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .text-gray-800 h2::before {
+    width: 120px;
+  }
+
+  .text-gray-800 p {
+    font-size: 1rem !important;
+    line-height: 1.75 !important;
+  }
+
+  .text-gray-800 {
+    padding: 1.25rem !important;
+  }
+
+  .rounded-0xl {
+    border-radius: 20px !important;
+    border-width: 2px !important;
+  }
+
+  .w-full.lg\:w-1\/2:first-child .rounded-0xl {
+    transform: none;
+  }
+
+  .w-full.lg\:w-1\/2:first-child .rounded-0xl:hover {
+    transform: none;
+  }
+
+  .w-full.bg-gradient-to-r::before,
+  .w-full.bg-gradient-to-r::after,
+  .w-full.bg-gradient-to-r > .flex::before {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .w-full.bg-gradient-to-r {
+    padding: 2rem 0.75rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 2rem !important;
+  }
+
+  .text-gray-800 p {
+    font-size: 0.95rem !important;
+  }
+
+  .rounded-0xl {
+    border-radius: 18px !important;
+  }
+}
+
+/* Landscape mode for mobile */
+@media (max-height: 600px) and (orientation: landscape) {
+  .w-full.bg-gradient-to-r {
+    padding: 2rem 1.5rem !important;
+  }
+
+  .text-gray-800 h2 {
+    font-size: 2.25rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .text-gray-800 p {
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .w-full.bg-gradient-to-r::before,
+  .w-full.bg-gradient-to-r::after,
+  .w-full.bg-gradient-to-r > .flex::before,
+  .text-gray-800 h2::before,
+  .text-blue-900 {
+    animation: none !important;
+  }
+
+  .rounded-0xl,
+  .rounded-0xl video {
+    transition: none !important;
+  }
+
+  .w-full.lg\:w-1\/2:first-child .rounded-0xl {
+    transform: none;
+  }
+
+  .text-gray-800 p {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .w-full.lg\:w-1\/2:first-child .rounded-0xl:hover {
+    transform: perspective(1000px) rotateY(-5deg);
+  }
+
+  .rounded-0xl:hover video {
+    transform: none;
+  }
+}
+
+/* High DPI screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .rounded-0xl {
+    border-width: 2px !important;
+  }
+}

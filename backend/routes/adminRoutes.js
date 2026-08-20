@@ -1,0 +1,72 @@
+import express from 'express';
+import {
+  getAllUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getAllRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  getAllDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from '../controllers/adminController.js';
+import { authenticate, isSuperAdmin, isAdmin } from '../middlewares/requireauth.js';
+import {
+  getTimetableLayout,
+  saveTimetableLayout,
+  deleteTimetableLayout,
+} from '../controllers/acadamic/timetableController.js';
+
+const router = express.Router();
+
+// ==================== USER ROUTES ====================
+// All user routes require authentication and admin privileges
+
+router.get('/users', authenticate, isSuperAdmin, getAllUsers);
+router.post('/users', authenticate, isSuperAdmin, createUser);
+router.put('/users/:userId', authenticate, isSuperAdmin, updateUser);
+router.delete('/users/:userId', authenticate, isSuperAdmin, deleteUser); // Only SuperAdmin can delete
+
+// ==================== ROLE ROUTES ====================
+// All role routes require SuperAdmin privileges
+
+router.get('/roles', authenticate, isAdmin, getAllRoles);
+router.post('/roles', authenticate, isSuperAdmin, createRole);
+router.put('/roles/:roleId', authenticate, isSuperAdmin, updateRole);
+router.delete('/roles/:roleId', authenticate, isSuperAdmin, deleteRole);
+
+// ==================== DEPARTMENT ROUTES ====================
+// All department routes require SuperAdmin privileges
+
+router.get('/departments', authenticate, isAdmin, getAllDepartments);
+router.post('/departments', authenticate, isSuperAdmin, createDepartment);
+router.put('/departments/:departmentId', authenticate, isSuperAdmin, updateDepartment);
+router.delete('/departments/:departmentId', authenticate, isSuperAdmin, deleteDepartment);
+
+// ==================== TUTOR ALLOCATION ROUTES ====================
+import {
+  getStaffForTutorAllocation,
+  getStudentsForTutorAllocation,
+  assignStudentsToTutor
+} from '../controllers/tutorAllocationController.js';
+
+router.get('/tutor-allocation/staff', authenticate, isAdmin, getStaffForTutorAllocation);
+router.get('/tutor-allocation/students', authenticate, isAdmin, getStudentsForTutorAllocation);
+router.post('/tutor-allocation/assign', authenticate, isAdmin, assignStudentsToTutor);
+
+import { getPlacementStats } from '../controllers/admin/dashboardController.js';
+
+router.get('/dashboard-stats', authenticate, isAdmin, getPlacementStats);
+
+// Academic timetable layout fallback routes.
+// The main server mounts both the academic admin router and this admin router.
+// Keeping these here prevents /api/admin/timetable/semester/:semesterId/layout
+// from becoming a 404 if only this admin router is reached by the running server.
+router.get('/timetable/semester/:semesterId/layout', authenticate, isAdmin, getTimetableLayout);
+router.put('/timetable/semester/:semesterId/layout', authenticate, isAdmin, saveTimetableLayout);
+router.delete('/timetable/semester/:semesterId/layout', authenticate, isAdmin, deleteTimetableLayout);
+
+export default router;

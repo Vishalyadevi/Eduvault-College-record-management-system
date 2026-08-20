@@ -1,0 +1,287 @@
+.navbar {
+  background: #003087;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  font-family: "Arial", sans-serif;
+  width: 100%;
+  position: fixed; /* Keeps the navbar fixed at the top */
+  top: 0; /* Ensures it stays at the top */
+  left: 0; /* Aligns it to the left */
+  z-index: 1000; /* Ensures it's above other elements */
+  height: 100px; /* Set a fixed height for the navbar */
+  box-sizing: border-box;
+}
+
+/* Add this class to your main content wrapper or body */
+.main-content {
+  padding-top: 90px; /* Add space equal to navbar height + some margin */
+  min-height: 100vh;
+}
+
+/* Alternative: If you want to apply to body globally */
+body {
+  padding-top: 0px !important;
+  margin: 0;
+}
+
+/* Logo Section */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: bold;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.navbar-logo-img {
+  width: 50px; /* Reduced size to fit better */
+  height: auto;
+  border-radius: 10px;
+  margin-left: 10px; /* Reduced margin */
+}
+
+.navbar-logo h2{
+  margin-left: 20px; /* Reduced from 500px */
+}
+
+.navbar-links {
+  list-style: none;
+  display: flex;
+  gap: 25px; /* Slightly reduced gap */
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.navbar-links li {
+  display: inline-block;
+}
+
+.navbar-links a {
+  text-decoration: none;
+  color: white;
+  font-size: 16px; /* Reduced font size */
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 5px;
+  transition: 0.3s ease-in-out;
+  white-space: nowrap;
+}
+
+.navbar-links a:hover {
+  color: #0062ff; /* Gold Highlight */
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Right Section: Icons & Logout */
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Reduced gap */
+}
+
+/* Notification & Profile Icons */
+.navbar-icons {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 22px;
+}
+
+.navbar-icons .material-symbols-outlined {
+  font-size: 28px; /* Reduced size */
+  cursor: pointer;
+  transition: 0.3s ease-in-out;
+}
+
+.navbar-icons .material-symbols-outlined:hover {
+  transform: scale(1.1); /* Reduced scale */
+  color: #000dff;
+}
+
+.navbar-icons a {
+  color: white;
+  text-decoration: none;
+  transition: 0.3s ease-in-out;
+}
+
+.navbar-icons a:hover {
+  color: #0022ff;
+}
+
+/* Logout Button */
+.logout-button {
+  background: #ff4c4c;
+  color: white;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: 0.3s ease-in-out;
+  margin-right: 20px; /* Reduced margin */
+}
+
+.logout-button:hover {
+  background: #cc0000;
+}
+
+/* Responsive Navbar */
+@media (max-width: 1200px) {
+  .navbar-links {
+    gap: 15px;
+  }
+  
+  .navbar-links a {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 850px) {
+  .navbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 8px 15px;
+    height: 60px;
+  }
+  
+  body {
+    padding-top: 80px !important;
+  }
+  
+  .main-content {
+    padding-top: 80px;
+  }
+
+  .navbar-links {
+    flex-wrap: nowrap;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  
+  .navbar-links a {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .navbar-icons {
+    gap: 10px;
+  }
+  
+  .navbar-icons .material-symbols-outlined {
+    font-size: 24px;
+  }
+
+  .logout-button {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin-right: 10px;
+  }
+  
+  .navbar-logo-img {
+    width: 40px;
+    margin-left: 5px;
+  }
+  
+  .navbar-logo {
+    font-size: 14px;
+  }
+}
+
+/* Style for Login Button */
+.loginbutton {
+  color: white;
+  padding: 8px 16px;
+  margin-right: 30px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 16px; 
+}
+
+#clgname{
+  color: white;
+}
+
+/* Notification icon and dropdown */
+.notification-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 45px; /* Adjusted for better positioning */
+  right: 0;
+  width: 300px;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001; /* Higher than navbar */
+  padding: 0;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 0;
+}
+
+.notification-item:hover {
+  background-color: #f8f9fa;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item.no-notifications {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}
+
+.notification-wrapper span.material-symbols-outlined {
+  font-size: 28px;
+  margin-right: 0;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.notification-wrapper span.material-symbols-outlined:hover {
+  color: #0056b3;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff5e57;
+  color: white;
+  font-size: 10px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
