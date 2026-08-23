@@ -60,37 +60,26 @@ const safeQuery = async (model, internalPkId, externalUserId, modelName, tableNa
 
     // 3. Raw query fallback if findAll failed or model was not provided but tableName was
     if (tableName) {
-      const rawWhere = [];
-      const replacements = [];
-      
-      if (internalPkId !== undefined && internalPkId !== null) {
-        rawWhere.push('Userid = ? OR userid = ? OR userId = ? OR user_id = ?');
-        replacements.push(internalPkId, internalPkId, internalPkId, internalPkId);
-      }
-      
-      if (externalUserId && externalUserId !== internalPkId) {
-        rawWhere.push('Userid = ? OR userid = ? OR userId = ? OR user_id = ?');
-        replacements.push(externalUserId, externalUserId, externalUserId, externalUserId);
-      }
-
-      if (replacements.length > 0) {
-        const rawQuery = `SELECT * FROM ${tableName} WHERE ${rawWhere.join(' OR ')}`;
-        try {
-          // Use the sequelize instance from the model if it exists, otherwise use the one from our import
-          const queryInterface = (model && model.sequelize) || sequelize;
-          
-          if (queryInterface && typeof queryInterface.query === 'function') {
-            const rawResults = await queryInterface.query(rawQuery, {
-              replacements,
-              type: QueryTypes.SELECT
-            });
-            if (rawResults && rawResults.length > 0) {
-              console.log(`✓ Raw query found ${rawResults.length} records in ${tableName} for user ${internalPkId}/${externalUserId}`);
-              return rawResults;
+      const queryInterface = (model && model.sequelize) || sequelize;
+      if (queryInterface && typeof queryInterface.query === 'function') {
+        const idVals = [internalPkId, externalUserId].filter((val, idx, self) => val !== undefined && val !== null && self.indexOf(val) === idx);
+        const colNames = ['Userid', 'userid', 'userId', 'user_id'];
+        for (const col of colNames) {
+          for (const val of idVals) {
+            try {
+              const rawQuery = `SELECT * FROM \`${tableName}\` WHERE \`${col}\` = ?`;
+              const rawResults = await queryInterface.query(rawQuery, {
+                replacements: [val],
+                type: QueryTypes.SELECT
+              });
+              if (rawResults && rawResults.length > 0) {
+                console.log(`✓ Raw query found ${rawResults.length} records in ${tableName} for ${col}=${val}`);
+                return rawResults;
+              }
+            } catch (colErr) {
+              // Ignore invalid column name for table
             }
           }
-        } catch (rawErr) {
-          console.warn(`Raw query fallback failed for ${tableName}:`, rawErr.message);
         }
       }
     }
@@ -245,7 +234,7 @@ export const getStaffResumeData = async (req, res) => {
     res.status(200).json({ success: true, data: resumeData });
 
   } catch (error) {
-    console.error('Error fetching staff resume data:', error);
+    console.error('Error fetching staff resume data STACK:', error);
     res.status(500).json({ success: false, error: 'Internal server error while fetching resume details.' });
   }
 };

@@ -1,4 +1,5 @@
 import { Activity, User } from '../../models/index.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
 
 /**
  * Submit a new activity (Staff)
@@ -24,29 +25,23 @@ export const submitActivity = async (req, res) => {
 
     // Coerce and normalize incoming form values (multipart/form-data sends strings)
     const fundedBool = funded === true || funded === 'true' || funded === 'on' || funded === 1 || funded === '1';
-    const participantCountInt = participant_count ? parseInt(participant_count, 10) : null;
+    const participantCountInt = (participant_count && !isNaN(parseInt(participant_count, 10))) ? parseInt(participant_count, 10) : 1;
     const fundReceivedFloat = fund_received ? parseFloat(fund_received) : null;
 
     // Validate/normalize level to avoid DB enum errors
     const allowedLevels = ['Department', 'State', 'Institute', 'National', 'International'];
-    const normalizedLevel = allowedLevels.includes(level) ? level : (level ? String(level) : null);
-    const Userid = req.user?.Userid;
+    const normalizedLevel = allowedLevels.includes(level) ? level : 'Institute';
+    const studentCoordinatorsVal = (student_coordinators && typeof student_coordinators === 'string' && student_coordinators.trim() !== '') ? student_coordinators.trim() : 'Students';
+    const Userid = req.user?.Userid || req.user?.userId;
     const reportFile = req.file ? `/uploads/activity/${req.file.filename}` : null;
 
-    console.log('--- Submit Activity Debug ---');
-    console.log('Userid:', Userid);
-    console.log('req.body:', req.body);
-    console.log('from_date:', from_date, 'to_date:', to_date);
-    console.log('participant_count:', participant_count, 'participantCountInt:', participantCountInt);
-    console.log('level:', level, 'normalizedLevel:', normalizedLevel);
+    if (!Userid) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
-    // Validation - check required fields
-    if (!from_date || !to_date || !student_coordinators || participantCountInt === null || !normalizedLevel) {
-      console.warn('❌ Activity submission failed validation - missing fields');
-      return res.status(400).json({ 
-        message: 'All required fields must be provided', 
-        received: { from_date: !!from_date, to_date: !!to_date, student_coordinators: !!student_coordinators, participantCountInt: participantCountInt !== null, normalizedLevel: !!normalizedLevel } 
-      });
+    // Validation - check required dates
+    if (!from_date || !to_date) {
+      return res.status(400).json({ message: 'From date and to date are required' });
     }
 
     if (new Date(from_date) > new Date(to_date)) {
@@ -57,7 +52,7 @@ export const submitActivity = async (req, res) => {
       Userid,
       from_date,
       to_date,
-      student_coordinators,
+      student_coordinators: studentCoordinatorsVal,
       staff_coordinators: staff_coordinators || null,
       club_name: club_name || null,
       event_name: event_name || null,
@@ -96,11 +91,68 @@ export const submitActivity = async (req, res) => {
 };
 
 /**
+ * Bulk submit activities (Excel Upload)
+ */
+export const bulkSubmitActivities = async (req, res) => {
+  try {
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const records = parseBulkRecords(req);
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ message: 'No valid records provided for bulk upload' });
+    }
+
+    const allowedLevels = ['Department', 'State', 'Institute', 'National', 'International'];
+
+    const preparedRecords = records.map((rec) => {
+      const fundedBool = rec.funded === true || rec.funded === 'true' || rec.funded === 'Yes' || rec.funded === 1;
+
+      return {
+        Userid,
+        from_date: rec.from_date || new Date().toISOString().split('T')[0],
+        to_date: rec.to_date || new Date().toISOString().split('T')[0],
+        student_coordinators: rec.student_coordinators ? String(rec.student_coordinators).trim() : 'Students',
+        staff_coordinators: rec.staff_coordinators ? String(rec.staff_coordinators).trim() : null,
+        club_name: rec.club_name ? String(rec.club_name).trim() : null,
+        event_name: rec.event_name ? String(rec.event_name).trim() : null,
+        description: rec.description ? String(rec.description).trim() : null,
+        venue: rec.venue ? String(rec.venue).trim() : null,
+        department: rec.department ? String(rec.department).trim() : null,
+        participant_count: parseInt(rec.participant_count, 10) || 1,
+        level: allowedLevels.includes(rec.level) ? rec.level : 'Institute',
+        funded: fundedBool,
+        funding_agency: fundedBool ? (rec.funding_agency ? String(rec.funding_agency).trim() : null) : null,
+        fund_received: fundedBool ? (rec.fund_received ? parseFloat(rec.fund_received) || null : null) : null,
+        status: 'Pending',
+        Created_by: Userid,
+        report_file: typeof rec.report_file === 'string' ? rec.report_file : null,
+      };
+    });
+
+    const created = await Activity.bulkCreate(preparedRecords);
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully uploaded ${created.length} activity records`,
+      count: created.length,
+      activities: created,
+      data: created,
+    });
+  } catch (error) {
+    console.error('Error bulk submitting activities:', error);
+    res.status(500).json({ message: 'Error submitting bulk activities', error: error.message });
+  }
+};
+
+/**
  * Get all activities for a staff member
  */
 export const getStaffActivities = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
 
     const activities = await Activity.findAll({
       where: { Userid },
@@ -134,7 +186,7 @@ export const getStaffActivities = async (req, res) => {
 export const getActivityById = async (req, res) => {
   try {
     const { id } = req.params;
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
 
     const activity = await Activity.findByPk(id, {
       include: [
@@ -175,7 +227,7 @@ export const getActivityById = async (req, res) => {
 export const updateActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     const {
       from_date,
       to_date,
@@ -249,7 +301,7 @@ export const updateActivity = async (req, res) => {
 export const deleteActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
 
     const activity = await Activity.findByPk(id);
 

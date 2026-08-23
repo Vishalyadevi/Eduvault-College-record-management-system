@@ -5,7 +5,8 @@ import {
     createIndustryKnowhow,
     updateIndustryKnowhow,
     deleteIndustryKnowhow,
-    getCertificatePdf
+    getCertificatePdf,
+    bulkCreateIndustryKnowhow,
 } from '../../controllers/staff/IndustryController.js';
 import { authenticate } from '../../middlewares/requireauth.js';
 import multer from 'multer';
@@ -25,12 +26,18 @@ const memoryUpload = multer({
     }
 });
 
+const bulkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 const router = express.Router();
 
 router.use(authenticate);
 
 router.get('/', getAllIndustryKnowhow);
 router.get('/:id', getIndustryKnowhowById);
+router.post('/bulk', bulkUpload.any(), bulkCreateIndustryKnowhow);
 router.post('/', memoryUpload.single('certificate_pdf'), createIndustryKnowhow);
 router.put('/:id', memoryUpload.single('certificate_pdf'), updateIndustryKnowhow);
 router.delete('/:id', deleteIndustryKnowhow);

@@ -157,7 +157,8 @@ const FacultyAppraisalPage = () => {
   const fetchAppraisals = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:4000/api/appraisals', {
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5600/institute_management_system';
+      const response = await fetch(`${baseUrl}/appraisals`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -326,9 +327,10 @@ const FacultyAppraisalPage = () => {
         kpi_responses: kpiResponses
       };
 
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5600/institute_management_system';
       const url = currentAppraisal
-        ? `http://localhost:4000/api/appraisals/${currentAppraisal.id}`
-        : 'http://localhost:4000/api/appraisals';
+        ? `${baseUrl}/appraisals/${currentAppraisal.id}`
+        : `${baseUrl}/appraisals`;
 
       const response = await fetch(url, {
         method: currentAppraisal ? 'PUT' : 'POST',
@@ -386,7 +388,8 @@ const FacultyAppraisalPage = () => {
   const handleDelete = async (appraisal) => {
     if (window.confirm(`Are you sure you want to delete this appraisal for ${appraisal.academic_year}?`)) {
       try {
-        const response = await fetch(`http://localhost:4000/api/appraisals/${appraisal.id}`, {
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5600/institute_management_system';
+        const response = await fetch(`${baseUrl}/appraisals/${appraisal.id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`

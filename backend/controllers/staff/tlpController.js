@@ -1,8 +1,9 @@
 import TlpActivity from '../../models/student/TlpActivity.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
 
 export const submitTlpActivity = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
     if (!Userid) return res.status(401).json({ message: 'Not authenticated' });
 
     const { course_code_and_name, activity_name, description } = req.body;
@@ -37,9 +38,43 @@ export const submitTlpActivity = async (req, res) => {
   }
 };
 
+export const bulkCreateTlpActivities = async (req, res) => {
+  try {
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) return res.status(401).json({ message: 'Not authenticated' });
+
+    const records = parseBulkRecords(req);
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ message: 'No valid records provided' });
+    }
+
+    const prepared = records.map(rec => {
+      return {
+        Userid,
+        course_code_and_name: String(rec.course_code_and_name || rec.course || '').trim(),
+        activity_name: String(rec.activity_name || rec.activity || '').trim(),
+        description: rec.description ? String(rec.description).trim() : null,
+        status: 'Pending',
+        Created_by: Userid,
+        image_file: rec.image || rec.image_file || rec.file_path || rec.proof || null,
+      };
+    });
+
+    const created = await TlpActivity.bulkCreate(prepared);
+    res.status(201).json({
+      success: true,
+      message: `Successfully uploaded ${created.length} TLP activity records`,
+      data: created,
+    });
+  } catch (error) {
+    console.error('Error bulk creating TLP activities:', error);
+    res.status(500).json({ message: 'Error bulk creating TLP activities', error: error.message });
+  }
+};
+
 export const getStaffTlpActivities = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
     if (!Userid) return res.status(401).json({ message: 'Not authenticated' });
 
     const activities = await TlpActivity.findAll({ where: { Userid }, order: [['created_at', 'DESC']] });
@@ -53,7 +88,7 @@ export const getStaffTlpActivities = async (req, res) => {
 export const getTlpById = async (req, res) => {
   try {
     const { id } = req.params;
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
 
     const activity = await TlpActivity.findByPk(id);
     if (!activity) return res.status(404).json({ message: 'TLP activity not found' });

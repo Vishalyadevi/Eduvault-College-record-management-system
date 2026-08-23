@@ -86,21 +86,29 @@ export const createStaffEventAttended = async (req, res) => {
       to_date,
       mode,
       organized_by,
+      venue,
       participants,
       financial_support,
       support_amount,
     } = req.body;
 
-    const userId = req.user?.userId;
+    const userId = req.user?.userId || req.user?.Userid;
 
     // Validation - check user ID
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated. Please log in again.' });
     }
 
+    const modeVal = (mode && typeof mode === 'string' && mode.trim() !== '') ? mode.trim() : 'Offline';
+    const participantsVal = (participants && !isNaN(parseInt(participants, 10)) && parseInt(participants, 10) > 0) ? parseInt(participants, 10) : 1;
+
     // Validation - check required fields
-    if (!programme_name || !title || !from_date || !to_date || !mode || !organized_by || !participants) {
-      return res.status(400).json({ message: 'All required fields must be provided' });
+    if (!programme_name || !title || !from_date || !to_date || !organized_by) {
+      return res.status(400).json({ message: 'Programme name, title, from date, to date, and organized by are required' });
+    }
+
+    if (programme_name === 'Conference' && (!venue || venue.toString().trim() === '')) {
+      return res.status(400).json({ message: 'Venue is required for Conference' });
     }
 
     if (new Date(from_date) > new Date(to_date)) {
@@ -133,9 +141,10 @@ export const createStaffEventAttended = async (req, res) => {
       title,
       from_date,
       to_date,
-      mode,
+      mode: modeVal,
       organized_by: organized_by.trim(),
-      participants: parseInt(participants),
+      venue: programme_name === 'Conference' ? venue.trim() : null,
+      participants: participantsVal,
       financial_support: financialSupportBool,
       support_amount: supportAmount,
       permission_letter_link: permissionLetterBuffer,
@@ -169,6 +178,7 @@ export const updateStaffEventAttended = async (req, res) => {
       to_date,
       mode,
       organized_by,
+      venue,
       participants,
       financial_support,
       support_amount,
@@ -189,6 +199,11 @@ export const updateStaffEventAttended = async (req, res) => {
 
     if (event.status !== 'Pending') {
       return res.status(400).json({ message: 'Can only update pending events' });
+    }
+
+    const targetProgramme = programme_name || event.programme_name;
+    if (targetProgramme === 'Conference' && (!venue || venue.toString().trim() === '') && !event.venue) {
+      return res.status(400).json({ message: 'Venue is required for Conference' });
     }
 
     if (from_date && to_date && new Date(from_date) > new Date(to_date)) {
@@ -222,6 +237,7 @@ export const updateStaffEventAttended = async (req, res) => {
       to_date: to_date || event.to_date,
       mode: mode || event.mode,
       organized_by: organized_by ? organized_by.trim() : event.organized_by,
+      venue: targetProgramme === 'Conference' ? (venue ? venue.trim() : event.venue) : null,
       participants: participants ? parseInt(participants) : event.participants,
       financial_support: financialSupportBool !== undefined ? financialSupportBool : event.financial_support,
       support_amount: supportAmount !== null ? supportAmount : event.support_amount,

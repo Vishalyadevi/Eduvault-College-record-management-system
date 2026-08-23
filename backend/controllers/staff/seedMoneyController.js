@@ -63,15 +63,13 @@ export const createSeedMoneyEntry = [
       !project_duration ||
       !from_date ||
       !to_date ||
-      !amount ||
-      !outcomes
+      !amount
     ) {
-      return res.status(400).json({ message: 'Required fields missing' });
+      return res.status(400).json({ message: 'Required fields missing: Project Title, Project Duration, From Date, To Date, Amount' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'PDF proof document is required' });
-    }
+    const proofBuffer = req.file ? req.file.buffer : null;
+    const outcomesVal = (outcomes && typeof outcomes === 'string' && outcomes.trim() !== '') ? outcomes.trim() : 'N/A';
 
     try {
       const newEntry = await SeedMoney.create({
@@ -81,8 +79,8 @@ export const createSeedMoneyEntry = [
         from_date,
         to_date,
         amount,
-        outcomes,
-        proof_link: req.file.buffer,
+        outcomes: outcomesVal,
+        proof_link: proofBuffer,
       });
 
       res.status(201).json({
@@ -95,6 +93,8 @@ export const createSeedMoneyEntry = [
     }
   },
 ];
+
+
 
 export const updateSeedMoneyEntry = [
   memoryUpload.single('proof_link'),
@@ -163,5 +163,42 @@ export const deleteSeedMoneyEntry = async (req, res) => {
   } catch (error) {
     console.error('Error deleting seed money project:', error);
     res.status(500).json({ message: 'Server error while deleting project' });
+  }
+};
+
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+
+export const bulkCreateSeedMoney = async (req, res) => {
+  try {
+    const userId = req.user?.Userid || req.user?.userId;
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
+
+    const rows = parseBulkRecords(req);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'No records provided for bulk insert' });
+    }
+
+    const recordsToInsert = rows.map((r) => {
+      return {
+        Userid: userId,
+        project_title: String(r.project_title || r.title || 'Seed Grant Project').trim(),
+        project_duration: String(r.project_duration || r.duration || '1 year').trim(),
+        from_date: r.from_date || new Date().toISOString().split('T')[0],
+        to_date: r.to_date || new Date().toISOString().split('T')[0],
+        amount: parseFloat(r.amount) || 0,
+        outcomes: r.outcomes ? String(r.outcomes).trim() : 'Project initiated',
+        proof_link: typeof r.proof_link === 'string' ? r.proof_link : null,
+      };
+    });
+
+    const created = await SeedMoney.bulkCreate(recordsToInsert);
+    res.status(201).json({
+      message: `Successfully imported ${created.length} seed money records`,
+      count: created.length,
+      data: created,
+    });
+  } catch (error) {
+    console.error('Error bulk creating seed money:', error);
+    res.status(400).json({ message: `Failed to save bulk records: ${error.message}` });
   }
 };

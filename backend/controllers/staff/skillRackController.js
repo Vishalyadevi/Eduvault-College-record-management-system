@@ -318,6 +318,31 @@ export const getAllSkillRackRecords = async (req, res) => {
   try {
     console.log("📊 Fetching all SkillRack records...");
 
+    const currentStaffId = req.user?.userId || req.user?.Userid;
+    const userRole = (req.user?.roleName || req.user?.role || "").toLowerCase();
+    const isGlobalAdmin = ["admin", "superadmin"].includes(userRole);
+
+    let wardUserIds = new Set();
+    let wardRegNos = new Set();
+
+    if (!isGlobalAdmin && currentStaffId) {
+      const tutorStudents = await StudentDetails.findAll({
+        where: {
+          [Op.or]: [
+            { staffId: currentStaffId },
+            req.user?.userNumber ? { staffId: req.user.userNumber } : null
+          ].filter(Boolean)
+        },
+        attributes: ["Userid", "registerNumber"],
+        raw: true,
+      });
+
+      tutorStudents.forEach((s) => {
+        if (s.Userid) wardUserIds.add(String(s.Userid));
+        if (s.registerNumber) wardRegNos.add(String(s.registerNumber).toLowerCase());
+      });
+    }
+
     const records = await SkillRack.findAll({
       order: [["total_programs_solved", "DESC"]],
       raw: true,
@@ -330,6 +355,7 @@ export const getAllSkillRackRecords = async (req, res) => {
     for (const record of records) {
       let username = "N/A";
       let email = "N/A";
+      let studentStaffId = null;
 
       try {
         if (record.Userid) {
@@ -341,23 +367,35 @@ export const getAllSkillRackRecords = async (req, res) => {
             username = user.userName || "N/A";
             email = user.userMail || "N/A";
           }
+          const sd = await StudentDetails.findOne({
+            where: { Userid: record.Userid },
+            attributes: ["staffId", "registerNumber"],
+            raw: true,
+          });
+          if (sd) {
+            studentStaffId = sd.staffId;
+            if (sd.registerNumber) wardRegNos.add(String(sd.registerNumber).toLowerCase());
+          }
         }
 
-        if (username === "N/A" && record.registerNumber) {
+        if ((username === "N/A" || !studentStaffId) && record.registerNumber) {
           const studentDetail = await StudentDetails.findOne({
             where: { registerNumber: record.registerNumber },
-            attributes: ["Userid"],
+            attributes: ["Userid", "staffId"],
             raw: true,
           });
 
-          if (studentDetail && studentDetail.Userid) {
-            const user = await User.findByPk(studentDetail.Userid, {
-              attributes: ["userName", "userMail"],
-              raw: true,
-            });
-            if (user) {
-              username = user.userName || "N/A";
-              email = user.userMail || "N/A";
+          if (studentDetail) {
+            studentStaffId = studentDetail.staffId;
+            if (studentDetail.Userid) {
+              const user = await User.findByPk(studentDetail.Userid, {
+                attributes: ["userName", "userMail"],
+                raw: true,
+              });
+              if (user) {
+                username = user.userName || "N/A";
+                email = user.userMail || "N/A";
+              }
             }
           }
         }
@@ -365,10 +403,25 @@ export const getAllSkillRackRecords = async (req, res) => {
         console.log(`⚠️ Could not find user for registerNumber: ${record.registerNumber}`);
       }
 
+      // Filter: if staff, check if student is in tutor ward
+      if (!isGlobalAdmin && currentStaffId) {
+        const isUserMatch = record.Userid && wardUserIds.has(String(record.Userid));
+        const isRegMatch = record.registerNumber && wardRegNos.has(String(record.registerNumber).toLowerCase());
+        const isStaffMatch = studentStaffId && (
+          String(studentStaffId) === String(currentStaffId) ||
+          (req.user?.userNumber && String(studentStaffId) === String(req.user.userNumber))
+        );
+
+        if (!isUserMatch && !isRegMatch && !isStaffMatch) {
+          continue; // Skip student if not in staff's tutor ward
+        }
+      }
+
       formattedRecords.push({
         ...record,
         username,
         email,
+        staffId: studentStaffId || "N/A",
       });
     }
 
@@ -510,3 +563,4 @@ export const deleteSkillRackRecord = async (req, res) => {
 };
 
 console.log("✅ SkillRack Controller Loaded Successfully");
+

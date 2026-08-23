@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import { getBookChapters, createBookChapter, updateBookChapter, deleteBookChapter } from '../../services/api';
+import TagInput from '../../components/TagInput';
+import ExcelBulkUploadModal, { parseFlexDate } from '../../components/ExcelBulkUploadModal';
+import { getBookChapters, createBookChapter, updateBookChapter, deleteBookChapter, bulkCreateBookChapters } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const BookChaptersPage = () => {
   const [bookChapters, setBookChapters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentBookChapter, setCurrentBookChapter] = useState(null);
@@ -146,22 +149,34 @@ const BookChaptersPage = () => {
 
       // Validate required fields
       if (
-        !formData.publication_name ||
-        !formData.publication_title ||
-        !formData.authors ||
+        !formData.publication_title?.trim() ||
+        !formData.authors?.trim() ||
         !formData.index_type ||
-        !formData.doi ||
         !formData.publication_date
       ) {
-        toast.error('Please fill in all required fields (Publication Name, Title, Authors, Index Type, DOI, Publication Date)');
+        toast.error('Please fill in required fields: Publication Title, Authors, Index Type, Publication Date');
         return;
       }
 
+      const normalizeAuthors = (str) => {
+        if (!str) return '';
+        return str
+          .split(',')
+          .map(a => a.trim())
+          .filter(Boolean)
+          .join(', ');
+      };
+
+      const payload = {
+        ...formData,
+        authors: normalizeAuthors(formData.authors)
+      };
+
       if (currentBookChapter) {
-        await updateBookChapter(currentBookChapter.id, formData);
+        await updateBookChapter(currentBookChapter.id, payload);
         toast.success('Publication updated successfully');
       } else {
-        await createBookChapter(formData);
+        await createBookChapter(payload);
         toast.success('Publication created successfully');
       }
 
@@ -180,9 +195,20 @@ const BookChaptersPage = () => {
   // Format date for display - DD/MM/YYYY
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    return date.toLocaleDateString('en-GB', {
+    const parsedStr = parseFlexDate(dateString);
+    const date = parsedStr ? new Date(parsedStr) : new Date(dateString);
+    if (isNaN(date.getTime())) return String(dateString);
+
+    let finalDate = date;
+    // Auto-recover legacy Excel 1905 dates
+    if (date.getFullYear() < 1920) {
+      const recoveredYear = Math.round((date.getTime() / (86400 * 1000)) + 25567 + 2);
+      if (recoveredYear >= 1990 && recoveredYear <= 2100) {
+        finalDate = new Date(`${recoveredYear}-01-01`);
+      }
+    }
+
+    return finalDate.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -197,7 +223,7 @@ const BookChaptersPage = () => {
         href={value}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-indigo-600 hover:text-blue-800"
+        className="text-indigo-600 hover:text-blue-800 underline font-medium"
       >
         View
       </a>
@@ -205,13 +231,16 @@ const BookChaptersPage = () => {
   };
 
   const columns = [
-    { field: 'publication_type', header: 'Type' },
-    { field: 'publication_name', header: 'Publication Name' },
-    { field: 'publication_title', header: 'Title' },
+    { 
+      field: 'publication_type', 
+      header: 'Type',
+      render: (item) => item.publication_type === 'book_chapter' ? 'Book Chapter' : item.publication_type === 'journal' ? 'Journal' : item.publication_type === 'conference' ? 'Conference Paper' : (item.publication_type || '-')
+    },
+    { field: 'publication_title', header: 'Publication Title' },
     {
       field: 'authors',
       header: 'Authors',
-      render: (item) => Array.isArray(item.authors) ? item.authors.join(', ') : item.authors
+      render: (item) => Array.isArray(item.authors) ? item.authors.join(', ') : (item.authors || '-')
     },
     { field: 'index_type', header: 'Index Type' },
     {
@@ -222,12 +251,12 @@ const BookChaptersPage = () => {
     { field: 'publisher', header: 'Publisher' },
     { field: 'citations', header: 'Citations' },
     { field: 'impact_factor', header: 'Impact Factor' },
-    { field: 'doi', header: 'DOI' }, // Added DOI column
-    { field: 'page_no', header: 'Page No.' }, // Added Page No. column
+    { field: 'doi', header: 'DOI' },
+    { field: 'page_no', header: 'Page No.' },
     {
       field: 'publication_link',
       header: 'Link',
-      render: renderPublicationLink
+      render: (item) => renderPublicationLink(item.publication_link)
     }
   ];
   const publicationTypes = [
@@ -247,16 +276,40 @@ const BookChaptersPage = () => {
     { value: 'Other', label: 'Other' }
   ];
 
+  const excelColumns = [
+    { key: 'publication_type', label: 'Publication Type', required: true, options: ['book_chapter', 'journal', 'conference_paper', 'book'], example: 'book_chapter' },
+    { key: 'publication_title', label: 'Title of Paper / Chapter', required: true, example: 'Advances in Quantum Computing' },
+    { key: 'authors', label: 'Authors', required: true, example: 'Dr. Smith, Dr. Jones' },
+    { key: 'index_type', label: 'Index Type', required: true, options: ['Scopus', 'IEEE', 'SCI', 'SCIE', 'UGC CARE', 'Other'], example: 'Scopus' },
+    { key: 'publisher', label: 'Publisher', required: false, example: 'Springer Nature' },
+    { key: 'publication_date', label: 'Publication Date', required: true, type: 'date', example: '2026-01-15' },
+    { key: 'doi', label: 'DOI', required: false, example: '10.1007/978-3-030-12345-6_1' },
+    { key: 'citations', label: 'Citations', required: false, type: 'number', example: 12 },
+    { key: 'publication_link', label: 'Publication Document / DOI Link (URL/Path)', required: false, example: 'https://link.springer.com/chapter/10.1007/978-3-030-12345-6_1' },
+    { key: 'proof', label: 'Proof Document File Name', required: false, type: 'file', example: 'book_chapter_proof.pdf' },
+  ];
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button
-          onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New Publication
-        </button>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">Publications</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add New Publication
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -288,15 +341,6 @@ const BookChaptersPage = () => {
             options={publicationTypes}
           />
           <FormField
-            label="Publication Name"
-            name="publication_name"
-            value={formData.publication_name}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-            placeholder="e.g., Advances in Computer Science"
-          />
-          <FormField
             label="Publication Title"
             name="publication_title"
             value={formData.publication_title}
@@ -305,15 +349,17 @@ const BookChaptersPage = () => {
             disabled={isViewMode}
             placeholder="e.g., Machine Learning Techniques for Data Analysis"
           />
-          <FormField
-            label="Authors"
-            name="authors"
-            value={formData.authors}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-            placeholder="e.g., John Doe, Jane Smith"
-          />
+          <div className="md:col-span-2">
+            <TagInput
+              label="Authors"
+              values={formData.authors}
+              onChange={(updatedTags) => setFormData((prev) => ({ ...prev, authors: updatedTags.join(', ') }))}
+              disabled={isViewMode}
+              required
+              placeholder="Type author name and click Add..."
+              buttonText="Add Author"
+            />
+          </div>
           <FormField
             label="Index Type"
             name="index_type"
@@ -388,6 +434,19 @@ const BookChaptersPage = () => {
           />
         </div>
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Publications"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateBookChapters(validRows);
+          fetchBookChapters();
+        }}
+        templateFilename="Publications_Template.xlsx"
+      />
     </div>
   );
 };

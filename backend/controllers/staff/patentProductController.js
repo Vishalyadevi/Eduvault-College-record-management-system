@@ -1,10 +1,19 @@
 import PatentProduct from "../../models/staff/PatentProduct.js";
+import PatentInventor from "../../models/staff/PatentInventor.js";
 import { sequelize } from "../../config/mysql.js";
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+
+// helper to parse inventors list
+const parseInventors = (input) => {
+    if (!input) return [];
+    if (Array.isArray(input)) return input.map(n => String(n).trim()).filter(Boolean);
+    return String(input).split(',').map(n => n.trim()).filter(Boolean);
+};
 
 // Get all patent/product entries with filters/pagination
 export const getParam = async (req, res) => {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
 
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized: userId missing' });
@@ -14,23 +23,36 @@ export const getParam = async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 100, 100);
         const offset = (page - 1) * limit;
 
-        // Using Sequelize to fetch attributes, excluding BLOBs for list view
         const { count, rows } = await PatentProduct.findAndCountAll({
             where: { Userid: userId },
             attributes: [
                 'id', 'Userid', 'project_title', 'patent_status', 'month_year',
                 'working_model', 'prototype_developed', 'created_at', 'updated_at',
-                // Check availability of BLOBs without retrieving them
                 [sequelize.literal('CASE WHEN patent_proof_link IS NOT NULL THEN "available" ELSE null END'), 'patent_proof_link'],
                 [sequelize.literal('CASE WHEN working_model_proof_link IS NOT NULL THEN "available" ELSE null END'), 'working_model_proof_link'],
                 [sequelize.literal('CASE WHEN prototype_proof_link IS NOT NULL THEN "available" ELSE null END'), 'prototype_proof_link']
+            ],
+            include: [
+                { model: PatentInventor, as: 'inventors', attributes: ['id', 'inventor_name', 'inventor_order'] },
             ],
             order: [['created_at', 'DESC']],
             limit: limit,
             offset: offset
         });
 
-        res.status(200).json(rows);
+        const result = rows.map(r => {
+            const j = r.toJSON();
+            const invList = Array.isArray(j.inventors) && j.inventors.length > 0
+                ? j.inventors.sort((a, b) => a.inventor_order - b.inventor_order).map(i => i.inventor_name)
+                : parseInventors(j.inventors);
+            return {
+                ...j,
+                inventors: invList.join(', '),
+                inventorList: invList,
+            };
+        });
+
+        res.status(200).json(result);
     } catch (error) {
         console.error('Error fetching patent/product data:', error);
         res.status(500).json({ message: 'Server error' });
@@ -41,7 +63,7 @@ export const getParam = async (req, res) => {
 export const getProof = async (req, res) => {
     try {
         const { id, type } = req.params;
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
 
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized: userId missing' });
@@ -73,7 +95,6 @@ export const getProof = async (req, res) => {
             return res.status(404).json({ message: 'PDF file not available' });
         }
 
-        // Set appropriate headers for PDF viewing
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'inline');
         res.setHeader('Content-Length', proofBuffer.length);
@@ -90,7 +111,7 @@ export const getProof = async (req, res) => {
 // Get patent/product entry by ID
 export const getParamById = async (req, res) => {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
 
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized: userId missing' });
@@ -109,14 +130,22 @@ export const getParamById = async (req, res) => {
                 [sequelize.literal('CASE WHEN patent_proof_link IS NOT NULL THEN true ELSE false END'), 'patent_proof_link'],
                 [sequelize.literal('CASE WHEN working_model_proof_link IS NOT NULL THEN true ELSE false END'), 'working_model_proof_link'],
                 [sequelize.literal('CASE WHEN prototype_proof_link IS NOT NULL THEN true ELSE false END'), 'prototype_proof_link']
-            ]
+            ],
+            include: [
+                { model: PatentInventor, as: 'inventors', attributes: ['id', 'inventor_name', 'inventor_order'] },
+            ],
         });
 
         if (!entry) {
             return res.status(404).json({ message: 'Patent/product entry not found' });
         }
 
-        res.status(200).json({ data: entry });
+        const j = entry.toJSON();
+        const invList = Array.isArray(j.inventors) && j.inventors.length > 0
+            ? j.inventors.sort((a, b) => a.inventor_order - b.inventor_order).map(i => i.inventor_name)
+            : parseInventors(j.inventors);
+
+        res.status(200).json({ data: { ...j, inventors: invList.join(', '), inventorList: invList } });
     } catch (error) {
         console.error('Error fetching patent/product entry:', error);
         res.status(500).json({ message: 'Server error' });
@@ -152,7 +181,7 @@ const validatePatentData = (data) => {
 export const createParam = async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
 
         if (!userId) {
             await transaction.rollback();
@@ -164,12 +193,10 @@ export const createParam = async (req, res) => {
             patent_status,
             month_year,
             working_model,
-            prototype_developed
+            prototype_developed,
+            inventors
         } = req.body;
 
-        console.log('Creating new patent entry:', { project_title, patent_status, month_year, working_model, prototype_developed });
-
-        // Validate input data
         const validationErrors = validatePatentData(req.body);
         if (validationErrors.length > 0) {
             await transaction.rollback();
@@ -179,15 +206,10 @@ export const createParam = async (req, res) => {
             });
         }
 
-        // Validate required file upload for patent proof
-        if (!req.files || !req.files['patent_proof_link']) {
-            await transaction.rollback();
-            return res.status(400).json({ message: 'Patent proof document is required' });
-        }
-
-        const patentProofBuffer = req.files['patent_proof_link'] ? req.files['patent_proof_link'][0].buffer : null;
-        const workingModelProofBuffer = req.files['working_model_proof_link'] ? req.files['working_model_proof_link'][0].buffer : null;
-        const prototypeProofBuffer = req.files['prototype_proof_link'] ? req.files['prototype_proof_link'][0].buffer : null;
+        const invList = parseInventors(inventors);
+        const patentProofBuffer = req.files && req.files['patent_proof_link'] ? req.files['patent_proof_link'][0].buffer : null;
+        const workingModelProofBuffer = req.files && req.files['working_model_proof_link'] ? req.files['working_model_proof_link'][0].buffer : null;
+        const prototypeProofBuffer = req.files && req.files['prototype_proof_link'] ? req.files['prototype_proof_link'][0].buffer : null;
 
         const newEntry = await PatentProduct.create({
             Userid: userId,
@@ -201,9 +223,18 @@ export const createParam = async (req, res) => {
             prototype_proof_link: prototypeProofBuffer
         }, { transaction });
 
-        await transaction.commit();
+        if (invList.length > 0) {
+            await PatentInventor.bulkCreate(
+                invList.map((name, idx) => ({
+                    patent_id: newEntry.id,
+                    inventor_name: name,
+                    inventor_order: idx + 1,
+                })),
+                { transaction }
+            );
+        }
 
-        console.log('Successfully created patent entry with ID:', newEntry.id);
+        await transaction.commit();
 
         res.status(201).json({
             message: 'Patent/product entry created successfully',
@@ -216,11 +247,67 @@ export const createParam = async (req, res) => {
     }
 };
 
+export const bulkCreatePatentProducts = async (req, res) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const userId = req.user?.userId || req.user?.Userid;
+        if (!userId) {
+            await transaction.rollback();
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const records = parseBulkRecords(req);
+        if (!Array.isArray(records) || records.length === 0) {
+            await transaction.rollback();
+            return res.status(400).json({ message: 'No valid records provided' });
+        }
+
+        const createdRecords = [];
+        for (const rec of records) {
+            const invList = parseInventors(rec.inventors || 'Faculty Inventor');
+            const entry = await PatentProduct.create({
+                Userid: userId,
+                project_title: String(rec.project_title || rec.title || '').trim(),
+                patent_status: String(rec.patent_status || rec.status || 'Filed').trim(),
+                month_year: rec.month_year ? String(rec.month_year).trim() : '2026-08',
+                application_no: rec.application_no ? String(rec.application_no).trim() : null,
+                patent_no: rec.patent_no ? String(rec.patent_no).trim() : null,
+                patent_proof_link: typeof rec.patent_proof_link === 'string' ? rec.patent_proof_link : null,
+                working_model_proof_link: typeof rec.working_model_proof_link === 'string' ? rec.working_model_proof_link : null,
+                prototype_proof_link: typeof rec.prototype_proof_link === 'string' ? rec.prototype_proof_link : null,
+            }, { transaction });
+
+            if (invList.length > 0) {
+                await PatentInventor.bulkCreate(
+                    invList.map((name, idx) => ({
+                        patent_id: entry.id,
+                        inventor_name: name,
+                        inventor_order: idx + 1,
+                    })),
+                    { transaction }
+                );
+            }
+            createdRecords.push(entry);
+        }
+
+        await transaction.commit();
+        res.status(201).json({
+            success: true,
+            message: `Successfully uploaded ${createdRecords.length} patent/product records`,
+            data: createdRecords,
+        });
+    } catch (error) {
+        await transaction.rollback();
+        console.error('Error bulk creating patent/product records:', error);
+        res.status(500).json({ message: 'Server error while bulk creating patent records', error: error.message });
+    }
+};
+
 // Update patent/product entry
 export const updateParam = async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
 
         if (!userId) {
             await transaction.rollback();
@@ -229,6 +316,7 @@ export const updateParam = async (req, res) => {
 
         const id = parseInt(req.params.id);
         if (!id || id <= 0) {
+            await transaction.rollback();
             return res.status(400).json({ message: 'Invalid ID provided' });
         }
 
@@ -237,10 +325,10 @@ export const updateParam = async (req, res) => {
             patent_status,
             month_year,
             working_model,
-            prototype_developed
+            prototype_developed,
+            inventors
         } = req.body;
 
-        // Validate input data
         const validationErrors = validatePatentData(req.body);
         if (validationErrors.length > 0) {
             await transaction.rollback();
@@ -260,7 +348,8 @@ export const updateParam = async (req, res) => {
             return res.status(404).json({ message: 'Patent/product entry not found or access denied' });
         }
 
-        // Get new file buffers or update only if provided
+        const invList = parseInventors(inventors);
+
         const updateData = {
             project_title: project_title.trim(),
             patent_status: patent_status.trim(),
@@ -282,6 +371,19 @@ export const updateParam = async (req, res) => {
         }
 
         await entry.update(updateData, { transaction });
+
+        // Refresh child inventors
+        await PatentInventor.destroy({ where: { patent_id: entry.id }, transaction });
+        if (invList.length > 0) {
+            await PatentInventor.bulkCreate(
+                invList.map((name, idx) => ({
+                    patent_id: entry.id,
+                    inventor_name: name,
+                    inventor_order: idx + 1,
+                })),
+                { transaction }
+            );
+        }
 
         await transaction.commit();
 

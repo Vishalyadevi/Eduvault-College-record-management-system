@@ -17,6 +17,7 @@ import {
   createPaymentDetail,
   updatePaymentDetail,
   deletePaymentDetail,
+  bulkCreateFundedProjects,
 } from '../../controllers/staff/fundedProjectController.js';
 
 // ─── MULTER SETUP ──────────────────────────────────────────────────────────────
@@ -30,13 +31,24 @@ const diskUpload = multer({
     destination: (_req, _file, cb) => cb(null, uploadsDir),
     filename: (_req, file, cb) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + '.pdf');
+      const ext = path.extname(file.originalname) || '.pdf';
+      cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     },
   }),
   fileFilter: (_req, file, cb) => {
-    file.mimetype === 'application/pdf'
-      ? cb(null, true)
-      : cb(new Error('Only PDF files are allowed'), false);
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/jpg',
+      'image/png'
+    ];
+    if (allowedMimeTypes.includes(file.mimetype) || file.originalname.match(/\.(pdf|doc|docx|jpg|jpeg|png)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Allowed file types: PDF, DOC, DOCX, JPG, PNG'), false);
+    }
   },
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
@@ -64,7 +76,12 @@ router.put('/payment/:id', authenticateToken, updatePaymentDetail);
 router.delete('/payment/:id', authenticateToken, deletePaymentDetail);
 
 // Parameterised project routes (wildcard — keep LAST among GET routes)
-router.get('/:id', authenticateToken, getFundedProjectById);
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+router.post('/bulk', authenticateToken, bulkUpload.any(), bulkCreateFundedProjects);
 router.post('/', authenticateToken, uploadFields, createFundedProject);
 router.put('/:id', authenticateToken, uploadFields, updateFundedProject);
 router.delete('/:id', authenticateToken, deleteFundedProject);

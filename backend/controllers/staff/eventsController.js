@@ -1,4 +1,6 @@
 import EventsAttended from '../../models/staff/EventsAttended.js';
+import EventTypeMaster from '../../models/staff/EventTypeMaster.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
 
 // validation middlewares used also in tests/other modules
 export const validateEventInfo = (req, res, next) => {
@@ -28,7 +30,7 @@ export const validateEventInfo = (req, res, next) => {
   if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
     return res.status(400).json({ message: 'Invalid date format' });
   }
-  if (fromDate >= toDate) {
+  if (fromDate > toDate) {
     return res.status(400).json({ message: 'From date must be before to date' });
   }
 
@@ -48,6 +50,8 @@ export const validateEventInfo = (req, res, next) => {
     }
   }
 
+
+
   if (data.organized_by && data.organized_by.trim().length > 100) {
     return res.status(400).json({ message: 'Organized by field cannot exceed 100 characters' });
   }
@@ -58,12 +62,14 @@ export const validateEventInfo = (req, res, next) => {
 // helper to clean incoming body data
 const cleanEventData = (data) => {
   const cleaned = {};
-  const textFields = ['programme_name', 'title', 'mode', 'organized_by'];
+  const textFields = ['programme_name', 'title', 'mode', 'organized_by', 'venue'];
   textFields.forEach((field) => {
     if (data[field] && data[field].toString().trim() !== '') {
       cleaned[field] = data[field].toString().trim();
     }
   });
+
+
 
   const intFields = ['participants'];
   intFields.forEach((field) => {
@@ -97,7 +103,7 @@ const cleanEventData = (data) => {
 
 export const getAllEvents = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const records = await EventsAttended.findAll({
@@ -114,7 +120,7 @@ export const getAllEvents = async (req, res) => {
 
 export const getEventById = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const record = await EventsAttended.findOne({ where: { id: req.params.id, Userid } });
@@ -128,7 +134,7 @@ export const getEventById = async (req, res) => {
 
 export const createEvent = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const cleanData = cleanEventData(req.body);
@@ -160,9 +166,69 @@ export const createEvent = async (req, res) => {
   }
 };
 
+export const bulkCreateEvents = async (req, res) => {
+  try {
+    const Userid = req.user?.userId || req.user?.Userid;
+    if (!Userid) return res.status(401).json({ message: 'User not authenticated' });
+
+    const records = parseBulkRecords(req);
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ message: 'No valid records provided for bulk upload' });
+    }
+
+    // Auto-create missing Event Types in EventTypeMaster
+    const uniqueTypes = [...new Set(records.map(r => String(r.programme_name || '').trim()).filter(Boolean))];
+    for (const typeName of uniqueTypes) {
+      try {
+        await EventTypeMaster.findOrCreate({
+          where: { type_name: typeName },
+          defaults: { status: 'Active', description: 'Added via Bulk Upload' }
+        });
+      } catch (err) {
+        console.warn(`Note auto-creating EventTypeMaster '${typeName}':`, err.message);
+      }
+    }
+
+    const preparedRecords = records.map((rec) => ({
+      Userid,
+      programme_name: String(rec.programme_name || 'Workshop').trim(),
+      title: String(rec.title || 'Attended Event').trim(),
+      from_date: rec.from_date || new Date().toISOString().split('T')[0],
+      to_date: rec.to_date || new Date().toISOString().split('T')[0],
+      mode: ['Online', 'Offline', 'Hybrid'].includes(rec.mode) ? rec.mode : 'Offline',
+      organized_by: String(rec.organized_by || 'Organizing Body').trim(),
+      venue: rec.venue ? String(rec.venue).trim() : null,
+      participants: parseInt(rec.participants, 10) || 1,
+      financial_support: rec.financial_support === true || rec.financial_support === 'true' || rec.financial_support === 'Yes',
+      support_amount: rec.support_amount ? parseFloat(rec.support_amount) || 0 : 0,
+      status: 'Pending',
+      Created_by: Userid,
+      permission_letter_link: typeof rec.permission_letter_link === 'string' ? rec.permission_letter_link : null,
+      certificate_link: typeof rec.certificate_link === 'string' ? rec.certificate_link : null,
+      financial_proof_link: typeof rec.financial_proof_link === 'string' ? rec.financial_proof_link : null,
+      programme_report_link: typeof rec.programme_report_link === 'string' ? rec.programme_report_link : null,
+    }));
+
+    const created = await EventsAttended.bulkCreate(preparedRecords);
+    res.status(201).json({
+      success: true,
+      message: `Successfully uploaded ${created.length} event records`,
+      count: created.length,
+      data: created,
+    });
+  } catch (error) {
+    console.error('Error bulk creating staff event records:', error);
+    res.status(400).json({
+      message: `Failed to save bulk records: ${error.message}`,
+      error: error.message,
+      details: error.errors ? error.errors.map(e => e.message) : [error.message]
+    });
+  }
+};
+
 export const updateEvent = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const record = await EventsAttended.findOne({ where: { id: req.params.id, Userid } });
@@ -205,7 +271,7 @@ export const patchEvent = async (req, res) => {
 
 export const getDocument = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const { id, type } = req.params;
@@ -248,7 +314,7 @@ export const getDocument = async (req, res) => {
 
 export const deleteEvent = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.userId || req.user?.Userid;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const record = await EventsAttended.findOne({ where: { id: req.params.id, Userid } });

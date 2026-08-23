@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Download, FileText, File, Upload } from 'lucide-react';
+import { Plus, File, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import MasterSelect from '../../components/MasterSelect';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import api, { getCertificationCourses, bulkCreateCertifications } from '../../services/api';
 
 const CertificationsPage = () => {
   const [certifications, setCertifications] = useState([]);
@@ -13,7 +16,66 @@ const CertificationsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentCertification, setCurrentCertification] = useState(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [masterCourseOptions, setMasterCourseOptions] = useState([]);
+  const [offeredByOptions, setOfferedByOptions] = useState([
+    { value: '', label: 'Select Organization / Course Master' }
+  ]);
+
+  const certExcelColumns = [
+    {
+      key: 'course_name',
+      label: 'Course Name',
+      required: true,
+      options: masterCourseOptions.length > 0 ? masterCourseOptions : ['NPTEL Online Certification', 'SWAYAM Course', 'Coursera Specialization', 'Udemy Professional Certificate', 'edX Verified Certificate'],
+      isDynamicMaster: true,
+      example: 'Deep Learning Specialization'
+    },
+    {
+      key: 'offered_by',
+      label: 'Offered By',
+      required: true,
+      options: offeredByOptions.map(o => o.label).filter(l => l && !l.startsWith('Select')),
+      isDynamicMaster: true,
+      example: 'Coursera'
+    },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-01-01' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-03-31' },
+    { key: 'hours', label: 'Number of Hours', required: true, type: 'number', example: 40 },
+    { key: 'weeks', label: 'Number of Weeks', required: true, type: 'number', example: 4 },
+    { key: 'certification_date', label: 'Certification Date', required: true, type: 'date', example: '2026-04-01' },
+    { key: 'certificate_pdf', label: 'Certificate Document File Name', required: false, type: 'file', example: 'certification_proof.pdf' }
+  ];
+
+  const handleBulkUploadCertifications = async (validRows) => {
+    await bulkCreateCertifications(validRows);
+    await fetchCertifications();
+  };
   const fileInputRef = useRef(null);
+
+  const fetchOfferedByList = async () => {
+    try {
+      const res = await getCertificationCourses({ status: 'Active' });
+      let list = [];
+      if (Array.isArray(res)) list = res;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+      if (list.length > 0) {
+        setMasterCourseOptions([...new Set(list.map(c => c.course_name).filter(Boolean))]);
+        setOfferedByOptions([
+          { value: '', label: 'Select Offered By' },
+          ...list.map(c => ({ value: c.course_name, label: `${c.course_name}${c.provider && c.provider !== c.course_name ? ` (${c.provider})` : ''}` }))
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching certification master list:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOfferedByList();
+  }, []);
 
   // File state
   const [certificateFile, setCertificateFile] = useState(null);
@@ -23,9 +85,10 @@ const CertificationsPage = () => {
     offered_by: '',
     from_date: '',
     to_date: '',
-    days: '',
+    hours: '',
     weeks: '',
-    certification_date: ''
+    certification_date: '',
+    status: 'Completed'
   });
 
   const fetchCertifications = async () => {
@@ -54,13 +117,13 @@ const CertificationsPage = () => {
     fetchCertifications();
   }, []);
 
-  const calculateWeeks = (days) => {
-    if (!days || days <= 0) return '';
-    return Math.round((days / 7) * 10) / 10;
+  const calculateWeeks = (hours) => {
+    if (!hours || hours <= 0) return 0;
+    return Math.round((hours / 40) * 10) / 10;
   };
 
-  const calculateDays = (fromDate, toDate) => {
-    if (!fromDate || !toDate) return '';
+  const calculateHours = (fromDate, toDate) => {
+    if (!fromDate || !toDate) return 0;
     const from = new Date(fromDate);
     const to = new Date(toDate);
     const differenceInTime = to - from;
@@ -74,30 +137,6 @@ const CertificationsPage = () => {
       ...prev,
       [name]: value
     }));
-
-    if (name === 'from_date' || name === 'to_date') {
-      const fromDate = name === 'from_date' ? value : formData.from_date;
-      const toDate = name === 'to_date' ? value : formData.to_date;
-
-      if (fromDate && toDate) {
-        const days = calculateDays(fromDate, toDate);
-        const weeks = calculateWeeks(days);
-
-        if (days > 0) {
-          setFormData(prev => ({
-            ...prev,
-            days: days.toString(),
-            weeks: weeks.toString()
-          }));
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            days: '',
-            weeks: ''
-          }));
-        }
-      }
-    }
   };
 
   const handleFileChange = (e) => {
@@ -123,9 +162,10 @@ const CertificationsPage = () => {
       offered_by: '',
       from_date: '',
       to_date: '',
-      days: '',
+      hours: '',
       weeks: '',
-      certification_date: ''
+      certification_date: '',
+      status: 'Completed'
     });
     setCertificateFile(null);
     if (fileInputRef.current) {
@@ -140,8 +180,17 @@ const CertificationsPage = () => {
     setIsModalOpen(true);
   };
 
+  const ensureOfferedByInOptions = (offeredBy) => {
+    if (!offeredBy) return;
+    setOfferedByOptions((prev) => {
+      if (prev.some((opt) => opt.value === offeredBy)) return prev;
+      return [...prev, { value: offeredBy, label: offeredBy }];
+    });
+  };
+
   const handleEdit = (certification) => {
     setCurrentCertification(certification);
+    ensureOfferedByInOptions(certification.offered_by);
 
     const fromDate = certification.from_date ? certification.from_date.split('T')[0] : '';
     const toDate = certification.to_date ? certification.to_date.split('T')[0] : '';
@@ -152,9 +201,10 @@ const CertificationsPage = () => {
       offered_by: certification.offered_by || '',
       from_date: fromDate,
       to_date: toDate,
-      days: certification.days?.toString() || '',
+      hours: certification.hours?.toString() || '',
       weeks: certification.weeks?.toString() || '',
-      certification_date: certDate
+      certification_date: certDate,
+      status: certification.status || 'Completed'
     });
     setCertificateFile(null);
     setIsViewMode(false);
@@ -163,6 +213,7 @@ const CertificationsPage = () => {
 
   const handleView = (certification) => {
     setCurrentCertification(certification);
+    ensureOfferedByInOptions(certification.offered_by);
 
     const fromDate = certification.from_date ? certification.from_date.split('T')[0] : '';
     const toDate = certification.to_date ? certification.to_date.split('T')[0] : '';
@@ -173,9 +224,10 @@ const CertificationsPage = () => {
       offered_by: certification.offered_by || '',
       from_date: fromDate,
       to_date: toDate,
-      days: certification.days?.toString() || '',
+      hours: certification.hours?.toString() || '',
       weeks: certification.weeks?.toString() || '',
-      certification_date: certDate
+      certification_date: certDate,
+      status: certification.status || 'Completed'
     });
     setIsViewMode(true);
     setIsModalOpen(true);
@@ -194,13 +246,25 @@ const CertificationsPage = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
     try {
       setIsSubmitting(true);
 
-      if (!formData.course_name?.trim() || !formData.offered_by?.trim() || 
-          !formData.from_date || !formData.to_date || !formData.certification_date) {
+      if (!formData.course_name.trim() || !formData.offered_by.trim() || !formData.from_date || !formData.to_date || !formData.certification_date) {
         toast.error('Please fill in all required fields');
+        return;
+      }
+
+      const calculatedH = calculateHours(formData.from_date, formData.to_date);
+      const calculatedW = calculateWeeks(calculatedH);
+
+      const numHours = (formData.hours !== '' && !isNaN(parseFloat(formData.hours))) ? parseFloat(formData.hours) : calculatedH;
+      const numWeeks = (formData.weeks !== '' && !isNaN(parseFloat(formData.weeks))) ? parseFloat(formData.weeks) : calculatedW;
+
+      if (numHours <= 0 || numWeeks <= 0) {
+        toast.error('Hours and Weeks must be greater than 0');
         return;
       }
 
@@ -228,27 +292,27 @@ const CertificationsPage = () => {
       submitData.append('offered_by', formData.offered_by.trim());
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
+      submitData.append('hours', numHours.toString());
+      submitData.append('weeks', numWeeks.toString());
       submitData.append('certification_date', formData.certification_date);
+      submitData.append('status', formData.status || 'Completed');
 
       if (certificateFile) {
         submitData.append('certificate_pdf', certificateFile);
       }
 
       if (currentCertification) {
-        await api.put(`/certifications/${currentCertification.id}`, submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await api.put(`/certifications/${currentCertification.id}`, submitData);
         toast.success('Certification updated successfully');
       } else {
-        await api.post('/certifications', submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await api.post('/certifications', submitData);
         toast.success('Certification created successfully');
       }
 
       setIsModalOpen(false);
       resetForm();
       fetchCertifications();
+      fetchOfferedByList();
     } catch (error) {
       console.error('Error saving certification:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save certification';
@@ -263,20 +327,29 @@ const CertificationsPage = () => {
     
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
+      if (Number.isNaN(date.getTime())) return dateString;
       
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
-    } catch (error) {
+    } catch {
       return dateString;
     }
   };
 
   const getFileUrl = (filePath) => {
     if (!filePath) return null;
-    return `${api.defaults.baseURL}/../${filePath}`;
+    let normalized = String(filePath).replace(/\\/g, '/');
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+    normalized = normalized.replace(/^\/+/, '');
+    if (!normalized.toLowerCase().startsWith('uploads/')) {
+      normalized = `uploads/${normalized}`;
+    }
+    const baseUrl = (api.defaults?.baseURL || 'http://localhost:4000/institute_management_system').replace(/\/+$/, '');
+    return `${baseUrl}/${normalized}`;
   };
 
   const columns = [
@@ -292,12 +365,24 @@ const CertificationsPage = () => {
       header: 'To Date',
       render: (row) => formatDate(row.to_date)
     },
-    { field: 'days', header: 'Days' },
+    { field: 'hours', header: 'Hours' },
     { field: 'weeks', header: 'Weeks' },
     { 
       field: 'certification_date', 
       header: 'Certification Date',
       render: (row) => formatDate(row.certification_date)
+    },
+    {
+      field: 'status',
+      header: 'Status',
+      render: (row) => (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+          row.status === 'Completed' ? 'bg-green-100 text-green-800' :
+          row.status === 'Ongoing' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+        }`}>
+          {row.status || 'Completed'}
+        </span>
+      )
     },
     {
       field: 'certificate_pdf',
@@ -323,15 +408,25 @@ const CertificationsPage = () => {
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button
-          onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New Certification
-        </button>
-      </div>
+         <div className="flex justify-between items-center mb-4">
+               <h1 className="text-2xl font-bold text-gray-900">Certification Courses</h1>
+               <div className="flex items-center gap-3">
+                 <button
+                   className="btn flex items-center gap-2 text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors"
+                   onClick={() => setIsBulkModalOpen(true)}
+                 >
+                   <Upload size={16} />
+                   Bulk Upload Excel
+                 </button>
+                 <button
+                   className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md text-sm font-semibold transition-colors"
+                   onClick={handleAddNew}
+                 >
+                   <Plus size={16} />
+                   Add Certification Course
+                 </button>
+               </div>
+             </div>
 
       <DataTable
         data={certifications}
@@ -363,14 +458,14 @@ const CertificationsPage = () => {
               disabled={isViewMode}
               placeholder="e.g., Machine Learning Fundamentals"
             />
-            <FormField
+            <MasterSelect
               label="Offered By"
               name="offered_by"
               value={formData.offered_by}
               onChange={handleInputChange}
+              masterType="certification-course"
               required
               disabled={isViewMode}
-              placeholder="e.g., SWAYAM, NPTEL, Coursera"
             />
           </div>
 
@@ -397,12 +492,15 @@ const CertificationsPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
-              label="Number of Days"
-              name="days"
+              label="Number of Hours"
+              name="hours"
               type="number"
-              value={formData.days}
-              disabled={true}
-              placeholder="Auto-calculated"
+              value={formData.hours}
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+              placeholder="e.g., 40"
+              min="1"
             />
             <FormField
               label="Number of Weeks"
@@ -410,90 +508,70 @@ const CertificationsPage = () => {
               type="number"
               step="0.1"
               value={formData.weeks}
-              disabled={true}
-              placeholder="Auto-calculated"
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+              placeholder="e.g., 4"
+              min="0.1"
             />
           </div>
 
-          <FormField
-            label="Certification Date"
-            name="certification_date"
-            type="date"
-            value={formData.certification_date}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Certification Date"
+              name="certification_date"
+              type="date"
+              value={formData.certification_date}
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+            />
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="status"
+                value={formData.status || 'Completed'}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="Completed">Completed</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Registered">Registered</option>
+                <option value="Pursuing">Pursuing</option>
+              </select>
+            </div>
+          </div>
 
           {/* File Upload Section */}
           <div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Certificate PDF
-    {!isViewMode && !currentCertification && (
-      <span className="text-red-500 ml-1">*</span>
-    )}
-  </label>
-
-  {isViewMode ? (
-    currentCertification?.certificate_pdf ? (
-      <a
-        href={getFileUrl(currentCertification.certificate_pdf)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-indigo-600 hover:text-blue-800 underline flex items-center gap-1"
-      >
-        <File size={16} />
-        View Certificate Document
-      </a>
-    ) : (
-      <span className="text-gray-500 text-sm">No file uploaded</span>
-    )
-  ) : (
-    <div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf"
-        onChange={handleFileChange}
-        disabled={isViewMode}
-        className="block w-full text-sm text-gray-500
-          file:mr-4 file:py-2 file:px-4
-          file:rounded-md file:border-0
-          file:text-sm file:font-semibold
-          file:bg-indigo-50 file:text-indigo-700
-          hover:file:bg-indigo-100"
-      />
-
-      {certificateFile && (
-        <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
-          <File size={14} />
-          Selected: {certificateFile.name}
-        </p>
-      )}
-
-      {currentCertification?.certificate_pdf && !certificateFile && (
-        <a
-          href={getFileUrl(currentCertification.certificate_pdf)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 text-xs text-indigo-600 hover:text-blue-800 flex items-center gap-1"
-        >
-          <File size={14} />
-          Current File
-        </a>
-      )}
-
-      <p className="text-xs text-gray-500 mt-1">
-        {currentCertification
-          ? 'Upload new file to replace existing'
-          : 'Max file size: 10MB'}
-      </p>
-    </div>
-  )}
-</div>
+            <FileUploadField
+              label="Certificate PDF"
+              name="certificate_pdf"
+              accept=".pdf"
+              value={isViewMode ? currentCertification?.certificate_pdf : (certificateFile || currentCertification?.certificate_pdf)}
+              onChange={(file) => setCertificateFile(file)}
+              onClear={() => setCertificateFile(null)}
+              required={!isViewMode && !currentCertification}
+              disabled={isViewMode}
+              hint={currentCertification ? "Upload a new PDF to replace current document" : "PDF format up to 10MB"}
+            />
+          </div>
 
         </div>
       </Modal>
+
+      {/* Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        title="Bulk Upload Certification Courses"
+        columns={certExcelColumns}
+        onUpload={handleBulkUploadCertifications}
+        templateFilename="Certification_Courses_Template.xlsx"
+      />
     </div>
   );
 };

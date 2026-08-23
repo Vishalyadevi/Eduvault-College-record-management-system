@@ -7,7 +7,8 @@ import {
     patchEvent,
     getDocument,
     deleteEvent,
-    validateEventInfo
+    validateEventInfo,
+    bulkCreateEvents
 } from '../../controllers/staff/eventsController.js';
 import { authenticate } from '../../middlewares/requireauth.js';
 import multer from 'multer';
@@ -27,6 +28,11 @@ const memoryUpload = multer({
     }
 });
 
+const bulkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 const router = express.Router();
 
 // All routes require authentication
@@ -34,6 +40,7 @@ router.use(authenticate);
 
 router.get('/', getAllEvents);
 router.get('/:id', getEventById);
+router.post('/bulk', bulkUpload.any(), bulkCreateEvents);
 
 const uploadFields = memoryUpload.fields([
     { name: 'permission_letter_link', maxCount: 1 },

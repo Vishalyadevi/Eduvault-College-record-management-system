@@ -3,7 +3,7 @@ import axios from "axios";
 const DEBUG_API = import.meta.env.VITE_DEBUG_API === "true";
 
 const API = axios.create({
-  baseURL: "http://localhost:4000/api", // Ensure this matches your backend port (4000)
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
   withCredentials: true,
 });
 

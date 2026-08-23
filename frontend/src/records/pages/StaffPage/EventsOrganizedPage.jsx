@@ -3,16 +3,23 @@ import { Plus, FileText, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import { getEventsOrganized, createEventOrganized, updateEventOrganized, deleteEventOrganized } from '../../services/api';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import { getEventsOrganized, createEventOrganized, updateEventOrganized, deleteEventOrganized, getFundingAgencies, getEventTypes, bulkCreateEventsOrganized } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const EventsOrganizedPage = () => {
   const [eventsOrganized, setEventsOrganized] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentRecord, setCurrentRecord] = useState(null);
+  const [eventTypeOptions, setEventTypeOptions] = useState([]);
+  const [fundingAgencyOptions, setFundingAgencyOptions] = useState([
+    { value: '', label: 'Select Funding Agency' }
+  ]);
 
   const [formData, setFormData] = useState({
     program_name: '',
@@ -23,8 +30,11 @@ const EventsOrganizedPage = () => {
     from_date: '',
     to_date: '',
     days: '',
+    funding_type: 'Without Fund',
+    funding_agency: '',
     sponsored_by: '',
     amount_sanctioned: '',
+    amount_received: '',
     participants: '',
     proof: null,
     documentation: null
@@ -52,29 +62,49 @@ const EventsOrganizedPage = () => {
   };
 
   useEffect(() => {
+    const fetchAgencies = async () => {
+      try {
+        const res = await getFundingAgencies({ status: 'Active' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+        if (list.length > 0) {
+          setFundingAgencyOptions([
+            { value: '', label: 'Select Funding Agency' },
+            ...list.map(a => ({ value: a.agency_name, label: a.agency_name }))
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching funding agencies:', err);
+      }
+    };
+
+    const fetchEventTypesData = async () => {
+      try {
+        const res = await getEventTypes({ status: 'Active' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+        if (list.length > 0) {
+          setEventTypeOptions(list.map(t => t.type_name));
+        }
+      } catch (err) {
+        console.error('Error fetching event types:', err);
+      }
+    };
+
+    fetchAgencies();
+    fetchEventTypesData();
     fetchEventsOrganized();
   }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Auto-calculate days when dates change
-    if (name === 'from_date' || name === 'to_date') {
-      const fromDate = name === 'from_date' ? value : formData.from_date;
-      const toDate = name === 'to_date' ? value : formData.to_date;
-      
-      if (fromDate && toDate) {
-        const from = new Date(fromDate);
-        const to = new Date(toDate);
-        
-        if (from <= to) {
-          const timeDiff = to.getTime() - from.getTime();
-          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
-          setFormData((prev) => ({ ...prev, days: daysDiff.toString() }));
-        }
-      }
-    }
   };
 
   const handleFileChange = (e) => {
@@ -109,8 +139,11 @@ const EventsOrganizedPage = () => {
       from_date: '',
       to_date: '',
       days: '',
+      funding_type: 'Without Fund',
+      funding_agency: '',
       sponsored_by: '',
       amount_sanctioned: '',
+      amount_received: '',
       participants: '',
       proof: null,
       documentation: null
@@ -153,7 +186,8 @@ const EventsOrganizedPage = () => {
           ? `/events-organized/proof/${record.id}` 
           : `/events-organized/documentation/${record.id}`;
 
-        const response = await fetch(`http://localhost:4000/api${endpoint}`, {
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+        const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -193,7 +227,18 @@ const EventsOrganizedPage = () => {
     setIsModalOpen(true);
   };
 
+  const ensureAgencyInOptions = (agencyName) => {
+    if (!agencyName) return;
+    setFundingAgencyOptions((prev) => {
+      if (prev.some((opt) => opt.value === agencyName)) return prev;
+      return [...prev, { value: agencyName, label: agencyName }];
+    });
+  };
+
   const handleEdit = (record) => {
+    const fundingAgencyVal = record.funding_agency || record.sponsored_by || '';
+    ensureAgencyInOptions(fundingAgencyVal);
+
     const formDataTemp = {
       program_name: record.program_name || '',
       program_title: record.program_title || '',
@@ -203,23 +248,17 @@ const EventsOrganizedPage = () => {
       from_date: formatDate(record.from_date) || '',
       to_date: formatDate(record.to_date) || '',
       days: record.days?.toString() || '',
+      funding_type: record.funding_type || (record.amount_sanctioned || record.funding_agency || record.sponsored_by ? 'With Fund' : 'Without Fund'),
+      funding_agency: fundingAgencyVal,
       sponsored_by: record.sponsored_by || '',
       amount_sanctioned: record.amount_sanctioned?.toString() || '',
+      amount_received: record.amount_received?.toString() || '',
       participants: record.participants?.toString() || '',
       proof: null,
       documentation: null
     };
 
-    // Recalculate days if dates are present but days is empty
-    if (formDataTemp.from_date && formDataTemp.to_date && !formDataTemp.days) {
-      const from = new Date(formDataTemp.from_date);
-      const to = new Date(formDataTemp.to_date);
-      if (from <= to) {
-        const timeDiff = to.getTime() - from.getTime();
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-        formDataTemp.days = daysDiff.toString();
-      }
-    }
+
 
     setCurrentRecord(record);
     setFormData(formDataTemp);
@@ -228,6 +267,9 @@ const EventsOrganizedPage = () => {
   };
 
   const handleView = (record) => {
+    const fundingAgencyVal = record.funding_agency || record.sponsored_by || '';
+    ensureAgencyInOptions(fundingAgencyVal);
+
     setCurrentRecord(record);
     setFormData({
       program_name: record.program_name || '',
@@ -238,8 +280,11 @@ const EventsOrganizedPage = () => {
       from_date: formatDate(record.from_date) || '',
       to_date: formatDate(record.to_date) || '',
       days: record.days?.toString() || '',
+      funding_type: record.funding_type || (record.amount_sanctioned || record.funding_agency || record.sponsored_by ? 'With Fund' : 'Without Fund'),
+      funding_agency: fundingAgencyVal,
       sponsored_by: record.sponsored_by || '',
       amount_sanctioned: record.amount_sanctioned?.toString() || '',
+      amount_received: record.amount_received?.toString() || '',
       participants: record.participants?.toString() || '',
       proof: null,
       documentation: null
@@ -270,6 +315,11 @@ const EventsOrganizedPage = () => {
         return;
       }
 
+      if (formData.funding_type === 'With Fund' && !formData.funding_agency) {
+        toast.error('Please select a Funding Agency');
+        return;
+      }
+
       // Validate dates
       const fromDate = new Date(formData.from_date);
       const toDate = new Date(formData.to_date);
@@ -289,8 +339,20 @@ const EventsOrganizedPage = () => {
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
       submitData.append('days', formData.days);
-      submitData.append('sponsored_by', formData.sponsored_by);
-      submitData.append('amount_sanctioned', formData.amount_sanctioned);
+      submitData.append('funding_type', formData.funding_type);
+      
+      if (formData.funding_type === 'With Fund') {
+        submitData.append('funding_agency', formData.funding_agency);
+        submitData.append('sponsored_by', formData.funding_agency);
+        submitData.append('amount_sanctioned', formData.amount_sanctioned);
+        submitData.append('amount_received', formData.amount_received);
+      } else {
+        submitData.append('funding_agency', '');
+        submitData.append('sponsored_by', '');
+        submitData.append('amount_sanctioned', '');
+        submitData.append('amount_received', '');
+      }
+
       submitData.append('participants', formData.participants);
 
       // Append files if they exist
@@ -338,10 +400,31 @@ const EventsOrganizedPage = () => {
     },
     { field: 'days', header: 'Number of Days' },
     { field: 'participants', header: 'Number of Participants' },
-    { field: 'sponsored_by', header: 'Sponsored By' },
+    {
+      field: 'funding_type',
+      header: 'Funding Status',
+      render: (row) => (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+          (row.funding_type === 'With Fund' || row.sponsored_by || row.funding_agency) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+        }`}>
+          {row.funding_type || ((row.sponsored_by || row.funding_agency) ? 'With Fund' : 'Without Fund')}
+        </span>
+      )
+    },
+    {
+      field: 'funding_agency',
+      header: 'Funding Agency',
+      render: (row) => row.funding_agency || row.sponsored_by || '-'
+    },
     { 
       field: 'amount_sanctioned', 
       header: 'Amount Sanctioned',
+      render: (row) => row.amount_sanctioned ? `₹${row.amount_sanctioned}` : '-'
+    },
+    { 
+      field: 'amount_received', 
+      header: 'Amount Received',
+      render: (row) => row.amount_received ? `₹${row.amount_received}` : '-'
     },
     { 
       field: 'proof', 
@@ -355,16 +438,56 @@ const EventsOrganizedPage = () => {
     }
   ];
 
+  const excelColumns = [
+    {
+      key: 'program_name',
+      label: 'Program Name',
+      required: true,
+      options: eventTypeOptions.length > 0 ? eventTypeOptions : ['Workshop', 'Seminar', 'Conference', 'FDP', 'Webinar', 'Hackathon'],
+      isDynamicMaster: true,
+      example: 'National Conference on AI'
+    },
+    { key: 'program_title', label: 'Program Title', required: true, example: 'Generative AI & LLMs in Engineering' },
+    { key: 'coordinator_name', label: 'Coordinator Name', required: true, example: 'Dr. Sarah Connor' },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-06-10' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-06-12' },
+    { key: 'participants', label: 'Number of Participants', required: false, type: 'number', example: 120 },
+    { key: 'funding_type', label: 'Funding Status', required: false, options: ['With Fund', 'Without Fund'], example: 'With Fund' },
+    {
+      key: 'funding_agency',
+      label: 'Funding Agency',
+      required: false,
+      options: fundingAgencyOptions.map(o => o.label).filter(l => l && !l.startsWith('Select')),
+      isDynamicMaster: true,
+      example: 'AICTE'
+    },
+    { key: 'amount_sanctioned', label: 'Amount Sanctioned', required: false, type: 'number', example: 100000 },
+    { key: 'amount_received', label: 'Amount Received', required: false, type: 'number', example: 100000 },
+    { key: 'proof', label: 'Proof Document File Name', required: false, type: 'file', example: 'event_proof.pdf' },
+    { key: 'documentation', label: 'Documentation File Name', required: false, type: 'file', example: 'event_report.pdf' },
+  ];
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button 
-          onClick={handleAddNew}           
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New Event
-        </button>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">Events Organized</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button 
+            onClick={handleAddNew}           
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add New Event
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -454,9 +577,9 @@ const EventsOrganizedPage = () => {
             value={formData.days}
             onChange={handleInputChange}
             required
-            disabled={isViewMode || (formData.from_date && formData.to_date)}
+            disabled={isViewMode}
             min="1"
-            placeholder="Auto-calculated from dates"
+            placeholder="Enter number of days"
           />
           <FormField
             label="Number of Participants"
@@ -468,114 +591,123 @@ const EventsOrganizedPage = () => {
             disabled={isViewMode}
             min="1"
           />
-          <FormField
-            label="Sponsored By"
-            name="sponsored_by"
-            value={formData.sponsored_by}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional"
-          />
-          <FormField
-            label="Amount Sanctioned"
-            name="amount_sanctioned"
-            type="number"
-            value={formData.amount_sanctioned}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Optional"
-            step="0.01"
-          />
+
+          {/* Funding Section */}
+          <div className="md:col-span-2 border-t pt-4 mt-2">
+            <label className="block text-sm font-bold text-gray-800 mb-2">
+              Funding Details
+            </label>
+            <div className="flex items-center gap-6 mb-4">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="funding_type"
+                  value="Without Fund"
+                  checked={formData.funding_type === 'Without Fund'}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Without Fund</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="funding_type"
+                  value="With Fund"
+                  checked={formData.funding_type === 'With Fund'}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-gray-700">With Fund</span>
+              </label>
+            </div>
+
+            {formData.funding_type === 'With Fund' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Funding Agency <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="funding_agency"
+                    value={formData.funding_agency}
+                    onChange={handleInputChange}
+                    disabled={isViewMode}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                  >
+                    {fundingAgencyOptions.map((opt, idx) => (
+                      <option key={idx} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <FormField
+                  label="Amount Sanctioned (₹)"
+                  name="amount_sanctioned"
+                  type="number"
+                  value={formData.amount_sanctioned}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  placeholder="e.g. 50000"
+                  step="0.01"
+                />
+                <FormField
+                  label="Amount Received (₹)"
+                  name="amount_received"
+                  type="number"
+                  value={formData.amount_received}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  placeholder="e.g. 50000"
+                  step="0.01"
+                />
+              </div>
+            )}
+          </div>
           
           {/* File Upload Fields */}
           <div className="md:col-span-2 space-y-4">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      Proof Document (PDF only, max 10MB)
-    </label>
+            <FileUploadField
+              label="Proof Document"
+              name="proof"
+              accept=".pdf"
+              value={formData.proof || (isViewMode && currentRecord?.proof ? 'available' : null)}
+              disabled={isViewMode}
+              onChange={(file) => setFormData((prev) => ({ ...prev, proof: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, proof: null }))}
+              hint="PDF document up to 10MB"
+            />
 
-    {isViewMode ? (
-      currentRecord?.proof ? (
-        renderFileLink(currentRecord, 'Proof', 'proof')
-      ) : (
-        <span className="text-gray-400">No proof uploaded</span>
-      )
-    ) : (
-      <>
-        <input
-          type="file"
-          name="proof"
-          accept=".pdf"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-md file:border-0
-            file:text-sm file:font-semibold
-            file:bg-indigo-50 file:text-indigo-700
-            hover:file:bg-indigo-100"
-        />
-
-        {formData.proof && (
-          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-            <Upload size={14} />
-            Selected: {formData.proof.name}
-          </p>
-        )}
-
-        {currentRecord?.proof && !formData.proof && (
-          <p className="text-xs text-gray-500 mt-1">
-            Current: {renderFileLink(currentRecord, 'Proof', 'proof')}
-          </p>
-        )}
-      </>
-    )}
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      Documentation (PDF only, max 10MB)
-    </label>
-
-    {isViewMode ? (
-      currentRecord?.documentation ? (
-        renderFileLink(currentRecord, 'Documentation', 'documentation')
-      ) : (
-        <span className="text-gray-400">No documentation uploaded</span>
-      )
-    ) : (
-      <>
-        <input
-          type="file"
-          name="documentation"
-          accept=".pdf"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-md file:border-0
-            file:text-sm file:font-semibold
-            file:bg-indigo-50 file:text-indigo-700
-            hover:file:bg-indigo-100"
-        />
-
-        {formData.documentation && (
-          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-            <Upload size={14} />
-            Selected: {formData.documentation.name}
-          </p>
-        )}
-
-        {currentRecord?.documentation && !formData.documentation && (
-          <p className="text-xs text-gray-500 mt-1">
-            Current: {renderFileLink(currentRecord, 'Documentation', 'documentation')}
-          </p>
-        )}
-      </>
-    )}
-  </div>
-</div>
+            <FileUploadField
+              label="Documentation"
+              name="documentation"
+              accept=".pdf"
+              value={formData.documentation || (isViewMode && currentRecord?.documentation ? 'available' : null)}
+              disabled={isViewMode}
+              onChange={(file) => setFormData((prev) => ({ ...prev, documentation: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, documentation: null }))}
+              hint="PDF document up to 10MB"
+            />
+          </div>
 
         </div>
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Events Organized"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateEventsOrganized(validRows);
+          fetchEventsOrganized();
+        }}
+        templateFilename="Events_Organized_Template.xlsx"
+      />
     </div>
   );
 };

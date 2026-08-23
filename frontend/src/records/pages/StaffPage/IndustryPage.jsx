@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, FileText, ExternalLink, X } from 'lucide-react';
+import { Plus, FileText, ExternalLink, X, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import { 
   getIndustryKnowhow, 
   createIndustryKnowhow, 
   updateIndustryKnowhow, 
   deleteIndustryKnowhow,
-  getIndustryCertificatePDF 
+  getIndustryCertificatePDF,
+  bulkCreateIndustryKnowhow
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -16,6 +19,7 @@ const IndustryPage = () => {
   const [industry, setIndustry] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -205,11 +209,11 @@ const IndustryPage = () => {
       setIsSubmitting(true);
       
       // Validate required fields
-      const requiredFields = ['internship_name', 'title', 'company', 'outcomes', 'from_date', 'to_date', 'venue', 'participants'];
+      const requiredFields = ['internship_name', 'title', 'company', 'from_date', 'to_date', 'participants'];
       const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
       
       if (missingFields.length > 0) {
-        toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
+        toast.error(`Please fill in required fields: ${missingFields.join(', ')}`);
         return;
       }
 
@@ -230,10 +234,10 @@ const IndustryPage = () => {
       submitData.append('internship_name', formData.internship_name.trim());
       submitData.append('title', formData.title.trim());
       submitData.append('company', formData.company.trim());
-      submitData.append('outcomes', formData.outcomes.trim());
+      submitData.append('outcomes', (formData.outcomes || 'N/A').trim());
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
-      submitData.append('venue', formData.venue.trim());
+      submitData.append('venue', (formData.venue || formData.company || 'Main Campus').trim());
       submitData.append('participants', parseInt(formData.participants));
       submitData.append('financial_support', Boolean(formData.financial_support));
       
@@ -388,17 +392,36 @@ const IndustryPage = () => {
 
   console.log('industry state:', industry, 'Type:', typeof industry, 'IsArray:', Array.isArray(industry));
 
+  const excelColumns = [
+    { key: 'company_name', label: 'Company Name', required: true, example: 'Tata Consultancy Services' },
+    { key: 'field_name', label: 'Field / Domain', required: true, example: 'Cloud Architecture & DevOps' },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-05-01' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-05-15' },
+    { key: 'outcomes', label: 'Outcomes', required: false, example: 'Industry Certification Earned' },
+    { key: 'certificate_link', label: 'Certificate Document File Name', required: false, type: 'file', example: 'industry_certificate.pdf' },
+  ];
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        
-        <button
-          onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-indigo-600 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md transition-all duration-200"
-        >
-          <Plus size={16} />
-          Add New Industry Knowhow
-        </button>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">Industry Knowhow</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold transition-all duration-200"
+          >
+            <Plus size={16} />
+            Add New Industry Knowhow
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -519,71 +542,26 @@ const IndustryPage = () => {
             />
           )}
           <FormField
-  label="Certificate Link"
-  name="certificate_link"
-  value={formData.certificate_link}
-  onChange={handleInputChange}
-  disabled={isViewMode}
-  placeholder="URL to certificate"
-/>
+            label="Certificate Link"
+            name="certificate_link"
+            value={formData.certificate_link}
+            onChange={handleInputChange}
+            disabled={isViewMode}
+            placeholder="URL to certificate"
+          />
 
-{!isViewMode && (
-  <div className="col-span-2">
-    <label className="block text-sm font-medium text-black mb-2">
-      Certificate PDF
-    </label>
-
-    <input
-      type="file"
-      accept="application/pdf"
-      onChange={handleFileChange}
-      disabled={isViewMode}
-      className="block w-full text-sm text-gray-500
-        file:mr-4 file:py-2 file:px-4
-        file:rounded-md file:border-0
-        file:text-sm file:font-semibold
-        file:bg-indigo-50 file:text-indigo-700
-        hover:file:bg-indigo-100"
-    />
-
-    <p className="text-xs text-gray-500 mt-1">
-      Max size: 10MB (PDF only)
-    </p>
-
-    {currentItem && currentItem.has_pdf && !removePdf && !pdfFile && (
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => handleViewPDF(currentItem.id)}
-          className="text-sm text-indigo-600 hover:text-blue-800 flex items-center gap-1"
-        >
-          <FileText size={14} />
-          View Current PDF
-        </button>
-        <button
-          type="button"
-          onClick={handleRemovePdf}
-          className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
-        >
-          <X size={14} />
-          Remove PDF
-        </button>
-      </div>
-    )}
-
-    {pdfFile && (
-      <p className="mt-2 text-xs text-green-600">
-        Selected: {pdfFile.name}
-      </p>
-    )}
-
-    {removePdf && (
-      <p className="mt-2 text-xs text-orange-600">
-        PDF will be removed on save
-      </p>
-    )}
-  </div>
-)}
+          <div className="col-span-2">
+            <FileUploadField
+              label="Certificate PDF"
+              name="pdfFile"
+              accept=".pdf"
+              value={pdfFile || (currentItem && currentItem.has_pdf && !removePdf ? `PDF Document #${currentItem.id}` : null)}
+              onChange={(file) => setPdfFile(file)}
+              onClear={() => { setPdfFile(null); setRemovePdf(true); }}
+              disabled={isViewMode}
+              hint="PDF format up to 10MB"
+            />
+          </div>
 
 {isViewMode && (
   <>
@@ -618,6 +596,19 @@ const IndustryPage = () => {
 
         </div>
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Industry Knowhow"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateIndustryKnowhow(validRows);
+          fetchIndustry();
+        }}
+        templateFilename="Industry_Knowhow_Template.xlsx"
+      />
     </div>
   );
 };

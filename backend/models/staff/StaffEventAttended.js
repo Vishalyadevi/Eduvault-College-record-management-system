@@ -62,6 +62,10 @@ const StaffEventAttended = sequelize.define(
         len: [1, 100],
       },
     },
+    venue: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     participants: {
       type: DataTypes.INTEGER,
       allowNull: false,

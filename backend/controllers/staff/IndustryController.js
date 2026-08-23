@@ -1,4 +1,5 @@
 import IndustryKnowhow from '../../models/staff/IndustryKnowhow.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
 
 // Helper to clean incoming body data
 const cleanIndustryData = (data) => {
@@ -159,6 +160,38 @@ export const createIndustryKnowhow = async (req, res) => {
             message: 'Server error while creating record',
             error: error.message
         });
+    }
+};
+
+export const bulkCreateIndustryKnowhow = async (req, res) => {
+    try {
+        const Userid = req.user?.Userid || req.user?.userId;
+        if (!Userid) return res.status(401).json({ success: false, message: 'User not authenticated' });
+
+        const records = parseBulkRecords(req);
+        if (!Array.isArray(records) || records.length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid records provided' });
+        }
+
+        const prepared = records.map(rec => ({
+            Userid,
+            company_name: String(rec.company_name || rec.company || '').trim(),
+            field_name: String(rec.field_name || rec.internship_name || rec.title || '').trim(),
+            from_date: rec.from_date || new Date().toISOString().split('T')[0],
+            to_date: rec.to_date || new Date().toISOString().split('T')[0],
+            outcomes: rec.outcomes ? String(rec.outcomes).trim() : null,
+            certificate_pdf: typeof rec.certificate_pdf === 'string' ? rec.certificate_pdf : null,
+        }));
+
+        const created = await IndustryKnowhow.bulkCreate(prepared);
+        res.status(201).json({
+            success: true,
+            message: `Successfully uploaded ${created.length} industry knowhow records`,
+            data: created,
+        });
+    } catch (error) {
+        console.error('Error bulk creating industry knowhow:', error);
+        res.status(500).json({ success: false, message: 'Server error while bulk creating records', error: error.message });
     }
 };
 

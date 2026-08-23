@@ -104,7 +104,7 @@ const Education = (sequelize) => {
     allowNull: true,
   },
 
-  // PG
+  // PG 1
   pg_institution: {
     type: DataTypes.STRING(255),
     allowNull: true,
@@ -134,6 +134,40 @@ const Education = (sequelize) => {
     allowNull: true,
   },
   pg_year: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+
+  // PG 2
+  pg2_institution: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  pg2_university: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  pg2_medium: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  pg2_specialization: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  pg2_degree: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  pg2_cgpa_percentage: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  pg2_first_attempt: {
+    type: DataTypes.ENUM('Yes', 'No'),
+    allowNull: true,
+  },
+  pg2_year: {
     type: DataTypes.INTEGER,
     allowNull: true,
   },

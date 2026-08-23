@@ -3,9 +3,12 @@ import { Plus, DollarSign, Edit, Trash2, Eye, X, FileText, Upload } from 'lucide
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import {
   getProposals, createProposal, updateProposal, deleteProposal,
-  getPaymentDetails, createPaymentDetail, updatePaymentDetail, deletePaymentDetail 
+  getPaymentDetails, createPaymentDetail, updatePaymentDetail, deletePaymentDetail,
+  bulkCreateProposals
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -13,6 +16,7 @@ const ProposalsPage = () => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentProposal, setCurrentProposal] = useState(null);
@@ -147,7 +151,8 @@ const ProposalsPage = () => {
         endpoint = `/proposals/final-report/${currentProposal.id}`;
       }
 
-      const response = await fetch(`http://localhost:4000/api${endpoint}`, {
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+      const response = await fetch(`${baseUrl}${endpoint}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -229,7 +234,8 @@ const ProposalsPage = () => {
           endpoint = `/proposals/final-report/${proposal.id}`;
         }
 
-        const response = await fetch(`http://localhost:4000/api${endpoint}`, {
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+        const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -356,9 +362,8 @@ const ProposalsPage = () => {
     try {
       setIsSubmitting(true);
       
-      if (!formData.pi_name || !formData.project_title || !formData.industry || 
-          !formData.from_date || !formData.to_date || !formData.amount || !formData.organization_name) {
-        toast.error('Please fill in all required fields');
+      if (!formData.pi_name || !formData.project_title || !formData.from_date || !formData.to_date || !formData.amount) {
+        toast.error('Please fill in required fields (PI Name, Title, Dates, Amount)');
         setIsSubmitting(false);
         return;
       }
@@ -373,13 +378,13 @@ const ProposalsPage = () => {
       // Create FormData object for file uploads
       const submitData = new FormData();
       submitData.append('pi_name', formData.pi_name);
-      submitData.append('co_pi_names', formData.co_pi_names.join(', '));
+      submitData.append('co_pi_names', Array.isArray(formData.co_pi_names) ? formData.co_pi_names.join(', ') : (formData.co_pi_names || ''));
       submitData.append('project_title', formData.project_title);
-      submitData.append('industry', formData.industry);
+      submitData.append('industry', formData.industry || 'Consultancy');
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
       submitData.append('amount', formData.amount.toString());
-      submitData.append('organization_name', formData.organization_name);
+      submitData.append('organization_name', formData.organization_name || formData.industry || 'N/A');
 
       // Append files if they exist
       if (formData.proof) {
@@ -553,8 +558,22 @@ const ProposalsPage = () => {
     {
       field: 'final_report',
       header: 'Final Report',
-      render: (row) => renderFileLink(row, 'Final Report')
     },
+  ];
+
+  const excelColumns = [
+    { key: 'pi_name', label: 'PI Name', required: true, example: 'Dr. John Smith' },
+    { key: 'co_pi_names', label: 'Co-PI Names', required: false, example: 'Dr. Alice, Dr. Bob' },
+    { key: 'project_title', label: 'Project Title', required: true, example: 'Structural Testing Consultancy' },
+    { key: 'industry', label: 'Industry', required: true, example: 'Civil Engineering / Testing' },
+    { key: 'organization_name', label: 'Organization / Client Name', required: true, example: 'L&T Construction' },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-01-01' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-12-31' },
+    { key: 'amount', label: 'Amount (₹)', required: true, type: 'number', example: 150000 },
+    { key: 'proof', label: 'Proof Document File Name', required: false, type: 'file', example: 'proposal_proof.pdf' },
+    { key: 'yearly_report', label: 'Yearly Report File Name', required: false, type: 'file', example: 'yearly_report.pdf' },
+    { key: 'order_copy', label: 'Order Copy File Name', required: false, type: 'file', example: 'order_copy.pdf' },
+    { key: 'final_report', label: 'Final Report File Name', required: false, type: 'file', example: 'final_report.pdf' },
   ];
 
   const selectedProject = proposals.find(p => p.id === selectedProjectId);
@@ -562,15 +581,26 @@ const ProposalsPage = () => {
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-              <button
-                onClick={handleAddNew}
-                className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-              >
-                <Plus size={16} />
-                Add New Consultancy
-              </button>
-            </div>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">Consultancy Proposals</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add New Consultancy
+          </button>
+        </div>
+      </div>
 
       <DataTable
         data={proposals}
@@ -698,7 +728,7 @@ const ProposalsPage = () => {
         title={isViewMode ? 'View Proposal' : currentProposal ? 'Edit Proposal' : 'Add New Proposal'}
         onSubmit={!isViewMode ? handleSubmit : null}
         isSubmitting={isSubmitting}
-        size="lg"
+        size="xl"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -711,48 +741,52 @@ const ProposalsPage = () => {
           />
           
           {/* Co-PI Names with dynamic add/remove */}
-          <div className="md:col-span-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <div className="space-y-2 md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700">
               Co-PI Names
             </label>
-            {!isViewMode && (
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={coPiInput}
-                  onChange={(e) => setCoPiInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCoPi())}
-                  placeholder="Enter Co-PI name"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
+            <div className="p-2 border-2 border-indigo-200 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-400 bg-white flex flex-wrap items-center gap-2 min-h-[48px] shadow-xs">
+              {formData.co_pi_names.map((name, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-full border border-indigo-200"
+                >
+                  <span>{name}</span>
+                  {!isViewMode && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCoPi(index)}
+                      className="hover:text-red-600 focus:outline-none transition-colors"
+                      title="Remove Co-PI"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {!isViewMode && (
+                <div className="flex-1 flex items-center gap-2 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={coPiInput}
+                    onChange={(e) => setCoPiInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCoPi();
+                      }
+                    }}
+                    placeholder={formData.co_pi_names.length === 0 ? "Type Co-PI name and click Add..." : "Add another Co-PI..."}
+                    className="flex-1 border-none bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400 p-1"
+                  />
+                  <button
                     type="button"
                     onClick={handleAddCoPi}
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-1"
-                    >
-                <Plus size={16} />
-                  Add
-                </button>
-              </div>
-            )}
-            <div className="space-y-2">
-              {formData.co_pi_names.length === 0 ? (
-                <p className="text-sm text-gray-500 italic font-bold">No Co-PIs added</p>
-              ) : (
-                formData.co_pi_names.map((name, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
-                    <span className="text-sm font-bold">{name}</span>
-                    {!isViewMode && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCoPi(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))
+                    className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors shadow-sm"
+                  >
+                    Add Co-PI
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -819,130 +853,50 @@ const ProposalsPage = () => {
           />
           
           {/* File Upload Fields */}
-          <div className="md:col-span-2 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">
-              Documents (PDF only, max 10MB)
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4 mt-2">
+            <h3 className="md:col-span-2 text-md font-bold text-gray-800 border-b pb-1">
+              Documents & Reports (PDF only, max 10MB)
             </h3>
 
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Proof Document
-              </label>
-              {isViewMode ? (
-                currentProposal?.proof ? (
-                  renderFileLink(currentProposal, 'Proof')
-                ) : (
-                  <span className="text-gray-500">No file chosen</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <label className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md py-2 px-4 text-sm font-semibold cursor-pointer">
-                    Choose File
-                    <input
-                      type="file"
-                      name="proof"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {!formData.proof && <span className="text-gray-500">No file chosen</span>}
-                  {formData.proof && (
-                    <span className="text-gray-500">{formData.proof.name}</span>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Proof Document"
+              name="proof"
+              accept=".pdf"
+              value={isViewMode ? currentProposal?.proof : formData.proof}
+              onChange={(file) => setFormData(prev => ({ ...prev, proof: file }))}
+              onClear={() => setFormData(prev => ({ ...prev, proof: null }))}
+              disabled={isViewMode}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Yearly Report
-              </label>
-              {isViewMode ? (
-                currentProposal?.yearly_report ? (
-                  renderFileLink(currentProposal, 'Yearly Report')
-                ) : (
-                  <span className="text-gray-500">No file chosen</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <label className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md py-2 px-4 text-sm font-semibold cursor-pointer">
-                    Choose File
-                    <input
-                      type="file"
-                      name="yearly_report"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {!formData.yearly_report && <span className="text-gray-500">No file chosen</span>}
-                  {formData.yearly_report && (
-                    <span className="text-gray-500">{formData.yearly_report.name}</span>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Yearly Report"
+              name="yearly_report"
+              accept=".pdf"
+              value={isViewMode ? currentProposal?.yearly_report : formData.yearly_report}
+              onChange={(file) => setFormData(prev => ({ ...prev, yearly_report: file }))}
+              onClear={() => setFormData(prev => ({ ...prev, yearly_report: null }))}
+              disabled={isViewMode}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Order Copy
-              </label>
-              {isViewMode ? (
-                currentProposal?.order_copy ? (
-                  renderFileLink(currentProposal, 'Order Copy')
-                ) : (
-                  <span className="text-gray-500">No file chosen</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <label className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md py-2 px-4 text-sm font-semibold cursor-pointer">
-                    Choose File
-                    <input
-                      type="file"
-                      name="order_copy"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {!formData.order_copy && <span className="text-gray-500">No file chosen</span>}
-                  {formData.order_copy && (
-                    <span className="text-gray-500">{formData.order_copy.name}</span>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Order Copy"
+              name="order_copy"
+              accept=".pdf"
+              value={isViewMode ? currentProposal?.order_copy : formData.order_copy}
+              onChange={(file) => setFormData(prev => ({ ...prev, order_copy: file }))}
+              onClear={() => setFormData(prev => ({ ...prev, order_copy: null }))}
+              disabled={isViewMode}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Final Report
-              </label>
-              {isViewMode ? (
-                currentProposal?.final_report ? (
-                  renderFileLink(currentProposal, 'Final Report')
-                ) : (
-                  <span className="text-gray-500">No file chosen</span>
-                )
-              ) : (
-                <div className="flex items-center gap-2">
-                  <label className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md py-2 px-4 text-sm font-semibold cursor-pointer">
-                    Choose File
-                    <input
-                      type="file"
-                      name="final_report"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {!formData.final_report && <span className="text-gray-500">No file chosen</span>}
-                  {formData.final_report && (
-                    <span className="text-gray-500">{formData.final_report.name}</span>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Final Report"
+              name="final_report"
+              accept=".pdf"
+              value={isViewMode ? currentProposal?.final_report : formData.final_report}
+              onChange={(file) => setFormData(prev => ({ ...prev, final_report: file }))}
+              onClear={() => setFormData(prev => ({ ...prev, final_report: null }))}
+              disabled={isViewMode}
+            />
           </div>
         </div>
       </Modal>
@@ -979,6 +933,19 @@ const ProposalsPage = () => {
           />
         </div>
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Consultancy Proposals"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateProposals(validRows);
+          fetchProposals();
+        }}
+        templateFilename="Consultancy_Proposals_Template.xlsx"
+      />
     </div>
   );
 };

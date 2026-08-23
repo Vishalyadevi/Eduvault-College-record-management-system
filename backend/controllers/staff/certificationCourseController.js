@@ -1,13 +1,14 @@
-import { StaffCertificationCourse as CertificationCourse } from '../../models/index.js';
+import { sequelize } from '../../config/mysql.js';
+import { StaffCertificationCourse as CertificationCourse, CertificationCourseMaster } from '../../models/index.js';
 import { deleteFile, getFullPath } from '../../middlewares/uploadCertConfig.js';
 
 // helper functions carried over from old route
-function calculateWeeks(days) {
-  if (!days || days <= 0) return 0;
-  return Math.round((days / 7) * 10) / 10;
+function calculateWeeks(hours) {
+  if (!hours || hours <= 0) return 0;
+  return Math.round((hours / 40) * 10) / 10;
 }
 
-function calculateDays(fromDate, toDate) {
+function calculateHours(fromDate, toDate) {
   if (!fromDate || !toDate) return 0;
   const from = new Date(fromDate);
   const to = new Date(toDate);
@@ -26,7 +27,7 @@ function validateDates(fromDate, toDate, certificationDate) {
   const to = new Date(toDate);
   const cert = new Date(certificationDate);
 
-  if (isNaN(from.getTime()) || isNaN(to.getTime()) || isNaN(cert.getTime())) {
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || Number.isNaN(cert.getTime())) {
     return { isValid: false, message: 'Invalid date values provided' };
   }
 
@@ -44,7 +45,7 @@ function validateDates(fromDate, toDate, certificationDate) {
 // GET /certifications
 export const getAllCertifications = async (req, res) => {
   try {
-    const userId = req.user?.Userid;
+    const userId = req.user?.Userid || req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID not found' });
 
     const rows = await CertificationCourse.findAll({
@@ -83,7 +84,7 @@ export const getMyCertificates = async (req, res) => {
 // GET /certifications/:id
 export const getCertificationById = async (req, res) => {
   try {
-    const userId = req.user?.Userid;
+    const userId = req.user?.Userid || req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID not found' });
 
     const record = await CertificationCourse.findOne({
@@ -103,22 +104,19 @@ export const getCertificationById = async (req, res) => {
 
 // POST /certifications
 export const createCertification = async (req, res) => {
-  const { course_name, offered_by, from_date, to_date, certification_date } = req.body;
+  let { course_name, offered_by, from_date, to_date, certification_date } = req.body;
+  certification_date = certification_date || to_date;
 
   try {
     // basic validation
-    if (!course_name?.trim() || !offered_by?.trim() || !from_date || !to_date || !certification_date) {
+    if (!course_name?.trim() || !offered_by?.trim() || !from_date || !to_date) {
       if (req.file) deleteFile(req.file.path);
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: 'Course name, offered by, from date, and to date are required' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'Certificate PDF is required' });
-    }
-
-    if (course_name.trim().length < 3) {
+    if (course_name.trim().length < 2) {
       if (req.file) deleteFile(req.file.path);
-      return res.status(400).json({ message: 'Course name must be at least 3 characters long' });
+      return res.status(400).json({ message: 'Course name must be at least 2 characters long' });
     }
 
     if (offered_by.trim().length < 2) {
@@ -126,27 +124,17 @@ export const createCertification = async (req, res) => {
       return res.status(400).json({ message: 'Offered by must be at least 2 characters long' });
     }
 
-    const dateValidation = validateDates(from_date, to_date, certification_date);
-    if (!dateValidation.isValid) {
-      if (req.file) deleteFile(req.file.path);
-      return res.status(400).json({ message: dateValidation.message });
-    }
+    const { hours, weeks, status } = req.body;
+    const finalHours = (hours !== undefined && hours !== null && hours !== '' && !isNaN(parseFloat(hours))) ? parseFloat(hours) : calculateHours(from_date, to_date);
+    const finalWeeks = (weeks !== undefined && weeks !== null && weeks !== '' && !isNaN(parseFloat(weeks))) ? parseFloat(weeks) : calculateWeeks(finalHours);
 
-    const days = calculateDays(from_date, to_date);
-    const weeks = calculateWeeks(days);
-
-    if (days <= 0) {
-      if (req.file) deleteFile(req.file.path);
-      return res.status(400).json({ message: 'Invalid date range' });
-    }
-
-    const userId = req.user?.Userid;
+    const userId = req.user?.userId || req.user?.Userid;
     if (!userId) {
       if (req.file) deleteFile(req.file.path);
       return res.status(401).json({ message: 'User ID not found' });
     }
 
-    const certificatePath = `uploads/certificates/${req.file.filename}`;
+    const certificatePath = req.file ? `uploads/certificates/${req.file.filename}` : null;
 
     const record = await CertificationCourse.create({
       Userid: userId,
@@ -154,11 +142,29 @@ export const createCertification = async (req, res) => {
       offered_by: offered_by.trim(),
       from_date,
       to_date,
-      days,
-      weeks,
-      certification_date,
+      hours: finalHours > 0 ? finalHours : 1,
+      weeks: finalWeeks > 0 ? finalWeeks : 1,
+      certification_date: certification_date || to_date,
       certificate_pdf: certificatePath,
+      status: status?.trim() || 'Completed',
     });
+
+    // Sync newly provided offering to Master Table if not present
+    if (CertificationCourseMaster && offered_by.trim()) {
+      try {
+        await CertificationCourseMaster.findOrCreate({
+          where: { course_name: offered_by.trim() },
+          defaults: {
+            course_name: offered_by.trim(),
+            provider: offered_by.trim(),
+            status: 'Active',
+            description: 'User added provider'
+          }
+        });
+      } catch (masterErr) {
+        console.error('Note auto-syncing certification master table:', masterErr.message);
+      }
+    }
 
     res.status(201).json({
       message: 'Certification created successfully',
@@ -198,15 +204,11 @@ export const updateCertification = async (req, res) => {
       return res.status(400).json({ message: dateValidation.message });
     }
 
-    const days = calculateDays(from_date, to_date);
-    const weeks = calculateWeeks(days);
+    const { hours, weeks, status } = req.body;
+    const finalHours = (hours !== undefined && hours !== null && hours !== '' && !isNaN(parseFloat(hours))) ? parseFloat(hours) : calculateHours(from_date, to_date);
+    const finalWeeks = (weeks !== undefined && weeks !== null && weeks !== '' && !isNaN(parseFloat(weeks))) ? parseFloat(weeks) : calculateWeeks(finalHours);
 
-    if (days <= 0) {
-      if (req.file) deleteFile(req.file.path);
-      return res.status(400).json({ message: 'Invalid date range' });
-    }
-
-    const userId = req.user?.Userid;
+    const userId = req.user?.userId || req.user?.Userid;
     if (!userId) {
       if (req.file) deleteFile(req.file.path);
       return res.status(401).json({ message: 'User ID not found' });
@@ -234,10 +236,11 @@ export const updateCertification = async (req, res) => {
     record.offered_by = offered_by.trim();
     record.from_date = from_date;
     record.to_date = to_date;
-    record.days = days;
-    record.weeks = weeks;
+    record.hours = finalHours;
+    record.weeks = finalWeeks;
     record.certification_date = certification_date;
     record.certificate_pdf = certificatePath;
+    if (status !== undefined) record.status = status;
 
     await record.save();
 
@@ -277,5 +280,66 @@ export const deleteCertification = async (req, res) => {
   } catch (error) {
     console.error('Error deleting certification:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+import { syncCertificationCourseMaster } from '../../services/masterSyncService.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+
+// POST /certifications/bulk
+export const bulkCreateCertifications = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const userId = req.user?.Userid || req.user?.userId;
+    if (!userId) {
+      await transaction.rollback();
+      return res.status(401).json({ message: 'User ID not found' });
+    }
+
+    const rows = parseBulkRecords(req);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'No records provided for bulk insert' });
+    }
+
+    const created = [];
+    for (const r of rows) {
+      const courseName = (r.course_name || 'Certification Course').trim();
+      const offeredBy = (r.offered_by || 'Online Platform').trim();
+
+      if (courseName) {
+        await syncCertificationCourseMaster(courseName, offeredBy, transaction);
+      }
+
+      const certPath = typeof r.certificate_pdf === 'string' ? r.certificate_pdf : null;
+
+      const record = await CertificationCourse.create({
+        Userid: userId,
+        course_name: courseName,
+        offered_by: offeredBy,
+        from_date: r.from_date || new Date().toISOString().split('T')[0],
+        to_date: r.to_date || new Date().toISOString().split('T')[0],
+        hours: parseFloat(r.hours) || 0,
+        weeks: parseFloat(r.weeks) || 0,
+        certification_date: r.certification_date || new Date().toISOString().split('T')[0],
+        certificate_pdf: certPath,
+      }, { transaction });
+      created.push(record);
+    }
+
+    await transaction.commit();
+    res.status(201).json({
+      message: `Successfully imported ${created.length} certification courses`,
+      count: created.length,
+      data: created,
+    });
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error('Error bulk creating certifications:', error);
+    res.status(400).json({
+      message: `Failed to save bulk records: ${error.message}`,
+      error: error.message,
+      details: error.errors ? error.errors.map(e => e.message) : [error.message]
+    });
   }
 };

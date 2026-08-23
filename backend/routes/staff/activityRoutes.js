@@ -5,6 +5,7 @@ import {
   getActivityById,
   updateActivity,
   deleteActivity,
+  bulkSubmitActivities,
 } from '../../controllers/staff/activityController.js';
 import { authenticate } from '../../middlewares/requireauth.js';
 import { uploadActivityFile } from '../../middlewares/uploadConfig.js';
@@ -14,11 +15,10 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
-/**
- * @route   POST /activity/submit
- * @desc    Submit a new activity (Staff)
- * @access  Private (Staff)
- */
+import multer from 'multer';
+const bulkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+router.post('/bulk', bulkUpload.any(), bulkSubmitActivities);
 router.post('/submit', uploadActivityFile, submitActivity);
 
 /**

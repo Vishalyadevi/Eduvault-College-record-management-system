@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Eye, Download, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import api, { getFundingAgencies, bulkCreateActivities } from '../../services/api';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import TagInput from '../../components/TagInput';
+
 
 const ActivityPage = () => {
   const [activities, setActivities] = useState([]);
@@ -12,6 +15,11 @@ const ActivityPage = () => {
   const [currentActivity, setCurrentActivity] = useState(null);
   const [file, setFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [fundingAgencyOptions, setFundingAgencyOptions] = useState([
+    { value: '', label: 'Select Funding Agency' }
+  ]);
+
 
   const [formData, setFormData] = useState({
     from_date: '',
@@ -45,8 +53,35 @@ const ActivityPage = () => {
   };
 
   useEffect(() => {
+    const fetchAgencies = async () => {
+      try {
+        const res = await getFundingAgencies({ status: 'Active' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+        if (list.length > 0) {
+          setFundingAgencyOptions([
+            { value: '', label: 'Select Funding Agency' },
+            ...list.map(a => ({ value: a.agency_name, label: a.agency_name }))
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching funding agencies:', err);
+      }
+    };
+    fetchAgencies();
     fetchActivities();
   }, []);
+
+  const ensureAgencyInOptions = (agencyName) => {
+    if (!agencyName) return;
+    setFundingAgencyOptions((prev) => {
+      if (prev.some((opt) => opt.value === agencyName)) return prev;
+      return [...prev, { value: agencyName, label: agencyName }];
+    });
+  };
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -95,6 +130,15 @@ const ActivityPage = () => {
     }
   };
 
+const normalizeMultiValues = (str) => {
+  if (!str) return '';
+  return str
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .join(', ');
+};
+
   // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,8 +152,8 @@ const ActivityPage = () => {
       const submitData = new FormData();
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
-      submitData.append('student_coordinators', formData.student_coordinators);
-        submitData.append('staff_coordinators', formData.staff_coordinators || '');
+      submitData.append('student_coordinators', normalizeMultiValues(formData.student_coordinators));
+      submitData.append('staff_coordinators', normalizeMultiValues(formData.staff_coordinators));
       submitData.append('participant_count', formData.participant_count);
       submitData.append('level', formData.level);
         submitData.append('club_name', formData.club_name || '');
@@ -179,7 +223,9 @@ const ActivityPage = () => {
   };
 
   // Open modal for editing
-  const handleEdit = (activity) => {
+  const handleEditActivity = (activity) => {
+    setCurrentActivity(activity);
+    ensureAgencyInOptions(activity.funding_agency);
     setFormData({
       from_date: activity.from_date?.split('T')[0] || '',
       to_date: activity.to_date?.split('T')[0] || '',
@@ -196,14 +242,15 @@ const ActivityPage = () => {
       funding_agency: activity.funding_agency || '',
       fund_received: activity.fund_received || ''
     });
-    setCurrentActivity(activity);
     setIsEditing(true);
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   // View activity details
-  const handleView = (activity) => {
+  const handleViewActivity = (activity) => {
+    setCurrentActivity(activity);
+    ensureAgencyInOptions(activity.funding_agency);
     setFormData({
       from_date: activity.from_date?.split('T')[0] || '',
       to_date: activity.to_date?.split('T')[0] || '',
@@ -220,7 +267,6 @@ const ActivityPage = () => {
       funding_agency: activity.funding_agency || '',
       fund_received: activity.fund_received || ''
     });
-    setCurrentActivity(activity);
     setIsViewMode(true);
     setIsModalOpen(true);
   };
@@ -243,7 +289,8 @@ const ActivityPage = () => {
   const handleDownload = (activity) => {
     const filePath = activity.proofDocument || activity.report_file;
     if (filePath) {
-      const url = `http://localhost:4000${filePath.startsWith('/') ? filePath : '/' + filePath}`;
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+      const url = `${baseUrl}${filePath.startsWith('/') ? filePath : '/' + filePath}`;
       window.open(url, '_blank');
     }
   };
@@ -275,19 +322,29 @@ const ActivityPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Activity Management</h1>
-            <p className="text-gray-600">Submit and manage your professional activities</p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Club Activity</h1>
+            <p className="text-gray-600">Submit and manage your club activities</p>
           </div>
-          <button
-            onClick={handleAddNew}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg transition-all transform hover:scale-105"
-          >
-            <Plus size={20} />
-            Add Activity
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsExcelModalOpen(true)}
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-lg transition-all font-semibold text-sm shadow-xs"
+            >
+              <Upload size={18} />
+              Excel Bulk Upload
+            </button>
+            <button
+              onClick={handleAddNew}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-lg transition-all font-semibold text-sm shadow-md"
+            >
+              <Plus size={18} />
+              Add Activity
+            </button>
+          </div>
         </div>
+
 
         {/* Activities Table */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -346,7 +403,7 @@ const ActivityPage = () => {
                         <td className="px-6 py-4 text-center">
                           <div className="flex justify-center gap-2">
                             <button
-                              onClick={() => handleView(activity)}
+                              onClick={() => handleViewActivity(activity)}
                               className="p-2 hover:bg-indigo-100 rounded-lg transition-colors"
                               title="View"
                             >
@@ -354,7 +411,7 @@ const ActivityPage = () => {
                             </button>
                             {activity.status === 'Pending' && (
                               <button
-                                onClick={() => handleEdit(activity)}
+                                onClick={() => handleEditActivity(activity)}
                                 className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
                                 title="Edit"
                               >
@@ -393,9 +450,9 @@ const ActivityPage = () => {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start sm:items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full my-8 max-h-[90vh] overflow-auto">
-              <div className="sticky top-0 bg-gradient-to-r from-indigo-500 to-indigo-600 px-8 py-6 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-[1750px] w-[98vw] max-h-[94vh] flex flex-col overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-white">
                 {(() => {
                   if (isViewMode) return 'View Activity';
@@ -405,15 +462,16 @@ const ActivityPage = () => {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-white hover:bg-white hover:text-indigo-600 rounded-lg p-2 transition-colors"
+                className="text-white hover:bg-white/20 rounded-full p-2 text-xl font-bold transition-all"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {/* From Date */}
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="from_date">
                     From Date *
@@ -446,38 +504,30 @@ const ActivityPage = () => {
                 </div>
 
                 {/* Student Coordinators */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="student_coordinators">
-                    Student Coordinators *
-                  </label>
-                  <input
-                    id="student_coordinators"
-                    type="text"
-                    name="student_coordinators"
-                    value={formData.student_coordinators}
-                    onChange={handleInputChange}
+                <div className="sm:col-span-2">
+                  <TagInput
+                    label="Student Coordinators"
+                    values={formData.student_coordinators}
+                    onChange={(updatedTags) => setFormData((prev) => ({ ...prev, student_coordinators: updatedTags.join(', ') }))}
                     disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter student coordinators names"
+                    required
+                    placeholder="Type student coordinator name and click Add..."
+                    buttonText="Add Student Coordinator"
                   />
                 </div>
 
                 {/* Staff Coordinators */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="staff_coordinators">
-                    Staff Coordinators
-                  </label>
-                  <input
-                    id="staff_coordinators"
-                    type="text"
-                    name="staff_coordinators"
-                    value={formData.staff_coordinators}
-                    onChange={handleInputChange}
+                <div className="sm:col-span-2">
+                  <TagInput
+                    label="Staff Coordinators"
+                    values={formData.staff_coordinators}
+                    onChange={(updatedTags) => setFormData((prev) => ({ ...prev, staff_coordinators: updatedTags.join(', ') }))}
                     disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter staff coordinators names"
+                    placeholder="Type staff coordinator name and click Add..."
+                    buttonText="Add Staff Coordinator"
                   />
                 </div>
+
 
                 {/* Club Name */}
                 <div>
@@ -598,16 +648,20 @@ const ActivityPage = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="funding_agency">
                       Funding Agency
                     </label>
-                    <input
+                    <select
                       id="funding_agency"
-                      type="text"
                       name="funding_agency"
                       value={formData.funding_agency}
                       onChange={handleInputChange}
                       disabled={isViewMode}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      placeholder="Enter funding agency"
-                    />
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
+                    >
+                      {fundingAgencyOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
@@ -665,7 +719,7 @@ const ActivityPage = () => {
                 </div>
 
                 {/* Description */}
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="description">
                     Description
                   </label>
@@ -675,7 +729,7 @@ const ActivityPage = () => {
                     value={formData.description}
                     onChange={handleInputChange}
                     disabled={isViewMode}
-                    rows={4}
+                    rows={2}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     placeholder="Enter a brief description of the activity"
                   />
@@ -683,7 +737,7 @@ const ActivityPage = () => {
 
                 {/* File Upload */}
                 {!isViewMode && (
-                  <div className="md:col-span-2">
+                  <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
                     <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="report-file">
                       Report File (PDF) - Max 10MB
                     </label>
@@ -721,6 +775,7 @@ const ActivityPage = () => {
                 )}
               </div>
 
+
               {/* Buttons */}
               {!isViewMode && (
                 <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
@@ -755,8 +810,43 @@ const ActivityPage = () => {
           </div>
         </div>
       )}
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Club Activity"
+        columns={[
+          { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-08-10' },
+          { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-08-10' },
+          { key: 'student_coordinators', label: 'Student Coordinators', required: true, example: 'Rahul, Anita' },
+          { key: 'staff_coordinators', label: 'Staff Coordinators', required: false, example: 'Dr. Smith' },
+          { key: 'club_name', label: 'Club Name', required: false, example: 'Robotics Club' },
+          { key: 'event_name', label: 'Event Name', required: false, example: 'Tech Expo 2026' },
+          { key: 'participant_count', label: 'Participant Count', required: true, type: 'number', example: 100 },
+          { key: 'level', label: 'Level', required: true, example: 'Institute' },
+          { key: 'venue', label: 'Venue', required: false, example: 'Seminar Hall 1' },
+          { key: 'department', label: 'Department', required: false, example: 'CSE' },
+          { key: 'funded', label: 'Funded', required: false, example: 'No' },
+          { key: 'funding_agency', label: 'Funding Agency', required: false, example: 'DST' },
+          { key: 'fund_received', label: 'Fund Received', required: false, type: 'number', example: 5000 },
+          { key: 'description', label: 'Description', required: false, example: 'Annual Tech Workshop' },
+          { key: 'report_file', label: 'Report / Proof Document File Name', required: false, type: 'file', example: 'activity_report.pdf' },
+        ]}
+        onUpload={async (validRows) => {
+          try {
+            await bulkCreateActivities(validRows);
+            toast.success(`Successfully uploaded ${validRows.length} club activities!`);
+            fetchActivities();
+          } catch (err) {
+            console.error('Error bulk uploading activities:', err);
+            toast.error(err.response?.data?.message || 'Failed to upload bulk activity records');
+          }
+        }}
+        templateFilename="Club_Activity_Template.xlsx"
+      />
     </div>
   );
 };
 
 export default ActivityPage;
+

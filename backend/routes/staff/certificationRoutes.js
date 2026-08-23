@@ -14,6 +14,12 @@ router.get('/my-certificates', authenticateToken, certificationController.getMyC
 // GET single certification by ID
 router.get('/:id', authenticateToken, certificationController.getCertificationById);
 
+import multer from 'multer';
+const bulkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// BULK CREATE certifications
+router.post('/bulk', authenticateToken, bulkUpload.any(), certificationController.bulkCreateCertifications);
+
 // CREATE new certification
 router.post('/', authenticateToken, uploadCertificateFile, certificationController.createCertification);
 

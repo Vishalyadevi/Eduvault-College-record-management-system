@@ -86,6 +86,11 @@ import tlpPublicRoutes from './routes/public/tlpPublicRoutes.js';
 import tlpCommentRoutes from './routes/public/tlpCommentRoutes.js';
 import tlpCommentAdminRoutes from './routes/admin/tlpCommentAdminRoutes.js';
 
+import fundingAgencyRoutes from './routes/staff/fundingAgencyRoutes.js';
+import eventTypeRoutes from './routes/staff/eventTypeRoutes.js';
+import certificationCourseMasterRoutes from './routes/staff/certificationCourseMasterRoutes.js';
+import academicStaffRoutes from './routes/acadamic/staff/staffRoutes.js';
+
 
 import adminRoleRoutes from './routes/adminRoutes.js';
 import placementMainRoutes from './routes/placement/index.js';
@@ -365,6 +370,11 @@ app.use('/api', placementMainRoutes);
 // ============================================
 // Activity Module Routes
 // ============================================
+app.use('/api/funding-agencies', fundingAgencyRoutes);
+app.use('/api/event-types', eventTypeRoutes);
+app.use('/api/certification-courses', certificationCourseMasterRoutes);
+app.use('/api/staff', academicStaffRoutes);
+
 app.use('/api/activity', activityModuleRoutes);
 app.use('/api/admin/activity', activityApprovalRoutes);
 app.use('/api/staff/events-attended', staffEventAttendedRoutes);

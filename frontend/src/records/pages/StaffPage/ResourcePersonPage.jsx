@@ -1,22 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, Eye, X } from 'lucide-react';
+import { Plus, Download, Eye, X, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import {
   getResourcePersonEntries,
   createResourcePersonEntry,
   updateResourcePersonEntry,
   deleteResourcePersonEntry,
   viewResourcePersonFile,
-  downloadResourcePersonFile
+  downloadResourcePersonFile,
+  getEventTypes,
+  bulkCreateResourcePerson
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const ResourcePersonPage = () => {
   const [entries, setEntries] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
+  const [eventTypeOptions, setEventTypeOptions] = useState([
+    { value: '', label: 'Select Event Type / Specification' }
+  ]);
+
+  useEffect(() => {
+    const fetchEventTypesList = async () => {
+      try {
+        const res = await getEventTypes({ status: 'Active' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+        if (list.length > 0) {
+          setEventTypeOptions([
+            { value: '', label: 'Select Event Type' },
+            ...list.map(t => ({ value: t.type_name, label: t.type_name }))
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching event types:', err);
+      }
+    };
+    fetchEventTypesList();
+  }, []);
   const [formData, setFormData] = useState({
     programSpecification: '',
     title: '',
@@ -178,11 +209,13 @@ const ResourcePersonPage = () => {
 
   const handleView = (item) => {
     setEditingItem(item);
+    setIsViewOnly(true);
     setModalOpen(true);
   };
 
   const handleEdit = (item) => {
     setEditingItem(item);
+    setIsViewOnly(false);
     setModalOpen(true);
   };
 
@@ -279,19 +312,40 @@ const ResourcePersonPage = () => {
     },
   ];
 
+  const excelColumns = [
+    { key: 'program_specification', label: 'Program Specification', required: true, options: eventTypeOptions.map(o => o.label).filter(l => l && !l.startsWith('Select')), example: 'Guest Lecture' },
+    { key: 'title', label: 'Title of Talk / Session', required: true, example: 'Keynote on AI in Robotics' },
+    { key: 'venue', label: 'Venue / Organization', required: true, example: 'IIT Madras' },
+    { key: 'event_date', label: 'Event Date', required: true, type: 'date', example: '2026-04-15' },
+    { key: 'proof_link', label: 'Proof Document File Name', required: false, type: 'file', example: 'resource_person_proof.pdf' },
+    { key: 'photo_link', label: 'Event Photo File Name', required: false, type: 'file', example: 'event_photo.jpg' },
+  ];
+
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={() => {
-            setEditingItem(null);
-            setModalOpen(true);
-          }}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add Resource Person
-        </button>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">Resource Person</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={() => {
+              setEditingItem(null);
+              setIsViewOnly(false);
+              setModalOpen(true);
+            }}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add Resource Person
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -313,10 +367,12 @@ const ResourcePersonPage = () => {
       >
         <FormField 
           label="Program Specification*" 
-          name="programSpecification" 
+          name="programSpecification"
+          type="select" 
           value={formData.programSpecification} 
           onChange={handleChange}
           required
+          options={eventTypeOptions}
         />
         <FormField 
           label="Title*" 
@@ -342,71 +398,42 @@ const ResourcePersonPage = () => {
         />
 
         {/* Proof File Upload */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Proof File (PNG, JPEG, PDF, GIF, WebP)
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              name="proofFile"
-              onChange={handleFileChange}
-              accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-indigo-50 file:text-indigo-700
-                hover:file:bg-indigo-100"
-            />
-          </div>
-          {(fileNames.proofFile || editingItem?.proof_link) && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              <span>{formData.proofFile?.name || editingItem?.proof_link || 'File selected'}</span>
-              <button
-                type="button"
-                onClick={() => removeFile('proofFile')}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+        <FileUploadField
+          label="Proof File"
+          name="proofFile"
+          accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
+          value={formData.proofFile || (isViewOnly && editingItem?.proof_link ? 'available' : null)}
+          disabled={isViewOnly}
+          onChange={(file) => setFormData((prev) => ({ ...prev, proofFile: file }))}
+          onClear={() => setFormData((prev) => ({ ...prev, proofFile: null }))}
+          hint="PNG, JPEG, PDF, GIF, WebP up to 10MB"
+        />
 
         {/* Photo File Upload */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Photo File (PNG, JPEG, PDF, GIF, WebP)
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              name="photoFile"
-              onChange={handleFileChange}
-              accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-indigo-50 file:text-indigo-700
-                hover:file:bg-indigo-100"
-            />
-          </div>
-          {(fileNames.photoFile || editingItem?.photo_link) && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              <span>{formData.photoFile?.name || editingItem?.photo_link || 'File selected'}</span>
-              <button
-                type="button"
-                onClick={() => removeFile('photoFile')}
-                className="text-red-500 hover:text-red-700"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+        <FileUploadField
+          label="Photo File"
+          name="photoFile"
+          accept=".png,.jpg,.jpeg,.pdf,.gif,.webp"
+          value={formData.photoFile || (isViewOnly && editingItem?.photo_link ? 'available' : null)}
+          disabled={isViewOnly}
+          onChange={(file) => setFormData((prev) => ({ ...prev, photoFile: file }))}
+          onClear={() => setFormData((prev) => ({ ...prev, photoFile: null }))}
+          hint="PNG, JPEG, PDF, GIF, WebP up to 10MB"
+        />
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Resource Person Records"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateResourcePerson(validRows);
+          fetchData();
+        }}
+        templateFilename="Resource_Person_Template.xlsx"
+      />
     </div>
   );
 };

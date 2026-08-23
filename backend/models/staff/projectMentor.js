@@ -14,7 +14,7 @@ const ProjectMentor = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users',
+        model: 'users',
         key: 'Userid',
       },
     },
@@ -22,9 +22,19 @@ const ProjectMentor = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
+    student_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: null,
+    },
+    register_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+    },
     student_details: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
     },
     event_details: {
       type: DataTypes.STRING(255),

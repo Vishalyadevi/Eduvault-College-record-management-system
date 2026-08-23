@@ -35,6 +35,15 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
     pg_first_attempt: 'yes',
     pg_year: '',
 
+    pg2_institution: '',
+    pg2_university: '',
+    pg2_medium: '',
+    pg2_specialization: '',
+    pg2_degree: '',
+    pg2_cgpa_percentage: '',
+    pg2_first_attempt: 'yes',
+    pg2_year: '',
+
     mphil_institution: '',
     mphil_university: '',
     mphil_medium: '',

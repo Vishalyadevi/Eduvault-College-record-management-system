@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Edit2, Save, X, User, MapPin, Briefcase, GraduationCap, Link as LinkIcon, BarChart, Phone, CreditCard, FileText, Heart } from 'lucide-react';
+import { Edit2, Save, X, User, MapPin, Briefcase, GraduationCap, Phone, CreditCard, FileText, Award } from 'lucide-react';
 import { useAuth } from "../../pages/auth/AuthContext";
 import API from "../../services/api";
 import { toast } from 'react-toastify';
@@ -7,13 +7,16 @@ import { toast } from 'react-toastify';
 const PersonalInfoPage = () => {
   const { user } = useAuth();
   
-  // Natively includes all key fields from staff_details
+  // Includes all key fields from staff_details and userdb
   const [formData, setFormData] = useState({
-    // Identification
+    // Foreign Key / Frozen User DB fields
+    name: '',
+    staffNumber: '',
+    officialEmail: '',
+    department: '',
+
+    // Identification & Basic Info
     salutation: '',
-    firstName: '',
-    middleName: '',
-    lastName: '',
     gender: '',
     dateOfBirth: '',
     bloodGroup: '',
@@ -22,7 +25,6 @@ const PersonalInfoPage = () => {
     
     // Contact Info
     personalEmail: '',
-    officialEmail: '',
     mobileNumber: '',
     alternateMobile: '',
     emergencyContactName: '',
@@ -46,10 +48,9 @@ const PersonalInfoPage = () => {
     permanentCountry: 'India',
 
     // Employment
-    staffNumber: '',
     biometricNumber: '',
-    designationId: '', // Ideally mapped to designation Name, using input for now
-    designation: '', // Staff typed designation
+    designationId: '',
+    designation: '',
     dateOfJoining: '',
     confirmationDate: '',
     probationPeriod: '',
@@ -85,6 +86,14 @@ const PersonalInfoPage = () => {
     supervisorId: '',
     hIndex: '',
     citationIndex: '',
+
+    // Fellowship Details
+    hasFellowship: 'No',
+    fellowshipName: '',
+    fellowshipAgency: '',
+    fellowshipAmount: '',
+    fellowshipDuration: '',
+    fellowshipDetails: '',
   });
 
   const [originalData, setOriginalData] = useState(null);
@@ -112,15 +121,23 @@ const PersonalInfoPage = () => {
             mergedData[key] = data[key];
           }
         });
-        
+
+        // Ensure userdb frozen fields are set cleanly
+        mergedData.name = data.name || data.userName || user?.username || '';
+        mergedData.staffNumber = data.staffNumber || data.userNumber || user?.userNumber || '';
+        mergedData.officialEmail = data.officialEmail || data.collegeMailId || data.userMail || user?.email || '';
+        mergedData.department = data.department || '';
+
         setFormData(mergedData);
         setOriginalData(mergedData);
         setEditingId(data.id || data.staffId);
       } else {
-        // Fallbacks if no data exists
+        // Fallbacks if no data exists yet
         setFormData(prev => ({
           ...prev,
-          firstName: user?.username || '',
+          name: user?.username || '',
+          officialEmail: user?.email || '',
+          staffNumber: user?.userNumber || '',
           personalEmail: user?.email || '',
         }));
       }
@@ -134,8 +151,8 @@ const PersonalInfoPage = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user) fetchPersonalInfo();
-  }, [user, fetchPersonalInfo]);
+    if (user && !isEditable) fetchPersonalInfo();
+  }, [user, isEditable]);
 
   const handleEditClick = () => {
     setIsEditable(true);
@@ -155,24 +172,14 @@ const PersonalInfoPage = () => {
   };
 
   const validateForm = () => {
-    const requiredFields = [
-      'firstName', 'gender', 'dateOfBirth', 'personalEmail',
-      'mobileNumber', 'currentAddressLine1', 'currentCity', 'currentState',
-      'currentPincode', 'dateOfJoining'
-    ];
-
-    const missingFields = requiredFields.filter(f => !formData[f] || String(formData[f]).trim() === '');
-    if (missingFields.length > 0) {
-      const fieldLabels = missingFields.map(f => f.replace(/([A-Z])/g, ' $1').trim()).join(', ');
-      setError(`Please fill in required fields: ${fieldLabels}`);
-      toast.warning("Please fill in all required fields");
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.personalEmail && !emailRegex.test(formData.personalEmail)) {
-      setError('Invalid personal email format');
-      return false;
+    // Basic email format check if email is filled
+    if (formData.personalEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.personalEmail)) {
+        setError('Invalid personal email format');
+        toast.error('Invalid personal email format');
+        return false;
+      }
     }
     
     return true;
@@ -187,17 +194,18 @@ const PersonalInfoPage = () => {
       
       const cleanData = { ...formData };
 
-      // Ensure integers
+      // Ensure numerical fields are parsed or set to null
       ['probationPeriod', 'basicSalary', 'costToCompany', 'supervisorId', 'hIndex', 'citationIndex'].forEach(field => {
-        if (cleanData[field] === '' || cleanData[field] === null) {
+        if (cleanData[field] === '' || cleanData[field] === null || cleanData[field] === undefined) {
           cleanData[field] = null;
         } else {
-          cleanData[field] = Number(cleanData[field]);
+          const num = Number(cleanData[field]);
+          cleanData[field] = isNaN(num) ? null : num;
         }
       });
 
       await API.put('/staff/staff/update', cleanData);
-      toast.success('Information saved successfully');
+      toast.success('Personal information saved successfully');
 
       setIsEditable(false);
       await fetchPersonalInfo();
@@ -217,9 +225,7 @@ const PersonalInfoPage = () => {
       icon: <User className="w-5 h-5 text-indigo-600" />,
       fields: [
         { name: 'salutation', label: 'Salutation', type: 'select', options: ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'] },
-        { name: 'firstName', label: 'First Name', type: 'text', required: true },
-        { name: 'middleName', label: 'Middle Name', type: 'text' },
-        { name: 'lastName', label: 'Last Name', type: 'text' },
+        { name: 'name', label: 'Name (Frozen from DB)', type: 'text', readOnly: true },
         { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'], required: true },
         { name: 'dateOfBirth', label: 'Date of Birth', type: 'date', required: true },
         { name: 'bloodGroup', label: 'Blood Group', type: 'select', options: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] },
@@ -231,8 +237,8 @@ const PersonalInfoPage = () => {
       title: 'Contact Information',
       icon: <Phone className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'personalEmail', label: 'Personal Email', type: 'email', required: true },
-        { name: 'officialEmail', label: 'Official Email', type: 'email' },
+        { name: 'officialEmail', label: 'College Mail ID (Frozen from DB)', type: 'email', readOnly: true },
+        { name: 'personalEmail', label: 'Personal Mail ID', type: 'email', required: true },
         { name: 'mobileNumber', label: 'Mobile Number', type: 'tel', required: true },
         { name: 'alternateMobile', label: 'Alternate Mobile', type: 'tel' },
         { name: 'emergencyContactName', label: 'Emergency Contact Name', type: 'text' },
@@ -268,7 +274,8 @@ const PersonalInfoPage = () => {
       title: 'Employment Information',
       icon: <Briefcase className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'staffNumber', label: 'Staff Number', type: 'text' },
+        { name: 'staffNumber', label: 'User Number (Frozen from DB)', type: 'text', readOnly: true },
+        { name: 'department', label: 'Department (Frozen from DB)', type: 'text', readOnly: true },
         { name: 'biometricNumber', label: 'Biometric Number', type: 'text' },
         { name: 'designation', label: 'Designation / Post', type: 'text', required: true },
         { name: 'dateOfJoining', label: 'Date of Joining', type: 'date', required: true },
@@ -319,6 +326,18 @@ const PersonalInfoPage = () => {
         { name: 'hIndex', label: 'H-Index', type: 'number' },
         { name: 'citationIndex', label: 'Citation Index', type: 'number' }
       ]
+    },
+    {
+      title: 'Fellowship Details',
+      icon: <Award className="w-5 h-5 text-indigo-600" />,
+      fields: [
+        { name: 'hasFellowship', label: 'Fellowship Availed', type: 'select', options: ['Yes', 'No'] },
+        { name: 'fellowshipName', label: 'Fellowship Name', type: 'text' },
+        { name: 'fellowshipAgency', label: 'Awarding / Funding Agency', type: 'text' },
+        { name: 'fellowshipAmount', label: 'Fellowship Amount (₹)', type: 'number' },
+        { name: 'fellowshipDuration', label: 'Duration / Period', type: 'text' },
+        { name: 'fellowshipDetails', label: 'Additional Details / Remarks', type: 'textarea', colspan: 3 },
+      ]
     }
   ];
 
@@ -329,7 +348,7 @@ const PersonalInfoPage = () => {
       onChange: handleChange,
       className: `w-full px-4 py-2.5 border rounded-xl transition-all duration-200 ${isEditable && !field.readOnly
         ? 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white shadow-sm'
-        : 'border-gray-100 bg-gray-50 text-gray-500'
+        : 'border-gray-100 bg-gray-50 text-gray-500 font-medium cursor-not-allowed'
         }`,
       readOnly: !isEditable || field.readOnly,
       required: field.required,
@@ -441,3 +460,4 @@ const PersonalInfoPage = () => {
 };
 
 export default PersonalInfoPage;
+

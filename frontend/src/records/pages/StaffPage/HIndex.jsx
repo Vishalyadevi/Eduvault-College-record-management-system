@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import { getHIndexes, createHIndex, updateHIndex, deleteHIndex } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -281,16 +282,56 @@ const HIndexPage = () => {
 
   console.log('hIndexes state:', hIndexes, 'Type:', typeof hIndexes, 'IsArray:', Array.isArray(hIndexes));
 
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+
+  const excelColumns = [
+    { key: 'citations', label: 'No of Citations', required: true, type: 'number', example: 120 },
+    { key: 'h_index', label: 'H Index', required: true, type: 'number', example: 15 },
+    { key: 'i_index', label: 'I Index', required: true, type: 'number', example: 20 },
+    { key: 'google_citations', label: 'Google Citations', required: true, type: 'number', example: 150 },
+    { key: 'scopus_citations', label: 'Scopus Citations', required: true, type: 'number', example: 110 }
+  ];
+
+  const handleBulkUpload = async (validRows) => {
+    try {
+      for (const row of validRows) {
+        await createHIndex({
+          citations: parseInt(row.citations),
+          h_index: parseInt(row.h_index),
+          i_index: parseFloat(row.i_index),
+          google_citations: parseInt(row.google_citations),
+          scopus_citations: parseInt(row.scopus_citations)
+        });
+      }
+      toast.success(`Successfully uploaded ${validRows.length} H-Index records!`);
+      fetchHIndexes();
+    } catch (err) {
+      console.error('Error bulk uploading H-Index:', err);
+      toast.error(err.response?.data?.message || 'Failed to upload H-Index records');
+    }
+  };
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button 
-          onClick={handleAddNew}           
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New H Index
-        </button>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h1 className="text-xl font-semibold text-gray-800">H Index</h1>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus size={16} />
+            Add New H Index
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -406,6 +447,20 @@ const HIndexPage = () => {
           </div>
         )}
       </Modal>
+
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload H-Index Records"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          for (const row of validRows) {
+            await createHIndex(row);
+          }
+          fetchHIndexes();
+        }}
+        templateFilename="H_Index_Upload_Template.xlsx"
+      />
     </div>
   );
 };

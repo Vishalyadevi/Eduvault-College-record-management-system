@@ -120,27 +120,35 @@ const User = sequelize.define(
 );
 
 User.associate = (models) => {
-  User.belongsTo(models.Role, {
-    foreignKey: 'roleId',
-    as: 'role',
-  });
+  if (models.Role && !User.associations.role) {
+    User.belongsTo(models.Role, {
+      foreignKey: 'roleId',
+      as: 'role',
+    });
+  }
 
-  User.belongsTo(models.Department, {
-    foreignKey: 'departmentId',
-    as: 'department',
-  });
+  if (models.Department && !User.associations.department) {
+    User.belongsTo(models.Department, {
+      foreignKey: 'departmentId',
+      as: 'department',
+    });
+  }
 
-  User.belongsTo(models.User, {
-    foreignKey: 'createdBy',
-    as: 'creator',
-    constraints: false, // No DB-level constraint
-  });
+  if (models.User && !User.associations.creator) {
+    User.belongsTo(models.User, {
+      foreignKey: 'createdBy',
+      as: 'creator',
+      constraints: false, // No DB-level constraint
+    });
+  }
 
-  User.belongsTo(models.User, {
-    foreignKey: 'updatedBy',
-    as: 'updater',
-    constraints: false, // No DB-level constraint
-  });
+  if (models.User && !User.associations.updater) {
+    User.belongsTo(models.User, {
+      foreignKey: 'updatedBy',
+      as: 'updater',
+      constraints: false, // No DB-level constraint
+    });
+  }
 };
 
 export default User;

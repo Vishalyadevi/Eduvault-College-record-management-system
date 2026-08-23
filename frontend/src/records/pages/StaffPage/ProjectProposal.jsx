@@ -3,10 +3,15 @@ import { Plus, DollarSign, Edit, Trash2, Eye, X, FileText, Upload } from 'lucide
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import MasterSelect from '../../components/MasterSelect';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import { 
   getProjectProposals, createProjectProposal, updateProjectProposal, deleteProjectProposal,
-  getProjectPaymentDetails, createProjectPaymentDetail, updateProjectPaymentDetail, deleteProjectPaymentDetail 
+  getProjectPaymentDetails, createProjectPaymentDetail, updateProjectPaymentDetail, deleteProjectPaymentDetail,
+  getFundingAgencies, bulkCreateFundedProjects
 } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const ProjectProposalsPage = () => {
@@ -16,6 +21,37 @@ const ProjectProposalsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentProposal, setCurrentProposal] = useState(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [fundingAgencyOptions, setFundingAgencyOptions] = useState([
+    { value: '', label: 'Select Funding Agency' }
+  ]);
+
+  const proposalExcelColumns = [
+    { key: 'pi_name', label: 'PI Name', required: true, example: 'Dr. John Smith' },
+    { key: 'co_pi_names', label: 'Co-PI Names', required: false, example: 'Dr. Alice, Dr. Bob' },
+    { key: 'project_title', label: 'Project Title', required: true, example: 'AI Drone Surveillance' },
+    {
+      key: 'funding_agency',
+      label: 'Funding Agency',
+      required: true,
+      options: fundingAgencyOptions.map(o => o.label).filter(l => l && !l.startsWith('Select')),
+      isDynamicMaster: true,
+      example: 'DST-SERB'
+    },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-01-01' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2027-12-31' },
+    { key: 'amount', label: 'Amount Sanctioned', required: true, type: 'number', example: 500000 },
+    { key: 'amount_received', label: 'Amount Received', required: false, type: 'number', example: 250000 },
+    { key: 'organization_name', label: 'Organization Name', required: false, example: 'National Engineering College' },
+    { key: 'proof', label: 'Proof / Sanction Order File Name', required: false, type: 'file', example: 'sanction_order.pdf' },
+    { key: 'yearly_report', label: 'Yearly Report File Name', required: false, type: 'file', example: 'yearly_report.pdf' },
+    { key: 'final_report', label: 'Final Report File Name', required: false, type: 'file', example: 'final_report.pdf' }
+  ];
+
+  const handleBulkUploadProposals = async (validRows) => {
+    await bulkCreateFundedProjects(validRows);
+    await fetchProposals();
+  };
   
   // Payment details states
   const [showAmountDetails, setShowAmountDetails] = useState(false);
@@ -38,21 +74,50 @@ const ProjectProposalsPage = () => {
     proof: null,
     yearly_report: null,
     final_report: null,
-    organization_name: ''
+    organization_name: '',
+    students_involved: 'No',
+    student_names: []
   });
 
   const [coPiInput, setCoPiInput] = useState('');
+  const [studentInput, setStudentInput] = useState('');
 
   const [paymentFormData, setPaymentFormData] = useState({
     date: '',
     amount: ''
   });
 
+  useEffect(() => {
+    const fetchAgencies = async () => {
+      try {
+        const res = await getFundingAgencies({ status: 'Active' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+
+        if (list.length > 0) {
+          setFundingAgencyOptions([
+            { value: '', label: 'Select Funding Agency' },
+            ...list.map(a => ({ value: a.agency_name, label: a.agency_name }))
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching funding agencies:', err);
+      }
+    };
+    fetchAgencies();
+  }, []);
+
   const fetchProposals = async () => {
     try {
       setLoading(true);
       const response = await getProjectProposals();
-      setProposals(response.data);
+      let list = [];
+      if (Array.isArray(response)) list = response;
+      else if (Array.isArray(response?.data)) list = response.data;
+      else if (Array.isArray(response?.data?.data)) list = response.data.data;
+      setProposals(list);
     } catch (error) {
       console.error('Error fetching project proposals:', error);
       toast.error('Failed to load project proposals');
@@ -111,19 +176,37 @@ const ProjectProposalsPage = () => {
 
   const handleAddCoPi = () => {
     if (coPiInput.trim()) {
-      setFormData({
-        ...formData,
-        co_pi_names: [...formData.co_pi_names, coPiInput.trim()]
-      });
+      const newItems = coPiInput.split(',').map(s => s.trim()).filter(Boolean);
+      setFormData((prev) => ({
+        ...prev,
+        co_pi_names: [...prev.co_pi_names, ...newItems]
+      }));
       setCoPiInput('');
     }
   };
 
   const handleRemoveCoPi = (index) => {
-    setFormData({
-      ...formData,
-      co_pi_names: formData.co_pi_names.filter((_, i) => i !== index)
-    });
+    setFormData((prev) => ({
+      ...prev,
+      co_pi_names: prev.co_pi_names.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddStudent = () => {
+    if (studentInput.trim()) {
+      setFormData((prev) => ({
+        ...prev,
+        student_names: [...prev.student_names, studentInput.trim()]
+      }));
+      setStudentInput('');
+    }
+  };
+
+  const handleRemoveStudent = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      student_names: prev.student_names.filter((_, i) => i !== index)
+    }));
   };
 
   const handlePaymentInputChange = (e) => {
@@ -147,9 +230,12 @@ const ProjectProposalsPage = () => {
       proof: null,
       yearly_report: null,
       final_report: null,
-      organization_name: ''
+      organization_name: '',
+      students_involved: 'No',
+      student_names: []
     });
     setCoPiInput('');
+    setStudentInput('');
     setCurrentProposal(null);
     setIsViewMode(false);
   };
@@ -179,7 +265,8 @@ const ProjectProposalsPage = () => {
           endpoint = `/project-proposal/final-report/${proposal.id}`;
         }
 
-        const response = await fetch(`http://localhost:4000/api${endpoint}`, {
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+        const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -214,12 +301,16 @@ const ProjectProposalsPage = () => {
     );
   };
 
-  const renderCoPiNames = (coPiNames) => {
-    if (!coPiNames) {
-      return <span className="text-gray-400">None</span>;
+  const renderCoPiNames = (row) => {
+    let names = [];
+    if (row?.coPIs && row.coPIs.length > 0) {
+      names = row.coPIs.map(c => c.co_pi_name);
+    } else if (row?.co_pi_names) {
+      if (Array.isArray(row.co_pi_names)) names = row.co_pi_names;
+      else if (typeof row.co_pi_names === 'string') {
+        names = row.co_pi_names.split(',').map(name => name.trim()).filter(Boolean);
+      }
     }
-    
-    const names = coPiNames.split(',').map(name => name.trim()).filter(name => name);
     
     if (names.length === 0) {
       return <span className="text-gray-400">None</span>;
@@ -236,16 +327,65 @@ const ProjectProposalsPage = () => {
     );
   };
 
+  const renderStudentNames = (row) => {
+    let list = [];
+    if (row?.students && row.students.length > 0) {
+      list = row.students.map(s => s.student_name);
+    } else if (row?.student_names) {
+      if (Array.isArray(row.student_names)) list = row.student_names;
+      else if (typeof row.student_names === 'string') {
+        list = row.student_names.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+    
+    if (list.length === 0) {
+      return <span className="text-gray-400">No</span>;
+    }
+    
+    return (
+      <div className="space-y-1">
+        {list.map((name, index) => (
+          <div key={index} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md inline-block mr-1 mb-1 border border-blue-200">
+            {name}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const handleAddNew = () => {
     resetForm();
     setIsModalOpen(true);
   };
 
+  const ensureAgencyInOptions = (agencyName) => {
+    if (!agencyName) return;
+    setFundingAgencyOptions((prev) => {
+      if (prev.some((opt) => opt.value === agencyName)) return prev;
+      return [...prev, { value: agencyName, label: agencyName }];
+    });
+  };
+
   const handleEdit = (proposal) => {
     setCurrentProposal(proposal);
-    const coPiArray = proposal.co_pi_names
-      ? proposal.co_pi_names.split(',').map(name => name.trim()).filter(name => name)
-      : [];
+    
+    let coPiArray = [];
+    if (Array.isArray(proposal.coPIs) && proposal.coPIs.length > 0) {
+      coPiArray = proposal.coPIs.map(c => c.co_pi_name);
+    } else if (Array.isArray(proposal.co_pi_names)) {
+      coPiArray = proposal.co_pi_names;
+    } else if (typeof proposal.co_pi_names === 'string' && proposal.co_pi_names.trim()) {
+      coPiArray = proposal.co_pi_names.split(',').map(name => name.trim()).filter(Boolean);
+    }
+
+    let studentArray = [];
+    if (proposal.students && proposal.students.length > 0) {
+      studentArray = proposal.students.map(s => s.student_name);
+    }
+
+    const studentsInvolved = proposal.students_involved || (studentArray.length > 0 ? 'Yes' : 'No');
+
+    ensureAgencyInOptions(proposal.funding_agency);
 
     setFormData({
       pi_name: proposal.pi_name || '',
@@ -259,17 +399,36 @@ const ProjectProposalsPage = () => {
       proof: null,
       yearly_report: null,
       final_report: null,
-      organization_name: proposal.organization_name || ''
+      organization_name: proposal.organization_name || '',
+      students_involved: studentsInvolved,
+      student_names: studentArray
     });
+    setCoPiInput('');
+    setStudentInput('');
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const handleView = (proposal) => {
     setCurrentProposal(proposal);
-    const coPiArray = proposal.co_pi_names
-      ? proposal.co_pi_names.split(',').map(name => name.trim()).filter(name => name)
-      : [];
+
+    let coPiArray = [];
+    if (Array.isArray(proposal.coPIs) && proposal.coPIs.length > 0) {
+      coPiArray = proposal.coPIs.map(c => c.co_pi_name);
+    } else if (Array.isArray(proposal.co_pi_names)) {
+      coPiArray = proposal.co_pi_names;
+    } else if (typeof proposal.co_pi_names === 'string' && proposal.co_pi_names.trim()) {
+      coPiArray = proposal.co_pi_names.split(',').map(name => name.trim()).filter(Boolean);
+    }
+
+    let studentArray = [];
+    if (proposal.students && proposal.students.length > 0) {
+      studentArray = proposal.students.map(s => s.student_name);
+    }
+
+    const studentsInvolved = proposal.students_involved || (studentArray.length > 0 ? 'Yes' : 'No');
+
+    ensureAgencyInOptions(proposal.funding_agency);
 
     setFormData({
       pi_name: proposal.pi_name || '',
@@ -283,8 +442,12 @@ const ProjectProposalsPage = () => {
       proof: null,
       yearly_report: null,
       final_report: null,
-      organization_name: proposal.organization_name || ''
+      organization_name: proposal.organization_name || '',
+      students_involved: studentsInvolved,
+      student_names: studentArray
     });
+    setCoPiInput('');
+    setStudentInput('');
     setIsViewMode(true);
     setIsModalOpen(true);
   };
@@ -306,11 +469,21 @@ const ProjectProposalsPage = () => {
     try {
       setIsSubmitting(true);
 
+      // Include any pending text left in the input boxes
+      let finalCoPIs = [...formData.co_pi_names];
+      if (coPiInput.trim() && !finalCoPIs.includes(coPiInput.trim())) {
+        finalCoPIs.push(coPiInput.trim());
+      }
+
+      let finalStudentNames = [...formData.student_names];
+      if (studentInput.trim() && !finalStudentNames.includes(studentInput.trim())) {
+        finalStudentNames.push(studentInput.trim());
+      }
+
       // Validation
       if (!formData.pi_name || !formData.project_title || !formData.funding_agency ||
-          !formData.from_date || !formData.to_date || !formData.amount ||
-          !formData.organization_name) {
-        toast.error('Please fill in all required fields');
+          !formData.from_date || !formData.to_date || !formData.amount) {
+        toast.error('Please fill in all required fields (PI Name, Project Title, Funding Agency, From Date, To Date, Amount)');
         setIsSubmitting(false);
         return;
       }
@@ -332,13 +505,16 @@ const ProjectProposalsPage = () => {
       // Create FormData object for file uploads
       const submitData = new FormData();
       submitData.append('pi_name', formData.pi_name);
-      submitData.append('co_pi_names', formData.co_pi_names.join(', '));
+      submitData.append('co_pi_names', JSON.stringify(finalCoPIs));
       submitData.append('project_title', formData.project_title);
       submitData.append('funding_agency', formData.funding_agency);
       submitData.append('from_date', formData.from_date);
       submitData.append('to_date', formData.to_date);
       submitData.append('amount', formData.amount.toString());
-      submitData.append('organization_name', formData.organization_name);
+      submitData.append('amount_received', formData.amount_received ? formData.amount_received.toString() : '0');
+      submitData.append('organization_name', formData.organization_name || formData.funding_agency || 'National Engineering College');
+      submitData.append('students_involved', formData.students_involved);
+      submitData.append('student_names', JSON.stringify(formData.students_involved === 'Yes' ? finalStudentNames : []));
 
       // Append files if they exist
       if (formData.proof) {
@@ -364,7 +540,7 @@ const ProjectProposalsPage = () => {
       fetchProposals();
     } catch (error) {
       console.error('Error saving project proposal:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to save project proposal';
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to save project proposal';
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -463,9 +639,14 @@ const ProjectProposalsPage = () => {
     { 
       field: 'co_pi_names', 
       header: 'Co-PI Names',
-      render: (row) => renderCoPiNames(row.co_pi_names)
+      render: (row) => renderCoPiNames(row)
     },
     { field: 'project_title', header: 'Project Title' },
+    {
+      field: 'students_involved',
+      header: 'Students Involved',
+      render: (row) => renderStudentNames(row)
+    },
     { field: 'funding_agency', header: 'Funding Agency' },
     { 
       field: 'duration', 
@@ -522,13 +703,23 @@ const ProjectProposalsPage = () => {
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-        <button
-          onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-pink-600 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New Project Proposal
-        </button>
+        <h1 className="text-2xl font-bold text-gray-900">Funded Project Proposals</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="btn flex items-center gap-2 text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors"
+          >
+            <Upload size={16} />
+            Bulk Upload Excel
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-pink-600 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md text-sm font-semibold transition-colors"
+          >
+            <Plus size={16} />
+            Add New Project Proposal
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -671,49 +862,134 @@ const ProjectProposalsPage = () => {
           />
           
           {/* Co-PI Names with dynamic add/remove */}
-          <div className="md:col-span-">
-            <label className="block text-sm font-semibold text-black-700 mb-2">
+          <div className="space-y-2 md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700">
               Co-PI Names
             </label>
-            {!isViewMode && (
-              <div className="grid-cols-1 flex gap-4 mb-2">
-                <input
-                  type="text"
-                  value={coPiInput}
-                  onChange={(e) => setCoPiInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCoPi())}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-all duration-300 bg-gray-50 focus:bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCoPi}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md flex items-center gap-1"
+            <div className="p-2 border-2 border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent bg-white flex flex-wrap items-center gap-2 min-h-[46px]">
+              {formData.co_pi_names.map((name, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-full border border-indigo-200"
                 >
-                  <Plus size={16} />
-                  Add
-                </button>
-              </div>
-            )}
-            <div className="space-y-2">
-              {formData.co_pi_names.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No Co-PIs added</p>
-              ) : (
-                formData.co_pi_names.map((name, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
-                    <span className="text-sm">{name}</span>
+                  <span>{name}</span>
+                  {!isViewMode && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCoPi(index)}
+                      className="hover:text-red-600 focus:outline-none transition-colors"
+                      title="Remove Co-PI"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {!isViewMode && (
+                <div className="flex-1 flex items-center gap-2 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={coPiInput}
+                    onChange={(e) => setCoPiInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCoPi();
+                      }
+                    }}
+                    placeholder={formData.co_pi_names.length === 0 ? "Type Co-PI name and click Add..." : "Add another Co-PI..."}
+                    className="flex-1 border-none bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400 p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCoPi}
+                    className="px-3 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors shadow-sm"
+                  >
+                    Add Co-PI
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Students Involved Section */}
+          <div className="space-y-2 md:col-span-2 border-t pt-3">
+            <label className="block text-sm font-semibold text-gray-700">
+              Students Involved?
+            </label>
+            <div className="flex items-center gap-6 mb-2">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="students_involved"
+                  value="No"
+                  checked={formData.students_involved === 'No'}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-gray-700">No</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="students_involved"
+                  value="Yes"
+                  checked={formData.students_involved === 'Yes'}
+                  onChange={handleInputChange}
+                  disabled={isViewMode}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Yes</span>
+              </label>
+            </div>
+
+            {formData.students_involved === 'Yes' && (
+              <div className="p-2 border-2 border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent bg-white flex flex-wrap items-center gap-2 min-h-[46px]">
+                {formData.student_names.map((name, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200"
+                  >
+                    <span>{name}</span>
                     {!isViewMode && (
                       <button
                         type="button"
-                        onClick={() => handleRemoveCoPi(index)}
-                        className="text-red-500 hover:text-red-700"
+                        onClick={() => handleRemoveStudent(index)}
+                        className="hover:text-red-600 focus:outline-none transition-colors"
+                        title="Remove Student"
                       >
-                        <X size={16} />
+                        <X size={14} />
                       </button>
                     )}
+                  </span>
+                ))}
+                {!isViewMode && (
+                  <div className="flex-1 flex items-center gap-2 min-w-[200px]">
+                    <input
+                      type="text"
+                      value={studentInput}
+                      onChange={(e) => setStudentInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddStudent();
+                        }
+                      }}
+                      placeholder={formData.student_names.length === 0 ? "Type Student name and click Add..." : "Add another Student..."}
+                      className="flex-1 border-none bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400 p-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddStudent}
+                      className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shadow-sm"
+                    >
+                      Add Student
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           <FormField
@@ -726,11 +1002,12 @@ const ProjectProposalsPage = () => {
             className="md:col-span-2"
           />
           
-          <FormField
+          <MasterSelect
             label="Funding Agency"
             name="funding_agency"
             value={formData.funding_agency}
             onChange={handleInputChange}
+            masterType="funding-agency"
             required
             disabled={isViewMode}
           />
@@ -791,125 +1068,35 @@ const ProjectProposalsPage = () => {
           
           {/* File Upload Fields */}
           <div className="md:col-span-2 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof Document (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.proof ? (
-                  renderFileLink(currentProposal, 'Proof')
-                ) : (
-                  <span className="text-gray-400">No proof uploaded</span>
-                )
-              ) : (
-                <div className="space-y-2">
-                  <div>
-                    <label 
-                      htmlFor="file-upload-proof" 
-                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
-                    >
-                      Choose File
-                      <input 
-                        id="file-upload-proof" 
-                        name="proof" 
-                        type="file" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                        accept=".pdf" 
-                      />
-                    </label>
-                    <span className="ml-3 text-sm text-gray-600">
-                      {formData.proof ? formData.proof.name : 'No file chosen'}
-                    </span>
-                  </div>
-                  {currentProposal?.proof && !formData.proof && (
-                    <div className="text-sm text-gray-500">
-                      Current: {renderFileLink(currentProposal, 'Proof')}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Proof Document"
+              name="proof"
+              value={formData.proof || (isViewMode && currentProposal?.proof ? 'available' : null)}
+              disabled={isViewMode}
+              onChange={(file) => setFormData((prev) => ({ ...prev, proof: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, proof: null }))}
+              hint="PDF, DOC, DOCX, JPG, PNG - Max 10MB"
+            />
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Yearly Report (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.yearly_report ? (
-                  renderFileLink(currentProposal, 'Yearly Report')
-                ) : (
-                  <span className="text-gray-400">No yearly report uploaded</span>
-                )
-              ) : (
-                <div className="space-y-2">
-                  <div>
-                    <label 
-                      htmlFor="file-upload-yearly" 
-                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
-                    >
-                      Choose File
-                      <input 
-                        id="file-upload-yearly" 
-                        name="yearly_report" 
-                        type="file" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                        accept=".pdf" 
-                      />
-                    </label>
-                    <span className="ml-3 text-sm text-gray-600">
-                      {formData.yearly_report ? formData.yearly_report.name : 'No file chosen'}
-                    </span>
-                  </div>
-                  {currentProposal?.yearly_report && !formData.yearly_report && (
-                    <div className="text-sm text-gray-500">
-                      Current: {renderFileLink(currentProposal, 'Yearly Report')}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Yearly Report"
+              name="yearly_report"
+              value={formData.yearly_report || (isViewMode && currentProposal?.yearly_report ? 'available' : null)}
+              disabled={isViewMode}
+              onChange={(file) => setFormData((prev) => ({ ...prev, yearly_report: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, yearly_report: null }))}
+              hint="PDF, DOC, DOCX, JPG, PNG - Max 10MB"
+            />
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Final Report (PDF, DOC, DOCX, JPG, PNG - Max 10MB)
-              </label>
-              {isViewMode ? (
-                currentProposal?.final_report ? (
-                  renderFileLink(currentProposal, 'Final Report')
-                ) : (
-                  <span className="text-gray-400">No final report uploaded</span>
-                )
-              ) : (
-                <div className="space-y-2">
-                  <div>
-                    <label 
-                      htmlFor="file-upload-final" 
-                      className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded hover:bg-indigo-100 cursor-pointer transition-colors"
-                    >
-                      Choose File
-                      <input 
-                        id="file-upload-final" 
-                        name="final_report" 
-                        type="file" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                        accept=".pdf" 
-                      />
-                    </label>
-                    <span className="ml-3 text-sm text-gray-600">
-                      {formData.final_report ? formData.final_report.name : 'No file chosen'}
-                    </span>
-                  </div>
-                  {currentProposal?.final_report && !formData.final_report && (
-                    <div className="text-sm text-gray-500">
-                      Current: {renderFileLink(currentProposal, 'Final Report')}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Final Report"
+              name="final_report"
+              value={formData.final_report || (isViewMode && currentProposal?.final_report ? 'available' : null)}
+              disabled={isViewMode}
+              onChange={(file) => setFormData((prev) => ({ ...prev, final_report: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, final_report: null }))}
+              hint="PDF, DOC, DOCX, JPG, PNG - Max 10MB"
+            />
           </div>
         </div>
       </Modal>
@@ -946,6 +1133,16 @@ const ProjectProposalsPage = () => {
           />
         </div>
       </Modal>
+
+      {/* Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        title="Bulk Upload Project Proposals"
+        columns={proposalExcelColumns}
+        onUpload={handleBulkUploadProposals}
+        templateFilename="Funded_Project_Proposals_Template.xlsx"
+      />
     </div>
   );
 };

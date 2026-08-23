@@ -11,6 +11,7 @@ import {
   createProjectMentor,
   updateProjectMentor,
   deleteProjectMentor,
+  bulkCreateProjectMentors,
 } from '../../controllers/staff/projectMentorController.js';
 
 const uploadsDir = path.join(process.cwd(), 'uploads', 'project-mentors');
@@ -42,10 +43,16 @@ const uploadFields = diskUpload.fields([
 // ─── ROUTER ────────────────────────────────────────────────────────────────────
 const router = express.Router();
 
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 router.get('/', authenticateToken, getAllProjectMentors);
 router.get('/certificate/:id', authenticateToken, serveCertificate);
 router.get('/proof/:id', authenticateToken, serveProof);
 router.get('/:id', authenticateToken, getProjectMentorById);
+router.post('/bulk', authenticateToken, bulkUpload.any(), bulkCreateProjectMentors);
 router.post('/', authenticateToken, uploadFields, createProjectMentor);
 router.put('/:id', authenticateToken, uploadFields, updateProjectMentor);
 router.delete('/:id', authenticateToken, deleteProjectMentor);

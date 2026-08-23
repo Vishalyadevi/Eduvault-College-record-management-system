@@ -102,6 +102,27 @@ export const createScholar = (data) => api.post('/scholars', data);
 export const updateScholar = (id, data) => api.put(`/scholars/${id}`, data);
 export const deleteScholar = (id) => api.delete(`/scholars/${id}`);
 
+// Funding agency master services
+export const getFundingAgencies = (params) => api.get('/funding-agencies', { params });
+export const getFundingAgency = (id) => api.get(`/funding-agencies/${id}`);
+export const createFundingAgency = (data) => api.post('/funding-agencies', data);
+export const updateFundingAgency = (id, data) => api.put(`/funding-agencies/${id}`, data);
+export const deleteFundingAgency = (id) => api.delete(`/funding-agencies/${id}`);
+
+// Certification course master services
+export const getCertificationCourses = (params) => api.get('/certification-courses', { params });
+export const getCertificationCourse = (id) => api.get(`/certification-courses/${id}`);
+export const createCertificationCourse = (data) => api.post('/certification-courses', data);
+export const updateCertificationCourse = (id, data) => api.put(`/certification-courses/${id}`, data);
+export const deleteCertificationCourse = (id) => api.delete(`/certification-courses/${id}`);
+
+// Event type master services
+export const getEventTypes = (params) => api.get('/event-types', { params });
+export const getEventType = (id) => api.get(`/event-types/${id}`);
+export const createEventType = (data) => api.post('/event-types', data);
+export const updateEventType = (id, data) => api.put(`/event-types/${id}`, data);
+export const deleteEventType = (id) => api.delete(`/event-types/${id}`);
+
 // Consultancy Proposals services
 export const getProposals = () => api.get('/proposals');
 export const getProposal = (id) => api.get(`/proposals/${id}`);
@@ -157,7 +178,6 @@ export const deleteProjectPaymentDetail = (id) => api.delete(`/project-proposal/
 // Events services
 export const getEvents = () => api.get('/events');
 export const getEvent = (id) => api.get(`/events/${id}`);
-
 export const createEvent = (data) => {
   return api.post('/events', data, {
     headers: {
@@ -165,7 +185,7 @@ export const createEvent = (data) => {
     },
   });
 };
-
+export const bulkCreateEvents = (records) => postBulkHelper('/events/bulk', records);
 export const updateEvent = (id, data) => {
   return api.put(`/events/${id}`, data, {
     headers: {
@@ -173,7 +193,6 @@ export const updateEvent = (id, data) => {
     },
   });
 };
-
 export const deleteEvent = (id) => api.delete(`/events/${id}`);
 
 // Get event document (PDF)
@@ -186,7 +205,6 @@ export const getEventDocument = (eventId, documentType) => {
 // Staff Events Attended services
 export const getStaffEventsAttended = () => api.get('/staff/events-attended');
 export const getStaffEventAttended = (id) => api.get(`/staff/events-attended/${id}`);
-
 export const createStaffEventAttended = (data) => {
   return api.post('/staff/events-attended', data, {
     headers: {
@@ -194,7 +212,6 @@ export const createStaffEventAttended = (data) => {
     },
   });
 };
-
 export const updateStaffEventAttended = (id, data) => {
   return api.put(`/staff/events-attended/${id}`, data, {
     headers: {
@@ -202,7 +219,6 @@ export const updateStaffEventAttended = (id, data) => {
     },
   });
 };
-
 export const deleteStaffEventAttended = (id) => api.delete(`/staff/events-attended/${id}`);
 
 export const getStaffEventDocument = (eventId, documentType) => {
@@ -245,19 +261,26 @@ export const createCertification = (data) => api.post('/certifications', data);
 export const updateCertification = (id, data) => api.put(`/certifications/${id}`, data);
 export const deleteCertification = (id) => api.delete(`/certifications/${id}`);
 
-// Conferences services
-export const getConferences = () => api.get('/conferences');
-export const getConference = (id) => api.get(`/conferences/${id}`);
-export const createConference = (data) => api.post('/conferences', data);
-export const updateConference = (id, data) => api.put(`/conferences/${id}`, data);
-export const deleteConference = (id) => api.delete(`/conferences/${id}`);
+// Conference Details services (/conference-details)
+export const getConferences = () => api.get('/conference-details');
+export const getConference = (id) => api.get(`/conference-details/${id}`);
+export const createConference = (data) => api.post('/conference-details', data);
+export const bulkCreateConferences = (records) => postBulkHelper('/conference-details/bulk', records);
+export const updateConference = (id, data) => api.put(`/conference-details/${id}`, data);
+export const deleteConference = (id) => api.delete(`/conference-details/${id}`);
+export const getConferenceDocument = (id) => api.get(`/conference-details/${id}/certificate`, { responseType: 'blob' });
 
-// Journals services
-export const getJournals = () => api.get('/journals');
-export const getJournal = (id) => api.get(`/journals/${id}`);
-export const createJournal = (data) => api.post('/journals', data);
-export const updateJournal = (id, data) => api.put(`/journals/${id}`, data);
-export const deleteJournal = (id) => api.delete(`/journals/${id}`);
+
+// Journals services (routed through /book-chapters)
+export const getJournals = async () => {
+  const res = await api.get('/book-chapters');
+  const items = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+  return { data: items.filter(i => i.publication_type === 'journal') };
+};
+export const getJournal = (id) => api.get(`/book-chapters/${id}`);
+export const createJournal = (data) => api.post('/book-chapters', { ...data, publication_type: 'journal' });
+export const updateJournal = (id, data) => api.put(`/book-chapters/${id}`, { ...data, publication_type: 'journal' });
+export const deleteJournal = (id) => api.delete(`/book-chapters/${id}`);
 
 // Book Chapters services (Publications)
 export const getBookChapters = () => api.get('/book-chapters');
@@ -457,5 +480,28 @@ export const getDashboardStats = async () => {
 export const getTutorWardDashboardStats = async () => {
   return api.get('/staff-dashboard/tutor-ward-stats');
 };
+
+// Helper function for bulk API requests
+export const postBulkHelper = (url, records) => {
+  return api.post(url, { records });
+};
+
+// ─── BULK INSERTION API HELPERS FOR ALL 17 ACTIVITY MODULES ───────────────────
+export const bulkCreateScholars = (records) => postBulkHelper('/scholars/bulk', records);
+export const bulkCreateProposals = (records) => postBulkHelper('/proposals/bulk', records);
+export const bulkCreateFundedProjects = (records) => postBulkHelper('/project-proposal/bulk', records);
+export const bulkCreateSeedMoney = (records) => postBulkHelper('/seed-money/bulk', records);
+export const bulkCreateIndustryKnowhow = (records) => postBulkHelper('/industry/bulk', records);
+export const bulkCreateCertifications = (records) => postBulkHelper('/certifications/bulk', records);
+export const bulkCreateBookChapters = (records) => postBulkHelper('/book-chapters/bulk', records);
+export const bulkCreateEventsOrganized = (records) => postBulkHelper('/events-organized/bulk', records);
+export const bulkCreateResourcePerson = (records) => postBulkHelper('/resource-person/bulk', records);
+export const bulkCreateRecognitions = (records) => postBulkHelper('/recognition/bulk', records);
+export const bulkCreatePatentProducts = (records) => postBulkHelper('/patent-product/bulk', records);
+export const bulkCreateProjectMentors = (records) => postBulkHelper('/project-mentors/bulk', records);
+export const bulkCreateMOUs = (records) => postBulkHelper('/mou/bulk', records);
+export const bulkCreateTlpActivities = (records) => postBulkHelper('/staff/tlp/bulk', records);
+export const bulkCreateClubActivities = (records) => postBulkHelper('/activity/bulk', records);
+export const bulkCreateActivities = (records) => postBulkHelper('/activity/bulk', records);
 
 export default api;

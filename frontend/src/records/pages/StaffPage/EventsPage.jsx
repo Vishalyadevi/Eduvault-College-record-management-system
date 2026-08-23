@@ -3,8 +3,12 @@ import { Plus } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventDocument } from '../../services/api';
+import FileUploadField from '../../components/FileUploadField';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventDocument, getEventTypes, bulkCreateEvents } from '../../services/api';
 import toast from 'react-hot-toast';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import { Download, Upload } from 'lucide-react';
+
 
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
@@ -13,6 +17,17 @@ const EventsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentEvent, setCurrentEvent] = useState(null);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [programmeOptions, setProgrammeOptions] = useState([
+    { value: '', label: 'Select Programme Type' },
+    { value: 'FDP', label: 'FDP' },
+    { value: 'Workshop', label: 'Workshop' },
+    { value: 'Seminar', label: 'Seminar' },
+    { value: 'Webinar', label: 'Webinar' },
+    { value: 'Short Term Course', label: 'Short Term Course' },
+    { value: 'Refresher Course', label: 'Refresher Course' }
+  ]);
+
 
   const [formData, setFormData] = useState({
     programme_name: '',
@@ -21,6 +36,7 @@ const EventsPage = () => {
     to_date: '',
     mode: '',
     organized_by: '',
+    venue: '',
     participants: '',
     financial_support: false,
     support_amount: ''
@@ -34,19 +50,30 @@ const EventsPage = () => {
     programme_report_link: null
   });
 
-  // Dropdown options
-  const programmeOptions = [
-    { value: '', label: 'Select Programme Type' },
-    { value: 'FDP', label: 'Faculty Development Programme (FDP)' },
-    { value: 'Workshop', label: 'Workshop' },
-    { value: 'Seminar', label: 'Seminar' },
-    { value: 'STTP', label: 'Short Term Training Programme (STTP)' },
-    { value: 'Industry Know How', label: 'Industry Know How' },
-    { value: 'Conference', label: 'Conference' },
-    { value: 'Symposium', label: 'Symposium' },
-    { value: 'Training Program', label: 'Training Program' },
-    { value: 'Webinar', label: 'Webinar' }
-  ];
+  useEffect(() => {
+    const fetchMasterEventTypes = async () => {
+      try {
+        const res = await getEventTypes({ status: 'Active' });
+        let types = [];
+        if (Array.isArray(res)) types = res;
+        else if (Array.isArray(res?.data)) types = res.data;
+        else if (Array.isArray(res?.data?.data)) types = res.data.data;
+        
+        if (types.length > 0) {
+          const filtered = types.filter(t => t.type_name !== 'Conference');
+          const options = [
+            { value: '', label: 'Select Programme Type' },
+            ...filtered.map(t => ({ value: t.type_name, label: t.type_name }))
+          ];
+          setProgrammeOptions(options);
+        }
+
+      } catch (err) {
+        console.error('Error fetching event types:', err);
+      }
+    };
+    fetchMasterEventTypes();
+  }, []);
 
   const modeOptions = [
     { value: '', label: 'Select Mode' },
@@ -85,22 +112,15 @@ const EventsPage = () => {
     const { name, value, type, checked } = e.target;
 
     if (type === 'checkbox') {
-      setFormData({
-        ...formData,
+      setFormData(prev => ({
+        ...prev,
         [name]: checked
-      });
-    } else if (name === 'participants' || name === 'support_amount') {
-      // For number fields, only allow valid numbers
-      const numValue = value.replace(/[^0-9.]/g, ''); // Remove non-numeric characters except decimal
-      setFormData({
-        ...formData,
-        [name]: numValue
-      });
+      }));
     } else {
-      setFormData({
-        ...formData,
+      setFormData(prev => ({
+        ...prev,
         [name]: value
-      });
+      }));
     }
   };
 
@@ -134,6 +154,7 @@ const EventsPage = () => {
       to_date: '',
       mode: '',
       organized_by: '',
+      venue: '',
       participants: '',
       financial_support: false,
       support_amount: ''
@@ -162,6 +183,7 @@ const EventsPage = () => {
       to_date: event.to_date || '',
       mode: event.mode || '',
       organized_by: event.organized_by || '',
+      venue: event.venue || '',
       participants: event.participants?.toString() || '',
       financial_support: Boolean(event.financial_support),
       support_amount: event.support_amount?.toString() || ''
@@ -185,6 +207,7 @@ const EventsPage = () => {
       to_date: event.to_date || '',
       mode: event.mode || '',
       organized_by: event.organized_by || '',
+      venue: event.venue || '',
       participants: event.participants?.toString() || '',
       financial_support: Boolean(event.financial_support),
       support_amount: event.support_amount?.toString() || ''
@@ -218,6 +241,7 @@ const EventsPage = () => {
         return;
       }
 
+
       // Validate participants is a positive number
       const participantsCount = parseInt(formData.participants);
       if (isNaN(participantsCount) || participantsCount <= 0) {
@@ -248,10 +272,11 @@ const EventsPage = () => {
       const fromDate = new Date(formData.from_date);
       const toDate = new Date(formData.to_date);
 
-      if (fromDate >= toDate) {
+      if (fromDate > toDate) {
         toast.error('From Date must be before To Date');
         return;
       }
+
 
       // Create FormData object
       const submitData = new FormData();
@@ -263,7 +288,9 @@ const EventsPage = () => {
       submitData.append('to_date', formData.to_date);
       submitData.append('mode', formData.mode);
       submitData.append('organized_by', formData.organized_by.trim());
+      submitData.append('venue', formData.venue ? formData.venue.trim() : '');
       submitData.append('participants', participantsCount);
+
 
       // CRITICAL: Send boolean as string 'true' or 'false' for proper backend parsing
       submitData.append('financial_support', formData.financial_support ? 'true' : 'false');
@@ -456,17 +483,63 @@ const EventsPage = () => {
     }
   ];
 
+  const excelColumns = [
+    {
+      key: 'programme_name',
+      label: 'Programme Name',
+      required: true,
+      options: programmeOptions.filter(o => o.value).map(o => o.value),
+      isDynamicMaster: true,
+      example: 'Workshop'
+    },
+    { key: 'title', label: 'Title', required: true, example: 'AI & Data Science Trends' },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-08-10' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-08-10' },
+    { key: 'mode', label: 'Mode', required: true, options: ['Online', 'Offline', 'Hybrid'], example: 'Online' },
+    { key: 'organized_by', label: 'Organized By', required: true, example: 'IEEE CS Chapter' },
+    { key: 'venue', label: 'Venue', required: false, example: 'Main Auditorium' },
+    { key: 'participants', label: 'Participants', required: true, type: 'number', example: 50 },
+    { key: 'financial_support', label: 'Financial Support', required: false, options: ['Yes', 'No'], example: 'No' },
+    { key: 'support_amount', label: 'Support Amount', required: false, type: 'number', example: 0 },
+    { key: 'permission_letter_link', label: 'Permission Letter File Name', required: false, type: 'file', example: 'permission_letter.pdf' },
+    { key: 'certificate_link', label: 'Certificate File Name', required: false, type: 'file', example: 'certificate.pdf' },
+    { key: 'financial_proof_link', label: 'Financial Proof File Name', required: false, type: 'file', example: 'financial_proof.pdf' },
+    { key: 'programme_report_link', label: 'Programme Report File Name', required: false, type: 'file', example: 'programme_report.pdf' }
+  ];
+
+  const handleBulkUpload = async (validRows) => {
+    try {
+      await bulkCreateEvents(validRows);
+      toast.success(`Successfully uploaded ${validRows.length} events!`);
+      fetchEvents();
+    } catch (error) {
+      console.error('Error bulk uploading events:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload bulk events');
+    }
+  };
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button
-          onClick={handleAddNew}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New Event Attended
-        </button>
+      <div className="mb-6 flex flex-wrap justify-between items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">Events Attended</h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            className="flex items-center gap-2 text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-4 py-2 rounded-md font-semibold transition-colors shadow-xs"
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-sm font-semibold transition-all"
+          >
+            <Plus size={16} />
+            Add New Event Attended
+          </button>
+        </div>
       </div>
+
 
       <DataTable
         data={events}
@@ -567,6 +640,17 @@ const EventsPage = () => {
             required
             disabled={isViewMode}
           />
+          {formData.programme_name === 'Conference' && (
+            <FormField
+              label="Venue"
+              name="venue"
+              value={formData.venue}
+              onChange={handleInputChange}
+              required
+              disabled={isViewMode}
+              placeholder="Enter conference venue"
+            />
+          )}
           <FormField
             label="No. of Participants"
             name="participants"
@@ -610,75 +694,46 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!isViewMode && (
                 <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Permission Letter
-                    </label>
-                    <input
-                      type="file"
-                      name="permission_letter_link"
-                      accept="application/pdf"
-                      onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                    />
-                    {files.permission_letter_link && (
-                      <p className="text-xs text-green-600 mt-1">Selected: {files.permission_letter_link.name}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Certificate
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        name="certificate_link"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        className="w-full opacity-0 absolute inset-0 cursor-pointer"
-                        id="certificate-upload"
-                      />
-                      <label
-                        htmlFor="certificate-upload"
-                        className="block w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-pointer hover:bg-gray-100 transition text-sm text-gray-500"
-                      >
-                        {files.certificate_link?.name || "Events Attended"}
-                      </label>
-                    </div>
-                    {files.certificate_link && (
-                      <p className="text-xs text-green-600 mt-1">Selected: {files.certificate_link.name}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Financial Assistance Proof
-                    </label>
-                    <input
-                      type="file"
-                      name="financial_proof_link"
-                      accept="application/pdf"
-                      onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                    />
-                    {files.financial_proof_link && (
-                      <p className="text-xs text-green-600 mt-1">Selected: {files.financial_proof_link.name}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Programme Report
-                    </label>
-                    <input
-                      type="file"
-                      name="programme_report_link"
-                      accept="application/pdf"
-                      onChange={handleFileChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                    />
-                    {files.programme_report_link && (
-                      <p className="text-xs text-green-600 mt-1">Selected: {files.programme_report_link.name}</p>
-                    )}
-                  </div>
+                  <FileUploadField
+                    label="Permission Letter"
+                    name="permission_letter_link"
+                    accept="application/pdf"
+                    value={files.permission_letter_link || (isViewMode && currentEvent?.permission_letter_link ? 'available' : null)}
+                    disabled={isViewMode}
+                    onChange={(file) => setFiles((prev) => ({ ...prev, permission_letter_link: file }))}
+                    onClear={() => setFiles((prev) => ({ ...prev, permission_letter_link: null }))}
+                    hint="PDF document up to 10MB"
+                  />
+                  <FileUploadField
+                    label="Certificate"
+                    name="certificate_link"
+                    accept="application/pdf"
+                    value={files.certificate_link || (isViewMode && currentEvent?.certificate_link ? 'available' : null)}
+                    disabled={isViewMode}
+                    onChange={(file) => setFiles((prev) => ({ ...prev, certificate_link: file }))}
+                    onClear={() => setFiles((prev) => ({ ...prev, certificate_link: null }))}
+                    hint="PDF document up to 10MB"
+                  />
+                  <FileUploadField
+                    label="Financial Assistance Proof"
+                    name="financial_proof_link"
+                    accept="application/pdf"
+                    value={files.financial_proof_link || (isViewMode && currentEvent?.financial_proof_link ? 'available' : null)}
+                    disabled={isViewMode}
+                    onChange={(file) => setFiles((prev) => ({ ...prev, financial_proof_link: file }))}
+                    onClear={() => setFiles((prev) => ({ ...prev, financial_proof_link: null }))}
+                    hint="PDF document up to 10MB"
+                  />
+                  <FileUploadField
+                    label="Programme Report"
+                    name="programme_report_link"
+                    accept="application/pdf"
+                    value={files.programme_report_link || (isViewMode && currentEvent?.programme_report_link ? 'available' : null)}
+                    disabled={isViewMode}
+                    onChange={(file) => setFiles((prev) => ({ ...prev, programme_report_link: file }))}
+                    onClear={() => setFiles((prev) => ({ ...prev, programme_report_link: null }))}
+                    hint="PDF document up to 10MB"
+                  />
                 </>
               )}
 
@@ -734,6 +789,18 @@ const EventsPage = () => {
           </div>
         </div>
       </Modal>
+
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload Events Attended"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateEvents(validRows);
+          fetchEvents();
+        }}
+        templateFilename="Events_Attended_Template.xlsx"
+      />
     </div>
   );
 };

@@ -20,7 +20,7 @@ const GenerateResume = () => {
 
       setLoading(true);
       try {
-        const response = await axios.get(`${config.backendUrl}/api/faculty/all-data/${userId}`, {
+        const response = await axios.get(`${config.backendUrl}/faculty/all-data/${userId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -293,7 +293,7 @@ const GenerateResume = () => {
 
     setPreviewLoading(true);
     try {
-      const response = await axios.post(`${config.backendUrl}/api/faculty/resume/preview/${userId}`, {
+      const response = await axios.post(`${config.backendUrl}/faculty/resume/preview/${userId}`, {
         selectedData
       }, {
         headers: {
@@ -320,7 +320,7 @@ const GenerateResume = () => {
 
     setPdfLoading(true);
     try {
-      const response = await axios.post(`${config.backendUrl}/api/faculty/resume/download/${userId}`, {
+      const response = await axios.post(`${config.backendUrl}/faculty/resume/download/${userId}`, {
         selectedData
       }, {
         headers: {

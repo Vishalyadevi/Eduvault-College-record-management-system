@@ -10,6 +10,7 @@ import {
     createResourcePerson,
     updateResourcePerson,
     deleteResourcePerson,
+    bulkCreateResourcePerson,
     viewFile,
     downloadFile,
 } from '../../controllers/staff/resourcePersonController.js';
@@ -52,9 +53,15 @@ const uploadFields = upload.fields([
 router.get('/view/:filename', authenticateToken, viewFile);
 router.get('/download/:filename', authenticateToken, downloadFile);
 
+const bulkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 // CRUD routes
 router.get('/', authenticateToken, getAllResourcePerson);
 router.get('/:id', authenticateToken, getResourcePersonById);
+router.post('/bulk', authenticateToken, bulkUpload.any(), bulkCreateResourcePerson);
 router.post('/', authenticateToken, uploadFields, createResourcePerson);
 router.put('/:id', authenticateToken, uploadFields, updateResourcePerson);
 router.delete('/:id', authenticateToken, deleteResourcePerson);

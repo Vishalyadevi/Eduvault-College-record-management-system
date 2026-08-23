@@ -3,13 +3,15 @@ import { Plus, ChevronRight, ChevronDown, Upload, File } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import api, { bulkCreateMOUs } from '../../services/api';
 
 const MOUPage = () => {
   const [mous, setMous] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isMOUModalOpen, setIsMOUModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -36,8 +38,69 @@ const MOUPage = () => {
   
   const [mouFormData, setMouFormData] = useState({
     company_name: '',
-    signed_on: ''
+    signed_on: '',
+    multidisciplinary: ''
   });
+
+  const resetMOUForm = () => {
+    setMouFormData({
+      company_name: '',
+      signed_on: '',
+      multidisciplinary: ''
+    });
+    setMouFile(null);
+    setCurrentMOU(null);
+    setIsViewMode(false);
+    setIsMOUDragActive(false);
+    mouDragCounter.current = 0;
+    if (mouFileInputRef.current) mouFileInputRef.current.value = '';
+  };
+
+  const handleAddNewMOU = () => {
+    resetMOUForm();
+    setIsMOUModalOpen(true);
+  };
+
+  const handleEditMOU = (mou) => {
+    setCurrentMOU(mou);
+    setMouFormData({
+      company_name: mou.company_name || '',
+      signed_on: mou.signed_on || '',
+      multidisciplinary: mou.multidisciplinary || ''
+    });
+    setMouFile(null);
+    setIsViewMode(false);
+    setIsMOUModalOpen(true);
+  };
+
+  const handleViewMOU = (mou) => {
+    setCurrentMOU(mou);
+    setMouFormData({
+      company_name: mou.company_name || '',
+      signed_on: mou.signed_on || '',
+      multidisciplinary: mou.multidisciplinary || ''
+    });
+    setIsViewMode(true);
+    setIsMOUModalOpen(true);
+  };
+
+  const handleDeleteMOU = async (mou) => {
+    if (window.confirm(`Are you sure you want to delete MOU with ${mou.company_name}? This will also delete all related activities.`)) {
+      try {
+        await api.delete(`/mou/${mou.id}`);
+        toast.success('MOU deleted successfully');
+        fetchMOUs();
+        setMouActivities(prev => {
+          const updated = { ...prev };
+          delete updated[mou.id];
+          return updated;
+        });
+      } catch (error) {
+        console.error('Error deleting MOU:', error);
+        toast.error('Failed to delete MOU');
+      }
+    }
+  };
 
   const [activityFormData, setActivityFormData] = useState({
     date: '',
@@ -182,63 +245,6 @@ const MOUPage = () => {
     }
   };
 
-  const resetMOUForm = () => {
-    setMouFormData({
-      company_name: '',
-      signed_on: ''
-    });
-    setMouFile(null);
-    setCurrentMOU(null);
-    setIsViewMode(false);
-    setIsMOUDragActive(false);
-    mouDragCounter.current = 0;
-    if (mouFileInputRef.current) mouFileInputRef.current.value = '';
-  };
-
-  const handleAddNewMOU = () => {
-    resetMOUForm();
-    setIsMOUModalOpen(true);
-  };
-
-  const handleEditMOU = (mou) => {
-    setCurrentMOU(mou);
-    setMouFormData({
-      company_name: mou.company_name || '',
-      signed_on: mou.signed_on || ''
-    });
-    setMouFile(null);
-    setIsViewMode(false);
-    setIsMOUModalOpen(true);
-  };
-
-  const handleViewMOU = (mou) => {
-    setCurrentMOU(mou);
-    setMouFormData({
-      company_name: mou.company_name || '',
-      signed_on: mou.signed_on || ''
-    });
-    setIsViewMode(true);
-    setIsMOUModalOpen(true);
-  };
-
-  const handleDeleteMOU = async (mou) => {
-    if (window.confirm(`Are you sure you want to delete MOU with ${mou.company_name}? This will also delete all related activities.`)) {
-      try {
-        await api.delete(`/mou/${mou.id}`);
-        toast.success('MOU deleted successfully');
-        fetchMOUs();
-        setMouActivities(prev => {
-          const updated = { ...prev };
-          delete updated[mou.id];
-          return updated;
-        });
-      } catch (error) {
-        console.error('Error deleting MOU:', error);
-        toast.error('Failed to delete MOU');
-      }
-    }
-  };
-
   const handleSubmitMOU = async () => {
     try {
       setIsSubmitting(true);
@@ -251,6 +257,7 @@ const MOUPage = () => {
       const formData = new FormData();
       formData.append('company_name', mouFormData.company_name.trim());
       formData.append('signed_on', mouFormData.signed_on);
+      formData.append('multidisciplinary', mouFormData.multidisciplinary?.trim() || '');
       
       if (mouFile) {
         formData.append('mou_copy', mouFile);
@@ -512,115 +519,147 @@ const MOUPage = () => {
     }
   ];
 
+  // MOU columns for master grid table
+  const mouColumns = [
+    { 
+      field: 'company_name', 
+      header: 'Company Name',
+      render: (row) => (
+        <span className="font-semibold text-gray-900">{row.company_name}</span>
+      )
+    },
+    { 
+      field: 'signed_on', 
+      header: 'Signed On',
+      render: (row) => formatDate(row.signed_on)
+    },
+    { 
+      field: 'multidisciplinary', 
+      header: 'Multidisciplinary',
+      render: (row) => row.multidisciplinary || '-'
+    },
+    { 
+      field: 'activities_count', 
+      header: 'Activities Count',
+      render: (row) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+          {row.activities_count || (mouActivities[row.id] ? mouActivities[row.id].length : 0)} Activities
+        </span>
+      )
+    },
+    {
+      field: 'mou_copy_link',
+      header: 'MOU Document',
+      render: (row) => (
+        row.mou_copy_link ? (
+          <a
+            href={getFileUrl(row.mou_copy_link)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
+          >
+            <File size={14} />
+            View PDF
+          </a>
+        ) : (
+          <span className="text-gray-400 text-sm">No Document</span>
+        )
+      )
+    },
+    {
+      field: 'activities_action',
+      header: 'Activities List',
+      render: (row) => (
+        <button
+          onClick={() => toggleMOUExpansion(row.id)}
+          className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md transition-colors border border-gray-300"
+        >
+          {expandedMOUs.has(row.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          {expandedMOUs.has(row.id) ? 'Hide Activities' : 'Manage Activities'}
+        </button>
+      )
+    }
+  ];
+
+  const excelColumns = [
+    { key: 'company_name', label: 'Company Name', required: true, example: 'Siemens India Ltd' },
+    { key: 'signed_on', label: 'Signed On', required: true, type: 'date', example: '2026-01-10' },
+    { key: 'coordinators', label: 'Coordinators', required: false, example: 'Dr. John Doe, Prof. Jane Smith' },
+    { key: 'participating_departments', label: 'Departments', required: false, example: 'CSE, ECE, Mech' },
+    { key: 'multidisciplinary', label: 'Multidisciplinary', required: false, example: 'Robotics & Automation' },
+    { key: 'mou_copy_link', label: 'MOU Document Copy File Name', required: false, type: 'file', example: 'mou_copy.pdf' },
+  ];
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <button
-          onClick={handleAddNewMOU}
-          className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-400 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-        >
-          <Plus size={16} />
-          Add New MOU
-        </button>
+      <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-gray-800">MoU Management</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+            onClick={() => setIsExcelModalOpen(true)}
+          >
+            <Upload size={16} />
+            Excel Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNewMOU}
+            className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add New MOU
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
-        <div className="space-y-4">
-          {mous.map((mou) => (
-            <div key={mou.id} className="border rounded-lg shadow-sm bg-white">
-              <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => toggleMOUExpansion(mou.id)}
-                    className="text-gray-600 hover:text-gray-800"
-                  >
-                    {expandedMOUs.has(mou.id) ? (
-                      <ChevronDown size={20} />
-                    ) : (
-                      <ChevronRight size={20} />
-                    )}
-                  </button>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {mou.company_name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Signed on: {formatDate(mou.signed_on)} | Activities: {mou.activities_count || 0}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {mou.mou_copy_link && (
-                    <a
-                      href={getFileUrl(mou.mou_copy_link)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1 text-sm text-indigo-600 hover:text-blue-800 border border-indigo-600 rounded-md flex items-center gap-1"
-                    >
-                      <File size={14} />
-                      View MOU
-                    </a>
-                  )}
-                  <button
-                    onClick={() => handleViewMOU(mou)}
-                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleEditMOU(mou)}
-                    className="px-3 py-1 text-sm text-indigo-600 hover:text-blue-800 border border-indigo-600 rounded-md"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMOU(mou)}
-                    className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-600 rounded-md"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+        <div className="space-y-6">
+          <DataTable
+            data={mous}
+            columns={mouColumns}
+            onView={handleViewMOU}
+            onEdit={handleEditMOU}
+            onDelete={handleDeleteMOU}
+            isLoading={loading}
+          />
 
-              {expandedMOUs.has(mou.id) && (
-                <div className="p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-md font-semibold text-gray-700">Activities</h4>
-                    <button
-                      onClick={() => handleAddNewActivity(mou.id)}
-                      className="flex items-center gap-2 text-sm text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded-md"
-                    >
-                      <Plus size={14} />
-                      Add Activity
-                    </button>
-                  </div>
-                  
-                  {mouActivities[mou.id]?.length > 0 ? (
-                    <DataTable
-                      data={mouActivities[mou.id]}
-                      columns={activityColumns}
-                      onView={(activity) => handleViewActivity(activity, mou.id)}
-                      onEdit={(activity) => handleEditActivity(activity, mou.id)}
-                      onDelete={(activity) => handleDeleteActivity(activity, mou.id)}
-                      isLoading={false}
-                    />
-                  ) : (
-                    <div className="text-center py-6 text-gray-500">
-                      No activities found. Click "Add Activity" to create one.
-                    </div>
-                  )}
+          {Array.from(expandedMOUs).map(mouId => {
+            const mou = mous.find(m => m.id === mouId);
+            if (!mou) return null;
+            return (
+              <div key={mouId} className="bg-white p-5 border rounded-lg shadow-md border-indigo-200 mt-4">
+                <div className="flex justify-between items-center mb-4 pb-2 border-b">
+                  <h4 className="text-lg font-bold text-gray-800">
+                    Activities for <span className="text-indigo-600">{mou.company_name}</span>
+                  </h4>
+                  <button
+                    onClick={() => handleAddNewActivity(mouId)}
+                    className="flex items-center gap-2 text-sm text-white bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 px-4 py-2 rounded-md shadow-sm"
+                  >
+                    <Plus size={14} />
+                    Add Activity
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
-          
-          {mous.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No MOUs found. Click "Add New MOU" to create one.
-            </div>
-          )}
+                {mouActivities[mouId]?.length > 0 ? (
+                  <DataTable
+                    data={mouActivities[mouId]}
+                    columns={activityColumns}
+                    onView={(activity) => handleViewActivity(activity, mouId)}
+                    onEdit={(activity) => handleEditActivity(activity, mouId)}
+                    onDelete={(activity) => handleDeleteActivity(activity, mouId)}
+                    isLoading={false}
+                  />
+                ) : (
+                  <div className="text-center py-6 text-gray-500">
+                    No activities recorded for this MOU yet. Click "Add Activity" above.
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -634,8 +673,9 @@ const MOUPage = () => {
         title={isViewMode ? 'View MOU' : currentMOU ? 'Edit MOU' : 'Add New MOU'}
         onSubmit={!isViewMode ? handleSubmitMOU : null}
         isSubmitting={isSubmitting}
+        size="lg"
       >
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             label="Company Name"
             name="company_name"
@@ -654,6 +694,17 @@ const MOUPage = () => {
             required
             disabled={isViewMode}
           />
+          <div className="md:col-span-2">
+            <FormField
+              label="Multidisciplinary Details"
+              name="multidisciplinary"
+              type="textarea"
+              value={mouFormData.multidisciplinary}
+              onChange={handleMOUInputChange}
+              disabled={isViewMode}
+              placeholder="Enter multidisciplinary details or domain info"
+            />
+          </div>
           
           {/* File Upload for MOU */}
           <div className="mb-4">
@@ -897,6 +948,19 @@ const MOUPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload MoUs"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateMOUs(validRows);
+          fetchMOUs();
+        }}
+        templateFilename="MOU_Template.xlsx"
+      />
     </div>
   );
 };

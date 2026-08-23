@@ -28,6 +28,10 @@ const MOU = sequelize.define('MOU', {
     type: DataTypes.STRING(500),
     allowNull: true,
   },
+  multidisciplinary: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   createdAt: {
     type: DataTypes.DATE,
     field: 'created_at',

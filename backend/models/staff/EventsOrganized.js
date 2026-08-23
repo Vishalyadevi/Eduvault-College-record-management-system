@@ -48,11 +48,24 @@ const EventsOrganized = sequelize.define('EventsOrganized', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  funding_type: {
+    type: DataTypes.ENUM('With Fund', 'Without Fund'),
+    allowNull: false,
+    defaultValue: 'Without Fund',
+  },
+  funding_agency: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
   sponsored_by: {
     type: DataTypes.STRING(100),
     allowNull: true,
   },
   amount_sanctioned: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  amount_received: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
   },

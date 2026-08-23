@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Eye, Edit, Trash2, FileText } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, FileText, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import {
   getSeedMoneyEntries,
   createSeedMoneyEntry,
   updateSeedMoneyEntry,
-  deleteSeedMoneyEntry
+  deleteSeedMoneyEntry,
+  bulkCreateSeedMoney,
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const SeedMoneyPage = () => {
   const [entries, setEntries] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,8 +36,13 @@ const SeedMoneyPage = () => {
     setLoading(true);
     try {
       const response = await getSeedMoneyEntries();
-      console.log('Fetched entries:', response.data);
-      setEntries(Array.isArray(response.data) ? response.data : []);
+      let arr = [];
+      if (response) {
+        if (Array.isArray(response)) arr = response;
+        else if (Array.isArray(response.data)) arr = response.data;
+        else if (Array.isArray(response.data?.data)) arr = response.data.data;
+      }
+      setEntries(arr);
     } catch (error) {
       console.error('Error fetching seed money entries:', error);
       toast.error('Failed to fetch seed money entries');
@@ -121,7 +130,6 @@ const SeedMoneyPage = () => {
     if (!formData.fromDate) validationErrors.push('From Date is required');
     if (!formData.toDate) validationErrors.push('To Date is required');
     if (!formData.amount.trim()) validationErrors.push('Amount is required');
-    if (!formData.outcomes.trim()) validationErrors.push('Outcomes are required');
 
     // Date validation
     if (formData.fromDate && formData.toDate) {
@@ -132,11 +140,7 @@ const SeedMoneyPage = () => {
       }
     }
 
-    // For new entries, proof link is required
-    if (!editingItem && !formData.proofLink) {
-      validationErrors.push('Proof link (PDF) is required');
-    }
-
+    // Validation
     if (validationErrors.length > 0) {
       toast.error(validationErrors.join(', '));
       return;
@@ -149,7 +153,7 @@ const SeedMoneyPage = () => {
     formDataToSend.append('from_date', formData.fromDate);
     formDataToSend.append('to_date', formData.toDate);
     formDataToSend.append('amount', formData.amount.trim());
-    formDataToSend.append('outcomes', formData.outcomes.trim());
+    formDataToSend.append('outcomes', (formData.outcomes && formData.outcomes.trim()) ? formData.outcomes.trim() : 'N/A');
     
     if (formData.proofLink) {
       formDataToSend.append('proof_link', formData.proofLink);
@@ -219,7 +223,8 @@ const SeedMoneyPage = () => {
   // Handle PDF viewing
   const handleViewProof = async (id) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/seed-money/proof/${id}`, {
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+      const res = await fetch(`${baseUrl}/seed-money/proof/${id}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -307,22 +312,47 @@ const SeedMoneyPage = () => {
     },
   ];
 
+  const excelColumns = [
+    { key: 'project_title', label: 'Project Title', required: true, example: 'IoT Based Smart Agriculture' },
+    { key: 'project_duration', label: 'Project Duration', required: true, example: '1 Year' },
+    { key: 'from_date', label: 'From Date', required: true, type: 'date', example: '2026-01-01' },
+    { key: 'to_date', label: 'To Date', required: true, type: 'date', example: '2026-12-31' },
+    { key: 'amount', label: 'Amount (₹)', required: true, type: 'number', example: 50000 },
+    { key: 'outcomes', label: 'Project Outcomes', required: false, example: '1 Prototype Developed' },
+    { key: 'proof_link', label: 'Proof Document File Name', required: false, type: 'file', example: 'seed_money_proof.pdf' },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
-           <div className="flex justify-between items-center mb-4">
-                 <button
-                   className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-                   onClick={() => {
-                     setEditingItem(null);
-                     setModalOpen(true);
-                   }}
-                 >
-                   <Plus size={16} />
-                   Add Seed Money
-                 </button>
-               </div>
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Seed Money</h2>
+            <p className="text-sm text-gray-600">Submit and manage internal seed money grants</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+              onClick={() => setIsExcelModalOpen(true)}
+            >
+              <Upload size={16} />
+              Excel Bulk Upload
+            </button>
+            <button
+              className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+              onClick={() => {
+                setEditingItem(null);
+                setIsViewOnly(false);
+                setModalOpen(true);
+              }}
+            >
+              <Plus size={16} />
+              Add Seed Money
+            </button>
+          </div>
+        </div>
 
         {/* Data Table Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -360,8 +390,9 @@ const SeedMoneyPage = () => {
           onSubmit={handleSubmit}
           disableSubmit={isViewOnly || loading}
           submitText={loading ? 'Saving...' : (editingItem ? 'Update Entry' : 'Add Entry')}
+          size="lg"
         >
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Project Title */}
             <FormField 
               label="Project Title" 
@@ -435,46 +466,32 @@ const SeedMoneyPage = () => {
             
             {/* File Upload */}
             <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Proof Document
-              </label>
-              {isViewOnly ? (
-                editingItem?.proof_link ? (
-                  <button
-                    onClick={() => handleViewProof(editingItem.id)}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
-                    title="Click to view PDF"
-                  >
-                    <FileText size={14} />
-                    View PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500">No file chosen</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="proofLink"
-                    accept=".pdf"
-                    onChange={handleChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.proofLink && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.proofLink.name}
-                    </p>
-                  )}
-                </>
-              )}
+            <FileUploadField
+              label="Proof Document"
+              name="proofLink"
+              accept=".pdf"
+              value={formData.proofLink || (isViewOnly && editingItem?.proof_link ? 'available' : null)}
+              disabled={isViewOnly}
+              onChange={(file) => setFormData((prev) => ({ ...prev, proofLink: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, proofLink: null }))}
+              hint="PDF file up to 10MB"
+            />
             </div>
           </div>
         </Modal>
+
+        {/* Excel Bulk Upload Modal */}
+        <ExcelBulkUploadModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          title="Bulk Upload Seed Money"
+          columns={excelColumns}
+          onUpload={async (validRows) => {
+            await bulkCreateSeedMoney(validRows);
+            fetchData();
+          }}
+          templateFilename="Seed_Money_Template.xlsx"
+        />
       </div>
     </div>
   );

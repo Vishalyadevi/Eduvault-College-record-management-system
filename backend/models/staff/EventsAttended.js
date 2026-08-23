@@ -40,6 +40,10 @@ const EventsAttended = sequelize.define('EventsAttended', {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
+  venue: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
   participants: {
     type: DataTypes.INTEGER,
     allowNull: false,

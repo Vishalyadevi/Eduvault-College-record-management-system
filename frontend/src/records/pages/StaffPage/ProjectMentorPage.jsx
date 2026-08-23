@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
-import {
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import api, {
   getProjectMentors,
   createProjectMentor,
   updateProjectMentor,
   deleteProjectMentor,
+  bulkCreateProjectMentors
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -18,10 +21,27 @@ const ProjectMentorPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentProjectMentor, setCurrentProjectMentor] = useState(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+  const excelColumns = [
+    { key: 'project_title', label: 'Project Title', required: true, example: 'AI Based Smart Agriculture' },
+    { key: 'student_name', label: 'Student Name', required: true, example: 'John Doe' },
+    { key: 'register_number', label: 'Register Number', required: true, example: '2112001' },
+    { key: 'event_details', label: 'Hackathon/Expo Details', required: true, example: 'Smart India Hackathon 2026' },
+    { key: 'participation_status', label: 'Participation/Winning', required: true, options: ['Participated', '1st Winner', '2nd Winner', '3rd Winner', 'Finalist', 'Runner Up', 'Special Mention'], example: '1st Winner' },
+    { key: 'certificate_link', label: 'Certificate File Name', required: false, type: 'file', example: 'mentor_certificate.pdf' },
+    { key: 'proof_link', label: 'Proof Document File Name', required: false, type: 'file', example: 'mentor_proof.pdf' },
+  ];
+
+  const handleBulkUpload = async (validRows) => {
+    await bulkCreateProjectMentors(validRows);
+    await fetchProjectMentors();
+  };
 
   const [formData, setFormData] = useState({
     project_title: '',
-    student_details: '',
+    student_name: '',
+    register_number: '',
     event_details: '',
     participation_status: '',
     certificate_link: null,
@@ -32,7 +52,11 @@ const ProjectMentorPage = () => {
     try {
       setLoading(true);
       const response = await getProjectMentors();
-      setProjectMentors(Array.isArray(response.data) ? response.data : []);
+      let list = [];
+      if (Array.isArray(response)) list = response;
+      else if (Array.isArray(response?.data)) list = response.data;
+      else if (Array.isArray(response?.data?.data)) list = response.data.data;
+      setProjectMentors(list);
     } catch (error) {
       console.error('Error fetching project mentors:', error);
       toast.error('Failed to load project mentors');
@@ -71,7 +95,8 @@ const ProjectMentorPage = () => {
   const resetForm = () => {
     setFormData({
       project_title: '',
-      student_details: '',
+      student_name: '',
+      register_number: '',
       event_details: '',
       participation_status: '',
       certificate_link: null,
@@ -90,7 +115,8 @@ const ProjectMentorPage = () => {
     setCurrentProjectMentor(row);
     setFormData({
       project_title: row.project_title || '',
-      student_details: row.student_details || '',
+      student_name: row.student_name || '',
+      register_number: row.register_number || '',
       event_details: row.event_details || '',
       participation_status: row.participation_status || '',
       certificate_link: null,
@@ -104,7 +130,8 @@ const ProjectMentorPage = () => {
     setCurrentProjectMentor(row);
     setFormData({
       project_title: row.project_title || '',
-      student_details: row.student_details || '',
+      student_name: row.student_name || '',
+      register_number: row.register_number || '',
       event_details: row.event_details || '',
       participation_status: row.participation_status || '',
       certificate_link: null,
@@ -130,16 +157,18 @@ const ProjectMentorPage = () => {
   };
 
   const handleSubmit = async () => {
-    const { project_title, student_details, event_details, participation_status } = formData;
-    if (!project_title || !student_details || !event_details || !participation_status) {
-      toast.error('Please fill in all required fields');
+    const { project_title, student_name, register_number, event_details, participation_status } = formData;
+    if (!project_title?.trim() || !student_name?.trim() || !register_number?.trim() || !event_details?.trim() || !participation_status?.trim()) {
+      toast.error('Please fill in all required fields (Project Title, Student Name, Register Number, Event Details, Participation/Winning)');
       return;
     }
     try {
       setIsSubmitting(true);
       const payload = new FormData();
       payload.append('project_title', project_title.trim());
-      payload.append('student_details', student_details.trim());
+      payload.append('student_name', student_name.trim());
+      payload.append('register_number', register_number.trim());
+      payload.append('student_details', `${student_name.trim()} (${register_number.trim()})`);
       payload.append('event_details', event_details.trim());
       payload.append('participation_status', participation_status.trim());
       if (formData.certificate_link) payload.append('certificate_link', formData.certificate_link);
@@ -157,7 +186,7 @@ const ProjectMentorPage = () => {
       await fetchProjectMentors();
     } catch (error) {
       console.error('Error saving project mentor:', error);
-      toast.error(error.response?.data?.message || 'Failed to save project mentor');
+      toast.error(error.response?.data?.message || error.message || 'Failed to save project mentor');
     } finally {
       setIsSubmitting(false);
     }
@@ -165,7 +194,8 @@ const ProjectMentorPage = () => {
 
   const handleViewPDF = async (id, type) => {
     try {
-      const endpoint = `http://localhost:4000/api/project-mentors/${type}/${id}`;
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+      const endpoint = `${baseUrl}/project-mentors/${type}/${id}`;
       const res = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -182,18 +212,22 @@ const ProjectMentorPage = () => {
   };
 
   const columns = [
-    {
-      field: 'staffId',
-      header: 'Staff ID',
-      render: (row) => <span className="font-medium text-gray-700">{row.staffId ?? '—'}</span>,
-    },
     { field: 'project_title', header: 'Project Title' },
-    { field: 'student_details', header: 'Students Name & Reg. No.' },
-    { field: 'event_details', header: 'Hackathon / Expo / etc.' },
-    { field: 'participation_status', header: 'Participation / Winning' },
+    { 
+      field: 'student_name', 
+      header: 'Student Name', 
+      render: (row) => row.student_name || row.student_details?.split(' (')[0] || '—' 
+    },
+    { 
+      field: 'register_number', 
+      header: 'Register Number', 
+      render: (row) => row.register_number || row.student_details?.match(/\(([^)]+)\)/)?.[1] || '—' 
+    },
+    { field: 'event_details', header: 'Hackathon/Expo/etc. Details' },
+    { field: 'participation_status', header: 'Participation/Winning' },
     {
       field: 'certificate_link',
-      header: 'Certificate',
+      header: 'Certificate Link',
       render: (row) =>
         row.has_certificate ? (
           <button
@@ -209,7 +243,7 @@ const ProjectMentorPage = () => {
     },
     {
       field: 'proof_link',
-      header: 'Proof Document',
+      header: 'Any Proof Link',
       render: (row) =>
         row.has_proof ? (
           <button
@@ -230,16 +264,23 @@ const ProjectMentorPage = () => {
       <div className="max-w-7xl mx-auto">
 
          <div className="flex justify-between items-center mb-4">
-               <button
-                 className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-                 onClick={() => {
-                   setEditingItem(null);
-                   setModalOpen(true);
-                 }}
-               >
-                 <Plus size={16} />
-                 Add Project Mentor
-               </button>
+               <h1 className="text-2xl font-bold text-gray-900">Project Mentors</h1>
+               <div className="flex items-center gap-3">
+                 <button
+                   className="btn flex items-center gap-2 text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors"
+                   onClick={() => setIsBulkModalOpen(true)}
+                 >
+                   <Upload size={16} />
+                   Bulk Upload Excel
+                 </button>
+                 <button
+                   className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md text-sm font-semibold transition-colors"
+                   onClick={handleAddNew}
+                 >
+                   <Plus size={16} />
+                   Add Project Mentor
+                 </button>
+               </div>
              </div>
 
         {/* Table */}
@@ -280,9 +321,9 @@ const ProjectMentorPage = () => {
           }
           onSubmit={!isViewMode ? handleSubmit : null}
           isSubmitting={isSubmitting}
-          size="lg"
+          size="xl"
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
 
             {/* Staff info banner — shown in view & edit modes */}
             {currentProjectMentor && (
@@ -298,136 +339,97 @@ const ProjectMentorPage = () => {
               </div>
             )}
 
-            <FormField
-              label="Project Title"
-              name="project_title"
-              value={formData.project_title}
-              onChange={handleInputChange}
-              required
-              disabled={isViewMode}
-              placeholder="Enter project title"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <FormField
+                  label="Project Title"
+                  name="project_title"
+                  value={formData.project_title}
+                  onChange={handleInputChange}
+                  required
+                  disabled={isViewMode}
+                  placeholder="Enter project title"
+                />
+              </div>
 
-            <FormField
-              label="Students Name & Register Number"
-              name="student_details"
-              type="textarea"
-              rows="3"
-              value={formData.student_details}
-              onChange={handleInputChange}
-              required
-              disabled={isViewMode}
-              placeholder="Enter student details (name and register number)"
-            />
+              <FormField
+                label="Student Name"
+                name="student_name"
+                value={formData.student_name}
+                onChange={handleInputChange}
+                required
+                disabled={isViewMode}
+                placeholder="Enter student name"
+              />
 
-            <FormField
-              label="Hackathon / Expo / etc. Details"
-              name="event_details"
-              value={formData.event_details}
-              onChange={handleInputChange}
-              required
-              disabled={isViewMode}
-              placeholder="Enter event details"
-            />
+              <FormField
+                label="Register Number"
+                name="register_number"
+                value={formData.register_number}
+                onChange={handleInputChange}
+                required
+                disabled={isViewMode}
+                placeholder="Enter register number"
+              />
 
-            <FormField
-              label="Participation / Winning"
-              name="participation_status"
-              value={formData.participation_status}
-              onChange={handleInputChange}
-              required
-              disabled={isViewMode}
-              placeholder="e.g., Winner, Participant, Runner-up"
-            />
+              <FormField
+                label="Hackathon/Expo/etc. Details"
+                name="event_details"
+                value={formData.event_details}
+                onChange={handleInputChange}
+                required
+                disabled={isViewMode}
+                placeholder="Enter event details"
+              />
 
-            {/* Certificate */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Certificate{' '}
-                <span className="text-gray-500 font-normal">(PDF only, max 10MB)</span>
-              </label>
-              {isViewMode ? (
-                currentProjectMentor?.has_certificate ? (
-                  <button
-                    onClick={() => handleViewPDF(currentProjectMentor.id, 'certificate')}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-full border border-indigo-200"
-                  >
-                    <FileText size={14} /> View Certificate PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500 text-sm">No file uploaded</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="certificate_link"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                      file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.certificate_link && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.certificate_link.name}
-                    </p>
-                  )}
-                  {currentProjectMentor?.has_certificate && !formData.certificate_link && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      A certificate is already uploaded — leave empty to keep it.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+              <FormField
+                label="Participation/Winning"
+                name="participation_status"
+                value={formData.participation_status}
+                onChange={handleInputChange}
+                required
+                disabled={isViewMode}
+                placeholder="e.g., Winner, Participant, 1st Runner Up"
+              />
 
-            {/* Proof Document */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">
-                Any Proof Document{' '}
-                <span className="text-gray-500 font-normal">(PDF only, max 10MB)</span>
-              </label>
-              {isViewMode ? (
-                currentProjectMentor?.has_proof ? (
-                  <button
-                    onClick={() => handleViewPDF(currentProjectMentor.id, 'proof')}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-green-50 text-green-600 hover:bg-green-100 rounded-full border border-green-200"
-                  >
-                    <FileText size={14} /> View Proof PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500 text-sm">No file uploaded</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="proof_link"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                      file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.proof_link && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.proof_link.name}
-                    </p>
-                  )}
-                  {currentProjectMentor?.has_proof && !formData.proof_link && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      A proof document is already uploaded — leave empty to keep it.
-                    </p>
-                  )}
-                </>
-              )}
+              {/* Certificate */}
+              <FileUploadField
+                label="Certificate Document"
+                name="certificate_link"
+                accept=".pdf"
+                value={formData.certificate_link || (isViewMode && currentProjectMentor?.has_certificate ? 'available' : null)}
+                disabled={isViewMode}
+                onChange={(file) => setFormData((prev) => ({ ...prev, certificate_link: file }))}
+                onClear={() => setFormData((prev) => ({ ...prev, certificate_link: null }))}
+                hint="PDF document up to 10MB"
+              />
+
+              <FileUploadField
+                label="Proof Document"
+                name="proof_link"
+                accept=".pdf"
+                value={formData.proof_link || (isViewMode && currentProjectMentor?.has_proof ? 'available' : null)}
+                disabled={isViewMode}
+                onChange={(file) => setFormData((prev) => ({ ...prev, proof_link: file }))}
+                onClear={() => setFormData((prev) => ({ ...prev, proof_link: null }))}
+                hint="PDF document up to 10MB"
+              />
             </div>
 
           </div>
         </Modal>
+        {/* Excel Bulk Upload Modal */}
+        <ExcelBulkUploadModal
+          isOpen={isBulkModalOpen}
+          onClose={() => setIsBulkModalOpen(false)}
+          title="Bulk Upload Project Mentors"
+          columns={excelColumns}
+          onUpload={async (validRows) => {
+          await bulkCreateProjectMentors(validRows);
+          fetchProjectMentors();
+        }}
+          templateFilename="Project_Mentors_Template.xlsx"
+        />
       </div>
     </div>
   );

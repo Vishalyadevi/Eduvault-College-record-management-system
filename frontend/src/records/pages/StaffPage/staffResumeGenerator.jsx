@@ -93,7 +93,7 @@ const EnhancedStaffResumeGenerator = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
 
-  const backendUrl = config.backendUrl || "http://localhost:4000"; // Added backendUrl constant
+  const backendUrl = config.backendUrl || "http://localhost:5600/institute_management_system";
 
   // Fetch staff data from API
   useEffect(() => {
@@ -111,7 +111,7 @@ const EnhancedStaffResumeGenerator = () => {
 
           console.log(`Fetching staff data for ID: ${effectiveUserId}...`);
           const response = await axios.get(
-            `${backendUrl}/api/resume-staff/staff-data/${effectiveUserId}`,
+            `${backendUrl}/resume-staff/staff-data/${effectiveUserId}`,
             { withCredentials: true }
           );
 
@@ -231,7 +231,7 @@ const EnhancedStaffResumeGenerator = () => {
           const profileImage = transformedData.userInfo?.profileImage || transformedData.userInfo?.profile_image;
           if (profileImage) {
             try {
-              const imageResponse = await axios.get(`${backendUrl}/api/resume-staff/profile-image/${effectiveUserId}`, {
+              const imageResponse = await axios.get(`${backendUrl}/resume-staff/profile-image/${effectiveUserId}`, {
                 withCredentials: true
               });
               if (imageResponse.data.success) {

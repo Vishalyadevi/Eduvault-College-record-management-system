@@ -33,7 +33,7 @@ const Dashboard = () => {
   } = useDashboardContext();
 
   const [activeTab, setActiveTab] = useState("internships");
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
 
   const tabs = [
     { id: "internships", name: "Pending Internships", data: Array.isArray(internships) ? internships : [] },
@@ -42,7 +42,7 @@ const Dashboard = () => {
     { id: "events", name: "Pending Events", data: Array.isArray(events) ? events : [] },
     { id: "eventsAttended", name: "Pending Events Attended", data: Array.isArray(eventsAttended) ? eventsAttended : [] },
     { id: "onlineCourses", name: "Pending Online Courses", data: Array.isArray(onlineCourses) ? onlineCourses : [] },
-    { id: "achievements", name: "Pending Achievements", data: Array.isArray(achievements) ? achievements : [] },
+    //{ id: "achievements", name: "Pending Achievements", data: Array.isArray(achievements) ? achievements : [] },
     { id: "publications", name: "Pending Publications", data: Array.isArray(publications) ? publications : [] },
     { id: "competencyCoding", name: "Pending Coding Competency", data: Array.isArray(competencyCoding) ? competencyCoding : [] },
     { id: "nonCGPA", name: "Pending Non-CGPA Courses", data: Array.isArray(nonCGPA) ? nonCGPA : [] },

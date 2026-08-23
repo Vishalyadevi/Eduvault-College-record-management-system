@@ -3,39 +3,61 @@ import { Education } from '../../models/index.js';
 // Validation middlewares reused in controller so it can be exported for routes
 export const validateEducationInfo = (req, res, next) => {
   const data = req.body;
-  const hasEducation = data.tenth_institution || data.twelfth_institution ||
-    data.ug_institution || data.pg_institution ||
-    data.mphil_institution || data.phd_university;
-  if (!hasEducation) {
-    return res.status(400).json({ message: 'At least one education qualification must be provided' });
+  
+  if (!data.tenth_institution?.toString().trim() || !data.tenth_university?.toString().trim() || !data.tenth_year) {
+    return res.status(400).json({ message: '10th Standard details (Institution, Board/University, Year) are mandatory' });
   }
 
-  const validYesNo = new Set(['Yes', 'No']);
+  if (!data.twelfth_institution?.toString().trim() || !data.twelfth_university?.toString().trim() || !data.twelfth_year) {
+    return res.status(400).json({ message: '12th Standard details (Institution, Board/University, Year) are mandatory' });
+  }
+
+  if (!data.ug_institution?.toString().trim() || !data.ug_university?.toString().trim() || !data.ug_degree?.toString().trim() || !data.ug_year) {
+    return res.status(400).json({ message: "Bachelor's Degree details (Institution, University, Degree, Year) are mandatory" });
+  }
+
+  if (!data.pg_institution?.toString().trim() || !data.pg_university?.toString().trim() || !data.pg_degree?.toString().trim() || !data.pg_year) {
+    return res.status(400).json({ message: '1st Postgraduate Degree details (Institution, University, Degree, Year) are mandatory' });
+  }
+
   const firstAttemptFields = [
     'tenth_first_attempt', 'twelfth_first_attempt', 'ug_first_attempt',
-    'pg_first_attempt', 'mphil_first_attempt'
+    'pg_first_attempt', 'pg2_first_attempt', 'mphil_first_attempt'
   ];
   for (const field of firstAttemptFields) {
-    if (data[field] && !validYesNo.has(data[field])) {
-      return res.status(400).json({ message: `${field} must be either 'Yes' or 'No'` });
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+      const valStr = data[field].toString().trim().toLowerCase();
+      if (valStr === 'yes' || valStr === 'y') {
+        data[field] = 'Yes';
+      } else if (valStr === 'no' || valStr === 'n') {
+        data[field] = 'No';
+      } else {
+        delete data[field];
+      }
+    } else {
+      delete data[field];
     }
   }
 
   const validPhdStatus = ['Ongoing', 'Completed', 'Submitted', 'Awarded'];
   if (data.phd_status && !validPhdStatus.includes(data.phd_status)) {
-    return res.status(400).json({ message: 'PhD status must be one of: Ongoing, Completed, Submitted, Awarded' });
+    delete data.phd_status;
   }
 
   const yearFields = [
-    'tenth_year', 'twelfth_year', 'ug_year', 'pg_year', 'mphil_year',
+    'tenth_year', 'twelfth_year', 'ug_year', 'pg_year', 'pg2_year', 'mphil_year',
     'phd_registration_year', 'phd_completion_year'
   ];
   for (const field of yearFields) {
-    if (data[field]) {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
       const year = Number.parseInt(data[field], 10);
       if (Number.isNaN(year) || year < 1900 || year > new Date().getFullYear() + 10) {
-        return res.status(400).json({ message: `${field} must be a valid year between 1900 and ${new Date().getFullYear() + 10}` });
+        delete data[field];
+      } else {
+        data[field] = year;
       }
+    } else {
+      delete data[field];
     }
   }
 
@@ -43,9 +65,13 @@ export const validateEducationInfo = (req, res, next) => {
   for (const field of phdIntFields) {
     if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
       const value = Number.parseInt(data[field], 10);
-      if (Number.isNaN(value) || value < 0 || value > 20) {
-        return res.status(400).json({ message: `${field} must be an integer between 0 and 20` });
+      if (Number.isNaN(value) || value < 0) {
+        delete data[field];
+      } else {
+        data[field] = value;
       }
+    } else {
+      delete data[field];
     }
   }
 
@@ -60,6 +86,7 @@ const cleanEducationData = (data) => {
     'twelfth_institution', 'twelfth_university', 'twelfth_medium', 'twelfth_cgpa_percentage',
     'ug_institution', 'ug_university', 'ug_medium', 'ug_specialization', 'ug_degree', 'ug_cgpa_percentage',
     'pg_institution', 'pg_university', 'pg_medium', 'pg_specialization', 'pg_degree', 'pg_cgpa_percentage',
+    'pg2_institution', 'pg2_university', 'pg2_medium', 'pg2_specialization', 'pg2_degree', 'pg2_cgpa_percentage',
     'mphil_institution', 'mphil_university', 'mphil_medium', 'mphil_specialization', 'mphil_degree', 'mphil_cgpa_percentage',
     'phd_university', 'phd_title', 'phd_guide_name', 'phd_college', 'phd_status'
   ];
@@ -67,10 +94,10 @@ const cleanEducationData = (data) => {
   const integerFields = ['phd_publications_during', 'phd_publications_post', 'phd_post_experience'];
   const enumFields = [
     'tenth_first_attempt', 'twelfth_first_attempt', 'ug_first_attempt',
-    'pg_first_attempt', 'mphil_first_attempt'
+    'pg_first_attempt', 'pg2_first_attempt', 'mphil_first_attempt'
   ];
   const yearFields = [
-    'tenth_year', 'twelfth_year', 'ug_year', 'pg_year', 'mphil_year',
+    'tenth_year', 'twelfth_year', 'ug_year', 'pg_year', 'pg2_year', 'mphil_year',
     'phd_registration_year', 'phd_completion_year'
   ];
 
@@ -167,11 +194,13 @@ export const createEducation = async (req, res) => {
 
     const existing = await Education.findOne({ where: { Userid: userId } });
     if (existing) {
-      console.warn(`⚠️ Conflict: Record already exists for user ${userId}. ID: ${existing.id}`);
-      return res.status(409).json({ 
-        success: false, 
-        message: 'Education information already exists for this user. Use update instead.', 
-        existingRecordId: existing.id 
+      await existing.update(cleanData);
+      console.log('✅ Existing Education record updated successfully. ID:', existing.id);
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Education information updated successfully', 
+        data: existing, 
+        id: existing.id 
       });
     }
 

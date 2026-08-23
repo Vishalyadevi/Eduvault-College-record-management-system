@@ -25,6 +25,9 @@ dotenv.config({ path: './config.env' });
 
 const app = express();
 
+// Trust proxy settings for Express to work correctly behind reverse proxies (Nginx/ALB/Cloudflare)
+app.set('trust proxy', true);
+
 // Structured logging
 const logger = winston.createLogger({
   level: 'info',
@@ -38,13 +41,18 @@ const logger = winston.createLogger({
   ]
 });
 
-// HTTPS redirection
+// HTTPS redirection is disabled in Express because SSL termination is handled by the 
+// reverse proxy (Nginx/Cloudflare). Enabling redirection here causes redirect loops 
+// when the proxy communicates with Express over HTTP without forwarding the protocol headers.
+/*
 app.use((req, res, next) => {
-  if (req.protocol === 'http' && process.env.NODE_ENV === 'production') {
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  if (!isHttps && process.env.NODE_ENV === 'production') {
     return res.redirect(301, `https://${req.get('host')}${req.url}`);
   }
   next();
 });
+*/
 
 // CORS (moved early)
 // CORS Configuration (consolidated)
@@ -77,7 +85,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:4000'],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:5600', 'https://erp.nec.edu.in/institute_management_system'],
       imgSrc: ["'self'", 'data:']
     }
   }
@@ -92,10 +100,10 @@ app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 700 : 5000,
+  max: 100000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/api/auth/'),
+  skip: () => true,
   message: { status: 'error', message: 'Too many requests, try again later.' },
   handler: (req, res, _next, options) => {
     logger.warn({ message: 'Rate limit exceeded', ip: req.ip, url: req.url });
@@ -106,37 +114,38 @@ app.use(limiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 20 : 1000,
+  max: 100000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => true,
   message: { status: 'error', message: 'Too many authentication attempts, try again later.' },
 });
 
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/google-login', authLimiter);
+app.use('/institute_management_system/auth/login', authLimiter);
+app.use('/institute_management_system/auth/google-login', authLimiter);
 
 app.use(csrfProtection);
 
 // Routes (apply limiter only where needed; remove from bulk routes if batching)
 // NOTE: Auth limiter commented out above, so removed from here
-// app.use('/api/auth', sanitizeInput, authRoutes);
-app.use('/api/companies', sanitizeInput, companyRoutes);
-app.use('/api/roles', sanitizeInput, roleRoutes);
-app.use('/api/users', sanitizeInput, userRoutes);
-app.use('/api/admin', sanitizeInput, adminRoutes); // No global limiter here if bulk
-app.use('/api/departments', sanitizeInput, departmentRoutes);
-app.use('/api/staff', sanitizeInput, staffRoutes);
-app.use('/api/staff/attendance', sanitizeInput, attendanceRoutes);
-app.use('/api/admin/attendance', sanitizeInput, adminattendance);
-app.use("/api/admin/attendanceReports", attendanceReportRoutes);
-app.use('/api/student', sanitizeInput, studentRoutes);
-app.use('/api/admin', sanitizeInput, verticalRoutes);
-app.use('/api/cbcs', cbcsRouter);
+// app.use('/institute_management_system/auth', sanitizeInput, authRoutes);
+app.use('/institute_management_system/companies', sanitizeInput, companyRoutes);
+app.use('/institute_management_system/roles', sanitizeInput, roleRoutes);
+app.use('/institute_management_system/users', sanitizeInput, userRoutes);
+app.use('/institute_management_system/admin', sanitizeInput, adminRoutes); // No global limiter here if bulk
+app.use('/institute_management_system/departments', sanitizeInput, departmentRoutes);
+app.use('/institute_management_system/staff', sanitizeInput, staffRoutes);
+app.use('/institute_management_system/staff/attendance', sanitizeInput, attendanceRoutes);
+app.use('/institute_management_system/admin/attendance', sanitizeInput, adminattendance);
+app.use("/institute_management_system/admin/attendanceReports", attendanceReportRoutes);
+app.use('/institute_management_system/student', sanitizeInput, studentRoutes);
+app.use('/institute_management_system/admin', sanitizeInput, verticalRoutes);
+app.use('/institute_management_system/cbcs', cbcsRouter);
 
 // Removed duplicate CORS header overrides (handled by cors middleware)
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/institute_management_system/health', (req, res) => {
   res.json({ status: 'success', message: 'Server running' });
 });
 
@@ -159,3 +168,4 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
+

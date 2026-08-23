@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Eye, Pencil } from 'lucide-react';
+import { Plus, Eye, Pencil, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import api, { bulkCreateTlpActivities } from '../../services/api';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 
 const TLPManagementPage = () => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [form, setForm] = useState({
     course_code_and_name: '',
     activity_name: '',
@@ -16,6 +19,13 @@ const TLPManagementPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [file, setFile] = useState(null);
+
+  const excelColumns = [
+    { key: 'course_code_and_name', label: 'Course Code & Name', required: true, example: '21CS601 Deep Learning' },
+    { key: 'activity_name', label: 'Activity Name', required: true, example: 'Flipped Classroom' },
+    { key: 'description', label: 'Description', required: false, example: 'Interactive session on CNN architecture' },
+    { key: 'image', label: 'Activity Proof Image File Name', required: false, type: 'file', example: 'tlp_proof.jpg' }
+  ];
 
   const fetchActivities = async () => {
     try {
@@ -33,6 +43,24 @@ const TLPManagementPage = () => {
   };
 
   useEffect(() => { fetchActivities(); }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showForm) {
+          setShowForm(false);
+          setEditingId(null);
+          setFile(null);
+        }
+        if (isViewModalOpen) {
+          setIsViewModalOpen(false);
+          setSelectedTLP(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForm, isViewModalOpen]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const handleFile = (e) => setFile(e.target.files[0]);
@@ -96,8 +124,8 @@ const TLPManagementPage = () => {
   const getFullImageUrl = (img) => {
     if (!img) return '';
     if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) return img;
-    if (img.startsWith('/')) return `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'}${img}`;
-    return `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'}/${img}`;
+    if (img.startsWith('/')) return `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5600/institute_management_system'}${img}`;
+    return `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5600/institute_management_system'}/${img}`;
   };
 
   const handleView = (activity) => {
@@ -163,21 +191,33 @@ const TLPManagementPage = () => {
     );
   }
 
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
           <div>
             <h1 className="text-4xl font-bold text-gray-800 mb-2">TLP Management</h1>
             <p className="text-gray-600">Submit and manage your TLP activities</p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg"
-          >
-            <Plus size={18} />
-            Add Activity
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+              onClick={() => setIsExcelModalOpen(true)}
+            >
+              <Upload size={16} />
+              Excel Bulk Upload
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-md"
+            >
+              <Plus size={18} />
+              Add Activity
+            </button>
+          </div>
         </div>
 
         {showForm && (
@@ -204,8 +244,15 @@ const TLPManagementPage = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label htmlFor="image" className="block text-sm font-medium">Image Upload</label>
-                    <input id="image" type="file" accept="image/*,application/pdf" onChange={handleFile} className="w-full" />
+                    <FileUploadField
+                      label="Image / Document Upload"
+                      name="image"
+                      accept="image/*,application/pdf"
+                      value={file}
+                      onChange={(uploadedFile) => setFile(uploadedFile)}
+                      onClear={() => setFile(null)}
+                      hint="Images or PDF document up to 10MB"
+                    />
                   </div>
                 </div>
 
@@ -263,6 +310,19 @@ const TLPManagementPage = () => {
           </div>
         </div>
       )}
+
+      {/* Excel Bulk Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        title="Bulk Upload TLP Activities"
+        columns={excelColumns}
+        onUpload={async (validRows) => {
+          await bulkCreateTlpActivities(validRows);
+          fetchActivities();
+        }}
+        templateFilename="TLP_Activities_Template.xlsx"
+      />
     </div>
   );
 };

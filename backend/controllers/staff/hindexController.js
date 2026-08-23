@@ -10,47 +10,11 @@ export const validateHIndexData = (req, res, next) => {
     scopus_citations,
   } = req.body;
 
-  // required fields
-  if (citations === undefined || citations === null || citations === '') {
-    return res.status(400).json({ message: 'Citations field is required' });
-  }
-  if (h_index === undefined || h_index === null || h_index === '') {
-    return res.status(400).json({ message: 'H-index field is required' });
-  }
-  if (i_index === undefined || i_index === null || i_index === '') {
-    return res.status(400).json({ message: 'I-index field is required' });
-  }
-  if (google_citations === undefined || google_citations === null || google_citations === '') {
-    return res.status(400).json({ message: 'Google citations field is required' });
-  }
-  if (scopus_citations === undefined || scopus_citations === null || scopus_citations === '') {
-    return res.status(400).json({ message: 'Scopus citations field is required' });
-  }
-
-  const citationsNum = parseInt(citations, 10);
-  const hIndexNum = parseInt(h_index, 10);
-  const iIndexNum = parseFloat(i_index);
-  const googleCitationsNum = parseInt(google_citations, 10);
-  const scopusCitationsNum = parseInt(scopus_citations, 10);
-
-  if (isNaN(citationsNum) || citationsNum < 0) {
-    return res.status(400).json({ message: 'Citations must be a non-negative integer' });
-  }
-  if (isNaN(hIndexNum) || hIndexNum < 0) {
-    return res.status(400).json({ message: 'H-index must be a non-negative integer' });
-  }
-  if (isNaN(iIndexNum) || iIndexNum < 0) {
-    return res.status(400).json({ message: 'I-index must be a non-negative number' });
-  }
-  if (isNaN(googleCitationsNum) || googleCitationsNum < 0) {
-    return res.status(400).json({ message: 'Google citations must be a non-negative integer' });
-  }
-  if (isNaN(scopusCitationsNum) || scopusCitationsNum < 0) {
-    return res.status(400).json({ message: 'Scopus citations must be a non-negative integer' });
-  }
-  if (hIndexNum > citationsNum) {
-    return res.status(400).json({ message: 'H-index cannot be greater than total citations' });
-  }
+  const citationsNum = !isNaN(parseInt(citations, 10)) ? parseInt(citations, 10) : 0;
+  const hIndexNum = !isNaN(parseInt(h_index, 10)) ? parseInt(h_index, 10) : 0;
+  const iIndexNum = !isNaN(parseFloat(i_index)) ? parseFloat(i_index) : 0;
+  const googleCitationsNum = !isNaN(parseInt(google_citations, 10)) ? parseInt(google_citations, 10) : 0;
+  const scopusCitationsNum = !isNaN(parseInt(scopus_citations, 10)) ? parseInt(scopus_citations, 10) : 0;
 
   // attach cleaned numbers to request for reuse
   req.cleanedHindex = {

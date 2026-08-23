@@ -57,6 +57,11 @@ const FundedProject = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
+    students_involved: {
+      type: DataTypes.ENUM('Yes', 'No'),
+      allowNull: false,
+      defaultValue: 'No',
+    },
     proof: {
       type: DataTypes.STRING(500),
       allowNull: true,

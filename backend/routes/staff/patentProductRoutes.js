@@ -8,7 +8,8 @@ import {
   createParam,
   updateParam,
   deleteParam,
-  getStats
+  getStats,
+  bulkCreatePatentProducts
 } from '../../controllers/staff/patentProductController.js';
 
 // Configure multer for memory storage (for BLOB storage)
@@ -39,6 +40,14 @@ router.get('/proof/:id/:type', authenticateToken, getProof);
 
 // Get patent/product entry by ID
 router.get('/:id', authenticateToken, getParamById);
+
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Bulk create patent/product entries
+router.post('/bulk', authenticateToken, bulkUpload.any(), bulkCreatePatentProducts);
 
 // Create new patent/product entry
 router.post('/', authenticateToken, memoryUpload.fields([

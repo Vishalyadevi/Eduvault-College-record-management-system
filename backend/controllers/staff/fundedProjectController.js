@@ -1,18 +1,38 @@
+import { sequelize } from '../../config/mysql.js';
 import path from 'path';
 import fs from 'fs';
 import FundedProject from '../../models/staff/FundedProject.js';
 import FundedProjectPayment from '../../models/staff/FundedProjectPayment.js';
+import ProjectCoPI from '../../models/staff/ProjectCoPI.js';
+import ProjectStudent from '../../models/staff/ProjectStudent.js';
 
 // ─── HELPER: shape a raw record for API response ───────────────────────────────
-// Strips real file paths, adds has_* flags, surfaces staffId from the JOIN.
 const formatRecord = (row) => {
   const r = row.toJSON ? row.toJSON() : { ...row };
+
+  // Parse Co-PI names array
+  let coPIList = [];
+  if (Array.isArray(r.coPIs) && r.coPIs.length > 0) {
+    coPIList = r.coPIs.map(c => c.co_pi_name);
+  } else if (r.co_pi_names) {
+    coPIList = r.co_pi_names.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Parse Student names array
+  let studentList = [];
+  if (Array.isArray(r.students) && r.students.length > 0) {
+    studentList = r.students.map(s => s.student_name);
+  }
+
   return {
     id: r.id,
     Userid: r.Userid,
     staffName: r.user?.userName ?? null,
     pi_name: r.pi_name,
-    co_pi_names: r.co_pi_names,
+    co_pi_names: coPIList.join(', '),
+    co_pi_list: coPIList,
+    students_involved: r.students_involved || (studentList.length > 0 ? 'Yes' : 'No'),
+    student_list: studentList,
     project_title: r.project_title,
     funding_agency: r.funding_agency,
     from_date: r.from_date,
@@ -23,7 +43,6 @@ const formatRecord = (row) => {
     has_proof: !!r.proof,
     has_yearly_report: !!r.yearly_report,
     has_final_report: !!r.final_report,
-    // Never expose real disk path to the client
     proof: r.proof ? 'available' : null,
     yearly_report: r.yearly_report ? 'available' : null,
     final_report: r.final_report ? 'available' : null,
@@ -33,20 +52,31 @@ const formatRecord = (row) => {
 };
 
 // ─── INCLUDE clause reused in every SELECT ─────────────────────────────────────
-// Lazy-import User here to avoid circular-import issues at module load time.
-const getUserInclude = async () => {
+const getIncludes = async () => {
   const { default: User } = await import('../../models/User.js');
-  return {
-    model: User,
-    as: 'user',
-    attributes: ['userId', 'userName'],
-  };
+  return [
+    {
+      model: User,
+      as: 'user',
+      attributes: ['userId', 'userName'],
+    },
+    {
+      model: ProjectCoPI,
+      as: 'coPIs',
+      attributes: ['id', 'co_pi_name'],
+    },
+    {
+      model: ProjectStudent,
+      as: 'students',
+      attributes: ['id', 'student_name'],
+    },
+  ];
 };
 
 // ─── GET ALL FUNDED PROJECTS ───────────────────────────────────────────────────
 export const getAllFundedProjects = async (req, res) => {
   try {
-    const include = await getUserInclude();
+    const include = await getIncludes();
 
     const records = await FundedProject.findAll({
       include,
@@ -63,7 +93,7 @@ export const getAllFundedProjects = async (req, res) => {
 // ─── GET FUNDED PROJECT BY ID ─────────────────────────────────────────────────
 export const getFundedProjectById = async (req, res) => {
   try {
-    const include = await getUserInclude();
+    const include = await getIncludes();
 
     const record = await FundedProject.findByPk(req.params.id, { include });
 
@@ -159,12 +189,37 @@ export const serveFinalReport = async (req, res) => {
   }
 };
 
+// Helper: parse string or array into trimmed non-empty string array
+const parseListInput = (input) => {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.map(item => String(item).trim()).filter(Boolean);
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => String(item).trim()).filter(Boolean);
+        }
+      } catch (e) {
+        // Fallback to split if JSON parse fails
+      }
+    }
+    return trimmed.split(',').map(item => item.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 // ─── CREATE FUNDED PROJECT ─────────────────────────────────────────────────────
 export const createFundedProject = async (req, res) => {
   try {
     const {
       pi_name,
       co_pi_names,
+      students_involved,
+      student_names,
       project_title,
       funding_agency,
       from_date,
@@ -173,9 +228,13 @@ export const createFundedProject = async (req, res) => {
       organization_name
     } = req.body;
 
-    if (!pi_name || !project_title || !funding_agency || !from_date || !to_date || !amount || !organization_name) {
-      return res.status(400).json({ message: 'Required fields missing' });
+    if (!pi_name || !project_title || !funding_agency || !from_date || !to_date || !amount) {
+      return res.status(400).json({ message: 'Required fields missing: PI Name, Project Title, Funding Agency, From Date, To Date, Amount' });
     }
+
+    const orgName = (organization_name && typeof organization_name === 'string' && organization_name.trim() !== '')
+      ? organization_name.trim()
+      : (funding_agency ? funding_agency.trim() : 'National Engineering College');
 
     const proof = req.files?.proof?.[0]?.path
       ? path.relative(process.cwd(), req.files.proof[0].path)
@@ -189,24 +248,47 @@ export const createFundedProject = async (req, res) => {
       ? path.relative(process.cwd(), req.files.final_report[0].path)
       : null;
 
-    // req.user.userId is set by authenticate middlewares
+    const userId = req.user?.userId || req.user?.Userid;
+    if (!userId) {
+      return res.status(401).json({ message: 'User ID missing' });
+    }
+
+    const coPIArray = parseListInput(co_pi_names);
+    const studentsInvolvedVal = students_involved === 'Yes' || students_involved === true || students_involved === 'true' ? 'Yes' : 'No';
+    const studentArray = studentsInvolvedVal === 'Yes' ? parseListInput(student_names) : [];
+
     const newRecord = await FundedProject.create({
-      Userid: req.user.userId,
+      Userid: userId,
       pi_name: pi_name.trim(),
-      co_pi_names: co_pi_names ? co_pi_names.trim() : null,
+      co_pi_names: coPIArray.join(', ') || null,
+      students_involved: studentsInvolvedVal,
       project_title: project_title.trim(),
       funding_agency: funding_agency.trim(),
       from_date,
       to_date,
       amount: parseFloat(amount) || 0,
       amount_received: parseFloat(req.body.amount_received) || 0,
-      organization_name: organization_name.trim(),
+      organization_name: orgName,
       proof,
       yearly_report,
       final_report,
     });
 
-    console.log(`Created FundedProject ID ${newRecord.id} for Userid ${req.user.Userid}`);
+    // Save individual Co-PI records
+    if (coPIArray.length > 0) {
+      await ProjectCoPI.bulkCreate(
+        coPIArray.map(name => ({ project_id: newRecord.id, co_pi_name: name }))
+      );
+    }
+
+    // Save individual Student records if Students Involved
+    if (studentsInvolvedVal === 'Yes' && studentArray.length > 0) {
+      await ProjectStudent.bulkCreate(
+        studentArray.map(name => ({ project_id: newRecord.id, student_name: name }))
+      );
+    }
+
+    console.log(`Created FundedProject ID ${newRecord.id} for Userid ${userId}`);
 
     res.status(201).json({
       message: 'Funded project created successfully',
@@ -224,6 +306,8 @@ export const updateFundedProject = async (req, res) => {
     const {
       pi_name,
       co_pi_names,
+      students_involved,
+      student_names,
       project_title,
       funding_agency,
       from_date,
@@ -232,9 +316,13 @@ export const updateFundedProject = async (req, res) => {
       organization_name
     } = req.body;
 
-    if (!pi_name || !project_title || !funding_agency || !from_date || !to_date || !amount || !organization_name) {
+    if (!pi_name || !project_title || !funding_agency || !from_date || !to_date || !amount) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
+
+    const orgName = (organization_name && typeof organization_name === 'string' && organization_name.trim() !== '')
+      ? organization_name.trim()
+      : (funding_agency ? funding_agency.trim() : 'National Engineering College');
 
     const record = await FundedProject.findByPk(req.params.id);
 
@@ -242,7 +330,6 @@ export const updateFundedProject = async (req, res) => {
       return res.status(404).json({ message: 'Funded project not found' });
     }
 
-    // Keep existing file paths unless a new file is uploaded
     const proof = req.files?.proof?.[0]?.path
       ? path.relative(process.cwd(), req.files.proof[0].path)
       : record.proof;
@@ -255,20 +342,41 @@ export const updateFundedProject = async (req, res) => {
       ? path.relative(process.cwd(), req.files.final_report[0].path)
       : record.final_report;
 
+    const coPIArray = parseListInput(co_pi_names);
+    const studentsInvolvedVal = students_involved === 'Yes' || students_involved === true || students_involved === 'true' ? 'Yes' : 'No';
+    const studentArray = studentsInvolvedVal === 'Yes' ? parseListInput(student_names) : [];
+
     await record.update({
       pi_name: pi_name.trim(),
-      co_pi_names: co_pi_names ? co_pi_names.trim() : null,
+      co_pi_names: coPIArray.join(', ') || null,
+      students_involved: studentsInvolvedVal,
       project_title: project_title.trim(),
       funding_agency: funding_agency.trim(),
       from_date,
       to_date,
       amount: parseFloat(amount) || 0,
       amount_received: parseFloat(req.body.amount_received) || record.amount_received || 0,
-      organization_name: organization_name.trim(),
+      organization_name: orgName,
       proof,
       yearly_report,
       final_report,
     });
+
+    // Update child ProjectCoPI records
+    await ProjectCoPI.destroy({ where: { project_id: record.id } });
+    if (coPIArray.length > 0) {
+      await ProjectCoPI.bulkCreate(
+        coPIArray.map(name => ({ project_id: record.id, co_pi_name: name }))
+      );
+    }
+
+    // Update child ProjectStudent records
+    await ProjectStudent.destroy({ where: { project_id: record.id } });
+    if (studentsInvolvedVal === 'Yes' && studentArray.length > 0) {
+      await ProjectStudent.bulkCreate(
+        studentArray.map(name => ({ project_id: record.id, student_name: name }))
+      );
+    }
 
     console.log(`Updated FundedProject ID ${req.params.id}`);
 
@@ -293,7 +401,6 @@ export const deleteFundedProject = async (req, res) => {
       const proofPath = path.join(process.cwd(), record.proof);
       if (fs.existsSync(proofPath)) {
         fs.unlinkSync(proofPath);
-        console.log('Deleted proof file:', proofPath);
       }
     }
 
@@ -301,7 +408,6 @@ export const deleteFundedProject = async (req, res) => {
       const yearlyReportPath = path.join(process.cwd(), record.yearly_report);
       if (fs.existsSync(yearlyReportPath)) {
         fs.unlinkSync(yearlyReportPath);
-        console.log('Deleted yearly report file:', yearlyReportPath);
       }
     }
 
@@ -309,14 +415,13 @@ export const deleteFundedProject = async (req, res) => {
       const finalReportPath = path.join(process.cwd(), record.final_report);
       if (fs.existsSync(finalReportPath)) {
         fs.unlinkSync(finalReportPath);
-        console.log('Deleted final report file:', finalReportPath);
       }
     }
 
-    // Delete associated payment details first
-    await FundedProjectPayment.destroy({
-      where: { proposal_id: record.id }
-    });
+    // Delete associated child records
+    await ProjectCoPI.destroy({ where: { project_id: record.id } });
+    await ProjectStudent.destroy({ where: { project_id: record.id } });
+    await FundedProjectPayment.destroy({ where: { proposal_id: record.id } });
 
     await record.destroy();
 
@@ -495,5 +600,74 @@ export const deletePaymentDetail = async (req, res) => {
   } catch (error) {
     console.error('Error deleting payment detail:', error);
     res.status(500).json({ message: 'Server error while deleting record' });
+  }
+};
+
+import { syncFundingAgency } from '../../services/masterSyncService.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+
+// ─── BULK CREATE ────────────────────────────────────────────────────────────────
+export const bulkCreateFundedProjects = async (req, res) => {
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    const userId = req.user?.Userid || req.user?.userId;
+    if (!userId) {
+      await transaction.rollback();
+      return res.status(401).json({ message: 'User ID missing' });
+    }
+
+    const rows = parseBulkRecords(req);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'No records provided for bulk insert' });
+    }
+
+    // Batch sync unique funding agencies
+    const uniqueAgencies = [...new Set(rows.map(r => (r.funding_agency || '').trim()).filter(Boolean))];
+    for (const agency of uniqueAgencies) {
+      await syncFundingAgency(agency, transaction);
+    }
+
+    const recordsToInsert = rows.map((r) => {
+      const agency = (r.funding_agency || '').trim() || 'Funding Agency';
+      const piName = (r.pi_name || req.user?.userName || 'Faculty').trim();
+      const title = (r.project_title || r.title || 'Funded Research Project').trim();
+      const orgName = (r.organization_name || agency || 'National Engineering College').trim();
+
+      return {
+        Userid: userId,
+        pi_name: piName,
+        co_pi_names: r.co_pi_names ? String(r.co_pi_names).trim() : null,
+        project_title: title,
+        funding_agency: agency,
+        from_date: r.from_date || new Date().toISOString().split('T')[0],
+        to_date: r.to_date || new Date().toISOString().split('T')[0],
+        amount: parseFloat(r.amount) || 0,
+        amount_received: parseFloat(r.amount_received) || 0,
+        organization_name: orgName,
+        students_involved: ['Yes', 'No'].includes(r.students_involved) ? r.students_involved : 'No',
+        proof: typeof r.proof === 'string' ? r.proof : null,
+        yearly_report: typeof r.yearly_report === 'string' ? r.yearly_report : null,
+        final_report: typeof r.final_report === 'string' ? r.final_report : null,
+      };
+    });
+
+    const created = await FundedProject.bulkCreate(recordsToInsert, { transaction });
+
+    await transaction.commit();
+    res.status(201).json({
+      message: `Successfully imported ${created.length} funded project proposals`,
+      count: created.length,
+      data: created,
+    });
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error('Error bulk creating funded projects:', error);
+    res.status(400).json({
+      message: `Failed to save bulk records: ${error.message}`,
+      error: error.message,
+      details: error.errors ? error.errors.map(e => e.message) : [error.message]
+    });
   }
 };

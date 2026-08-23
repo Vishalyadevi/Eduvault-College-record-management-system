@@ -7,7 +7,8 @@ import {
     patchOrganized,
     deleteOrganized,
     getFile,
-    validateOrganizedInfo
+    validateOrganizedInfo,
+    bulkCreateEventsOrganized
 } from '../../controllers/staff/eventsOrganizedController.js';
 import { authenticate } from '../../middlewares/requireauth.js';
 import multer from 'multer';
@@ -26,12 +27,18 @@ const memoryUpload = multer({
     }
 });
 
+const bulkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 const router = express.Router();
 
 router.use(authenticate);
 
 router.get('/', getAllOrganized);
 router.get('/:id', getOrganizedById);
+router.post('/bulk', bulkUpload.any(), bulkCreateEventsOrganized);
 
 const uploadFields = memoryUpload.fields([
     { name: 'proof', maxCount: 1 },

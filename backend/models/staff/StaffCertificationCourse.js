@@ -31,9 +31,13 @@ const StaffCertificationCourse = sequelize.define(
             type: DataTypes.DATEONLY,
             allowNull: false,
         },
+        hours: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+        },
         days: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
         },
         weeks: {
             type: DataTypes.FLOAT,
@@ -46,6 +50,11 @@ const StaffCertificationCourse = sequelize.define(
         certificate_pdf: {
             type: DataTypes.STRING,
             allowNull: true,
+        },
+        status: {
+            type: DataTypes.STRING(50),
+            allowNull: true,
+            defaultValue: 'Completed',
         },
     },
     {

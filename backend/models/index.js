@@ -21,7 +21,7 @@ import StudentLeave from "./student/StudentLeave.js";
 import OnlineCourses from "./student/OnlineCourses.js";
 import Achievement from "./student/Achievement.js";
 import Course from "./student/Course.js";
-import Marksheet from "./student/Marksheet.js";
+import Marksheet from "./student/marksheet.js";
 import HackathonEvent from "./student/HackathonEvent.js";
 import Extracurricular from "./student/Extracurricular.js";
 import Project from "./student/Project.js";
@@ -37,6 +37,8 @@ import ProjectMentor from "./staff/projectMentor.js";
 import SkillRack from './student/SkillRack.js';
 import Certificate from "./student/Certificate.js";
 import PersonalInformation from "./student/PersonalInformation.js";
+// import StudentPlacementInfo from "./student/StudentPlacementInfo.js";
+// import AttendedCompany from "./student/AttendedCompany.js";
 import HIndex from "./staff/HIndex.js";
 import BookChapter from "./staff/BookChapter.js";
 import StaffCertificationCourse from "./staff/StaffCertificationCourse.js";
@@ -48,18 +50,34 @@ import Activity from "./student/Activity.js";
 import TlpActivity from "./student/TlpActivity.js";
 import PatentProduct from "./staff/PatentProduct.js";
 import FundedProject from "./staff/FundedProject.js";
+import ProjectCoPI from "./staff/ProjectCoPI.js";
+import ProjectStudent from "./staff/ProjectStudent.js";
 import FundedProjectPayment from "./staff/FundedProjectPayment.js";
 import ConsultancyProposal from "./staff/ConsultancyProposal.js";
 import Recognition from "./staff/Recognition.js";
 import ResourcePerson from "./staff/ResourcePerson.js";
 import SeedMoney from "./staff/SeedMoney.js";
 import Scholar from "./staff/Scholar.js";
+import FundingAgency from "./staff/FundingAgency.js";
+import CertificationCourseMaster from "./staff/CertificationCourseMaster.js";
+import EventTypeMaster from "./staff/EventTypeMaster.js";
 import StaffEventAttended from "./staff/StaffEventAttended.js";
 import StaffEventsAttendedModel from "./staff/EventsAttended.js";
 import StaffEventsOrganizedModel from "./staff/EventsOrganized.js";
 import IndustryKnowhow from "./staff/IndustryKnowhow.js";
 import MOU from "./staff/MOU.js";
 import MOUActivity from "./staff/MOUActivity.js";
+import ConferenceDetail from "./staff/ConferenceDetail.js";
+import ConsultancyCoPI from "./staff/ConsultancyCoPI.js";
+import ConferenceAuthor from "./staff/ConferenceAuthor.js";
+import BookChapterAuthor from "./staff/BookChapterAuthor.js";
+import EventCoordinator from "./staff/EventCoordinator.js";
+import EventResourcePerson from "./staff/EventResourcePerson.js";
+import PatentInventor from "./staff/PatentInventor.js";
+import MOUCoordinator from "./staff/MOUCoordinator.js";
+import MOUDptMapping from "./staff/MOUDptMapping.js";
+import ProjectMentorMember from "./staff/ProjectMentorMember.js";
+import ProjectMentorStudent from "./staff/ProjectMentorStudent.js";
 
 import PlacementCompany from "./placement/Company.js";
 import FeedbackRound from "./placement/FeedbackRound.js";
@@ -76,9 +94,12 @@ import Notification from "./placement/Notification.js";
 import PlacementDrive from "./placement/PlacementDrive.js";
 import PlacementFeedback from "./placement/PlacementFeedback.js";
 import RegisteredStudentPlacement from "./placement/RegisteredStudentPlacement.js";
-
 import Company from "./student/company.js";
+
+let associationsApplied = false;
 const applyAssociations = () => {
+  if (associationsApplied) return;
+  associationsApplied = true;
   console.log("Applying model associations...");
 
   /** =====================
@@ -86,35 +107,66 @@ const applyAssociations = () => {
    *  ===================== */
 
   // User - Role associations
-  Role.hasMany(User, { foreignKey: "roleId", as: "users" });
-  // User.belongsTo(Role, { foreignKey: "roleId", as: "role" }); // Defined in User.js associate()
+  if (!Role.associations.users) {
+    Role.hasMany(User, { foreignKey: "roleId", as: "users" });
+  }
+  if (!User.associations.role) {
+    User.belongsTo(Role, { foreignKey: "roleId", as: "role" });
+  }
 
   // User - Department associations (fixed foreign key)
-  // Department.hasMany(User, { foreignKey: "departmentId", as: "users" }); // Defined in Department.js associate()
-  // User.belongsTo(Department, { foreignKey: "departmentId", as: "department" }); // Defined in User.js associate()
+  if (!Department.associations.departmentUsers && !Department.associations.users) {
+    Department.hasMany(User, { foreignKey: "departmentId", as: "departmentUsers" });
+  }
+  if (!User.associations.department) {
+    User.belongsTo(Department, { foreignKey: "departmentId", as: "department" });
+  }
+  if (!User.associations.studentDetails) {
+    User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentDetails" });
+  }
+  if (!User.associations.studentProfile) {
+    User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentProfile" });
+  }
 
-  User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentDetails" });
-  User.hasOne(StudentDetails, { foreignKey: "Userid", as: "studentProfile" }); // Many controllers expect this
+  if (!StudentDetails.associations.studentUser) {
+    StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "studentUser" });
+  }
+  if (!StudentDetails.associations.user) {
+    StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "user" });
+  }
+  if (!StudentDetails.associations.userAccount) {
+    StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "userAccount" });
+  }
+  if (!User.associations.staffStudents) {
+    User.hasMany(StudentDetails, { foreignKey: "staffId", as: "staffStudents" });
+  }
+  if (!StudentDetails.associations.staffAdvisor) {
+    StudentDetails.belongsTo(User, { foreignKey: "staffId", as: "staffAdvisor" });
+  }
 
-  StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "studentUser" });
-  StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "user" }); // Also used as 'user' in some controllers
-  StudentDetails.belongsTo(User, { foreignKey: "Userid", as: "userAccount" }); // Used in NPTEL controllers
-  User.hasMany(StudentDetails, { foreignKey: "staffId", as: "staffStudents" });
-  StudentDetails.belongsTo(User, { foreignKey: "staffId", as: "staffAdvisor" });
-// Add audit user associations for StudentDetails
-  StudentDetails.belongsTo(User, { foreignKey: "Created_by", as: "oldCreator" });
-  StudentDetails.belongsTo(User, { foreignKey: "Updated_by", as: "oldUpdater" });
-  StudentDetails.belongsTo(User, { foreignKey: "Approved_by", as: "oldApprover" });
-  StudentDetails.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
-  StudentDetails.belongsTo(User, { foreignKey: "updatedBy", as: "updater" });
-  StudentDetails.belongsTo(User, { foreignKey: "approvedBy", as: "approver" });
+  // Add audit user associations for StudentDetails
+  if (!StudentDetails.associations.oldCreator) StudentDetails.belongsTo(User, { foreignKey: "Created_by", as: "oldCreator" });
+  if (!StudentDetails.associations.oldUpdater) StudentDetails.belongsTo(User, { foreignKey: "Updated_by", as: "oldUpdater" });
+  if (!StudentDetails.associations.oldApprover) StudentDetails.belongsTo(User, { foreignKey: "Approved_by", as: "oldApprover" });
+  if (!StudentDetails.associations.creator) StudentDetails.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+  if (!StudentDetails.associations.updater) StudentDetails.belongsTo(User, { foreignKey: "updatedBy", as: "updater" });
+  if (!StudentDetails.associations.approver) StudentDetails.belongsTo(User, { foreignKey: "approvedBy", as: "approver" });
 
-   
-
-
-
-  User.hasOne(StaffDetails, { foreignKey: "Userid", as: "staffPersonalInfo" });
-  StaffDetails.belongsTo(User, { foreignKey: "Userid", as: "staffUser" });
+  if (!User.associations.staffPersonalInfo) {
+    User.hasOne(StaffDetails, { foreignKey: "Userid", as: "staffPersonalInfo" });
+  }
+  if (!User.associations.employeeProfile) {
+    User.hasOne(StaffDetails, { foreignKey: "Userid", as: "employeeProfile" });
+  }
+  if (!StaffDetails.associations.staffUser) {
+    StaffDetails.belongsTo(User, { foreignKey: "Userid", as: "staffUser" });
+  }
+  if (!StaffDetails.associations.department) {
+    StaffDetails.belongsTo(Department, { foreignKey: "departmentId", as: "department" });
+  }
+  if (!Department.associations.staffMembers) {
+    Department.hasMany(StaffDetails, { foreignKey: "departmentId", as: "staffMembers" });
+  }
 
   User.hasOne(Education, { foreignKey: "Userid", as: "staffEducation" });
   Education.belongsTo(User, { foreignKey: "Userid", as: "userAccount" });
@@ -170,6 +222,13 @@ const applyAssociations = () => {
 
   User.hasMany(BulkUploadHistory, { foreignKey: "Userid" });
   BulkUploadHistory.belongsTo(User, { foreignKey: "Userid" });
+
+  // 💼 Student Placement Info Associations
+  // User.hasOne(StudentPlacementInfo, { foreignKey: "Userid", as: "placementInfo" });
+  // StudentPlacementInfo.belongsTo(User, { foreignKey: "Userid", as: "user" });
+
+  // User.hasMany(AttendedCompany, { foreignKey: "Userid", as: "attendedCompanies" });
+  // AttendedCompany.belongsTo(User, { foreignKey: "Userid", as: "user" });
 
   User.hasMany(DownloadHistory, { foreignKey: "Userid" });
   DownloadHistory.belongsTo(User, { foreignKey: "Userid" });
@@ -450,6 +509,12 @@ StudentNonCGPA.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
 User.hasMany(StudentNonCGPA, { foreignKey: "Updated_by", as: "updatedNonCGPARecords" });
 StudentNonCGPA.belongsTo(User, { foreignKey: "Updated_by", as: "updater" });
 
+// ConferenceDetail associations
+User.hasMany(ConferenceDetail, { foreignKey: "Userid", as: "conferences" });
+ConferenceDetail.belongsTo(User, { foreignKey: "Userid", as: "user" });
+User.hasMany(ConferenceDetail, { foreignKey: "Created_by", as: "createdConferences" });
+ConferenceDetail.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
+
 // Verified_by association
 User.hasMany(StudentNonCGPA, { foreignKey: "Verified_by", as: "verifiedNonCGPARecords" });
 StudentNonCGPA.belongsTo(User, { foreignKey: "Verified_by", as: "verifier" });
@@ -622,6 +687,57 @@ RegisteredStudentPlacement.belongsTo(User, { foreignKey: "user_id", as: "student
 // PlacementDrive - Creator
 PlacementDrive.belongsTo(User, { foreignKey: "Created_by", as: "creator" });
 
+// FundedProject - ProjectCoPI & ProjectStudent
+if (!FundedProject.associations.coPIs) {
+  FundedProject.hasMany(ProjectCoPI, { foreignKey: 'project_id', as: 'coPIs', onDelete: 'CASCADE' });
+}
+if (!ProjectCoPI.associations.project) {
+  ProjectCoPI.belongsTo(FundedProject, { foreignKey: 'project_id', as: 'project' });
+}
+if (!FundedProject.associations.students) {
+  FundedProject.hasMany(ProjectStudent, { foreignKey: 'project_id', as: 'students', onDelete: 'CASCADE' });
+}
+if (!ProjectStudent.associations.project) {
+  ProjectStudent.belongsTo(FundedProject, { foreignKey: 'project_id', as: 'project' });
+}
+
+// ConsultancyProposal - ConsultancyCoPI
+ConsultancyProposal.hasMany(ConsultancyCoPI, { foreignKey: 'consultancy_id', as: 'coPIs', onDelete: 'CASCADE' });
+ConsultancyCoPI.belongsTo(ConsultancyProposal, { foreignKey: 'consultancy_id', as: 'proposal' });
+
+// ConferenceDetail - ConferenceAuthor
+ConferenceDetail.hasMany(ConferenceAuthor, { foreignKey: 'conference_id', as: 'authors', onDelete: 'CASCADE' });
+ConferenceAuthor.belongsTo(ConferenceDetail, { foreignKey: 'conference_id', as: 'conference' });
+
+// BookChapter - BookChapterAuthor
+BookChapter.hasMany(BookChapterAuthor, { foreignKey: 'book_chapter_id', as: 'chapterAuthors', onDelete: 'CASCADE' });
+BookChapterAuthor.belongsTo(BookChapter, { foreignKey: 'book_chapter_id', as: 'bookChapter' });
+
+// StaffEventsOrganizedModel - EventCoordinator & EventResourcePerson
+StaffEventsOrganizedModel.hasMany(EventCoordinator, { foreignKey: 'event_id', as: 'coordinators', onDelete: 'CASCADE' });
+EventCoordinator.belongsTo(StaffEventsOrganizedModel, { foreignKey: 'event_id', as: 'event' });
+
+StaffEventsOrganizedModel.hasMany(EventResourcePerson, { foreignKey: 'event_id', as: 'resourcePersons', onDelete: 'CASCADE' });
+EventResourcePerson.belongsTo(StaffEventsOrganizedModel, { foreignKey: 'event_id', as: 'event' });
+
+// PatentProduct - PatentInventor
+PatentProduct.hasMany(PatentInventor, { foreignKey: 'patent_id', as: 'inventors', onDelete: 'CASCADE' });
+PatentInventor.belongsTo(PatentProduct, { foreignKey: 'patent_id', as: 'patent' });
+
+// MOU - MOUCoordinator & MOUDptMapping
+MOU.hasMany(MOUCoordinator, { foreignKey: 'mou_id', as: 'coordinators', onDelete: 'CASCADE' });
+MOUCoordinator.belongsTo(MOU, { foreignKey: 'mou_id', as: 'mou' });
+
+MOU.hasMany(MOUDptMapping, { foreignKey: 'mou_id', as: 'departments', onDelete: 'CASCADE' });
+MOUDptMapping.belongsTo(MOU, { foreignKey: 'mou_id', as: 'mou' });
+
+// ProjectMentor - ProjectMentorMember & ProjectMentorStudent
+ProjectMentor.hasMany(ProjectMentorMember, { foreignKey: 'project_mentor_id', as: 'mentors', onDelete: 'CASCADE' });
+ProjectMentorMember.belongsTo(ProjectMentor, { foreignKey: 'project_mentor_id', as: 'projectMentor' });
+
+ProjectMentor.hasMany(ProjectMentorStudent, { foreignKey: 'project_mentor_id', as: 'students', onDelete: 'CASCADE' });
+ProjectMentorStudent.belongsTo(ProjectMentor, { foreignKey: 'project_mentor_id', as: 'projectMentor' });
+
 const db = {
   sequelize,
   Sequelize: sequelize.constructor, // This usually works, or just import it
@@ -668,6 +784,8 @@ const db = {
   ProjectMentor,
   PatentProduct,
   FundedProject,
+  ProjectCoPI,
+  ProjectStudent,
   FundedProjectPayment,
   ConsultancyProposal,
   Recognition,
@@ -692,7 +810,22 @@ const db = {
   PlacementDrive,
   PlacementFeedback,
   RegisteredStudentPlacement,
-  Education,
+  // StudentPlacementInfo,
+  // AttendedCompany,
+  FundingAgency,
+  CertificationCourseMaster,
+  EventTypeMaster,
+  ConferenceDetail,
+  ConsultancyCoPI,
+  ConferenceAuthor,
+  BookChapterAuthor,
+  EventCoordinator,
+  EventResourcePerson,
+  PatentInventor,
+  MOUCoordinator,
+  MOUDptMapping,
+  ProjectMentorMember,
+  ProjectMentorStudent,
   applyAssociations,
 };
 
@@ -718,6 +851,8 @@ export {
   CompetencyCoding,
   StudentPublication,
   PersonalInformation,
+  // StudentPlacementInfo,
+  // AttendedCompany,
   NonCGPACategory,
   Internship,
   Message,
@@ -744,6 +879,8 @@ export {
   ProjectMentor,
   PatentProduct,
   FundedProject,
+  ProjectCoPI,
+  ProjectStudent,
   FundedProjectPayment,
   ConsultancyProposal,
   Recognition,
@@ -760,6 +897,9 @@ export {
   HIndex,
   BookChapter,
   StaffCertificationCourse,
+  FundingAgency,
+  CertificationCourseMaster,
+  EventTypeMaster,
   PlacementCompany,
   FeedbackRound,
   Hackathon,
@@ -769,7 +909,21 @@ export {
   PlacementFeedback,
   RegisteredStudentPlacement,
   Education,
+  ConferenceDetail,
+  ConsultancyCoPI,
+  ConferenceAuthor,
+  BookChapterAuthor,
+  EventCoordinator,
+  EventResourcePerson,
+  PatentInventor,
+  MOUCoordinator,
+  MOUDptMapping,
+  ProjectMentorMember,
+  ProjectMentorStudent,
   applyAssociations,
 };
+
+// Automatically execute model associations so they are guaranteed active on import
+applyAssociations();
 
 export default db;

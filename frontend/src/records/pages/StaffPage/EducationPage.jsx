@@ -38,7 +38,7 @@ const EducationPage = () => {
     ug_first_attempt: '',
     ug_year: '',
     
-    // Postgraduate
+    // Postgraduate (Degree 1)
     pg_institution: '',
     pg_university: '',
     pg_medium: '',
@@ -47,6 +47,16 @@ const EducationPage = () => {
     pg_cgpa_percentage: '',
     pg_first_attempt: '',
     pg_year: '',
+
+    // Postgraduate (Degree 2)
+    pg2_institution: '',
+    pg2_university: '',
+    pg2_medium: '',
+    pg2_specialization: '',
+    pg2_degree: '',
+    pg2_cgpa_percentage: '',
+    pg2_first_attempt: '',
+    pg2_year: '',
     
     // MPhil
     mphil_institution: '',
@@ -131,6 +141,15 @@ const EducationPage = () => {
           pg_cgpa_percentage: firstEntry.pg_cgpa_percentage || '',
           pg_first_attempt: firstEntry.pg_first_attempt || '',
           pg_year: firstEntry.pg_year || '',
+
+          pg2_institution: firstEntry.pg2_institution || '',
+          pg2_university: firstEntry.pg2_university || '',
+          pg2_medium: firstEntry.pg2_medium || '',
+          pg2_specialization: firstEntry.pg2_specialization || '',
+          pg2_degree: firstEntry.pg2_degree || '',
+          pg2_cgpa_percentage: firstEntry.pg2_cgpa_percentage || '',
+          pg2_first_attempt: firstEntry.pg2_first_attempt || '',
+          pg2_year: firstEntry.pg2_year || '',
           
           mphil_institution: firstEntry.mphil_institution || '',
           mphil_university: firstEntry.mphil_university || '',
@@ -183,15 +202,34 @@ const EducationPage = () => {
   };
 
   const validateForm = () => {
-    const hasAnyEducation = formData.tenth_institution || formData.twelfth_institution || 
-                           formData.ug_institution || formData.pg_institution || 
-                           formData.mphil_institution || formData.phd_university;
-    
-    if (!hasAnyEducation) {
-      setError('Please provide at least one education qualification');
-      toast.error('Please provide at least one education qualification');
+    if (!formData.tenth_institution?.trim() || !formData.tenth_university?.trim() || !formData.tenth_year) {
+      const msg = '10th Standard details (Institution, Board/University, Year) are required';
+      setError(msg);
+      toast.error(msg);
       return false;
     }
+
+    if (!formData.twelfth_institution?.trim() || !formData.twelfth_university?.trim() || !formData.twelfth_year) {
+      const msg = '12th Standard details (Institution, Board/University, Year) are required';
+      setError(msg);
+      toast.error(msg);
+      return false;
+    }
+
+    if (!formData.ug_institution?.trim() || !formData.ug_university?.trim() || !formData.ug_year || !formData.ug_degree?.trim()) {
+      const msg = "Bachelor's Degree details (Institution, University, Degree, Year) are required";
+      setError(msg);
+      toast.error(msg);
+      return false;
+    }
+
+    if (!formData.pg_institution?.trim() || !formData.pg_university?.trim() || !formData.pg_year || !formData.pg_degree?.trim()) {
+      const msg = "1st Postgraduate Degree details (Institution, University, Degree, Year) are required";
+      setError(msg);
+      toast.error(msg);
+      return false;
+    }
+
     return true;
   };
 
@@ -267,52 +305,66 @@ const EducationPage = () => {
       title: '10th Standard',
       icon: <Book className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'tenth_institution', label: 'Institution', type: 'text' },
-        { name: 'tenth_university', label: 'University/Board', type: 'text' },
+        { name: 'tenth_institution', label: 'Institution', type: 'text', required: true },
+        { name: 'tenth_university', label: 'University/Board', type: 'text', required: true },
         { name: 'tenth_medium', label: 'Medium', type: 'text' },
-        { name: 'tenth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
+        { name: 'tenth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'tenth_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'tenth_year', label: 'Year of Passing', type: 'number' },
+        { name: 'tenth_year', label: 'Year of Passing', type: 'number', required: true },
       ]
     },
     {
       title: '12th Standard',
       icon: <BookOpen className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'twelfth_institution', label: 'Institution', type: 'text' },
-        { name: 'twelfth_university', label: 'University/Board', type: 'text' },
+        { name: 'twelfth_institution', label: 'Institution', type: 'text', required: true },
+        { name: 'twelfth_university', label: 'University/Board', type: 'text', required: true },
         { name: 'twelfth_medium', label: 'Medium', type: 'text' },
-        { name: 'twelfth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
+        { name: 'twelfth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'twelfth_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'twelfth_year', label: 'Year of Passing', type: 'number' },
+        { name: 'twelfth_year', label: 'Year of Passing', type: 'number', required: true },
       ]
     },
     {
       title: 'Undergraduate',
       icon: <GraduationCap className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'ug_institution', label: 'Institution', type: 'text' },
-        { name: 'ug_university', label: 'University', type: 'text' },
+        { name: 'ug_institution', label: 'Institution', type: 'text', required: true },
+        { name: 'ug_university', label: 'University', type: 'text', required: true },
         { name: 'ug_medium', label: 'Medium', type: 'text' },
-        { name: 'ug_specialization', label: 'Specialization', type: 'text' },
-        { name: 'ug_degree', label: 'Degree', type: 'text' },
-        { name: 'ug_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
+        { name: 'ug_specialization', label: 'Specialization', type: 'text', required: true },
+        { name: 'ug_degree', label: 'Degree', type: 'text', required: true },
+        { name: 'ug_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'ug_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'ug_year', label: 'Year of Passing', type: 'number' },
+        { name: 'ug_year', label: 'Year of Passing', type: 'number', required: true },
       ]
     },
     {
-      title: 'Postgraduate',
+      title: 'Postgraduate (Degree 1)',
       icon: <GraduationCap className="w-5 h-5 text-indigo-600" />,
       fields: [
-        { name: 'pg_institution', label: 'Institution', type: 'text' },
-        { name: 'pg_university', label: 'University', type: 'text' },
+        { name: 'pg_institution', label: 'Institution', type: 'text', required: true },
+        { name: 'pg_university', label: 'University', type: 'text', required: true },
         { name: 'pg_medium', label: 'Medium', type: 'text' },
-        { name: 'pg_specialization', label: 'Specialization', type: 'text' },
-        { name: 'pg_degree', label: 'Degree', type: 'text' },
-        { name: 'pg_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
+        { name: 'pg_specialization', label: 'Specialization', type: 'text', required: true },
+        { name: 'pg_degree', label: 'Degree', type: 'text', required: true },
+        { name: 'pg_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'pg_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'pg_year', label: 'Year of Passing', type: 'number' },
+        { name: 'pg_year', label: 'Year of Passing', type: 'number', required: true },
+      ]
+    },
+    {
+      title: 'Postgraduate (Degree 2)',
+      icon: <GraduationCap className="w-5 h-5 text-indigo-600" />,
+      fields: [
+        { name: 'pg2_institution', label: 'Institution', type: 'text' },
+        { name: 'pg2_university', label: 'University', type: 'text' },
+        { name: 'pg2_medium', label: 'Medium', type: 'text' },
+        { name: 'pg2_specialization', label: 'Specialization', type: 'text' },
+        { name: 'pg2_degree', label: 'Degree', type: 'text' },
+        { name: 'pg2_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
+        { name: 'pg2_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
+        { name: 'pg2_year', label: 'Year of Passing', type: 'number' },
       ]
     },
     {

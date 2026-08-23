@@ -113,6 +113,20 @@ const StaffBioData = ({ userId: propUserId }) => {
         }
     };
 
+    const getCertPdfUrl = (filePath) => {
+        if (!filePath) return null;
+        let normalized = String(filePath).replace(/\\/g, '/');
+        if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+            return normalized;
+        }
+        normalized = normalized.replace(/^\/+/, '');
+        if (!normalized.toLowerCase().startsWith('uploads/')) {
+            normalized = `uploads/${normalized}`;
+        }
+        const baseUrl = (backendUrl || 'http://localhost:4000/institute_management_system').replace(/\/+$/, '');
+        return `${baseUrl}/${normalized}`;
+    };
+
     const toggleSection = (section) => {
         setOpenSections(prev => ({
             ...prev,
@@ -142,7 +156,7 @@ const StaffBioData = ({ userId: propUserId }) => {
                 const headers = { Authorization: `Bearer ${token}` };
 
                 // 1. Fetch basic user details (username, email, role, image)
-                const userResponse = await axios.get(`${backendUrl}/api/get-user/${userId}`, { headers });
+                const userResponse = await axios.get(`${backendUrl}/get-user/${userId}`, { headers });
 
                 if (userResponse.data.success) {
                     const userData = userResponse.data.user;
@@ -162,7 +176,7 @@ const StaffBioData = ({ userId: propUserId }) => {
                 }
 
                 // 2. Fetch all staff biodata (personal info, education, and all activities)
-                const response = await axios.get(`${backendUrl}/api/resume-staff/staff-data/${userId}`, { headers });
+                const response = await axios.get(`${backendUrl}/resume-staff/staff-data/${userId}`, { headers });
 
                 if (response.data.success && response.data.data) {
                     const data = response.data.data;
@@ -214,9 +228,11 @@ const StaffBioData = ({ userId: propUserId }) => {
 
     return (
         <div className="p-6 bg-gradient-to-r from-indigo-50 to-indigo-50 rounded-lg shadow-md w-full min-h-screen">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
-                Staff BioData
-            </h2>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                <h2 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
+                    Staff BioData
+                </h2>
+            </div>
 
             {loading ? (
                 <div className="flex flex-col items-center justify-center p-20 bg-white rounded-lg shadow-md">
@@ -467,6 +483,7 @@ const StaffBioData = ({ userId: propUserId }) => {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weeks</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cert. Date</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Certificate PDF</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -477,6 +494,21 @@ const StaffBioData = ({ userId: propUserId }) => {
                                     <td className="px-4 py-3 text-sm">{course.days} days</td>
                                     <td className="px-4 py-3 text-sm">{course.weeks}</td>
                                     <td className="px-4 py-3 text-sm">{formatDate(course.certification_date)}</td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {course.certificate_pdf ? (
+                                            <a
+                                                href={getCertPdfUrl(course.certificate_pdf)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-indigo-600 hover:text-indigo-800 font-semibold underline flex items-center gap-1"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                View PDF
+                                            </a>
+                                        ) : (
+                                            <span className="text-gray-400">-</span>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

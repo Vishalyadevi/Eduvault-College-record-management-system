@@ -7,6 +7,7 @@ import {
     createProposal,
     updateProposal,
     deleteProposal,
+    bulkCreateProposals,
     serveProof,
     serveYearlyReport,
     serveOrderCopy,
@@ -35,6 +36,11 @@ const uploadFields = upload.fields([
     { name: 'final_report', maxCount: 1 },
 ]);
 
+const bulkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 // File-serving routes (must come before /:id to avoid shadowing)
 router.get('/proof/:id', authenticateToken, serveProof);
 router.get('/yearly-report/:id', authenticateToken, serveYearlyReport);
@@ -44,6 +50,7 @@ router.get('/final-report/:id', authenticateToken, serveFinalReport);
 // CRUD routes
 router.get('/', authenticateToken, getAllProposals);
 router.get('/:id', authenticateToken, getProposalById);
+router.post('/bulk', authenticateToken, bulkUpload.any(), bulkCreateProposals);
 router.post('/', authenticateToken, uploadFields, createProposal);
 router.put('/:id', authenticateToken, uploadFields, updateProposal);
 router.delete('/:id', authenticateToken, deleteProposal);

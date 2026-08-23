@@ -8,6 +8,7 @@ import {
   createMOU,
   updateMOU,
   deleteMOU,
+  bulkCreateMOUs,
   getMOUActivities,
   createMOUActivity,
   updateMOUActivity,
@@ -48,12 +49,18 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 const router = express.Router();
 
 router.use(authenticate); // Authentication required
 
 // MOU core endpoints
 router.get('/', getMOUs);
+router.post('/bulk', bulkUpload.any(), bulkCreateMOUs);
 router.post('/', upload.single('mou_copy'), createMOU);
 router.put('/:id', upload.single('mou_copy'), updateMOU);
 router.delete('/:id', deleteMOU);

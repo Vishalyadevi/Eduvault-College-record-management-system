@@ -64,7 +64,7 @@ export const getResourcePersonById = async (req, res) => {
 // ─── CREATE ────────────────────────────────────────────────────────────────────
 export const createResourcePerson = async (req, res) => {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
         if (!userId) return res.status(401).json({ message: 'Unauthorized: userId missing' });
 
         const { program_specification, title, venue, event_date } = req.body;
@@ -100,10 +100,12 @@ export const createResourcePerson = async (req, res) => {
     }
 };
 
+
+
 // ─── UPDATE ────────────────────────────────────────────────────────────────────
 export const updateResourcePerson = async (req, res) => {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user?.userId || req.user?.Userid;
         if (!userId) return res.status(401).json({ message: 'Unauthorized: userId missing' });
 
         const entry = await ResourcePerson.findByPk(req.params.id);
@@ -223,5 +225,51 @@ export const downloadFile = (req, res) => {
     } catch (error) {
         console.error('Error downloading file:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+import { syncEventTypeMaster } from '../../services/masterSyncService.js';
+
+// ─── BULK CREATE ───────────────────────────────────────────────────────────────
+export const bulkCreateResourcePerson = async (req, res) => {
+    try {
+        const userId = req.user?.Userid || req.user?.userId;
+        const rows = parseBulkRecords(req);
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ message: 'No records provided for bulk insert' });
+        }
+
+        const uniqueTypes = [...new Set(rows.map(r => (r.program_specification || r.programSpecification || '').trim()).filter(Boolean))];
+        for (const tName of uniqueTypes) {
+            await syncEventTypeMaster(tName);
+        }
+
+        const recordsToInsert = rows.map((r) => {
+            const spec = (r.program_specification || r.programSpecification || 'Guest Lecture').trim();
+            const title = (r.title || 'Session Talk').trim();
+            const venue = (r.venue || 'Institution').trim();
+            const dateVal = r.event_date || r.eventDate || new Date().toISOString().split('T')[0];
+
+            return {
+                Userid: userId,
+                program_specification: spec,
+                title,
+                venue,
+                event_date: dateVal,
+                proof_link: typeof r.proof_link === 'string' ? r.proof_link : null,
+                photo_link: typeof r.photo_link === 'string' ? r.photo_link : null,
+            };
+        });
+
+        const created = await ResourcePerson.bulkCreate(recordsToInsert);
+        res.status(201).json({
+            message: `Successfully imported ${created.length} resource person records`,
+            count: created.length,
+            data: created,
+        });
+    } catch (error) {
+        console.error('Error bulk creating resource person records:', error);
+        res.status(400).json({ message: `Failed to save bulk records: ${error.message}` });
     }
 };

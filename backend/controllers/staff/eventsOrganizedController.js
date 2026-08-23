@@ -1,4 +1,14 @@
 import EventsOrganized from '../../models/staff/EventsOrganized.js';
+import EventCoordinator from '../../models/staff/EventCoordinator.js';
+import EventResourcePerson from '../../models/staff/EventResourcePerson.js';
+import { sequelize } from '../../config/mysql.js';
+
+// helper to parse CSV/string/array into clean string array
+const parseList = (input) => {
+  if (!input) return [];
+  if (Array.isArray(input)) return input.map(n => String(n).trim()).filter(Boolean);
+  return String(input).split(',').map(n => n.trim()).filter(Boolean);
+};
 
 // validation middlewares reused in tests if necessary
 export const validateOrganizedInfo = (req, res, next) => {
@@ -6,12 +16,8 @@ export const validateOrganizedInfo = (req, res, next) => {
   const requiredFields = [
     'program_name',
     'program_title',
-    'coordinator_name',
-    'speaker_details',
     'from_date',
     'to_date',
-    'days',
-    'participants',
   ];
   for (const field of requiredFields) {
     if (!data[field] || data[field].toString().trim() === '') {
@@ -29,15 +35,28 @@ export const validateOrganizedInfo = (req, res, next) => {
     return res.status(400).json({ message: 'From date cannot be after to date' });
   }
 
-  // numeric validation
-  const days = parseInt(data.days, 10);
-  if (isNaN(days) || days <= 0) {
-    return res.status(400).json({ message: 'Days must be a positive number' });
+  // Validate or default days if missing or <= 0
+  if (data.days !== undefined && data.days !== null && data.days !== '') {
+    const daysVal = parseInt(data.days, 10);
+    if (isNaN(daysVal) || daysVal <= 0) {
+      return res.status(400).json({ message: 'Number of days must be a positive integer' });
+    }
+    req.body.days = daysVal;
+  } else {
+    const diffTime = Math.abs(to.getTime() - from.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    req.body.days = diffDays || 1;
   }
 
-  const participantsCount = parseInt(data.participants, 10);
-  if (isNaN(participantsCount) || participantsCount <= 0) {
-    return res.status(400).json({ message: 'Participants must be a positive number' });
+  // Default coordinator_name, speaker_details, participants if missing
+  if (!data.coordinator_name || data.coordinator_name.toString().trim() === '') {
+    req.body.coordinator_name = 'Faculty Coordinator';
+  }
+  if (!data.speaker_details || data.speaker_details.toString().trim() === '') {
+    req.body.speaker_details = 'Guest Speaker';
+  }
+  if (!data.participants || isNaN(parseInt(data.participants, 10)) || parseInt(data.participants, 10) <= 0) {
+    req.body.participants = 1;
   }
 
   if (data.amount_sanctioned !== undefined && data.amount_sanctioned !== null && data.amount_sanctioned !== '') {
@@ -53,12 +72,6 @@ export const validateOrganizedInfo = (req, res, next) => {
   if (data.program_title && data.program_title.trim().length > 255) {
     return res.status(400).json({ message: 'Program title cannot exceed 255 characters' });
   }
-  if (data.coordinator_name && data.coordinator_name.trim().length > 100) {
-    return res.status(400).json({ message: 'Coordinator name cannot exceed 100 characters' });
-  }
-  if (data.sponsored_by && data.sponsored_by.trim().length > 100) {
-    return res.status(400).json({ message: 'Sponsored by field cannot exceed 100 characters' });
-  }
 
   next();
 };
@@ -72,6 +85,8 @@ const cleanOrganizedData = (data) => {
     'coordinator_name',
     'co_coordinator_names',
     'speaker_details',
+    'funding_type',
+    'funding_agency',
     'sponsored_by',
   ];
   textFields.forEach((field) => {
@@ -93,6 +108,11 @@ const cleanOrganizedData = (data) => {
     if (!Number.isNaN(amt)) cleaned.amount_sanctioned = amt;
   }
 
+  if (data.amount_received !== undefined && data.amount_received !== null && data.amount_received !== '') {
+    const amt = parseFloat(data.amount_received);
+    if (!Number.isNaN(amt)) cleaned.amount_received = amt;
+  }
+
   const dateFields = ['from_date', 'to_date'];
   dateFields.forEach((field) => {
     if (data[field] && data[field].toString().trim() !== '') {
@@ -100,20 +120,50 @@ const cleanOrganizedData = (data) => {
     }
   });
 
+  if (cleaned.funding_type === 'Without Fund') {
+    cleaned.funding_agency = null;
+    cleaned.sponsored_by = null;
+    cleaned.amount_sanctioned = null;
+    cleaned.amount_received = null;
+  }
+
   return cleaned;
 };
 
 export const getAllOrganized = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
     const records = await EventsOrganized.findAll({
       where: { Userid },
+      attributes: { exclude: ['proof', 'documentation'] },
+      include: [
+        { model: EventCoordinator, as: 'coordinators', attributes: ['id', 'coordinator_name'] },
+        { model: EventResourcePerson, as: 'resourcePersons', attributes: ['id', 'person_name', 'designation', 'organization'] },
+      ],
       order: [['created_at', 'DESC']],
     });
 
-    res.status(200).json({ success: true, data: records, count: records.length });
+    const result = records.map(r => {
+      const j = r.toJSON();
+      const coordList = Array.isArray(j.coordinators) && j.coordinators.length > 0
+        ? j.coordinators.map(c => c.coordinator_name)
+        : parseList(j.coordinator_name);
+      const speakerList = Array.isArray(j.resourcePersons) && j.resourcePersons.length > 0
+        ? j.resourcePersons.map(s => s.person_name)
+        : parseList(j.speaker_details);
+
+      return {
+        ...j,
+        coordinator_name: coordList.join(', '),
+        speaker_details: speakerList.join(', '),
+        coordinatorList: coordList,
+        resourcePersonList: speakerList,
+      };
+    });
+
+    res.status(200).json({ success: true, data: result, count: result.length });
   } catch (error) {
     console.error('Error fetching events organized:', error);
     res.status(500).json({ success: false, message: 'Server error while fetching data', error: error.message });
@@ -122,12 +172,28 @@ export const getAllOrganized = async (req, res) => {
 
 export const getOrganizedById = async (req, res) => {
   try {
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
     if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
 
-    const record = await EventsOrganized.findOne({ where: { id: req.params.id, Userid } });
+    const record = await EventsOrganized.findOne({
+      where: { id: req.params.id, Userid },
+      attributes: { exclude: ['proof', 'documentation'] },
+      include: [
+        { model: EventCoordinator, as: 'coordinators', attributes: ['id', 'coordinator_name'] },
+        { model: EventResourcePerson, as: 'resourcePersons', attributes: ['id', 'person_name', 'designation', 'organization'] },
+      ],
+    });
     if (!record) return res.status(404).json({ success: false, message: 'Entry not found' });
-    res.status(200).json({ success: true, data: record });
+
+    const j = record.toJSON();
+    const coordList = Array.isArray(j.coordinators) && j.coordinators.length > 0
+      ? j.coordinators.map(c => c.coordinator_name)
+      : parseList(j.coordinator_name);
+    const speakerList = Array.isArray(j.resourcePersons) && j.resourcePersons.length > 0
+      ? j.resourcePersons.map(s => s.person_name)
+      : parseList(j.speaker_details);
+
+    res.status(200).json({ success: true, data: { ...j, coordinator_name: coordList.join(', '), speaker_details: speakerList.join(', ') } });
   } catch (error) {
     console.error('Error fetching events organized record:', error);
     res.status(500).json({ success: false, message: 'Server error while fetching record', error: error.message });
@@ -135,9 +201,13 @@ export const getOrganizedById = async (req, res) => {
 };
 
 export const createOrganized = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const Userid = req.user?.Userid;
-    if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) {
+      await t.rollback();
+      return res.status(401).json({ message: 'User not authenticated properly' });
+    }
 
     const cleanData = cleanOrganizedData(req.body);
 
@@ -150,9 +220,31 @@ export const createOrganized = async (req, res) => {
       }
     }
 
-    const newRecord = await EventsOrganized.create({ Userid, ...cleanData });
-    res.status(201).json({ success: true, message: 'Event entry created successfully', data: newRecord, id: newRecord.id });
+    const coordList = parseList(cleanData.coordinator_name);
+    const speakerList = parseList(cleanData.speaker_details);
+
+    cleanData.coordinator_name = coordList.join(', ');
+    cleanData.speaker_details = speakerList.join(', ');
+
+    const newRecord = await EventsOrganized.create({ Userid, ...cleanData }, { transaction: t });
+
+    if (coordList.length > 0) {
+      await EventCoordinator.bulkCreate(
+        coordList.map(name => ({ event_id: newRecord.id, coordinator_name: name })),
+        { transaction: t }
+      );
+    }
+    if (speakerList.length > 0) {
+      await EventResourcePerson.bulkCreate(
+        speakerList.map(name => ({ event_id: newRecord.id, person_name: name })),
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+    res.status(201).json({ success: true, message: 'Event organized created successfully', data: newRecord, id: newRecord.id });
   } catch (error) {
+    await t.rollback();
     console.error('Error creating events organized record:', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ success: false, message: 'Duplicate entry error' });
@@ -161,13 +253,102 @@ export const createOrganized = async (req, res) => {
   }
 };
 
-export const updateOrganized = async (req, res) => {
-  try {
-    const Userid = req.user?.Userid;
-    if (!Userid) return res.status(401).json({ message: 'User not authenticated properly' });
+import { syncEventTypeMaster, syncFundingAgency } from '../../services/masterSyncService.js';
+import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
 
-    const record = await EventsOrganized.findOne({ where: { id: req.params.id, Userid } });
+export const bulkCreateEventsOrganized = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) {
+      await t.rollback();
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const records = parseBulkRecords(req);
+    if (!Array.isArray(records) || records.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'No valid records provided' });
+    }
+
+    const createdRecords = [];
+    for (const rec of records) {
+      const sponsoredBool = rec.sponsored === true || rec.sponsored === 'true' || rec.sponsored === 'Yes';
+      const coordList = parseList(rec.coordinator_name || 'Faculty Coordinator');
+      const speakerList = parseList(rec.speaker_details || 'Guest Speaker');
+      const progName = String(rec.programme_name || 'Workshop').trim();
+      const agencyName = rec.funding_agency ? String(rec.funding_agency).trim() : null;
+
+      if (progName) {
+        await syncEventTypeMaster(progName, t);
+      }
+      if (sponsoredBool && agencyName) {
+        await syncFundingAgency(agencyName, t);
+      }
+
+      const record = await EventsOrganized.create({
+        Userid,
+        programme_name: String(rec.programme_name || rec.program_name || 'Workshop').trim(),
+        title: String(rec.title || rec.program_title || 'Organized Event').trim(),
+        coordinator_name: coordList.join(', '),
+        speaker_details: speakerList.join(', '),
+        from_date: rec.from_date || new Date().toISOString().split('T')[0],
+        to_date: rec.to_date || new Date().toISOString().split('T')[0],
+        mode: ['Online', 'Offline', 'Hybrid'].includes(rec.mode) ? rec.mode : 'Offline',
+        no_of_participants: parseInt(rec.no_of_participants || rec.participants, 10) || 1,
+        sponsored: sponsoredBool,
+        funding_agency: sponsoredBool ? (rec.funding_agency ? String(rec.funding_agency).trim() : null) : null,
+        sponsored_by: sponsoredBool ? (rec.sponsored_by ? String(rec.sponsored_by).trim() : null) : null,
+        amount_sanctioned: sponsoredBool ? (parseFloat(rec.amount_sanctioned) || 0) : null,
+        amount_received: sponsoredBool ? (parseFloat(rec.amount_received) || 0) : null,
+        proof: typeof rec.proof === 'string' ? rec.proof : null,
+        documentation: typeof rec.documentation === 'string' ? rec.documentation : null,
+      }, { transaction: t });
+
+      if (coordList.length > 0) {
+        await EventCoordinator.bulkCreate(
+          coordList.map(name => ({ event_id: record.id, coordinator_name: name })),
+          { transaction: t }
+        );
+      }
+      if (speakerList.length > 0) {
+        await EventResourcePerson.bulkCreate(
+          speakerList.map(name => ({ event_id: record.id, person_name: name })),
+          { transaction: t }
+        );
+      }
+      createdRecords.push(record);
+    }
+
+    await t.commit();
+    res.status(201).json({
+      success: true,
+      message: `Successfully uploaded ${createdRecords.length} organized events`,
+      data: createdRecords,
+    });
+  } catch (error) {
+    if (t) await t.rollback();
+    console.error('Error bulk creating events organized:', error);
+    res.status(400).json({
+      message: `Failed to save bulk records: ${error.message}`,
+      error: error.message,
+      details: error.errors ? error.errors.map(e => e.message) : [error.message]
+    });
+  }
+};
+
+export const updateOrganized = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) {
+      await t.rollback();
+      return res.status(401).json({ message: 'User not authenticated properly' });
+    }
+
+    const record = await EventsOrganized.findOne({ where: { id: req.params.id, Userid }, transaction: t });
     if (!record) {
+      await t.rollback();
       return res.status(404).json({ success: false, message: 'Entry not found' });
     }
 
@@ -177,13 +358,35 @@ export const updateOrganized = async (req, res) => {
       if (req.files.documentation) cleanData.documentation = req.files.documentation[0].buffer;
     }
 
-    if (Object.keys(cleanData).length === 0) {
-      return res.status(400).json({ success: false, message: 'No valid fields to update' });
+    const coordList = parseList(cleanData.coordinator_name || record.coordinator_name);
+    const speakerList = parseList(cleanData.speaker_details || record.speaker_details);
+
+    cleanData.coordinator_name = coordList.join(', ');
+    cleanData.speaker_details = speakerList.join(', ');
+
+    await record.update(cleanData, { transaction: t });
+
+    // Refresh child rows
+    await EventCoordinator.destroy({ where: { event_id: record.id }, transaction: t });
+    if (coordList.length > 0) {
+      await EventCoordinator.bulkCreate(
+        coordList.map(name => ({ event_id: record.id, coordinator_name: name })),
+        { transaction: t }
+      );
     }
 
-    await record.update(cleanData);
+    await EventResourcePerson.destroy({ where: { event_id: record.id }, transaction: t });
+    if (speakerList.length > 0) {
+      await EventResourcePerson.bulkCreate(
+        speakerList.map(name => ({ event_id: record.id, person_name: name })),
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
     res.status(200).json({ success: true, message: 'Event entry updated successfully', data: record });
   } catch (error) {
+    await t.rollback();
     console.error('Error updating events organized record:', error);
     res.status(500).json({ success: false, message: 'Server error while updating record', error: error.message });
   }

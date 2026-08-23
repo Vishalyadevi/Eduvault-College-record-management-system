@@ -26,6 +26,13 @@ const Employee = sequelize.define('Employee', {
         comment: 'Reference to user table for login credentials',
     },
 
+    Userid: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'userId' },
+        comment: 'Reference to user table ID',
+    },
+
     // ── Basic Information ──────────────────────────────────────────
     salutation: { type: DataTypes.STRING(10), allowNull: true },
     firstName: { type: DataTypes.STRING(50), allowNull: false },
@@ -74,6 +81,12 @@ const Employee = sequelize.define('Employee', {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: 'designations', key: 'designationId' },
+    },
+
+    designation: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      comment: 'Staff typed designation',
     },
 
     // employeeGradeId: {

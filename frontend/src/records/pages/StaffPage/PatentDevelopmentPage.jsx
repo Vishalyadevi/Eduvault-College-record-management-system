@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Upload } from 'lucide-react';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FormField from '../../components/FormField';
+import FileUploadField from '../../components/FileUploadField';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import {
   getPatentEntries,
   createPatentEntry,
   updatePatentEntry,
-  deletePatentEntry
+  deletePatentEntry,
+  bulkCreatePatentProducts,
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const PatentDevelopmentPage = () => {
   const [entries, setEntries] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -129,10 +133,6 @@ const PatentDevelopmentPage = () => {
     if (!formData.workingModel) validationErrors.push('Working Model selection is required');
     if (!formData.prototype) validationErrors.push('Prototype selection is required');
 
-    if (!editingItem && !formData.patentProof) {
-      validationErrors.push('Patent Proof document is required');
-    }
-
     if (validationErrors.length > 0) {
       toast.error(validationErrors.join(', '));
       return;
@@ -222,7 +222,8 @@ const PatentDevelopmentPage = () => {
 
   const handleViewProof = async (id, type) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/patent-product/proof/${id}/${type}`, {
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system";
+      const res = await fetch(`${baseUrl}/patent-product/proof/${id}/${type}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -361,21 +362,46 @@ const PatentDevelopmentPage = () => {
     },
   ];
 
+  const excelColumns = [
+    { key: 'project_title', label: 'Patent / Product Title', required: true, example: 'Smart Solar Powered EV Charger' },
+    { key: 'patent_status', label: 'Patent Status', required: true, options: patentStatusOptions, example: 'Granted' },
+    { key: 'month_year', label: 'Month & Year', required: false, example: '2026-02' },
+    { key: 'application_no', label: 'Application Number', required: false, example: '202641009876' },
+    { key: 'patent_no', label: 'Patent Number', required: false, example: 'PAT-2026-1234' },
+    { key: 'working_model', label: 'Working Model Available', required: false, options: ['Yes', 'No'], example: 'Yes' },
+    { key: 'prototype', label: 'Prototype Developed', required: false, options: ['Yes', 'No'], example: 'Yes' },
+    { key: 'patent_proof_link', label: 'Patent Proof File Name', required: false, type: 'file', example: 'patent_proof.pdf' },
+    { key: 'working_model_proof_link', label: 'Working Model Proof File Name', required: false, type: 'file', example: 'working_model_proof.pdf' },
+    { key: 'prototype_proof_link', label: 'Prototype Proof File Name', required: false, type: 'file', example: 'prototype_proof.pdf' },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-4">
-                <button
-                  className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-blue-800 hover:to-indigo-500 px-4 py-2 rounded-md shadow-md"
-                  onClick={() => {
-                    setEditingItem(null);
-                    setModalOpen(true);
-                  }}
-                >
-                  <Plus size={16} />
-                  Add Patent and Product Development
-                </button>
-              </div>
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+          <h2 className="text-2xl font-bold text-gray-800">Patent & Product Development</h2>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md font-semibold text-sm shadow-xs"
+              onClick={() => setIsExcelModalOpen(true)}
+            >
+              <Upload size={16} />
+              Excel Bulk Upload
+            </button>
+            <button
+              className="btn flex items-center gap-2 text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-4 py-2 rounded-md shadow-md text-sm font-semibold"
+              onClick={() => {
+                setEditingItem(null);
+                setIsViewOnly(false);
+                setModalOpen(true);
+              }}
+            >
+              <Plus size={16} />
+              Add Patent and Product
+            </button>
+          </div>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {loading ? (
             <div className="flex items-center justify-center h-64">
@@ -410,8 +436,9 @@ const PatentDevelopmentPage = () => {
           onSubmit={handleSubmit}
           disableSubmit={isViewOnly || loading}
           submitText={loading ? 'Saving...' : (editingItem ? 'Update Entry' : 'Add Entry')}
+          size="lg"
         >
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField 
               label="Project Title" 
               name="projectTitle" 
@@ -459,44 +486,16 @@ const PatentDevelopmentPage = () => {
               required
             />
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Patent Proof Document (PDF) {!editingItem && <span className="text-red-500">*</span>}
-              </label>
-              {isViewOnly ? (
-                editingItem?.patent_proof_link ? (
-                  <button
-                    onClick={() => handleViewProof(editingItem.id, 'patent')}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
-                  >
-                    <FileText size={14} />
-                    View PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500">No file uploaded</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="patentProof"
-                    accept=".pdf"
-                    onChange={handleChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.patentProof && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.patentProof.name}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+            <FileUploadField
+              label="Patent Proof (PDF)"
+              name="patentProof"
+              accept=".pdf"
+              value={formData.patentProof || (isViewOnly && editingItem?.patent_proof_link ? 'available' : null)}
+              disabled={isViewOnly}
+              onChange={(file) => setFormData((prev) => ({ ...prev, patentProof: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, patentProof: null }))}
+              hint="PDF document up to 10MB"
+            />
 
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
@@ -515,44 +514,16 @@ const PatentDevelopmentPage = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Working Model Proof (PDF)
-              </label>
-              {isViewOnly ? (
-                editingItem?.working_model_proof_link ? (
-                  <button
-                    onClick={() => handleViewProof(editingItem.id, 'working_model')}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
-                  >
-                    <FileText size={14} />
-                    View PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500">No file uploaded</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="workingModelProof"
-                    accept=".pdf"
-                    onChange={handleChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.workingModelProof && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.workingModelProof.name}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+            <FileUploadField
+              label="Working Model Proof (PDF)"
+              name="workingModelProof"
+              accept=".pdf"
+              value={formData.workingModelProof || (isViewOnly && editingItem?.working_model_proof_link ? 'available' : null)}
+              disabled={isViewOnly}
+              onChange={(file) => setFormData((prev) => ({ ...prev, workingModelProof: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, workingModelProof: null }))}
+              hint="PDF document up to 10MB"
+            />
 
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
@@ -571,46 +542,31 @@ const PatentDevelopmentPage = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Prototype Proof (PDF)
-              </label>
-              {isViewOnly ? (
-                editingItem?.prototype_proof_link ? (
-                  <button
-                    onClick={() => handleViewProof(editingItem.id, 'prototype')}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full transition-colors duration-200 border border-indigo-200"
-                  >
-                    <FileText size={14} />
-                    View PDF
-                  </button>
-                ) : (
-                  <span className="text-gray-500">No file uploaded</span>
-                )
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    name="prototypeProof"
-                    accept=".pdf"
-                    onChange={handleChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-indigo-50 file:text-indigo-700
-                      hover:file:bg-indigo-100"
-                  />
-                  {formData.prototypeProof && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Selected: {formData.prototypeProof.name}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+            <FileUploadField
+              label="Prototype Proof (PDF)"
+              name="prototypeProof"
+              accept=".pdf"
+              value={formData.prototypeProof || (isViewOnly && editingItem?.prototype_proof_link ? 'available' : null)}
+              disabled={isViewOnly}
+              onChange={(file) => setFormData((prev) => ({ ...prev, prototypeProof: file }))}
+              onClear={() => setFormData((prev) => ({ ...prev, prototypeProof: null }))}
+              hint="PDF document up to 10MB"
+            />
             </div>
         </Modal>
+
+        {/* Excel Bulk Upload Modal */}
+        <ExcelBulkUploadModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          title="Bulk Upload Patents & Products"
+          columns={excelColumns}
+          onUpload={async (validRows) => {
+            await bulkCreatePatentProducts(validRows);
+            fetchData();
+          }}
+          templateFilename="Patent_Products_Template.xlsx"
+        />
       </div>
     </div>
   );

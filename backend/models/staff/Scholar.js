@@ -41,9 +41,19 @@ const Scholar = sequelize.define(
             type: DataTypes.STRING(255),
             allowNull: false,
         },
+        phd_registered_month: {
+            type: DataTypes.STRING(50),
+            allowNull: true,
+            defaultValue: null,
+        },
         phd_registered_year: {
             type: DataTypes.INTEGER,
             allowNull: false,
+        },
+        completed_month: {
+            type: DataTypes.STRING(50),
+            allowNull: true,
+            defaultValue: null,
         },
         completed_year: {
             type: DataTypes.INTEGER,

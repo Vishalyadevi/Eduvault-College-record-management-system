@@ -342,7 +342,7 @@ const Achievements = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {achievement.certificate_file ? (
                           <a
-                            href={`http://localhost:4000/uploads/achievements/${achievement.certificate_file}`}
+                            href={`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5600/institute_management_system"}/uploads/achievements/${achievement.certificate_file}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-indigo-600 hover:text-blue-800 transition flex items-center"

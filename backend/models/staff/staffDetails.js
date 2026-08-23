@@ -22,44 +22,44 @@ const StaffDetails = (sequelize) => {
         staffNumber: {
             type: DataTypes.STRING(50),
             allowNull: true,
-            // references: { model: 'users', key: 'userNumber' },
+            references: { model: 'users', key: 'userNumber' },
             comment: 'Reference to user table for login credentials',
         },
         Userid: {
             type: DataTypes.INTEGER,
-            allowNull: false,
-            // references: { model: 'users', key: 'userId' },
+            allowNull: true,
+            references: { model: 'users', key: 'userId' },
             comment: 'Reference to user table ID',
         },
 
         // ── Basic Information ──────────────────────────────────────────
         salutation: { type: DataTypes.STRING(10), allowNull: true },
-        firstName: { type: DataTypes.STRING(50), allowNull: false },
+        firstName: { type: DataTypes.STRING(50), allowNull: true },
         middleName: { type: DataTypes.STRING(50), allowNull: true },
         lastName: { type: DataTypes.STRING(50), allowNull: true },
-        gender: { type: DataTypes.ENUM('Male', 'Female', 'Other'), allowNull: false },
-        dateOfBirth: { type: DataTypes.DATEONLY, allowNull: false, field: 'DOB' },
+        gender: { type: DataTypes.ENUM('Male', 'Female', 'Other'), allowNull: true, defaultValue: 'Other' },
+        dateOfBirth: { type: DataTypes.DATEONLY, allowNull: true, field: 'DOB' },
         bloodGroup: { type: DataTypes.ENUM('A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'), allowNull: true },
         maritalStatus: { type: DataTypes.ENUM('Single', 'Married', 'Divorced', 'Widowed'), allowNull: true },
         weddingDate: { type: DataTypes.DATEONLY, allowNull: true },
         profilePhoto: { type: DataTypes.STRING(500), allowNull: true, field: 'photo' },
 
         // ── Contact Information ────────────────────────────────────────
-        personalEmail: { type: DataTypes.STRING(150), allowNull: false, validate: { isEmail: true } },
+        personalEmail: { type: DataTypes.STRING(150), allowNull: true, validate: { isEmail: true } },
         officialEmail: { type: DataTypes.STRING(150), allowNull: true, validate: { isEmail: true }, field: 'employeeMail' },
-        mobileNumber: { type: DataTypes.STRING(15), allowNull: false },
+        mobileNumber: { type: DataTypes.STRING(15), allowNull: true },
         alternateMobile: { type: DataTypes.STRING(15), allowNull: true },
         emergencyContactName: { type: DataTypes.STRING(100), allowNull: true },
         emergencyContactNumber: { type: DataTypes.STRING(15), allowNull: true },
         emergencyContactRelationship: { type: DataTypes.STRING(50), allowNull: true },
 
         // ── Current Address ────────────────────────────────────────────
-        currentAddressLine1: { type: DataTypes.STRING(150), allowNull: false },
+        currentAddressLine1: { type: DataTypes.STRING(150), allowNull: true },
         currentAddressLine2: { type: DataTypes.STRING(150), allowNull: true },
-        currentCity: { type: DataTypes.STRING(100), allowNull: false },
-        currentState: { type: DataTypes.STRING(100), allowNull: false },
-        currentPincode: { type: DataTypes.STRING(10), allowNull: false },
-        currentCountry: { type: DataTypes.STRING(100), allowNull: false, defaultValue: 'India' },
+        currentCity: { type: DataTypes.STRING(100), allowNull: true },
+        currentState: { type: DataTypes.STRING(100), allowNull: true },
+        currentPincode: { type: DataTypes.STRING(10), allowNull: true },
+        currentCountry: { type: DataTypes.STRING(100), allowNull: true, defaultValue: 'India' },
 
         // ── Permanent Address ──────────────────────────────────────────
         permanentAddressLine1: { type: DataTypes.STRING(150), allowNull: true },
@@ -72,13 +72,15 @@ const StaffDetails = (sequelize) => {
         // ── Employment Information ─────────────────────────────────────
         departmentId: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
+            defaultValue: 1,
             // references: { model: 'departments', key: 'departmentId' },
         },
 
         designationId: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
+            defaultValue: 1,
             // references: { model: 'designations', key: 'designationId' },
         },
 
@@ -94,7 +96,7 @@ const StaffDetails = (sequelize) => {
             // references: { model: 'employee_grades', key: 'employeeGradeId' },
         },
 
-        dateOfJoining: { type: DataTypes.DATEONLY, allowNull: false, field: 'DOJ' },
+        dateOfJoining: { type: DataTypes.DATEONLY, allowNull: true, field: 'DOJ' },
         confirmationDate: { type: DataTypes.DATEONLY, allowNull: true },
         probationPeriod: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0, comment: 'in months' },
 
@@ -109,7 +111,7 @@ const StaffDetails = (sequelize) => {
 
         employmentStatus: {
             type: DataTypes.ENUM('Active', 'Resigned', 'Terminated', 'On Leave', 'Retired', 'Notice Period'),
-            allowNull: false,
+            allowNull: true,
             defaultValue: 'Active'
         },
 
@@ -128,6 +130,14 @@ const StaffDetails = (sequelize) => {
 
         isOvertimeApplicable: { type: DataTypes.BOOLEAN, defaultValue: false },
         remainingPermissionHours: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
+
+        // ── Fellowship Details ─────────────────────────────────────────
+        hasFellowship: { type: DataTypes.STRING(10), allowNull: true, defaultValue: 'No' },
+        fellowshipName: { type: DataTypes.STRING(255), allowNull: true },
+        fellowshipAgency: { type: DataTypes.STRING(255), allowNull: true },
+        fellowshipAmount: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+        fellowshipDuration: { type: DataTypes.STRING(100), allowNull: true },
+        fellowshipDetails: { type: DataTypes.TEXT, allowNull: true },
 
         // ── Salary & Bank Details ──────────────────────────────────────
         basicSalary: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
@@ -258,13 +268,15 @@ const StaffDetails = (sequelize) => {
         hooks: {
             beforeValidate: (employee) => {
                 if (employee.dateOfBirth && !employee.dateOfRetirement) {
-                    // Auto-calculate retirement date
-                    // You can make retirementAge configurable from settings
-                    const retirementAge = 58; // Default, should come from settings
                     const dob = new Date(employee.dateOfBirth);
-                    const retirement = new Date(dob);
-                    retirement.setFullYear(dob.getFullYear() + retirementAge);
-                    employee.dateOfRetirement = retirement.toISOString().split('T')[0];
+                    if (!isNaN(dob.getTime())) {
+                        const retirementAge = 58;
+                        const retirement = new Date(dob);
+                        retirement.setFullYear(dob.getFullYear() + retirementAge);
+                        if (!isNaN(retirement.getTime())) {
+                            employee.dateOfRetirement = retirement.toISOString().split('T')[0];
+                        }
+                    }
                 }
             }
         }
@@ -273,3 +285,4 @@ const StaffDetails = (sequelize) => {
 };
 
 export default StaffDetails;
+
