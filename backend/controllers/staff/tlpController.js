@@ -139,16 +139,16 @@ export const updateTlpActivity = async (req, res) => {
 export const deleteTlpActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const Userid = req.user?.Userid;
+    const Userid = req.user?.Userid || req.user?.userId;
+    if (!Userid) return res.status(401).json({ message: 'Not authenticated' });
 
     const activity = await TlpActivity.findByPk(id);
     if (!activity) return res.status(404).json({ message: 'TLP activity not found' });
 
     if (activity.Userid !== Userid) return res.status(403).json({ message: 'Unauthorized' });
-    if (activity.status !== 'Pending') return res.status(400).json({ message: 'Only pending activities can be deleted' });
 
     await activity.destroy();
-    res.json({ message: 'Deleted' });
+    res.json({ message: 'Deleted successfully' });
   } catch (error) {
     console.error('Error deleting TLP activity', error);
     res.status(500).json({ message: 'Error deleting TLP activity', error: error.message });

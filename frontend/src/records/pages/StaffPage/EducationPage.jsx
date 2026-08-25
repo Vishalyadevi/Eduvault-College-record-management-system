@@ -91,6 +91,19 @@ const EducationPage = () => {
     fetchEducation();
   }, []);
 
+  const parseYearVal = (entry, primaryKey, altKeys = []) => {
+    if (!entry) return '';
+    if (entry[primaryKey] !== undefined && entry[primaryKey] !== null && entry[primaryKey] !== '') {
+      return String(entry[primaryKey]);
+    }
+    for (const altKey of altKeys) {
+      if (entry[altKey] !== undefined && entry[altKey] !== null && entry[altKey] !== '') {
+        return String(entry[altKey]);
+      }
+    }
+    return '';
+  };
+
   const fetchEducation = async () => {
     try {
       setLoading(true);
@@ -115,14 +128,14 @@ const EducationPage = () => {
           tenth_medium: firstEntry.tenth_medium || '',
           tenth_cgpa_percentage: firstEntry.tenth_cgpa_percentage || '',
           tenth_first_attempt: firstEntry.tenth_first_attempt || '',
-          tenth_year: firstEntry.tenth_year || '',
+          tenth_year: parseYearVal(firstEntry, 'tenth_year', ['tenth_year_of_passing', 'tenth_passing_year']),
           
           twelfth_institution: firstEntry.twelfth_institution || '',
           twelfth_university: firstEntry.twelfth_university || '',
           twelfth_medium: firstEntry.twelfth_medium || '',
           twelfth_cgpa_percentage: firstEntry.twelfth_cgpa_percentage || '',
           twelfth_first_attempt: firstEntry.twelfth_first_attempt || '',
-          twelfth_year: firstEntry.twelfth_year || '',
+          twelfth_year: parseYearVal(firstEntry, 'twelfth_year', ['twelfth_year_of_passing', 'twelfth_passing_year']),
           
           ug_institution: firstEntry.ug_institution || '',
           ug_university: firstEntry.ug_university || '',
@@ -131,7 +144,7 @@ const EducationPage = () => {
           ug_degree: firstEntry.ug_degree || '',
           ug_cgpa_percentage: firstEntry.ug_cgpa_percentage || '',
           ug_first_attempt: firstEntry.ug_first_attempt || '',
-          ug_year: firstEntry.ug_year || '',
+          ug_year: parseYearVal(firstEntry, 'ug_year', ['ug_year_of_passing', 'ug_passing_year']),
           
           pg_institution: firstEntry.pg_institution || '',
           pg_university: firstEntry.pg_university || '',
@@ -140,7 +153,7 @@ const EducationPage = () => {
           pg_degree: firstEntry.pg_degree || '',
           pg_cgpa_percentage: firstEntry.pg_cgpa_percentage || '',
           pg_first_attempt: firstEntry.pg_first_attempt || '',
-          pg_year: firstEntry.pg_year || '',
+          pg_year: parseYearVal(firstEntry, 'pg_year', ['pg_year_of_passing', 'pg_passing_year']),
 
           pg2_institution: firstEntry.pg2_institution || '',
           pg2_university: firstEntry.pg2_university || '',
@@ -149,7 +162,7 @@ const EducationPage = () => {
           pg2_degree: firstEntry.pg2_degree || '',
           pg2_cgpa_percentage: firstEntry.pg2_cgpa_percentage || '',
           pg2_first_attempt: firstEntry.pg2_first_attempt || '',
-          pg2_year: firstEntry.pg2_year || '',
+          pg2_year: parseYearVal(firstEntry, 'pg2_year', ['pg2_year_of_passing', 'pg2_passing_year']),
           
           mphil_institution: firstEntry.mphil_institution || '',
           mphil_university: firstEntry.mphil_university || '',
@@ -158,18 +171,18 @@ const EducationPage = () => {
           mphil_degree: firstEntry.mphil_degree || '',
           mphil_cgpa_percentage: firstEntry.mphil_cgpa_percentage || '',
           mphil_first_attempt: firstEntry.mphil_first_attempt || '',
-          mphil_year: firstEntry.mphil_year || '',
+          mphil_year: parseYearVal(firstEntry, 'mphil_year', ['mphil_year_of_passing', 'mphil_passing_year']),
           
           phd_university: firstEntry.phd_university || '',
           phd_title: firstEntry.phd_title || '',
           phd_guide_name: firstEntry.phd_guide_name || '',
           phd_college: firstEntry.phd_college || '',
           phd_status: firstEntry.phd_status || '',
-          phd_registration_year: firstEntry.phd_registration_year || '',
-          phd_completion_year: firstEntry.phd_completion_year || '',
-          phd_publications_during: firstEntry.phd_publications_during || '',
-          phd_publications_post: firstEntry.phd_publications_post || '',
-          phd_post_experience: firstEntry.phd_post_experience || ''
+          phd_registration_year: parseYearVal(firstEntry, 'phd_registration_year'),
+          phd_completion_year: parseYearVal(firstEntry, 'phd_completion_year'),
+          phd_publications_during: parseYearVal(firstEntry, 'phd_publications_during'),
+          phd_publications_post: parseYearVal(firstEntry, 'phd_publications_post'),
+          phd_post_experience: parseYearVal(firstEntry, 'phd_post_experience')
         };
         setFormData(newFormData);
         setOriginalData(newFormData);
@@ -223,11 +236,13 @@ const EducationPage = () => {
       return false;
     }
 
-    if (!formData.pg_institution?.trim() || !formData.pg_university?.trim() || !formData.pg_year || !formData.pg_degree?.trim()) {
-      const msg = "1st Postgraduate Degree details (Institution, University, Degree, Year) are required";
-      setError(msg);
-      toast.error(msg);
-      return false;
+    if (formData.pg_institution?.trim() || formData.pg_university?.trim() || formData.pg_degree?.trim() || formData.pg_year) {
+      if (!formData.pg_institution?.trim() || !formData.pg_university?.trim() || !formData.pg_year || !formData.pg_degree?.trim()) {
+        const msg = "Please complete all 1st Postgraduate Degree details or leave them blank";
+        setError(msg);
+        toast.error(msg);
+        return false;
+      }
     }
 
     return true;

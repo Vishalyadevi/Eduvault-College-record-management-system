@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, X, CheckCircle2, XCircle } from 'lucide-react'; // Added icons
 import { logout, api } from '../../services/authService'; // Ensure api is imported
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../../../records/pages/auth/AuthContext';
 
 const Header = () => {
   const navigate = useNavigate();

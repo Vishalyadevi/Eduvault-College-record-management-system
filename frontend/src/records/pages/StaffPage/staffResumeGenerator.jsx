@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Search, RotateCcw, FileText, Download, Eye, Filter, ChevronDown, Calendar, X } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import axios from "axios";
+import api from "../../services/api";
 import config from "../../../config";
 
 const EnhancedStaffResumeGenerator = () => {
@@ -16,24 +17,23 @@ const EnhancedStaffResumeGenerator = () => {
   const [selectedSections, setSelectedSections] = useState({
     "Personal Information": true,
     "Education": true,
-    "Events Attended": true,
-    "Events Organized": true,
-    "Publications": true,
-    "Consultancy Projects": true,
-    "Research Projects": true,
-    "Industry Knowhow": true,
-    "Certification Courses": true,
-    "H-Index": true,
-    "Proposals Submitted": true,
-    "Resource Person": true,
     "Scholars": true,
+    "Consultancy": true,
+    "Funded Projects": true,
     "Seed Money": true,
-    "Recognition & Appreciation": true,
-    "Patents & Products": true,
-    "Project Mentors": true,
-    "Sponsored Research": true,
-    "Activities": true,
-    "TLP Activities": true,
+    "Events Attended": true,
+    "Conference Details": true,
+    "Industry Know-How": true,
+    "Certification Courses": true,
+    "Publications": true,
+    "Events Organized": true,
+    "Resource Person": true,
+    "Recognition": true,
+    "Patent / Product Development": true,
+    "Project Mentor": true,
+    "MOU": true,
+    "TLP Management": true,
+    "Club Activity": true,
   });
 
   const [dateFilters, setDateFilters] = useState({
@@ -55,24 +55,23 @@ const EnhancedStaffResumeGenerator = () => {
   const activityList = [
     { name: 'Personal Information', icon: '👤', color: 'indigo' },
     { name: 'Education', icon: '🎓', color: 'green' },
-    { name: 'Events Attended', icon: '📅', color: 'indigo' },
-    { name: 'Events Organized', icon: '🎯', color: 'indigo' },
-    { name: 'Publications', icon: '📚', color: 'yellow' },
-    { name: 'Consultancy Projects', icon: '💼', color: 'pink' },
-    { name: 'Research Projects', icon: '🔬', color: 'cyan' },
-    { name: 'Industry Knowhow', icon: '🏭', color: 'orange' },
-    { name: 'Certification Courses', icon: '📜', color: 'teal' },
-    { name: 'H-Index', icon: '📊', color: 'red' },
-    { name: 'Proposals Submitted', icon: '📝', color: 'indigo' },
-    { name: 'Resource Person', icon: '🎤', color: 'emerald' },
     { name: 'Scholars', icon: '👨‍🎓', color: 'amber' },
+    { name: 'Consultancy', icon: '💼', color: 'pink' },
+    { name: 'Funded Projects', icon: '🔬', color: 'cyan' },
     { name: 'Seed Money', icon: '💰', color: 'lime' },
-    { name: 'Recognition & Appreciation', icon: '🏆', color: 'rose' },
-    { name: 'Patents & Products', icon: '⚡', color: 'indigo' },
-    { name: 'Project Mentors', icon: '🎯', color: 'sky' },
-    { name: 'Sponsored Research', icon: '🔬', color: 'stone' },
-    { name: 'Activities', icon: '🗂️', color: 'cyan' },
-    { name: 'TLP Activities', icon: '📘', color: 'indigo' },
+    { name: 'Events Attended', icon: '📅', color: 'indigo' },
+    { name: 'Conference Details', icon: '🗣️', color: 'purple' },
+    { name: 'Industry Know-How', icon: '🏭', color: 'orange' },
+    { name: 'Certification Courses', icon: '📜', color: 'teal' },
+    { name: 'Publications', icon: '📚', color: 'yellow' },
+    { name: 'Events Organized', icon: '🎯', color: 'indigo' },
+    { name: 'Resource Person', icon: '🎤', color: 'emerald' },
+    { name: 'Recognition', icon: '🏆', color: 'rose' },
+    { name: 'Patent / Product Development', icon: '⚡', color: 'blue' },
+    { name: 'Project Mentor', icon: '🎯', color: 'sky' },
+    { name: 'MOU', icon: '📜', color: 'emerald' },
+    { name: 'TLP Management', icon: '📘', color: 'violet' },
+    { name: 'Club Activity', icon: '🗂️', color: 'cyan' },
   ];
 
   const months = [
@@ -110,10 +109,16 @@ const EnhancedStaffResumeGenerator = () => {
         }
 
           console.log(`Fetching staff data for ID: ${effectiveUserId}...`);
-          const response = await axios.get(
-            `${backendUrl}/resume-staff/staff-data/${effectiveUserId}`,
-            { withCredentials: true }
-          );
+          let response;
+          try {
+            response = await api.get(`/resume-staff/staff-data/${effectiveUserId}`);
+          } catch (err) {
+            console.warn('central api get failed, trying fallback axios request...', err);
+            response = await axios.get(
+              `http://localhost:4000/api/resume-staff/staff-data/${effectiveUserId}`,
+              { withCredentials: true }
+            );
+          }
 
           if (!response.data || !response.data.success) {
             console.warn('API returned non-success response:', response.data);
@@ -143,24 +148,23 @@ const EnhancedStaffResumeGenerator = () => {
           const transformedData = {
             "Personal Information": apiData["Personal Information"] || [],
             "Education": apiData["Education"] || [],
-            "Events Attended": apiData["Events Attended"] || [],
-            "Events Organized": apiData["Events Organized"] || [],
-            "Publications": apiData["Publications"] || [],
-            "Consultancy Projects": apiData["Consultancy Projects"] || [],
-            "Research Projects": apiData["Research Projects"] || [],
-            "Industry Knowhow": apiData["Industry Knowhow"] || [],
-            "Certification Courses": apiData["Certification Courses"] || [],
-            "H-Index": apiData["H-Index"] || [],
-            "Proposals Submitted": apiData["Proposals Submitted"] || [],
-            "Resource Person": apiData["Resource Person"] || [],
             "Scholars": apiData["Scholars"] || [],
+            "Consultancy": apiData["Consultancy"] || apiData["Consultancy Projects"] || [],
+            "Funded Projects": apiData["Funded Projects"] || apiData["Sponsored Research"] || [],
             "Seed Money": apiData["Seed Money"] || [],
-            "Recognition & Appreciation": apiData["Recognition & Appreciation"] || [],
-            "Patents & Products": apiData["Patents & Products"] || [],
-            "Project Mentors": apiData["Project Mentors"] || [],
-            "Sponsored Research": apiData["Sponsored Research"] || [],
-            "Activities": apiData["Activities"] || [],
-            "TLP Activities": apiData["TLP Activities"] || [],
+            "Events Attended": apiData["Events Attended"] || [],
+            "Conference Details": apiData["Conference Details"] || [],
+            "Industry Know-How": apiData["Industry Know-How"] || apiData["Industry Knowhow"] || [],
+            "Certification Courses": apiData["Certification Courses"] || [],
+            "Publications": apiData["Publications"] || [],
+            "Events Organized": apiData["Events Organized"] || [],
+            "Resource Person": apiData["Resource Person"] || [],
+            "Recognition": apiData["Recognition"] || apiData["Recognition & Appreciation"] || [],
+            "Patent / Product Development": apiData["Patent / Product Development"] || apiData["Patents & Products"] || [],
+            "Project Mentor": apiData["Project Mentor"] || apiData["Project Mentors"] || [],
+            "MOU": apiData["MOU"] || [],
+            "TLP Management": apiData["TLP Management"] || apiData["TLP Activities"] || [],
+            "Club Activity": apiData["Club Activity"] || apiData["Activities"] || [],
             userInfo: {
               ...apiData.userInfo,
               phone: cleanPhone,
@@ -169,32 +173,31 @@ const EnhancedStaffResumeGenerator = () => {
               email: apiData.userInfo?.email || user.userMail || 'N/A',
               staffId: apiData.userInfo?.staffId || user.staffId || user.userNumber || 'N/A',
               department: apiData.userInfo?.department || 'N/A',
-              post: apiData.userInfo?.post || apiData.userInfo?.designation || 'N/A', // handle backend naming
+              post: apiData.userInfo?.post || apiData.userInfo?.designation || 'N/A',
             }
           };
 
           // Log counts for debugging
           console.log('%c=== TRANSFORMED DATA COUNTS ===', 'background: #2196F3; color: white; padding: 5px 10px;');
           console.log('Resume sections count:', {
-            education: transformedData["Education"].length,
-            eventsAttended: transformedData["Events Attended"].length,
-            eventsOrganized: transformedData["Events Organized"].length,
-            publications: transformedData["Publications"].length,
-            consultancy: transformedData["Consultancy Projects"].length,
-            researchProjects: transformedData["Research Projects"].length,
-            industryKnowhow: transformedData["Industry Knowhow"].length,
-            certifications: transformedData["Certification Courses"].length,
-            hindex: transformedData["H-Index"].length,
-            proposals: transformedData["Proposals Submitted"].length,
-            resourcePerson: transformedData["Resource Person"].length,
-            scholars: transformedData["Scholars"].length,
-            seedMoney: transformedData["Seed Money"].length,
-            recognition: transformedData["Recognition & Appreciation"].length,
-            patents: transformedData["Patents & Products"].length,
-            projectMentors: transformedData["Project Mentors"].length,
-            sponsoredResearch: transformedData["Sponsored Research"].length,
-            activities: transformedData["Activities"].length,
-            tlpActivities: transformedData["TLP Activities"].length,
+            education: (transformedData["Education"] || []).length,
+            scholars: (transformedData["Scholars"] || []).length,
+            consultancy: (transformedData["Consultancy"] || []).length,
+            fundedProjects: (transformedData["Funded Projects"] || []).length,
+            seedMoney: (transformedData["Seed Money"] || []).length,
+            eventsAttended: (transformedData["Events Attended"] || []).length,
+            conferenceDetails: (transformedData["Conference Details"] || []).length,
+            industryKnowHow: (transformedData["Industry Know-How"] || []).length,
+            certifications: (transformedData["Certification Courses"] || []).length,
+            publications: (transformedData["Publications"] || []).length,
+            eventsOrganized: (transformedData["Events Organized"] || []).length,
+            resourcePerson: (transformedData["Resource Person"] || []).length,
+            recognition: (transformedData["Recognition"] || []).length,
+            patents: (transformedData["Patent / Product Development"] || []).length,
+            projectMentors: (transformedData["Project Mentor"] || []).length,
+            mou: (transformedData["MOU"] || []).length,
+            tlpManagement: (transformedData["TLP Management"] || []).length,
+            clubActivity: (transformedData["Club Activity"] || []).length,
           });
 
           console.log('Setting staffData and filteredData...');
@@ -275,10 +278,10 @@ const EnhancedStaffResumeGenerator = () => {
           "Activities": [],
           "TLP Activities": [],
           userInfo: {
-            name: user.userName || 'N/A',
-            email: user.userMail || 'N/A',
+            name: user?.userName || 'N/A',
+            email: user?.userMail || 'N/A',
             phone: 'N/A',
-            staffId: user.staffId || user.userNumber || 'N/A',
+            staffId: user?.staffId || user?.userNumber || 'N/A',
             department: 'N/A',
             post: 'N/A',
             address: 'N/A'

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getMyCourses } from '../../services/staffService';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../../../records/pages/auth/AuthContext';
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component {

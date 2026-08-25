@@ -46,6 +46,7 @@ import Options from "./pages/staff/Options";
 import InternalMarks from "./pages/staff/InternalMarks";
 import AttendanceShortage from "./pages/staff/AttendanceShortage";
 import StaffAttendanceReport from "./pages/staff/AttendanceReport";
+import StaffWeeklyReport from "./pages/staff/WeeklyReport";
 import RequestCoursesStaff from './pages/staff/RequestCoursesStaff.jsx'
 
 // Student Pages
@@ -62,7 +63,7 @@ import BulkAttendance from "./pages/admin/BulkOD.jsx";
 import DayAttendance from "./pages/admin/DayAttendance.jsx";
 import StudentCourseMapping from "./pages/admin/StudentCourseMapping.jsx";
 
-import { useAuth } from "./pages/auth/AuthContext";
+import { useAuth } from "../records/pages/auth/AuthContext";
 import PeriodManager from "./pages/admin/PeriodManager.jsx";
 
 // ────────────────────────────────────────────────

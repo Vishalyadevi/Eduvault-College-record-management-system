@@ -75,6 +75,22 @@ const ActivityPage = () => {
     fetchActivities();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          resetForm();
+        }
+        if (isExcelModalOpen) {
+          setIsExcelModalOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, isExcelModalOpen]);
+
   const ensureAgencyInOptions = (agencyName) => {
     if (!agencyName) return;
     setFundingAgencyOptions((prev) => {
@@ -353,44 +369,52 @@ const normalizeMultiValues = (str) => {
               <p className="text-gray-500 text-lg">No activities found. Start by adding one!</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full min-w-[950px] divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">From Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">To Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Staff Coordinators</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Club / Event</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Level</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Participants</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700">Actions</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">From Date</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">To Date</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 min-w-[160px]">Staff Coordinators</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 min-w-[160px]">Club / Event</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Level</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Participants</th>
+                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3.5 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100 bg-white">
                   {activities.map((activity, index) => {
                     const clubEvent = (activity.club_name || activity.event_name)
                       ? [activity.club_name, activity.event_name].filter(Boolean).join(' / ')
                       : '-';
                     return (
-                      <tr key={activity.id || index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm text-gray-600">
+                      <tr key={activity.id || index} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
                           {activity.from_date ? new Date(activity.from_date).toLocaleDateString() : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
+                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
                           {activity.to_date ? new Date(activity.to_date).toLocaleDateString() : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{activity.staff_coordinators || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{clubEvent}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-800">{activity.level}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{activity.participant_count}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(activity.status)}`}>
+                        <td className="px-4 py-4 text-sm text-gray-600 min-w-[160px] max-w-[280px] break-words">
+                          {activity.staff_coordinators || '-'}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600 min-w-[160px] max-w-[280px] break-words">
+                          {clubEvent}
+                        </td>
+                        <td className="px-4 py-4 text-sm font-medium text-gray-800 whitespace-nowrap">
+                          {activity.level}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                          {activity.participant_count}
+                        </td>
+                        <td className="px-4 py-4 text-sm whitespace-nowrap">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(activity.status)}`}>
                             {activity.status || 'Pending'}
                           </span>
                           {activity.status === 'Rejected' && activity.rejection_reason && (
                             <div
-                              className="text-xs text-red-600 mt-1 max-w-[220px] break-words break-all whitespace-normal overflow-hidden"
+                              className="text-xs text-red-600 mt-1 max-w-[220px] break-words whitespace-normal"
                               title={activity.rejection_reason}
                             >
                               <span className="font-semibold">Reason:</span>{' '}
@@ -400,11 +424,11 @@ const normalizeMultiValues = (str) => {
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex justify-center gap-2">
+                        <td className="px-4 py-4 text-center whitespace-nowrap">
+                          <div className="flex justify-center items-center gap-1.5">
                             <button
                               onClick={() => handleViewActivity(activity)}
-                              className="p-2 hover:bg-indigo-100 rounded-lg transition-colors"
+                              className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors"
                               title="View"
                             >
                               <Eye size={18} className="text-indigo-600" />
@@ -412,7 +436,7 @@ const normalizeMultiValues = (str) => {
                             {activity.status === 'Pending' && (
                               <button
                                 onClick={() => handleEditActivity(activity)}
-                                className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
+                                className="p-1.5 hover:bg-yellow-100 rounded-lg transition-colors"
                                 title="Edit"
                               >
                                 <Edit2 size={18} className="text-yellow-600" />
@@ -421,7 +445,7 @@ const normalizeMultiValues = (str) => {
                             {activity.proofDocument && (
                               <button
                                 onClick={() => handleDownload(activity)}
-                                className="p-2 hover:bg-green-100 rounded-lg transition-colors"
+                                className="p-1.5 hover:bg-green-100 rounded-lg transition-colors"
                                 title="Download"
                               >
                                 <Download size={18} className="text-green-600" />
@@ -430,7 +454,7 @@ const normalizeMultiValues = (str) => {
                             {activity.status === 'Pending' && (
                               <button
                                 onClick={() => handleDelete(activity.id)}
-                                className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                                className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
                                 title="Delete"
                               >
                                 <Trash2 size={18} className="text-red-600" />
@@ -450,8 +474,8 @@ const normalizeMultiValues = (str) => {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-[1750px] w-[98vw] max-h-[94vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] my-auto flex flex-col overflow-hidden transition-all duration-300">
             <div className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-white">
                 {(() => {
@@ -468,8 +492,8 @@ const normalizeMultiValues = (str) => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {/* From Date */}
 
                 <div>
@@ -504,7 +528,7 @@ const normalizeMultiValues = (str) => {
                 </div>
 
                 {/* Student Coordinators */}
-                <div className="sm:col-span-2">
+                <div className="md:col-span-2">
                   <TagInput
                     label="Student Coordinators"
                     values={formData.student_coordinators}
@@ -517,7 +541,7 @@ const normalizeMultiValues = (str) => {
                 </div>
 
                 {/* Staff Coordinators */}
-                <div className="sm:col-span-2">
+                <div className="md:col-span-2">
                   <TagInput
                     label="Staff Coordinators"
                     values={formData.staff_coordinators}
@@ -719,7 +743,7 @@ const normalizeMultiValues = (str) => {
                 </div>
 
                 {/* Description */}
-                <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="description">
                     Description
                   </label>
@@ -737,7 +761,7 @@ const normalizeMultiValues = (str) => {
 
                 {/* File Upload */}
                 {!isViewMode && (
-                  <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="report-file">
                       Report File (PDF) - Max 10MB
                     </label>

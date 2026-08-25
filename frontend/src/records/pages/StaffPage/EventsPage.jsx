@@ -20,12 +20,16 @@ const EventsPage = () => {
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [programmeOptions, setProgrammeOptions] = useState([
     { value: '', label: 'Select Programme Type' },
-    { value: 'FDP', label: 'FDP' },
+    { value: 'Competition', label: 'Competition' },
+    { value: 'Symposium', label: 'Symposium' },
     { value: 'Workshop', label: 'Workshop' },
     { value: 'Seminar', label: 'Seminar' },
+    { value: 'Conference', label: 'Conference' },
+    { value: 'Faculty Development Programme (FDP)', label: 'Faculty Development Programme (FDP)' },
+    { value: 'Training Programme', label: 'Training Programme' },
     { value: 'Webinar', label: 'Webinar' },
-    { value: 'Short Term Course', label: 'Short Term Course' },
-    { value: 'Refresher Course', label: 'Refresher Course' }
+    { value: 'Guest Lecture', label: 'Guest Lecture' },
+    { value: 'Other Academic Activities', label: 'Other Academic Activities' }
   ]);
 
 

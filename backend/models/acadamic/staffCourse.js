@@ -8,7 +8,7 @@ export default  (sequelize, DataTypes) => {
     departmentId: { type: DataTypes.INTEGER, allowNull: false },
     createdBy: { type: DataTypes.STRING(150) },
     updatedBy: { type: DataTypes.STRING(150) },
-  }, { tableName: 'StaffCourse', timestamps: true, createdAt: 'createdDate', updatedAt: 'updatedDate' });
+  }, { tableName: 'StaffCourse', freezeTableName: true, timestamps: true, createdAt: 'createdDate', updatedAt: 'updatedDate' });
 
   StaffCourse.associate = (models) => {
     StaffCourse.belongsTo(models.User, { foreignKey: 'Userid' });

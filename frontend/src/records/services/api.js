@@ -175,6 +175,9 @@ export const createProjectPaymentDetail = (data) => api.post('/project-proposal/
 export const updateProjectPaymentDetail = (id, data) => api.put(`/project-proposal/payment/${id}`, data);
 export const deleteProjectPaymentDetail = (id) => api.delete(`/project-proposal/payment/${id}`);
 
+// Certification course master service helper
+export const getCertificationCoursesMaster = (params) => api.get('/certification-courses-master', { params });
+
 // Events services
 export const getEvents = () => api.get('/events');
 export const getEvent = (id) => api.get(`/events/${id}`);
@@ -308,13 +311,6 @@ export const updateEventOrganized = (id, data) => {
 };
 export const deleteEventOrganized = (id) => api.delete(`/events-organized/${id}`);
 
-// H-Index services
-export const getHIndexes = () => api.get('/h-index');
-export const getHIndex = (id) => api.get(`/h-index/${id}`);
-export const createHIndex = (data) => api.post('/h-index', data);
-export const updateHIndex = (id, data) => api.put(`/h-index/${id}`, data);
-export const deleteHIndex = (id) => api.delete(`/h-index/${id}`);
-
 // Resource Person services
 export const getResourcePersonEntries = () => api.get('/resource-person');
 export const getResourcePersonEntry = (id) => api.get(`/resource-person/${id}`);
@@ -423,7 +419,6 @@ export const getDashboardStats = async () => {
       certificationsResponse,
       publicationsResponse,
       eventsOrganizedResponse,
-      hIndexResponse,
       resourcePersonResponse,
       recognitionResponse,
       patentsResponse,
@@ -438,7 +433,6 @@ export const getDashboardStats = async () => {
       api.get('/certifications').catch(() => ({ data: [] })),
       api.get('/book-chapters').catch(() => ({ data: [] })),
       api.get('/events-organized').catch(() => ({ data: [] })), // fixed endpoint
-      api.get('/h-index').catch(() => ({ data: [] })),
       api.get('/resource-person').catch(() => ({ data: [] })),
       api.get('/recognition').catch(() => ({ data: [] })),
       api.get('/patent-product').catch(() => ({ data: [] })),
@@ -463,7 +457,6 @@ export const getDashboardStats = async () => {
         certifications: getCount(certificationsResponse),
         publications: getCount(publicationsResponse),
         eventsOrganized: getCount(eventsOrganizedResponse),
-        hIndex: getCount(hIndexResponse),
         resourcePerson: getCount(resourcePersonResponse),
         recognition: getCount(recognitionResponse),
         patents: getCount(patentsResponse),
@@ -472,7 +465,13 @@ export const getDashboardStats = async () => {
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    throw error;
+    return {
+      data: {
+        seedmoney: 0, scholars: 0, proposals: 0, projectProposals: 0,
+        events: 0, industry: 0, certifications: 0, publications: 0,
+        eventsOrganized: 0, resourcePerson: 0, recognition: 0, patents: 0, projectMentors: 0
+      }
+    };
   }
 };
 

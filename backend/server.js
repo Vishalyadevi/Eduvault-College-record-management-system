@@ -46,7 +46,6 @@ import studentPdfRoutes from './routes/student/studentPdfRoutes.js';
 
 import certificationRoutes from './routes/staff/certificationRoutes.js';
 import bookChapterRoutes from './routes/staff/bookChaptersRoutes.js';
-import hIndexRoutes from './routes/staff/hindexRoutes.js';
 import proposalsRoutes from './routes/staff/proposalRoutes.js';
 import resourcePersonRoutes from './routes/staff/resourcePersonRoutes.js';
 import seedMoneyRoutes from './routes/staff/seedMoneyRoutes.js';
@@ -60,6 +59,8 @@ import StudentEducationRoutes from "./routes/student/educationRoutes.js";
 import resumeGeneratorRoutes from "./routes/student/resumeGeneratorRoutes.js";
 import resumeStaffRoutes from './routes/staff/resumeStaff.js';
 import educationRoutes from './routes/staff/educationRoutes.js';
+import staffAttendanceRoutes from './routes/acadamic/staff/staffattendanceroutes.js';
+import conferenceDetailRoutes from './routes/staff/conferenceDetailRoutes.js';
 
 import adminPanelRoutes from './routes/adminPanelRoutes.js';
 import staffIndustryRoutes from './routes/staff/industryRoutes.js';
@@ -298,12 +299,14 @@ app.use("/api", studentRoutes);
 
 app.use('/api/student', studentPdfRoutes);
 app.use('/api/education', educationRoutes);
+app.use('/api/staff/attendance', staffAttendanceRoutes);
+app.use('/api/staff/attendance-report', staffAttendanceRoutes);
 app.use("/api/staff", PersonalInfo);
+app.use('/api/resume-staff', resumeStaffRoutes);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/certifications', certificationRoutes);
 app.use('/api/book-chapters', bookChapterRoutes);
-app.use('/api/h-index', hIndexRoutes);
 app.use('/api/proposals', proposalsRoutes);
 app.use('/api/resource-person', resourcePersonRoutes);
 app.use('/api/seed-money', seedMoneyRoutes);
@@ -322,6 +325,14 @@ app.use("/api/noncgpa", Noncgpa);
 app.use('/api/industry', staffIndustryRoutes);
 app.use('/api/events', staffEventsRoutes);
 app.use('/api/events-organized', staffEventsOrganizedRoutes);
+app.use('/api/conference-details', conferenceDetailRoutes);
+app.use('/api/funding-agencies', fundingAgencyRoutes);
+app.use('/api/certification-courses-master', certificationCourseMasterRoutes);
+app.use('/api/event-types', eventTypeRoutes);
+app.use('/api/staff/tlp', tlpRoutes);
+app.use('/api/tlp', tlpRoutes);
+app.use('/api/activity', activityModuleRoutes);
+app.use('/api/mou', mouRoutes);
 app.use('/api/student/certificates', certificateRoutes);
 app.use('/api/student/marksheets', marksheetRoutes);
 
