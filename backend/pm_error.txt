@@ -1,0 +1,8 @@
+Error
+    at Query.run (D:\Final-Erp-College-Management\Eduvault-College-record-management-system\backend\node_modules\sequelize\lib\dialects\mysql\query.js:52:25)
+    at D:\Final-Erp-College-Management\Eduvault-College-record-management-system\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:472:9)
+    at async MySQLQueryInterface.select (D:\Final-Erp-College-Management\Eduvault-College-record-management-system\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async ProjectMentor.findAll (D:\Final-Erp-College-Management\Eduvault-College-record-management-system\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async getAllProjectMentors (file:///D:/Final-Erp-College-Management/Eduvault-College-record-management-system/backend/controllers/staff/projectMentorController.js:70:21)

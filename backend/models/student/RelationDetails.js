@@ -14,39 +14,28 @@ const RelationDetails = sequelize.define('RelationDetails', {
 
 
   relationship: {
-    type: DataTypes.STRING,  // Change from ENUM to STRING
+    type: DataTypes.STRING,
     allowNull: false,
-    validate: {
-      isIn: [['Father', 'Mother', 'Sibling', 'Guardian', 'Spouse']] // Restrict allowed values manually
-    }
   },
 
   // Common Fields for All Relations
-  relation_name: { type: DataTypes.STRING, allowNull: false },
-  relation_income: { type: DataTypes.INTEGER },
-  relation_age: { type: DataTypes.INTEGER },
-  relation_occupation: { type: DataTypes.STRING },
-  relation_qualification: { type: DataTypes.STRING },
+  relation_name: { type: DataTypes.STRING, allowNull: true },
+  relation_income: { type: DataTypes.STRING, allowNull: true },
+  relation_age: { type: DataTypes.STRING, allowNull: true },
+  relation_occupation: { type: DataTypes.STRING, allowNull: true },
+  relation_qualification: { type: DataTypes.STRING, allowNull: true },
   relation_email: {
     type: DataTypes.STRING,
     allowNull: true,
-    validate: {
-      isEmail: true,
-    },
   },
   relation_phone: {
     type: DataTypes.STRING,
-    allowNull: true,  // ✅ Allow NULL values
-    validate: {
-      is: {
-        args: /^[0-9]*$/, // ✅ Allows empty or numeric values
-        msg: "Phone number must contain only digits",
-      },
-    },
+    allowNull: true,
   },
 
   relation_photo: {
-    type: DataTypes.STRING(500),
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
     defaultValue: '/uploads/default.jpg' // Default photo
   },
 

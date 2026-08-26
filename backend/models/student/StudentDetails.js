@@ -140,8 +140,8 @@ const StudentDetails = sequelize.define(
     },
 
     aadhar_card_no: {
-      type: DataTypes.STRING(12),
-      unique: true,
+      type: DataTypes.STRING(50),
+      allowNull: true,
     },
 
     student_type: {
@@ -172,7 +172,28 @@ const StudentDetails = sequelize.define(
     },
 
     seat_type: {
-      type: DataTypes.ENUM("Counselling", "Management"),
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    emis_number: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    abc_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    nad_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    address_type: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
 
     section: DataTypes.STRING,
@@ -199,27 +220,13 @@ const StudentDetails = sequelize.define(
     },
 
     pincode: {
-      type: DataTypes.STRING(6),
+      type: DataTypes.STRING(20),
       allowNull: true,
-      validate: {
-        isValidPincode(val) {
-          if (val && val.trim() !== '' && !/^[0-9]{6}$/.test(val)) {
-            throw new Error('Pincode must be 6 digits');
-          }
-        }
-      }
     },
 
     personal_phone: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.STRING(20),
       allowNull: true,
-      validate: {
-        isValidPhone(val) {
-          if (val && val.trim() !== '' && !/^[6-9]\d{9}$/.test(val)) {
-            throw new Error('Phone must be 10 digits starting with 6-9');
-          }
-        }
-      }
     },
 
     pending: {
@@ -235,7 +242,7 @@ const StudentDetails = sequelize.define(
     approved_at: DataTypes.DATE,
 
     parents_phone: {
-      type: DataTypes.STRING(15),
+      type: DataTypes.STRING(50),
       allowNull: true,
     },
     lateral_entry: {
@@ -259,7 +266,7 @@ const StudentDetails = sequelize.define(
       allowNull: true,
     },
     sixteen_digit_reg_no: {
-      type: DataTypes.STRING(16),
+      type: DataTypes.STRING(50),
       allowNull: true,
     },
     nationality: {
