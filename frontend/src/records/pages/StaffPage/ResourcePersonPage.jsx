@@ -22,10 +22,20 @@ const ResourcePersonPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [isViewOnly, setIsViewOnly] = useState(false);
-  const [eventTypeOptions, setEventTypeOptions] = useState([
-    { value: '', label: 'Select Event Type / Specification' }
-  ]);
+  const defaultSpecifications = [
+    { value: '', label: 'Select Event Type / Program Specification' },
+    { value: 'Keynote Speaker', label: 'Keynote Speaker' },
+    { value: 'Session Chair', label: 'Session Chair' },
+    { value: 'Guest Lecture', label: 'Guest Lecture' },
+    { value: 'Expert Talk', label: 'Expert Talk' },
+    { value: 'Workshop Resource Person', label: 'Workshop Resource Person' },
+    { value: 'FDP Resource Person', label: 'FDP Resource Person' },
+    { value: 'Panelist / Judge', label: 'Panelist / Judge' },
+    { value: 'Seminar Speaker', label: 'Seminar Speaker' },
+    { value: 'Webinar Presenter', label: 'Webinar Presenter' },
+    { value: 'Other Academic Contributions', label: 'Other Academic Contributions' }
+  ];
+  const [eventTypeOptions, setEventTypeOptions] = useState(defaultSpecifications);
 
   useEffect(() => {
     const fetchEventTypesList = async () => {

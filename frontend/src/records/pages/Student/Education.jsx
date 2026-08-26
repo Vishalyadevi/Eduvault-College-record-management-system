@@ -49,7 +49,7 @@ const StudentEducationPage = () => {
         tenth_school_name: educationRecord.tenth_school_name || "",
         tenth_board: educationRecord.tenth_board || "",
         tenth_percentage: educationRecord.tenth_percentage || "",
-        tenth_year_of_passing: educationRecord.tenth_year_of_passing || "",
+        tenth_year_of_passing: educationRecord.tenth_year_of_passing || educationRecord.tenth_year || "",
         tenth_medium_of_study: educationRecord.tenth_medium_of_study || "",
         tenth_tamil_marks: educationRecord.tenth_tamil_marks || "",
         tenth_english_marks: educationRecord.tenth_english_marks || "",
@@ -59,7 +59,7 @@ const StudentEducationPage = () => {
         twelfth_school_name: educationRecord.twelfth_school_name || "",
         twelfth_board: educationRecord.twelfth_board || "",
         twelfth_percentage: educationRecord.twelfth_percentage || "",
-        twelfth_year_of_passing: educationRecord.twelfth_year_of_passing || "",
+        twelfth_year_of_passing: educationRecord.twelfth_year_of_passing || educationRecord.twelfth_year || "",
         twelfth_medium_of_study: educationRecord.twelfth_medium_of_study || "",
         twelfth_physics_marks: educationRecord.twelfth_physics_marks || "",
         twelfth_chemistry_marks: educationRecord.twelfth_chemistry_marks || "",
@@ -237,7 +237,7 @@ const StudentEducationPage = () => {
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Year of Passing *</label>
                     <input type="number" name="tenth_year_of_passing" value={formData.tenth_year_of_passing} onChange={handleInputChange} required
-                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2019" min="1950" max={new Date().getFullYear()} />
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2019" min="1950" max="2100" />
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Medium of Study *</label>
@@ -315,7 +315,7 @@ const StudentEducationPage = () => {
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Year of Passing *</label>
                     <input type="number" name="twelfth_year_of_passing" value={formData.twelfth_year_of_passing} onChange={handleInputChange} required
-                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2021" min="1950" max={new Date().getFullYear()} />
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2021" min="1950" max="2100" />
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Medium of Study *</label>

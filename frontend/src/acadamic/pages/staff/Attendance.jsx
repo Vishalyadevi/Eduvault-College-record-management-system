@@ -10,7 +10,7 @@ import {
   Info,
   Filter,
 } from "lucide-react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../../../records/pages/auth/AuthContext";
 import { isAcademicHoliday, isThirdSaturday } from '../../utils/academicCalendar';
 
 const API_BASE_URL = "http://localhost:4000";

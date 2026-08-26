@@ -7,7 +7,7 @@ import MasterSelect from '../../components/MasterSelect';
 import FileUploadField from '../../components/FileUploadField';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import toast from 'react-hot-toast';
-import api, { getCertificationCourses, bulkCreateCertifications } from '../../services/api';
+import api, { getCertifications, getCertificationCoursesMaster, bulkCreateCertifications } from '../../services/api';
 
 const CertificationsPage = () => {
   const [certifications, setCertifications] = useState([]);
@@ -17,10 +17,23 @@ const CertificationsPage = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentCertification, setCurrentCertification] = useState(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const defaultOfferedBy = [
+    { value: '', label: 'Select Offered By Organization' },
+    { value: 'NPTEL / SWAYAM', label: 'NPTEL / SWAYAM' },
+    { value: 'Coursera', label: 'Coursera' },
+    { value: 'edX', label: 'edX' },
+    { value: 'Udemy', label: 'Udemy' },
+    { value: 'LinkedIn Learning', label: 'LinkedIn Learning' },
+    { value: 'Cisco Networking Academy', label: 'Cisco Networking Academy' },
+    { value: 'AWS Academy', label: 'AWS Academy' },
+    { value: 'Google Career Certificates', label: 'Google Career Certificates' },
+    { value: 'Microsoft Learn', label: 'Microsoft Learn' },
+    { value: 'IBM SkillsBuild', label: 'IBM SkillsBuild' },
+    { value: 'Oracle Academy', label: 'Oracle Academy' },
+    { value: 'Infosys Springboard', label: 'Infosys Springboard' }
+  ];
   const [masterCourseOptions, setMasterCourseOptions] = useState([]);
-  const [offeredByOptions, setOfferedByOptions] = useState([
-    { value: '', label: 'Select Organization / Course Master' }
-  ]);
+  const [offeredByOptions, setOfferedByOptions] = useState(defaultOfferedBy);
 
   const certExcelColumns = [
     {
@@ -55,7 +68,7 @@ const CertificationsPage = () => {
 
   const fetchOfferedByList = async () => {
     try {
-      const res = await getCertificationCourses({ status: 'Active' });
+      const res = await getCertificationCoursesMaster({ status: 'Active' });
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data)) list = res.data;
@@ -260,13 +273,11 @@ const CertificationsPage = () => {
       const calculatedH = calculateHours(formData.from_date, formData.to_date);
       const calculatedW = calculateWeeks(calculatedH);
 
-      const numHours = (formData.hours !== '' && !isNaN(parseFloat(formData.hours))) ? parseFloat(formData.hours) : calculatedH;
-      const numWeeks = (formData.weeks !== '' && !isNaN(parseFloat(formData.weeks))) ? parseFloat(formData.weeks) : calculatedW;
+      const rawHours = (formData.hours !== '' && !isNaN(parseFloat(formData.hours))) ? parseFloat(formData.hours) : calculatedH;
+      const rawWeeks = (formData.weeks !== '' && !isNaN(parseFloat(formData.weeks))) ? parseFloat(formData.weeks) : calculatedW;
 
-      if (numHours <= 0 || numWeeks <= 0) {
-        toast.error('Hours and Weeks must be greater than 0');
-        return;
-      }
+      const numHours = rawHours > 0 ? rawHours : 1;
+      const numWeeks = rawWeeks > 0 ? rawWeeks : 0.1;
 
       if (!currentCertification && !certificateFile) {
         toast.error('Please upload a certificate PDF');
@@ -277,8 +288,8 @@ const CertificationsPage = () => {
       const toDate = new Date(formData.to_date);
       const certDate = new Date(formData.certification_date);
 
-      if (fromDate >= toDate) {
-        toast.error('From date must be before to date');
+      if (fromDate > toDate) {
+        toast.error('From date must be before or equal to to date');
         return;
       }
 
@@ -439,6 +450,7 @@ const CertificationsPage = () => {
 
       <Modal
         isOpen={isModalOpen}
+        size="lg"
         onClose={() => {
           setIsModalOpen(false);
           resetForm();

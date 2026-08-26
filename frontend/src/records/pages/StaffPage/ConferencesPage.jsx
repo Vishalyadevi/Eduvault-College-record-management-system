@@ -255,11 +255,6 @@ const normalizeAuthors = (str) => {
   };
 
   const columns = [
-    {
-      field: 's_no',
-      header: 'S.No.',
-      render: (rowData, idx) => <span className="font-semibold text-gray-700">{idx + 1}</span>,
-    },
     { field: 'faculty_name', header: 'Faculty Name', render: (row) => row.faculty_name || '-' },
     { field: 'conference_name', header: 'Name of Conference' },
     { field: 'title_of_paper', header: 'Paper Title' },

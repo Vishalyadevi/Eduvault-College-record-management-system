@@ -30,6 +30,8 @@ router.get(
 router.get("/shortage/:courseCode", getAttendanceShortageForStaff);
 router.get("/report/filters", getStaffAttendanceReportFilters);
 router.get("/report", generateStaffAttendanceReport);
+router.get("/attendance-report/filters", getStaffAttendanceReportFilters);
+router.get("/attendance-report", generateStaffAttendanceReport);
 router.post(
   "/mark/:courseId/:sectionId/:dayOfWeek/:periodNumber",
   markAttendance

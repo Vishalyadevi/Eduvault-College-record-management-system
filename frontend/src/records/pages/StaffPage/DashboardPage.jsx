@@ -111,7 +111,6 @@ const Dashboard = () => {
     { key: 'certifications', label: 'Certifications', count: stats.certifications || 0 },
     { key: 'publications', label: 'Publications', count: stats.publications || 0 },
     { key: 'eventsOrganized', label: 'Events Organized', count: stats.eventsOrganized || 0 },
-    { key: 'hIndex', label: 'H-Index', count: stats.hIndex || 0 },
     { key: 'resourcePerson', label: 'Resource Person', count: stats.resourcePerson || 0 },
     { key: 'recognition', label: 'Recognition', count: stats.recognition || 0 },
     { key: 'patents', label: 'Patent/Product', count: stats.patents || 0 },

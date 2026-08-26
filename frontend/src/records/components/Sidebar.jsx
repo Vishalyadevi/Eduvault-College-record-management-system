@@ -124,16 +124,31 @@ const Sidebar = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showPlacementDropdown, setShowPlacementDropdown] = useState(false);
   const [showAcadamicDropdown, setShowAcadamicDropdown] = useState(false);
+  const [showTutorDropdown, setShowTutorDropdown] = useState(false);
+  const [showActivityDropdown, setShowActivityDropdown] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => { setShowDropdown(false); }, [location.pathname]);
   useEffect(() => {
-    if (location.pathname.includes("/placement/") || location.pathname.includes("/records/staff-")) {
+    if (location.pathname.includes("/placement/") || location.pathname.includes("/records/staff-recruiters") || location.pathname.includes("/records/staff-upcomingdrive") || location.pathname.includes("/records/staff-hackathon") || location.pathname.includes("/records/staff-feedback") || location.pathname.includes("/eligible-staff-students")) {
       setShowPlacementDropdown(true);
     }
     if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/staff") || location.pathname.startsWith("/student")) {
       setShowAcadamicDropdown(true);
+    }
+    if (location.pathname.includes("/records/staff-dashboard") || location.pathname.includes("/records/myward") || location.pathname.includes("/records/upload-semmarks") || location.pathname.includes("/records/skillrack")) {
+      setShowTutorDropdown(true);
+    }
+    const actPaths = [
+      "/records/personal", "/records/education", "/records/scholars", "/records/proposals",
+      "/records/project-proposal", "/records/seed-money", "/records/events", "/records/conferences",
+      "/records/industry", "/records/certifications", "/records/book-chapters", "/records/events-organized",
+      "/records/resource-person", "/records/recognition", "/records/patent-product", "/records/project-mentors",
+      "/records/staff-mou", "/records/tlp-management", "/records/activity", "/records/staff-resume-generator"
+    ];
+    if (actPaths.some(p => location.pathname.startsWith(p))) {
+      setShowActivityDropdown(true);
     }
   }, [location.pathname]);
 
@@ -157,7 +172,7 @@ const Sidebar = () => {
     { to: "/placement/feedback", icon: <FaComments />, label: "Feedback" },
   ];
 
-  const isStaffPlacementActive = location.pathname.includes("/records/staff-") || location.pathname.includes("/eligible-staff-students");
+  const isStaffPlacementActive = location.pathname.includes("/records/staff-recruiters") || location.pathname.includes("/records/staff-upcomingdrive") || location.pathname.includes("/records/staff-hackathon") || location.pathname.includes("/records/staff-feedback") || location.pathname.includes("/eligible-staff-students");
   const isStudentPlacementActive = location.pathname.includes("/placement/");
 
   const adminAcadamicItems = [
@@ -197,6 +212,36 @@ const Sidebar = () => {
     { to: "/staff/attendance-report", icon: <FaChartPie />, label: "Generate Report" },
   ];
 
+  const staffTutorItems = [
+    { to: "/records/staff-dashboard", icon: <FaChartBar />, label: "Approval Dashboard" },
+    { to: "/records/myward", icon: <FaUsers />, label: "My Ward" },
+    { to: "/records/upload-semmarks", icon: <FaFileUpload />, label: "Update Student GPA" },
+    { to: "/records/skillrack", icon: <FaLaptopCode />, label: "Update SkillRack" },
+  ];
+
+  const staffActivityItems = [
+    { to: "/records/personal", icon: <FaIdCard />, label: "Personal" },
+    { to: "/records/education", icon: <FaUniversity />, label: "Education" },
+    { to: "/records/scholars", icon: <FaStar />, label: "Scholars" },
+    { to: "/records/proposals", icon: <FaHandshake />, label: "Consultancy" },
+    { to: "/records/project-proposal", icon: <FaProjectDiagram />, label: "Funded Project" },
+    { to: "/records/seed-money", icon: <FaMoneyBillWave />, label: "Seed Money" },
+    { to: "/records/events", icon: <FaCalendarAlt />, label: "Events Attended" },
+    { to: "/records/conferences", icon: <FaComments />, label: "Conference Details" },
+    { to: "/records/industry", icon: <FaIndustry />, label: "Industry Know-How" },
+    { to: "/records/certifications", icon: <FaCertificate />, label: "Certification Course" },
+    { to: "/records/book-chapters", icon: <FaBookOpen />, label: "Publications" },
+    { to: "/records/events-organized", icon: <FaCalendarPlus />, label: "Events Organized" },
+    { to: "/records/resource-person", icon: <FaUserEdit />, label: "Resource Person" },
+    { to: "/records/recognition", icon: <FaTrophy />, label: "Recognition" },
+    { to: "/records/patent-product", icon: <FaLightbulb />, label: "Patent / Product Development" },
+    { to: "/records/project-mentors", icon: <FaUserTie />, label: "Project Mentor" },
+    { to: "/records/staff-mou", icon: <FaFileContract />, label: "MOU" },
+    { to: "/records/tlp-management", icon: <FaClipboardList />, label: "TLP Management" },
+    { to: "/records/activity", icon: <FaBriefcase />, label: "Club Activity" },
+    { to: "/records/staff-resume-generator", icon: <FaDownload />, label: "Resume Generation" },
+  ];
+
   const studentAcadamicItems = [
     { to: "/student/dashboard", icon: <FaTachometerAlt />, label: "Dashboard" },
     { to: "/student/choose-course", icon: <FaBook />, label: "Choose Course" },
@@ -206,6 +251,14 @@ const Sidebar = () => {
   const isAdminAcadamicActive = location.pathname.startsWith("/admin");
   const isStaffAcadamicActive = location.pathname.startsWith("/staff");
   const isStudentAcadamicActive = location.pathname.startsWith("/student");
+  const isStaffTutorActive = location.pathname.includes("/records/myward") || location.pathname.includes("/records/upload-semmarks") || location.pathname.includes("/records/skillrack") || location.pathname.includes("/records/staff-dashboard");
+  const isStaffActivityActive = [
+    "/records/personal", "/records/education", "/records/scholars", "/records/proposals",
+    "/records/project-proposal", "/records/seed-money", "/records/events", "/records/conferences",
+    "/records/industry", "/records/certifications", "/records/book-chapters", "/records/events-organized",
+    "/records/resource-person", "/records/recognition", "/records/patent-product", "/records/project-mentors",
+    "/records/staff-mou", "/records/tlp-management", "/records/activity", "/records/staff-resume-generator"
+  ].some(p => location.pathname.startsWith(p));
 
   const renderSidebarItems = () => {
     const role = user?.role?.toLowerCase() || "";
@@ -259,32 +312,10 @@ const Sidebar = () => {
       case "staff":
         return (<>
           <SidebarLink to="/records/staff" icon={<FaTachometerAlt />} label="Main Dashboard" />
-          <SidebarLink to="/records/staff-dashboard" icon={<FaChartBar />} label="Approval Dashboard" />
-          <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
-          <SidebarLink to="/records/upload-semmarks" icon={<FaFileUpload />} label="Upload Student GPA & CGPA" />
-          <SidebarLink to="/records/skillrack" icon={<FaLaptopCode />} label="Upload Student Skillrack" />
-          <SidebarLink to="/records/personal" icon={<FaIdCard />} label="Personal" />
-          <SidebarLink to="/records/education" icon={<FaUniversity />} label="Education" />
-          <SidebarLink to="/records/scholars" icon={<FaStar />} label="Scholars" />
-          <SidebarLink to="/records/proposals" icon={<FaHandshake />} label="Consultancy" />
-          <SidebarLink to="/records/project-proposal" icon={<FaProjectDiagram />} label="Funded Project" />
-          <SidebarLink to="/records/seed-money" icon={<FaMoneyBillWave />} label="Seed Money" />
-          <SidebarLink to="/records/events" icon={<FaCalendarAlt />} label="Events Attended" />
-          <SidebarLink to="/records/industry" icon={<FaIndustry />} label="Industry Knowhow" />
-          <SidebarLink to="/records/certifications" icon={<FaCertificate />} label="Certification Courses" />
-          <SidebarLink to="/records/book-chapters" icon={<FaBookOpen />} label="Publications" />
-          <SidebarLink to="/records/events-organized" icon={<FaCalendarPlus />} label="Events Organized" />
-          <SidebarLink to="/records/h-index" icon={<FaChartLine />} label="H-Index" />
-          <SidebarLink to="/records/resource-person" icon={<FaUserEdit />} label="Resource Person" />
-          <SidebarLink to="/records/recognition" icon={<FaTrophy />} label="Recognition" />
-          <SidebarLink to="/records/patent-product" icon={<FaLightbulb />} label="Patent/Product Development" />
-          <SidebarLink to="/records/project-mentors" icon={<FaUserTie />} label="Project Mentors" />
-          <SidebarLink to="/records/staff-mou" icon={<FaFileContract />} label="MOU" />
-          <SidebarLink to="/records/tlp-management" icon={<FaClipboardList />} label="TLP Management" />
-          <SidebarLink to="/records/activity" icon={<FaBriefcase />} label="Activity Management" />
-          {/* <SidebarLink to="/records/staff-resume-generator" icon={<FaDownload />} label="Resume Generation" /> */}
-          <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStaffAcadamicActive} label="Acadamic" icon={<FaSchool />} items={staffAcadamicItems} />
+          <NavDropdown isOpen={showAcadamicDropdown} setIsOpen={setShowAcadamicDropdown} isActive={isStaffAcadamicActive} label="Academic" icon={<FaSchool />} items={staffAcadamicItems} />
+          <NavDropdown isOpen={showTutorDropdown} setIsOpen={setShowTutorDropdown} isActive={isStaffTutorActive} label="Tutor" icon={<FaUserGraduate />} items={staffTutorItems} />
           <NavDropdown isOpen={showPlacementDropdown} setIsOpen={setShowPlacementDropdown} isActive={isStaffPlacementActive} label="Placement" icon={<FaNetworkWired />} items={staffPlacementItems} />
+          <NavDropdown isOpen={showActivityDropdown} setIsOpen={setShowActivityDropdown} isActive={isStaffActivityActive} label="Activity" icon={<FaBriefcase />} items={staffActivityItems} />
         </>);
 
       case "student":

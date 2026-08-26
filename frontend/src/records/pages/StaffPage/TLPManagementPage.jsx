@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Eye, Pencil, Upload } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api, { bulkCreateTlpActivities } from '../../services/api';
 import FileUploadField from '../../components/FileUploadField';
@@ -19,6 +19,18 @@ const TLPManagementPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [file, setFile] = useState(null);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this TLP activity record?')) return;
+    try {
+      await api.delete(`/staff/tlp/${id}`);
+      toast.success('TLP activity deleted successfully');
+      fetchActivities();
+    } catch (err) {
+      console.error('Error deleting TLP activity', err);
+      toast.error(err.response?.data?.message || 'Failed to delete activity');
+    }
+  };
 
   const excelColumns = [
     { key: 'course_code_and_name', label: 'Course Code & Name', required: true, example: '21CS601 Deep Learning' },
@@ -181,6 +193,9 @@ const TLPManagementPage = () => {
                         <Pencil size={18} className="text-yellow-600" />
                       </button>
                     )}
+                    <button onClick={() => handleDelete(a.id)} className="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                      <Trash2 size={18} className="text-red-600" />
+                    </button>
                   </div>
                 </td>
               </tr>

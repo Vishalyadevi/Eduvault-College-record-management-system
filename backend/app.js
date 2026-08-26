@@ -136,6 +136,7 @@ app.use('/institute_management_system/admin', sanitizeInput, adminRoutes); // No
 app.use('/institute_management_system/departments', sanitizeInput, departmentRoutes);
 app.use('/institute_management_system/staff', sanitizeInput, staffRoutes);
 app.use('/institute_management_system/staff/attendance', sanitizeInput, attendanceRoutes);
+app.use('/api/staff/attendance', sanitizeInput, attendanceRoutes);
 app.use('/institute_management_system/admin/attendance', sanitizeInput, adminattendance);
 app.use("/institute_management_system/admin/attendanceReports", attendanceReportRoutes);
 app.use('/institute_management_system/student', sanitizeInput, studentRoutes);

@@ -172,7 +172,6 @@ import ConferencesPage from './records/pages/StaffPage/ConferencesPage';
 import JournalsPage from './records/pages/StaffPage/JournalsPage';
 import BookChaptersPage from './records/pages/StaffPage/BookChaptersPage';
 import EventsOrganizedPage from './records/pages/StaffPage/EventsOrganizedPage';
-import HIndex from './records/pages/StaffPage/HIndex';
 import ResourcePersonPage from './records/pages/StaffPage/ResourcePersonPage';
 import SeedMoneyPage from './records/pages/StaffPage/SeedMoneyPage';
 import RecognitionPage from './records/pages/StaffPage/RecognitionPage';
@@ -735,11 +734,6 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><EventsOrganizedPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
-      <Route path="/records/h-index" element={
-        <ProtectedRoute allowedRoles={['Staff']}>
-          <RecordsLayoutWithLocation><HIndex /></RecordsLayoutWithLocation>
-        </ProtectedRoute>
-      } />
       <Route path="/records/resource-person" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation><ResourcePersonPage /></RecordsLayoutWithLocation>
@@ -789,6 +783,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/records/staff-mou" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation><StaffMou /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/generate-resume" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><EnhancedStaffResumeGenerator /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-resume-generator" element={

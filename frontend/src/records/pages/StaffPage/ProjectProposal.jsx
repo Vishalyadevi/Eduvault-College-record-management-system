@@ -18,13 +18,24 @@ const ProjectProposalsPage = () => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [currentProposal, setCurrentProposal] = useState(null);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [fundingAgencyOptions, setFundingAgencyOptions] = useState([
-    { value: '', label: 'Select Funding Agency' }
-  ]);
+  const defaultAgencies = [
+    { value: '', label: 'Select Funding Agency' },
+    { value: 'DST-SERB', label: 'DST-SERB (Science & Engineering Research Board)' },
+    { value: 'AICTE', label: 'AICTE (All India Council for Technical Education)' },
+    { value: 'UGC', label: 'UGC (University Grants Commission)' },
+    { value: 'DRDO', label: 'DRDO (Defence Research & Development Organisation)' },
+    { value: 'ISRO', label: 'ISRO (Indian Space Research Organisation)' },
+    { value: 'CSIR', label: 'CSIR (Council of Scientific & Industrial Research)' },
+    { value: 'TNSCST', label: 'TNSCST (Tamil Nadu State Council for Science & Technology)' },
+    { value: 'DAE', label: 'DAE (Department of Atomic Energy)' },
+    { value: 'ICSSR', label: 'ICSSR (Indian Council of Social Science Research)' },
+    { value: 'Industry Funded', label: 'Industry Funded / Private Consultancy' }
+  ];
+  const [fundingAgencyOptions, setFundingAgencyOptions] = useState(defaultAgencies);
 
   const proposalExcelColumns = [
     { key: 'pi_name', label: 'PI Name', required: true, example: 'Dr. John Smith' },
@@ -34,7 +45,7 @@ const ProjectProposalsPage = () => {
       key: 'funding_agency',
       label: 'Funding Agency',
       required: true,
-      options: fundingAgencyOptions.map(o => o.label).filter(l => l && !l.startsWith('Select')),
+      options: (fundingAgencyOptions || []).map(o => o?.label || '').filter(l => l && typeof l === 'string' && !l.startsWith('Select')),
       isDynamicMaster: true,
       example: 'DST-SERB'
     },
@@ -97,10 +108,15 @@ const ProjectProposalsPage = () => {
         else if (Array.isArray(res?.data?.data)) list = res.data.data;
 
         if (list.length > 0) {
-          setFundingAgencyOptions([
-            { value: '', label: 'Select Funding Agency' },
-            ...list.map(a => ({ value: a.agency_name, label: a.agency_name }))
-          ]);
+          const masterAgencies = list
+            .map(a => a?.agency_name)
+            .filter(Boolean)
+            .map(name => ({ value: name, label: name }));
+          setFundingAgencyOptions((prev) => {
+            const existingValues = new Set((prev || []).map(p => p.value));
+            const newAgencies = masterAgencies.filter(m => !existingValues.has(m.value));
+            return [...prev, ...newAgencies];
+          });
         }
       } catch (err) {
         console.error('Error fetching funding agencies:', err);

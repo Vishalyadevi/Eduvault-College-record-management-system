@@ -4,6 +4,12 @@ import { Education } from '../../models/index.js';
 export const validateEducationInfo = (req, res, next) => {
   const data = req.body;
   
+  // Normalize incoming year alias keys if present before required checks
+  if (!data.tenth_year) data.tenth_year = data.tenth_year_of_passing || data.tenth_passing_year;
+  if (!data.twelfth_year) data.twelfth_year = data.twelfth_year_of_passing || data.twelfth_passing_year;
+  if (!data.ug_year) data.ug_year = data.ug_year_of_passing || data.ug_passing_year;
+  if (!data.pg_year) data.pg_year = data.pg_year_of_passing || data.pg_passing_year;
+
   if (!data.tenth_institution?.toString().trim() || !data.tenth_university?.toString().trim() || !data.tenth_year) {
     return res.status(400).json({ message: '10th Standard details (Institution, Board/University, Year) are mandatory' });
   }
@@ -16,8 +22,10 @@ export const validateEducationInfo = (req, res, next) => {
     return res.status(400).json({ message: "Bachelor's Degree details (Institution, University, Degree, Year) are mandatory" });
   }
 
-  if (!data.pg_institution?.toString().trim() || !data.pg_university?.toString().trim() || !data.pg_degree?.toString().trim() || !data.pg_year) {
-    return res.status(400).json({ message: '1st Postgraduate Degree details (Institution, University, Degree, Year) are mandatory' });
+  if (data.pg_institution?.toString().trim() || data.pg_university?.toString().trim() || data.pg_degree?.toString().trim() || data.pg_year) {
+    if (!data.pg_institution?.toString().trim() || !data.pg_university?.toString().trim() || !data.pg_degree?.toString().trim() || !data.pg_year) {
+      return res.status(400).json({ message: '1st Postgraduate Degree details must be fully filled if provided' });
+    }
   }
 
   const firstAttemptFields = [
@@ -81,6 +89,11 @@ export const validateEducationInfo = (req, res, next) => {
 // Helper to clean incoming data
 const cleanEducationData = (data) => {
   const cleaned = {};
+  if (!data.tenth_year) data.tenth_year = data.tenth_year_of_passing || data.tenth_passing_year;
+  if (!data.twelfth_year) data.twelfth_year = data.twelfth_year_of_passing || data.twelfth_passing_year;
+  if (!data.ug_year) data.ug_year = data.ug_year_of_passing || data.ug_passing_year;
+  if (!data.pg_year) data.pg_year = data.pg_year_of_passing || data.pg_passing_year;
+
   const textFields = [
     'tenth_institution', 'tenth_university', 'tenth_medium', 'tenth_cgpa_percentage',
     'twelfth_institution', 'twelfth_university', 'twelfth_medium', 'twelfth_cgpa_percentage',
@@ -112,9 +125,9 @@ const cleanEducationData = (data) => {
     }
   });
   yearFields.forEach(field => {
-    if (data[field] && data[field].toString().trim() !== '') {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
       const year = Number.parseInt(data[field], 10);
-      if (!Number.isNaN(year)) cleaned[field] = year;
+      if (!Number.isNaN(year) && year >= 1900 && year <= 2100) cleaned[field] = year;
     }
   });
   integerFields.forEach(field => {

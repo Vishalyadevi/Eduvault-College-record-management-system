@@ -17,22 +17,26 @@ function calculateHours(fromDate, toDate) {
 }
 
 function validateDates(fromDate, toDate, certificationDate) {
+  const cleanFrom = String(fromDate || '').split('T')[0];
+  const cleanTo = String(toDate || '').split('T')[0];
+  const cleanCert = String(certificationDate || '').split('T')[0];
+
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
-  if (!dateRegex.test(fromDate) || !dateRegex.test(toDate) || !dateRegex.test(certificationDate)) {
+  if (!dateRegex.test(cleanFrom) || !dateRegex.test(cleanTo) || !dateRegex.test(cleanCert)) {
     return { isValid: false, message: 'Invalid date format. Use YYYY-MM-DD format' };
   }
 
-  const from = new Date(fromDate);
-  const to = new Date(toDate);
-  const cert = new Date(certificationDate);
+  const from = new Date(cleanFrom);
+  const to = new Date(cleanTo);
+  const cert = new Date(cleanCert);
 
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || Number.isNaN(cert.getTime())) {
     return { isValid: false, message: 'Invalid date values provided' };
   }
 
-  if (from >= to) {
-    return { isValid: false, message: 'From date must be before to date' };
+  if (from > to) {
+    return { isValid: false, message: 'From date must be before or equal to to date' };
   }
 
   if (cert < from) {
@@ -169,7 +173,7 @@ export const createCertification = async (req, res) => {
     res.status(201).json({
       message: 'Certification created successfully',
       id: record.id,
-      file: req.file.filename,
+      file: req.file ? req.file.filename : null,
     });
   } catch (error) {
     if (req.file) deleteFile(req.file.path);
