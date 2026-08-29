@@ -8,6 +8,7 @@ import {
   updateEducationEntry,
   deleteEducationEntry,
 } from '../../services/api.js';
+import YearPickerCalendar from '../../components/YearPickerCalendar';
 
 const EducationPage = () => {
   const [educationData, setEducationData] = useState([]);
@@ -93,15 +94,19 @@ const EducationPage = () => {
 
   const parseYearVal = (entry, primaryKey, altKeys = []) => {
     if (!entry) return '';
-    if (entry[primaryKey] !== undefined && entry[primaryKey] !== null && entry[primaryKey] !== '') {
-      return String(entry[primaryKey]);
-    }
-    for (const altKey of altKeys) {
-      if (entry[altKey] !== undefined && entry[altKey] !== null && entry[altKey] !== '') {
-        return String(entry[altKey]);
+    let val = entry[primaryKey];
+    if (val === undefined || val === null || val === '') {
+      for (const altKey of altKeys) {
+        if (entry[altKey] !== undefined && entry[altKey] !== null && entry[altKey] !== '') {
+          val = entry[altKey];
+          break;
+        }
       }
     }
-    return '';
+    if (val === undefined || val === null || val === '') return '';
+    const strVal = String(val).trim();
+    const match = strVal.match(/\d{4}/);
+    return match ? match[0] : strVal;
   };
 
   const fetchEducation = async () => {
@@ -308,6 +313,20 @@ const EducationPage = () => {
       );
     }
 
+    if (field.type === 'year') {
+      return (
+        <YearPickerCalendar
+          name={field.name}
+          value={formData[field.name] || ''}
+          onChange={handleChange}
+          disabled={!isEditable}
+          readOnly={!isEditable}
+          required={field.required}
+          placeholder={`Select ${field.label}`}
+        />
+      );
+    }
+
     if (field.type === 'textarea') {
       return <textarea {...commonProps} rows="3" placeholder={`Enter ${field.label.toLowerCase()}`} />;
     }
@@ -325,7 +344,7 @@ const EducationPage = () => {
         { name: 'tenth_medium', label: 'Medium', type: 'text' },
         { name: 'tenth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'tenth_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'tenth_year', label: 'Year of Passing', type: 'number', required: true },
+        { name: 'tenth_year', label: 'Year of Passing', type: 'year', required: true },
       ]
     },
     {
@@ -337,7 +356,7 @@ const EducationPage = () => {
         { name: 'twelfth_medium', label: 'Medium', type: 'text' },
         { name: 'twelfth_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'twelfth_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'twelfth_year', label: 'Year of Passing', type: 'number', required: true },
+        { name: 'twelfth_year', label: 'Year of Passing', type: 'year', required: true },
       ]
     },
     {
@@ -351,7 +370,7 @@ const EducationPage = () => {
         { name: 'ug_degree', label: 'Degree', type: 'text', required: true },
         { name: 'ug_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'ug_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'ug_year', label: 'Year of Passing', type: 'number', required: true },
+        { name: 'ug_year', label: 'Year of Passing', type: 'year', required: true },
       ]
     },
     {
@@ -365,7 +384,7 @@ const EducationPage = () => {
         { name: 'pg_degree', label: 'Degree', type: 'text', required: true },
         { name: 'pg_cgpa_percentage', label: 'CGPA/Percentage', type: 'text', required: true },
         { name: 'pg_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'pg_year', label: 'Year of Passing', type: 'number', required: true },
+        { name: 'pg_year', label: 'Year of Passing', type: 'year', required: true },
       ]
     },
     {
@@ -379,7 +398,7 @@ const EducationPage = () => {
         { name: 'pg2_degree', label: 'Degree', type: 'text' },
         { name: 'pg2_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
         { name: 'pg2_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'pg2_year', label: 'Year of Passing', type: 'number' },
+        { name: 'pg2_year', label: 'Year of Passing', type: 'year' },
       ]
     },
     {
@@ -393,7 +412,7 @@ const EducationPage = () => {
         { name: 'mphil_degree', label: 'Degree', type: 'text' },
         { name: 'mphil_cgpa_percentage', label: 'CGPA/Percentage', type: 'text' },
         { name: 'mphil_first_attempt', label: 'First Attempt', type: 'select', options: ['Yes', 'No'] },
-        { name: 'mphil_year', label: 'Year of Passing', type: 'number' },
+        { name: 'mphil_year', label: 'Year of Passing', type: 'year' },
       ]
     },
     {
@@ -405,8 +424,8 @@ const EducationPage = () => {
         { name: 'phd_guide_name', label: 'Guide Name', type: 'text' },
         { name: 'phd_college', label: 'College', type: 'text' },
         { name: 'phd_status', label: 'Status', type: 'select', options: ['Ongoing', 'Completed', 'Submitted', 'Awarded'] },
-        { name: 'phd_registration_year', label: 'Registration Year', type: 'number' },
-        { name: 'phd_completion_year', label: 'Completion Year', type: 'number' },
+        { name: 'phd_registration_year', label: 'Registration Year', type: 'year' },
+        { name: 'phd_completion_year', label: 'Completion Year', type: 'year' },
         { name: 'phd_publications_during', label: 'Publications During', type: 'number' },
         { name: 'phd_publications_post', label: 'Publications Post', type: 'number' },
         { name: 'phd_post_experience', label: 'Post PhD Experience', type: 'number' },

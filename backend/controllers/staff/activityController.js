@@ -1,5 +1,6 @@
 import { Activity, User } from '../../models/index.js';
 import { parseBulkRecords } from '../../utils/bulkUploadHelper.js';
+import { syncFundingAgency } from '../../services/masterSyncService.js';
 
 /**
  * Submit a new activity (Staff)
@@ -26,7 +27,23 @@ export const submitActivity = async (req, res) => {
     // Coerce and normalize incoming form values (multipart/form-data sends strings)
     const fundedBool = funded === true || funded === 'true' || funded === 'on' || funded === 1 || funded === '1';
     const participantCountInt = (participant_count && !isNaN(parseInt(participant_count, 10))) ? parseInt(participant_count, 10) : 1;
-    const fundReceivedFloat = fund_received ? parseFloat(fund_received) : null;
+
+    let fundReceivedFloat = null;
+    if (fundedBool && fund_received !== undefined && fund_received !== null && fund_received !== '') {
+      const num = Number(fund_received);
+      if (isNaN(num) || !isFinite(num) || num < 0) {
+        return res.status(400).json({ message: 'Amount Received must be a valid non-negative number' });
+      }
+      fundReceivedFloat = parseFloat(fund_received);
+    }
+
+    const agencyName = (fundedBool && funding_agency && typeof funding_agency === 'string' && funding_agency.trim() !== '')
+      ? funding_agency.trim()
+      : null;
+
+    if (fundedBool && agencyName) {
+      await syncFundingAgency(agencyName);
+    }
 
     // Validate/normalize level to avoid DB enum errors
     const allowedLevels = ['Department', 'State', 'Institute', 'National', 'International'];
@@ -62,8 +79,8 @@ export const submitActivity = async (req, res) => {
       participant_count: participantCountInt,
       level: normalizedLevel,
       funded: fundedBool,
-      funding_agency: fundedBool ? funding_agency : null,
-      fund_received: fundedBool ? fundReceivedFloat : null,
+      funding_agency: agencyName,
+      fund_received: fundReceivedFloat,
       report_file: reportFile,
       status: 'Pending',
       Created_by: Userid,
@@ -107,6 +124,15 @@ export const bulkSubmitActivities = async (req, res) => {
 
     const allowedLevels = ['Department', 'State', 'Institute', 'National', 'International'];
 
+    // Auto-sync any funding agencies in the records
+    for (const rec of records) {
+      const fundedBool = rec.funded === true || rec.funded === 'true' || rec.funded === 'Yes' || rec.funded === 1;
+      const agencyName = fundedBool && rec.funding_agency ? String(rec.funding_agency).trim() : null;
+      if (fundedBool && agencyName) {
+        await syncFundingAgency(agencyName);
+      }
+    }
+
     const preparedRecords = records.map((rec) => {
       const fundedBool = rec.funded === true || rec.funded === 'true' || rec.funded === 'Yes' || rec.funded === 1;
 
@@ -125,7 +151,7 @@ export const bulkSubmitActivities = async (req, res) => {
         level: allowedLevels.includes(rec.level) ? rec.level : 'Institute',
         funded: fundedBool,
         funding_agency: fundedBool ? (rec.funding_agency ? String(rec.funding_agency).trim() : null) : null,
-        fund_received: fundedBool ? (rec.fund_received ? parseFloat(rec.fund_received) || null : null) : null,
+        fund_received: fundedBool ? (rec.fund_received && !isNaN(Number(rec.fund_received)) ? parseFloat(rec.fund_received) : null) : null,
         status: 'Pending',
         Created_by: Userid,
         report_file: typeof rec.report_file === 'string' ? rec.report_file : null,
@@ -264,6 +290,31 @@ export const updateActivity = async (req, res) => {
       return res.status(400).json({ message: 'From date must be before to date' });
     }
 
+    const fundedBool = funded !== undefined
+      ? (funded === true || funded === 'true' || funded === 'on' || funded === 1 || funded === '1')
+      : activity.funded;
+
+    let fundReceivedFloat = null;
+    if (fundedBool) {
+      const inputAmount = fund_received !== undefined ? fund_received : activity.fund_received;
+      if (inputAmount !== undefined && inputAmount !== null && inputAmount !== '') {
+        const num = Number(inputAmount);
+        if (isNaN(num) || !isFinite(num) || num < 0) {
+          return res.status(400).json({ message: 'Amount Received must be a valid non-negative number' });
+        }
+        fundReceivedFloat = parseFloat(inputAmount);
+      }
+    }
+
+    let agencyName = null;
+    if (fundedBool) {
+      const inputAgency = funding_agency !== undefined ? funding_agency : activity.funding_agency;
+      agencyName = (inputAgency && typeof inputAgency === 'string' && inputAgency.trim() !== '') ? inputAgency.trim() : null;
+      if (agencyName) {
+        await syncFundingAgency(agencyName);
+      }
+    }
+
     const reportFile = req.file?.filename || activity.report_file;
 
     const updatedActivity = await activity.update({
@@ -278,9 +329,9 @@ export const updateActivity = async (req, res) => {
       department: department || activity.department,
       participant_count: participant_count || activity.participant_count,
       level: level || activity.level,
-      funded: funded !== undefined ? funded : activity.funded,
-      funding_agency: funded ? funding_agency || activity.funding_agency : null,
-      fund_received: funded ? fund_received || activity.fund_received : null,
+      funded: fundedBool,
+      funding_agency: agencyName,
+      fund_received: fundReceivedFloat,
       report_file: reportFile,
       Updated_by: Userid,
     });
@@ -325,3 +376,4 @@ export const deleteActivity = async (req, res) => {
     res.status(500).json({ message: 'Error deleting activity', error: error.message });
   }
 };
+

@@ -201,6 +201,10 @@ const StudentEducation = sequelize.define('StudentEducation', {
     allowNull: true,
     defaultValue: 'English',
   },
+  degree_year_of_passing: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 
   // ===== Semester-wise GPA (for 8 semesters) =====
   semester_1_gpa: {

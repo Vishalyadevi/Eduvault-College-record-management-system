@@ -35,6 +35,10 @@ export const StudentEducationProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await addOrUpdateStudentEducation(educationData);
+      const updated = response.data?.education || response.data?.data || response.data;
+      if (updated) {
+        setEducationRecord(updated);
+      }
       setError(null);
       return response.data;
     } catch (err) {

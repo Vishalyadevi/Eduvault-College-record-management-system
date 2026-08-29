@@ -121,12 +121,13 @@ const Login = () => {
       });
 
       if (data?.message || data?.user || data?.role || data?.token) {
+        const userObj = data.user || { role: data.role };
+        localStorage.setItem('user', JSON.stringify(userObj));
+        localStorage.setItem('token', 'session_active');
         const refreshedUser = await refresh(); // This updates the user in context
         toast.success("Login Successful");
-        // Directly redirect after login (don't rely on useEffect path check)
-        if (refreshedUser?.role) {
-          handleRedirect(refreshedUser.role);
-        }
+        const roleToUse = refreshedUser?.role || data?.role || data?.user?.role;
+        handleRedirect(roleToUse);
       }
     } catch (err) {
       toast.error(getAuthErrorMessage(err, "Login failed. Please check your credentials."));

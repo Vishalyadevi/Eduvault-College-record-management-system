@@ -22,6 +22,7 @@ const ResourcePersonPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const defaultSpecifications = [
     { value: '', label: 'Select Event Type / Program Specification' },
     { value: 'Keynote Speaker', label: 'Keynote Speaker' },

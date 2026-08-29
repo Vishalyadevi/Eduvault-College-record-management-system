@@ -3,6 +3,7 @@ import { FaGraduationCap, FaChartBar, FaCheckCircle, FaExclamationTriangle, FaBo
 import { motion } from "framer-motion";
 import { useStudentEducation } from "../../contexts/StudentEducationContext";
 import { useAuth } from "../auth/AuthContext";
+import YearPickerCalendar from "../../components/YearPickerCalendar";
 
 
 const StudentEducationPage = () => {
@@ -30,7 +31,7 @@ const StudentEducationPage = () => {
     tenth_science_marks: "", tenth_social_science_marks: "",
     twelfth_school_name: "", twelfth_board: "", twelfth_percentage: "", twelfth_year_of_passing: "",
     twelfth_medium_of_study: "", twelfth_physics_marks: "", twelfth_chemistry_marks: "", twelfth_maths_marks: "",
-    degree_institution_name: "", degree_name: "", degree_specialization: "", degree_medium_of_study: "English",
+    degree_institution_name: "", degree_name: "", degree_specialization: "", degree_medium_of_study: "English", degree_year_of_passing: "",
     gap_after_tenth: false, gap_after_tenth_years: "", gap_after_tenth_reason: "",
     gap_after_twelfth: false, gap_after_twelfth_years: "", gap_after_twelfth_reason: "",
     gap_during_degree: false, gap_during_degree_years: "", gap_during_degree_reason: "",
@@ -68,6 +69,7 @@ const StudentEducationPage = () => {
         degree_name: educationRecord.degree_name || "",
         degree_specialization: educationRecord.degree_specialization || "",
         degree_medium_of_study: educationRecord.degree_medium_of_study || "English",
+        degree_year_of_passing: educationRecord.degree_year_of_passing || educationRecord.ug_year || "",
         gap_after_tenth: educationRecord.gap_after_tenth || false,
         gap_after_tenth_years: educationRecord.gap_after_tenth_years || "",
         gap_after_tenth_reason: educationRecord.gap_after_tenth_reason || "",
@@ -107,6 +109,7 @@ const StudentEducationPage = () => {
         tenth_social_science_marks: formData.tenth_social_science_marks ? parseFloat(formData.tenth_social_science_marks) : null,
         twelfth_percentage: formData.twelfth_percentage ? parseFloat(formData.twelfth_percentage) : null,
         twelfth_year_of_passing: formData.twelfth_year_of_passing ? parseInt(formData.twelfth_year_of_passing) : null,
+        degree_year_of_passing: formData.degree_year_of_passing ? parseInt(formData.degree_year_of_passing) : null,
         twelfth_physics_marks: formData.twelfth_physics_marks ? parseFloat(formData.twelfth_physics_marks) : null,
         twelfth_chemistry_marks: formData.twelfth_chemistry_marks ? parseFloat(formData.twelfth_chemistry_marks) : null,
         twelfth_maths_marks: formData.twelfth_maths_marks ? parseFloat(formData.twelfth_maths_marks) : null,
@@ -236,8 +239,13 @@ const StudentEducationPage = () => {
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Year of Passing *</label>
-                    <input type="number" name="tenth_year_of_passing" value={formData.tenth_year_of_passing} onChange={handleInputChange} required
-                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2019" min="1950" max="2100" />
+                    <YearPickerCalendar
+                      name="tenth_year_of_passing"
+                      value={formData.tenth_year_of_passing}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Select Year of Passing"
+                    />
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Medium of Study *</label>
@@ -314,8 +322,13 @@ const StudentEducationPage = () => {
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Year of Passing *</label>
-                    <input type="number" name="twelfth_year_of_passing" value={formData.twelfth_year_of_passing} onChange={handleInputChange} required
-                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 2021" min="1950" max="2100" />
+                    <YearPickerCalendar
+                      name="twelfth_year_of_passing"
+                      value={formData.twelfth_year_of_passing}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Select Year of Passing"
+                    />
                   </div>
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">Medium of Study *</label>
@@ -400,6 +413,16 @@ const StudentEducationPage = () => {
                       <option value="Hindi">Hindi</option>
                       <option value="Other">Other</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1">Year of Passing *</label>
+                    <YearPickerCalendar
+                      name="degree_year_of_passing"
+                      value={formData.degree_year_of_passing}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Select Year of Passing"
+                    />
                   </div>
                 </div>
 

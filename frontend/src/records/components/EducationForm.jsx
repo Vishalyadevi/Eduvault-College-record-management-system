@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './EducationForm.css';
+import YearPickerCalendar from './YearPickerCalendar';
 
 const EducationForm = ({ editingItem, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -222,12 +223,11 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
             </div>
             <div className="form-group">
               <label>Year of Completion</label>
-              <input
-                type="text"
+              <YearPickerCalendar
                 name="tenth_year"
                 value={formData.tenth_year}
                 onChange={handleInputChange}
-                placeholder="Enter year"
+                placeholder="Select year"
               />
             </div>
           </div>
@@ -290,12 +290,11 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
             </div>
             <div className="form-group">
               <label>Year of Completion</label>
-              <input
-                type="text"
+              <YearPickerCalendar
                 name="twelfth_year"
                 value={formData.twelfth_year}
                 onChange={handleInputChange}
-                placeholder="Enter year"
+                placeholder="Select year"
               />
             </div>
           </div>
@@ -378,12 +377,11 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
             </div>
             <div className="form-group">
               <label>Year of Completion</label>
-              <input
-                type="text"
+              <YearPickerCalendar
                 name="ug_year"
                 value={formData.ug_year}
                 onChange={handleInputChange}
-                placeholder="Enter year"
+                placeholder="Select year"
               />
             </div>
           </div>
@@ -466,12 +464,11 @@ const EducationForm = ({ editingItem, onSave, onCancel }) => {
             </div>
             <div className="form-group">
               <label>Year of Completion</label>
-              <input
-                type="text"
+              <YearPickerCalendar
                 name="pg_year"
                 value={formData.pg_year}
                 onChange={handleInputChange}
-                placeholder="Enter year"
+                placeholder="Select year"
               />
             </div>
           </div>

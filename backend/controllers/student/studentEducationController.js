@@ -52,6 +52,7 @@ export const addOrUpdateEducationRecord = async (req, res) => {
       degree_name,
       degree_specialization,
       degree_medium_of_study,
+      degree_year_of_passing,
       // Academic Gaps
       gap_after_tenth,
       gap_after_tenth_years,
@@ -125,6 +126,7 @@ export const addOrUpdateEducationRecord = async (req, res) => {
       degree_name: sanitize(degree_name),
       degree_specialization: sanitize(degree_specialization),
       degree_medium_of_study: sanitize(degree_medium_of_study) || "English",
+      degree_year_of_passing: sanitizeInt(degree_year_of_passing || req.body.degree_year || req.body.degree_passing_year),
 
       gap_after_tenth: sanitizeBool(gap_after_tenth),
       gap_after_tenth_years: sanitizeBool(gap_after_tenth) ? (sanitizeInt(gap_after_tenth_years) || 0) : 0,

@@ -25,25 +25,31 @@ export function AuthProvider({ children }) {
       const { data } = await API.get("/auth/me");
       const me = data.user || data;
 
-      // 2. Get full profile info (using me.userId or me.id)
+      // 2. Safely fetch profile info if userId exists
       const userId = me.userId || me.id;
-      if (!userId) {
-        throw new Error("User ID missing from authentication response");
+      let profile = {};
+      if (userId) {
+        try {
+          const { data: profileResponse } = await API.get(`/auth/get-user/${userId}`);
+          profile = profileResponse.user || profileResponse;
+        } catch (profileErr) {
+          console.warn("Profile detail fetch warning (using basic info):", profileErr.message);
+        }
       }
-
-      const { data: profileResponse } = await API.get(`/auth/get-user/${userId}`);
-      const profile = profileResponse.user || profileResponse;
 
       const merged = {
         ...me,      // Start with basic info (id, userId, role)
         ...profile, // Add full profile details (username, email, image)
-        // Ensure role is normalized to lowercase
-        role: me.role ? me.role.toLowerCase() : profile.role?.toLowerCase(),
+        role: me.role ? String(me.role) : (profile.role ? String(profile.role) : null),
       };
       const safeUser = sanitizeUser(merged);
 
       setUser(safeUser);
       setCurrentUser(safeUser);
+      if (safeUser && (safeUser.userId || safeUser.id)) {
+        localStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('token', 'session_active');
+      }
       return safeUser;
     } catch (error) {
       console.error("Auth Refresh Error:", error);

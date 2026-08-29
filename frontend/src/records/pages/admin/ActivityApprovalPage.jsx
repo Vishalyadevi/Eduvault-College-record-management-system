@@ -140,42 +140,63 @@ const ActivityApprovalPage = () => {
           {activities.length === 0 ? (
             <div className="p-12 text-center"><p className="text-gray-500 text-lg">{filterStatus==='pending' ? 'No pending activities' : 'No activities found'}</p></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto">
+            <div className="overflow-x-auto custom-scrollbar p-1">
+              <table className="w-full min-w-[1580px] divide-y divide-gray-200 text-left border-collapse">
                 <thead className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Staff Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Staff Coordinators</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 min-w-[220px]">Club / Event</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">From Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">To Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Level</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Participants</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Status</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[110px]">Staff Name</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">From Date</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">To Date</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[140px]">Club Name</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[150px]">Event Name</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[170px]">Staff Coordinators</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[170px]">Student Coordinators</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[130px]">Venue</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[130px]">Department</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">Level</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px] text-center">Participants</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px] text-center">Funded</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[160px]">Description</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[110px] text-center">Status</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[170px] text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100 bg-white">
                   {activities.map((act, i) => {
-                    const clubEvent = (act.club_name||act.event_name) ? [act.club_name, act.event_name].filter(Boolean).join(' / ') : '—';
+                    const hasReport = act.proofDocument || act.report_file;
                     return (
-                      <tr key={act.id||i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-800 whitespace-nowrap">{act.creator?.username || act.username || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{act.staff_coordinators || '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 break-words">{clubEvent}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{act.from_date ? new Date(act.from_date).toLocaleDateString() : 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{act.to_date ? new Date(act.to_date).toLocaleDateString() : 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{act.level}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{act.participant_count}</td>
-                        <td className="px-6 py-4 text-sm whitespace-nowrap"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(act.status)}`}>{act.status || 'Pending'}</span></td>
-                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                      <tr key={act.id || i} className="hover:bg-indigo-50/40 transition-colors h-14 align-middle border-b border-gray-100">
+                        <td className="px-4 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap align-middle">{act.creator?.username || act.username || 'N/A'}</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 whitespace-nowrap align-middle">{act.from_date ? new Date(act.from_date).toLocaleDateString() : 'N/A'}</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 whitespace-nowrap align-middle">{act.to_date ? new Date(act.to_date).toLocaleDateString() : 'N/A'}</td>
+                        <td className="px-4 py-3.5 text-sm font-semibold text-gray-800 align-middle max-w-[140px] truncate" title={act.club_name}>{act.club_name || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm font-semibold text-indigo-700 align-middle max-w-[150px] truncate" title={act.event_name}>{act.event_name || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm align-middle max-w-[170px] truncate cursor-help" title={act.staff_coordinators ? `Staff Coordinators:\n${act.staff_coordinators.split(',').map(s=>`• ${s.trim()}`).join('\n')}` : ''}>{act.staff_coordinators || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm align-middle max-w-[170px] truncate cursor-help" title={act.student_coordinators ? `Student Coordinators:\n${act.student_coordinators.split(',').map(s=>`• ${s.trim()}`).join('\n')}` : ''}>{act.student_coordinators || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle max-w-[130px] truncate" title={act.venue}>{act.venue || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle max-w-[130px] truncate" title={act.department}>{act.department || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap align-middle">{act.level || '-'}</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-700 font-semibold text-center whitespace-nowrap align-middle">{act.participant_count || 0}</td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap align-middle">
+                          {act.funded ? (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">Yes</span>
+                          ) : (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">No</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-gray-600 align-middle max-w-[180px] truncate" title={act.description}>
+                          {act.description || '-'}
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap align-middle">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(act.status)}`}>{act.status || 'Pending'}</span>
+                        </td>
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap align-middle min-w-[150px]">
                           <div className="flex justify-center gap-2">
-                            <button onClick={() => handleView(act)} className="p-2 hover:bg-indigo-100 rounded-lg" title="View"><Eye size={18} className="text-indigo-600"/></button>
-                            {act.report_file && <button onClick={() => handleDownload(act)} className="p-2 hover:bg-green-100 rounded-lg" title="Download"><Download size={18} className="text-green-600"/></button>}
+                            <button onClick={() => handleView(act)} className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors" title="View Details"><Eye size={18} className="text-indigo-600"/></button>
                             {act.status === 'Pending' && (
                               <>
-                                <button onClick={() => handleApprove(act.id)} className="p-2 hover:bg-green-100 rounded-lg" title="Approve"><CheckCircle size={18} className="text-green-600"/></button>
-                                <button onClick={() => { setCurrentActivityForReject(act); setIsRejectModalOpen(true); }} className="p-2 hover:bg-red-100 rounded-lg" title="Reject"><XCircle size={18} className="text-red-600"/></button>
+                                <button onClick={() => handleApprove(act.id)} className="p-1.5 hover:bg-green-100 rounded-lg transition-colors" title="Approve"><CheckCircle size={18} className="text-green-600"/></button>
+                                <button onClick={() => { setCurrentActivityForReject(act); setIsRejectModalOpen(true); }} className="p-1.5 hover:bg-red-100 rounded-lg transition-colors" title="Reject"><XCircle size={18} className="text-red-600"/></button>
                               </>
                             )}
                           </div>
@@ -197,23 +218,123 @@ const ActivityApprovalPage = () => {
               <h2 className="text-2xl font-bold text-white">Activity Details</h2>
               <button onClick={() => setIsViewModalOpen(false)} className="text-white p-2">✕</button>
             </div>
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="md:col-span-2"><div className="block text-sm font-semibold text-gray-700 mb-2">Staff Coordinators</div><p className="text-gray-800 bg-gray-50 px-4 py-2 rounded-lg">{selectedActivity.staff_coordinators||'N/A'}</p></div>
-                <div><div className="block text-sm font-semibold text-gray-700 mb-2">Club / Event</div><p className="text-gray-800 bg-gray-50 px-4 py-2 rounded-lg">{(selectedActivity.club_name||selectedActivity.event_name)?[selectedActivity.club_name,selectedActivity.event_name].filter(Boolean).join(' / '):'N/A'}</p></div>
-                <div><div className="block text-sm font-semibold text-gray-700 mb-2">From Date</div><p className="text-gray-800 bg-gray-50 px-4 py-2 rounded-lg">{selectedActivity.from_date?new Date(selectedActivity.from_date).toLocaleDateString():'N/A'}</p></div>
-                <div><div className="block text-sm font-semibold text-gray-700 mb-2">To Date</div><p className="text-gray-800 bg-gray-50 px-4 py-2 rounded-lg">{selectedActivity.to_date?new Date(selectedActivity.to_date).toLocaleDateString():'N/A'}</p></div>
-                {selectedActivity.description && (<div className="md:col-span-2"><div className="block text-sm font-semibold text-gray-700 mb-2">Description</div><p className="text-gray-800 bg-gray-50 px-4 py-2 rounded-lg">{selectedActivity.description}</p></div>)}
-                {selectedActivity.rejection_reason && (<div className="md:col-span-2"><div className="block text-sm font-semibold text-gray-700 mb-2">Rejection Reason</div><p className="text-gray-800 bg-red-50 px-4 py-2 rounded-lg">{selectedActivity.rejection_reason}</p></div>)}
+            <div className="p-6 overflow-y-auto max-h-[80vh] space-y-6">
+              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
+                <div>
+                  <span className="text-xs text-gray-500 font-bold uppercase block">Status</span>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-1 ${getStatusColor(selectedActivity.status)}`}>
+                    {selectedActivity.status || 'Pending'}
+                  </span>
+                </div>
+                {selectedActivity.funded && (
+                  <span className="text-xs bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
+                    💰 Funded
+                  </span>
+                )}
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">Club & Event Name</div>
+                  <p className="text-base font-bold text-gray-900">{selectedActivity.event_name || 'N/A'}</p>
+                  <p className="text-sm text-indigo-600 font-medium">Club: <span className="font-bold">{selectedActivity.club_name || 'N/A'}</span></p>
+                </div>
+
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">Dates & Level</div>
+                  <p className="text-sm font-bold text-gray-800">
+                    📅 {selectedActivity.from_date ? new Date(selectedActivity.from_date).toLocaleDateString() : 'N/A'} &nbsp;➔&nbsp; {selectedActivity.to_date ? new Date(selectedActivity.to_date).toLocaleDateString() : 'N/A'}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">👥 Participants: <span className="font-bold text-gray-900">{selectedActivity.participant_count || '0'}</span> | Level: <span className="font-bold text-gray-900">{selectedActivity.level || 'N/A'}</span></p>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Venue & Department</div>
+                  <p className="text-sm text-gray-800"><span className="font-semibold">Venue:</span> {selectedActivity.venue || 'N/A'}</p>
+                  <p className="text-sm text-gray-800"><span className="font-semibold">Department:</span> {selectedActivity.department || 'N/A'}</p>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Funding Information</div>
+                  <p className="text-sm text-gray-800"><span className="font-semibold">Funded:</span> {selectedActivity.funded ? 'Yes' : 'No'}</p>
+                  {selectedActivity.funded && (
+                    <>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Agency:</span> {selectedActivity.funding_agency || 'N/A'}</p>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Amount Received:</span> {selectedActivity.fund_received ? `₹${Number(selectedActivity.fund_received).toLocaleString()}` : 'N/A'}</p>
+                    </>
+                  )}
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Staff Coordinators</div>
+                  {selectedActivity.staff_coordinators ? (
+                    <ul className="space-y-1 bg-white p-2.5 rounded-lg border">
+                      {selectedActivity.staff_coordinators.split(',').map((name, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                          <span className="text-indigo-600 font-extrabold text-base">•</span>
+                          <span>{name.trim()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">None</p>
+                  )}
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Student Coordinators</div>
+                  {selectedActivity.student_coordinators ? (
+                    <ul className="space-y-1 bg-white p-2.5 rounded-lg border">
+                      {selectedActivity.student_coordinators.split(',').map((name, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                          <span className="text-green-600 font-extrabold text-base">•</span>
+                          <span>{name.trim()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">None</p>
+                  )}
+                </div>
+              </div>
+
+              {selectedActivity.description && (
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Description</div>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedActivity.description}</p>
+                </div>
+              )}
+
+              {selectedActivity.rejection_reason && (
+                <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                  <div className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">Rejection Reason</div>
+                  <p className="text-sm text-red-700">{selectedActivity.rejection_reason}</p>
+                </div>
+              )}
+
+              {selectedActivity.report_file && (
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex justify-between items-center">
+                  <div>
+                    <div className="text-xs font-bold text-gray-700 uppercase tracking-wider">Report File (PDF)</div>
+                    <p className="text-sm text-gray-600 font-medium mt-0.5">{selectedActivity.report_file.split('/').pop()}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(selectedActivity)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition"
+                  >
+                    <Download size={14} /> Download Report
+                  </button>
+                </div>
+              )}
+
               {selectedActivity.status === 'Pending' ? (
-                <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-                  <button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2 bg-gray-100 rounded">Close</button>
-                  <button onClick={() => { setIsViewModalOpen(false); setCurrentActivityForReject(selectedActivity); setIsRejectModalOpen(true); }} className="px-6 py-2 bg-red-500 text-white rounded">Reject</button>
-                  <button onClick={() => handleApprove(selectedActivity.id)} className="px-6 py-2 bg-green-500 text-white rounded">Approve</button>
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
+                  <button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2 bg-gray-100 rounded-lg text-sm font-semibold text-gray-700">Close</button>
+                  <button onClick={() => { setIsViewModalOpen(false); setCurrentActivityForReject(selectedActivity); setIsRejectModalOpen(true); }} className="px-6 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">Reject</button>
+                  <button onClick={() => handleApprove(selectedActivity.id)} className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition">Approve</button>
                 </div>
               ) : (
-                <div className="flex justify-end gap-4 pt-6 border-t border-gray-200"><button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2 bg-indigo-600 text-white rounded">Close</button></div>
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-200"><button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold">Close</button></div>
               )}
             </div>
           </div>

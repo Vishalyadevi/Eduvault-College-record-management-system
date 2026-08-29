@@ -4,7 +4,27 @@ import toast from 'react-hot-toast';
 import api, { getFundingAgencies, bulkCreateActivities } from '../../services/api';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import TagInput from '../../components/TagInput';
+import MasterSelect from '../../components/MasterSelect';
 
+
+const renderBulletedCoordinators = (coordStr) => {
+  if (!coordStr || !coordStr.toString().trim()) {
+    return <span className="text-gray-400 italic text-xs">-</span>;
+  }
+  const list = coordStr.toString().split(',').map(s => s.trim()).filter(Boolean);
+  if (list.length === 0) return <span className="text-gray-400 italic text-xs">-</span>;
+
+  return (
+    <ul className="text-xs font-semibold text-gray-800 space-y-0.5 my-1">
+      {list.map((name, idx) => (
+        <li key={idx} className="flex items-center gap-1.5 truncate max-w-[190px]" title={name}>
+          <span className="text-indigo-600 font-bold text-sm">•</span>
+          <span className="truncate">{name}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 const ActivityPage = () => {
   const [activities, setActivities] = useState([]);
@@ -16,9 +36,6 @@ const ActivityPage = () => {
   const [file, setFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
-  const [fundingAgencyOptions, setFundingAgencyOptions] = useState([
-    { value: '', label: 'Select Funding Agency' }
-  ]);
 
 
   const [formData, setFormData] = useState({
@@ -53,25 +70,6 @@ const ActivityPage = () => {
   };
 
   useEffect(() => {
-    const fetchAgencies = async () => {
-      try {
-        const res = await getFundingAgencies({ status: 'Active' });
-        let list = [];
-        if (Array.isArray(res)) list = res;
-        else if (Array.isArray(res?.data)) list = res.data;
-        else if (Array.isArray(res?.data?.data)) list = res.data.data;
-
-        if (list.length > 0) {
-          setFundingAgencyOptions([
-            { value: '', label: 'Select Funding Agency' },
-            ...list.map(a => ({ value: a.agency_name, label: a.agency_name }))
-          ]);
-        }
-      } catch (err) {
-        console.error('Error fetching funding agencies:', err);
-      }
-    };
-    fetchAgencies();
     fetchActivities();
   }, []);
 
@@ -90,14 +88,6 @@ const ActivityPage = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isModalOpen, isExcelModalOpen]);
-
-  const ensureAgencyInOptions = (agencyName) => {
-    if (!agencyName) return;
-    setFundingAgencyOptions((prev) => {
-      if (prev.some((opt) => opt.value === agencyName)) return prev;
-      return [...prev, { value: agencyName, label: agencyName }];
-    });
-  };
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -162,6 +152,14 @@ const normalizeMultiValues = (str) => {
     if (!formData.from_date || !formData.to_date || !formData.student_coordinators || !formData.participant_count || !formData.level) {
       toast.error('Please fill in all required fields (marked with *)');
       return;
+    }
+
+    if (formData.funded && formData.fund_received !== '' && formData.fund_received !== null && formData.fund_received !== undefined) {
+      const num = Number(formData.fund_received);
+      if (isNaN(num) || !isFinite(num) || num < 0) {
+        toast.error('Amount Received must be a valid non-negative number (e.g. 5000 or 25000.50)');
+        return;
+      }
     }
 
     try {
@@ -241,7 +239,6 @@ const normalizeMultiValues = (str) => {
   // Open modal for editing
   const handleEditActivity = (activity) => {
     setCurrentActivity(activity);
-    ensureAgencyInOptions(activity.funding_agency);
     setFormData({
       from_date: activity.from_date?.split('T')[0] || '',
       to_date: activity.to_date?.split('T')[0] || '',
@@ -256,7 +253,7 @@ const normalizeMultiValues = (str) => {
       level: activity.level || '',
       funded: activity.funded || false,
       funding_agency: activity.funding_agency || '',
-      fund_received: activity.fund_received || ''
+      fund_received: activity.fund_received ?? ''
     });
     setIsEditing(true);
     setIsViewMode(false);
@@ -266,7 +263,6 @@ const normalizeMultiValues = (str) => {
   // View activity details
   const handleViewActivity = (activity) => {
     setCurrentActivity(activity);
-    ensureAgencyInOptions(activity.funding_agency);
     setFormData({
       from_date: activity.from_date?.split('T')[0] || '',
       to_date: activity.to_date?.split('T')[0] || '',
@@ -281,7 +277,7 @@ const normalizeMultiValues = (str) => {
       level: activity.level || '',
       funded: activity.funded || false,
       funding_agency: activity.funding_agency || '',
-      fund_received: activity.fund_received || ''
+      fund_received: activity.fund_received ?? ''
     });
     setIsViewMode(true);
     setIsModalOpen(true);
@@ -363,73 +359,99 @@ const normalizeMultiValues = (str) => {
 
 
         {/* Activities Table */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
           {activities.length === 0 ? (
             <div className="p-12 text-center">
               <p className="text-gray-500 text-lg">No activities found. Start by adding one!</p>
             </div>
           ) : (
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full min-w-[950px] divide-y divide-gray-200">
+            <div className="overflow-x-auto custom-scrollbar p-1">
+              <table className="w-full divide-y divide-gray-200 text-left border-collapse" style={{ minWidth: '1970px', width: '100%' }}>
                 <thead className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">From Date</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">To Date</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 min-w-[160px]">Staff Coordinators</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 min-w-[160px]">Club / Event</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Level</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Participants</th>
-                    <th className="px-4 py-3.5 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3.5 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>From Date</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>To Date</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '160px', width: '160px', whiteSpace: 'nowrap' }}>Club Name</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '170px', width: '170px', whiteSpace: 'nowrap' }}>Event Name</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '200px', width: '200px', whiteSpace: 'nowrap' }}>Staff Coordinators</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '200px', width: '200px', whiteSpace: 'nowrap' }}>Student Coordinators</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '140px', width: '140px', whiteSpace: 'nowrap' }}>Venue</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '140px', width: '140px', whiteSpace: 'nowrap' }}>Department</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '110px', width: '110px', whiteSpace: 'nowrap' }}>Level</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider text-center" style={{ minWidth: '110px', width: '110px', whiteSpace: 'nowrap' }}>Participants</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider text-center" style={{ minWidth: '100px', width: '100px', whiteSpace: 'nowrap' }}>Funded</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ minWidth: '180px', width: '180px', whiteSpace: 'nowrap' }}>Description</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider text-center" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>Status</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-700 uppercase tracking-wider text-center" style={{ minWidth: '200px', width: '200px', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {activities.map((activity, index) => {
-                    const clubEvent = (activity.club_name || activity.event_name)
-                      ? [activity.club_name, activity.event_name].filter(Boolean).join(' / ')
-                      : '-';
+                    const hasReport = activity.proofDocument || activity.report_file;
                     return (
-                      <tr key={activity.id || index} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                      <tr key={activity.id || index} className="hover:bg-indigo-50/40 transition-colors h-14 align-middle">
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>
                           {activity.from_date ? new Date(activity.from_date).toLocaleDateString() : 'N/A'}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>
                           {activity.to_date ? new Date(activity.to_date).toLocaleDateString() : 'N/A'}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 min-w-[160px] max-w-[280px] break-words">
-                          {activity.staff_coordinators || '-'}
+                        <td className="px-4 py-3.5 text-sm font-semibold text-gray-800 align-middle truncate" style={{ minWidth: '160px', width: '160px', maxWidth: '160px' }} title={activity.club_name}>
+                          {activity.club_name || '-'}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 min-w-[160px] max-w-[280px] break-words">
-                          {clubEvent}
+                        <td className="px-4 py-3.5 text-sm font-semibold text-indigo-700 align-middle truncate" style={{ minWidth: '170px', width: '170px', maxWidth: '170px' }} title={activity.event_name}>
+                          {activity.event_name || '-'}
                         </td>
-                        <td className="px-4 py-4 text-sm font-medium text-gray-800 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-sm align-middle" style={{ minWidth: '200px', width: '200px', maxWidth: '200px' }}>
+                          {renderBulletedCoordinators(activity.staff_coordinators)}
+                        </td>
+                        <td className="px-4 py-3.5 text-sm align-middle" style={{ minWidth: '200px', width: '200px', maxWidth: '200px' }}>
+                          {renderBulletedCoordinators(activity.student_coordinators)}
+                        </td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle truncate" style={{ minWidth: '140px', width: '140px', maxWidth: '140px' }} title={activity.venue}>
+                          {activity.venue || '-'}
+                        </td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600 align-middle truncate" style={{ minWidth: '140px', width: '140px', maxWidth: '140px' }} title={activity.department}>
+                          {activity.department || '-'}
+                        </td>
+                        <td className="px-4 py-3.5 text-sm font-medium text-gray-800 align-middle" style={{ minWidth: '110px', width: '110px', whiteSpace: 'nowrap' }}>
                           {activity.level}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-sm text-gray-700 font-semibold text-center align-middle" style={{ minWidth: '110px', width: '110px', whiteSpace: 'nowrap' }}>
                           {activity.participant_count}
                         </td>
-                        <td className="px-4 py-4 text-sm whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center align-middle" style={{ minWidth: '100px', width: '100px', whiteSpace: 'nowrap' }}>
+                          {activity.funded ? (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">Yes</span>
+                          ) : (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">No</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-gray-600 align-middle truncate" style={{ minWidth: '180px', width: '180px', maxWidth: '180px' }} title={activity.description}>
+                          {activity.description || '-'}
+                        </td>
+                        <td className="px-4 py-3.5 text-center align-middle" style={{ minWidth: '120px', width: '120px', whiteSpace: 'nowrap' }}>
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(activity.status)}`}>
                             {activity.status || 'Pending'}
                           </span>
                           {activity.status === 'Rejected' && activity.rejection_reason && (
                             <div
-                              className="text-xs text-red-600 mt-1 max-w-[220px] break-words whitespace-normal"
+                              className="text-xs text-red-600 mt-1 max-w-[180px] break-words whitespace-normal text-left"
                               title={activity.rejection_reason}
                             >
                               <span className="font-semibold">Reason:</span>{' '}
-                              {activity.rejection_reason.length > 120
-                                ? `${activity.rejection_reason.substring(0, 120)}...`
+                              {activity.rejection_reason.length > 80
+                                ? `${activity.rejection_reason.substring(0, 80)}...`
                                 : activity.rejection_reason}
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-4 text-center whitespace-nowrap">
-                          <div className="flex justify-center items-center gap-1.5">
+                        <td className="px-4 py-3.5 text-center align-middle" style={{ minWidth: '160px', width: '160px', whiteSpace: 'nowrap' }}>
+                          <div className="flex justify-center items-center gap-2">
                             <button
                               onClick={() => handleViewActivity(activity)}
                               className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors"
-                              title="View"
+                              title="View Complete Record (Detailed Popup)"
                             >
                               <Eye size={18} className="text-indigo-600" />
                             </button>
@@ -437,25 +459,16 @@ const normalizeMultiValues = (str) => {
                               <button
                                 onClick={() => handleEditActivity(activity)}
                                 className="p-1.5 hover:bg-yellow-100 rounded-lg transition-colors"
-                                title="Edit"
+                                title="Edit Activity"
                               >
                                 <Edit2 size={18} className="text-yellow-600" />
-                              </button>
-                            )}
-                            {activity.proofDocument && (
-                              <button
-                                onClick={() => handleDownload(activity)}
-                                className="p-1.5 hover:bg-green-100 rounded-lg transition-colors"
-                                title="Download"
-                              >
-                                <Download size={18} className="text-green-600" />
                               </button>
                             )}
                             {activity.status === 'Pending' && (
                               <button
                                 onClick={() => handleDelete(activity.id)}
                                 className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
-                                title="Delete"
+                                title="Delete Activity"
                               >
                                 <Trash2 size={18} className="text-red-600" />
                               </button>
@@ -492,345 +505,443 @@ const normalizeMultiValues = (str) => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* From Date */}
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="from_date">
-                    From Date *
-                  </label>
-                  <input
-                    id="from_date"
-                    type="date"
-                    name="from_date"
-                    value={formData.from_date}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                {/* To Date */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="to_date">
-                    To Date *
-                  </label>
-                  <input
-                    id="to_date"
-                    type="date"
-                    name="to_date"
-                    value={formData.to_date}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Student Coordinators */}
-                <div className="md:col-span-2">
-                  <TagInput
-                    label="Student Coordinators"
-                    values={formData.student_coordinators}
-                    onChange={(updatedTags) => setFormData((prev) => ({ ...prev, student_coordinators: updatedTags.join(', ') }))}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Type student coordinator name and click Add..."
-                    buttonText="Add Student Coordinator"
-                  />
-                </div>
-
-                {/* Staff Coordinators */}
-                <div className="md:col-span-2">
-                  <TagInput
-                    label="Staff Coordinators"
-                    values={formData.staff_coordinators}
-                    onChange={(updatedTags) => setFormData((prev) => ({ ...prev, staff_coordinators: updatedTags.join(', ') }))}
-                    disabled={isViewMode}
-                    placeholder="Type staff coordinator name and click Add..."
-                    buttonText="Add Staff Coordinator"
-                  />
-                </div>
-
-
-                {/* Club Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="club_name">
-                    Club Name
-                  </label>
-                  <input
-                    id="club_name"
-                    type="text"
-                    name="club_name"
-                    value={formData.club_name}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter club name"
-                  />
-                </div>
-
-                {/* Event Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="event_name">
-                    Event Name
-                  </label>
-                  <input
-                    id="event_name"
-                    type="text"
-                    name="event_name"
-                    value={formData.event_name}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter event name"
-                  />
-                </div>
-
-                {/* Participant Count */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="participant_count">
-                    Participant Count *
-                  </label>
-                  <input
-                    id="participant_count"
-                    type="number"
-                    name="participant_count"
-                    value={formData.participant_count}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter number of participants"
-                  />
-                </div>
-
-                {/* Level */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="level">
-                    Level *
-                  </label>
-                  <select
-                    id="level"
-                    name="level"
-                    value={formData.level}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select Level</option>
-                    <option value="Department">Department</option>
-                    <option value="Institute">Institute</option>
-                    <option value="State">State</option>
-                    <option value="National">National</option>
-                    <option value="International">International</option>
-                  </select>
-                </div>
-
-                {/* Status Display (View Mode Only) */}
-                {isViewMode && (
-                  <div>
-                    <div className="block text-sm font-semibold text-gray-700 mb-2">
-                      Status
+            <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
+              {isViewMode ? (
+                <div className="space-y-6">
+                  {/* Status & Funding Header */}
+                  <div className="flex flex-wrap items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-3">
+                    <div>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Approval Status</span>
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-1 ${getStatusColor(currentActivity?.status)}`}>
+                        {currentActivity?.status || 'Pending'}
+                      </span>
                     </div>
-                    <div className={`px-4 py-3 rounded-lg font-semibold ${getStatusColor(currentActivity?.status)}`}>
-                      {currentActivity?.status || 'Pending'}
+                    {formData.funded && (
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-800 bg-green-100 px-3 py-1.5 rounded-full border border-green-200">
+                          💰 Funded Activity
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rejection Reason (If Rejected) */}
+                  {currentActivity?.status === 'Rejected' && currentActivity?.rejection_reason && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl">
+                      <div className="text-sm font-bold text-red-800 mb-1">Rejection Reason</div>
+                      <p className="text-red-700 text-sm">{currentActivity.rejection_reason}</p>
+                    </div>
+                  )}
+
+                  {/* Key Info Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {/* Club & Event */}
+                    <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                      <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">Event & Club Name</div>
+                      <p className="text-lg font-extrabold text-gray-900">{formData.event_name || 'N/A'}</p>
+                      {formData.club_name && (
+                        <p className="text-sm font-medium text-indigo-600 mt-0.5">Club: <span className="font-bold">{formData.club_name}</span></p>
+                      )}
+                    </div>
+
+                    {/* Dates & Participation */}
+                    <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                      <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">Dates & Participation</div>
+                      <p className="text-sm font-bold text-gray-800">
+                        📅 {formData.from_date || 'N/A'} &nbsp;➔&nbsp; {formData.to_date || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        👥 Participant Count: <span className="font-bold text-gray-900">{formData.participant_count || '0'}</span> | Level: <span className="font-bold text-gray-900">{formData.level || 'N/A'}</span>
+                      </p>
+                    </div>
+
+                    {/* Venue & Department */}
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Venue & Department</div>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Venue:</span> {formData.venue || 'N/A'}</p>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Department:</span> {formData.department || 'N/A'}</p>
+                    </div>
+
+                    {/* Funding Details */}
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Funding Information</div>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Funded:</span> {formData.funded ? 'Yes' : 'No'}</p>
+                      {formData.funded && (
+                        <>
+                          <p className="text-sm text-gray-800"><span className="font-semibold">Funding Agency:</span> {formData.funding_agency || 'N/A'}</p>
+                          <p className="text-sm text-gray-800"><span className="font-semibold">Amount Received:</span> {formData.fund_received ? `₹${Number(formData.fund_received).toLocaleString()}` : 'N/A'}</p>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
 
-                {/* Rejection Reason (View Mode Only - if Rejected) */}
-                {isViewMode && currentActivity?.status === 'Rejected' && currentActivity?.rejection_reason && (
-                  <div className="md:col-span-2 bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                    <div className="block text-sm font-semibold text-red-700 mb-2">
-                      Rejection Reason
+                  {/* Coordinators Section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Staff Coordinators */}
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Staff Coordinators</div>
+                      {formData.staff_coordinators ? (
+                        <ul className="space-y-1 bg-white p-3 rounded-lg border border-gray-200">
+                          {formData.staff_coordinators.split(',').map((name, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                              <span className="text-indigo-600 font-extrabold text-base">•</span>
+                              <span>{name.trim()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">None</span>
+                      )}
                     </div>
-                    <p className="text-red-600 break-words whitespace-pre-wrap">{currentActivity.rejection_reason}</p>
+
+                    {/* Student Coordinators */}
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Student Coordinators</div>
+                      {formData.student_coordinators ? (
+                        <ul className="space-y-1 bg-white p-3 rounded-lg border border-gray-200">
+                          {formData.student_coordinators.split(',').map((name, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                              <span className="text-green-600 font-extrabold text-base">•</span>
+                              <span>{name.trim()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">None</span>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {/* Funded */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="funded">
-                    Funded
-                  </label>
-                  <select
-                    id="funded"
-                    name="funded"
-                    value={formData.funded ? 'true' : 'false'}
-                    onChange={(e) => setFormData({ ...formData, funded: e.target.value === 'true' })}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="false">No</option>
-                    <option value="true">Yes</option>
-                  </select>
-                </div>
+                  {/* Description */}
+                  {formData.description && (
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Description</div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{formData.description}</p>
+                    </div>
+                  )}
 
-                {/* Funding Agency (conditional) */}
-                {formData.funded && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="funding_agency">
-                      Funding Agency
-                    </label>
-                    <select
-                      id="funding_agency"
-                      name="funding_agency"
-                      value={formData.funding_agency}
-                      onChange={handleInputChange}
-                      disabled={isViewMode}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
-                    >
-                      {fundingAgencyOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                  {/* Report File */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Report Document (PDF)</div>
+                    {(currentActivity?.proofDocument || currentActivity?.report_file) ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">📄</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-800">
+                              {(currentActivity.proofDocument || currentActivity.report_file).split('/').pop()}
+                            </p>
+                            <p className="text-xs text-gray-500">Activity Report PDF File</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(currentActivity)}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                        >
+                          <Download size={14} /> Download / View Report
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No report PDF document uploaded</p>
+                    )}
                   </div>
-                )}
 
-                {/* Fund Received (conditional) */}
-                {formData.funded && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="fund_received">
-                      Fund Received
-                    </label>
-                    <input
-                      id="fund_received"
-                      type="text"
-                      name="fund_received"
-                      value={formData.fund_received}
-                      onChange={handleInputChange}
-                      disabled={isViewMode}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      placeholder="Enter fund amount received"
-                    />
-                  </div>
-                )}
-
-                {/* Venue */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="venue">
-                    Venue
-                  </label>
-                  <input
-                    id="venue"
-                    type="text"
-                    name="venue"
-                    value={formData.venue}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter venue"
-                  />
-                </div>
-
-                {/* Department */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="department">
-                    Department
-                  </label>
-                  <input
-                    id="department"
-                    type="text"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter department"
-                  />
-                </div>
-
-                {/* Description */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="description">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    rows={2}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Enter a brief description of the activity"
-                  />
-                </div>
-
-                {/* File Upload */}
-                {!isViewMode && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="report-file">
-                      Report File (PDF) - Max 10MB
-                    </label>
+                  {/* Close Action */}
+                  <div className="flex justify-end pt-4 border-t border-gray-200">
                     <button
                       type="button"
-                      onDragEnter={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDragOver={handleDrag}
-                      onDrop={handleDrop}
-                      className={`w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                        isDragActive ? 'border-indigo-600 bg-indigo-50' : 'border-gray-300'
-                      }`}
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-6 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all font-semibold"
                     >
-                      <Upload className="mx-auto mb-2 text-gray-400" size={24} />
-                      <p className="text-gray-600 mb-2">
-                        Drag and drop your file here or{' '}
-                        <label htmlFor="file-input" className="text-indigo-600 cursor-pointer hover:underline">
-                          click to browse
-                        </label>
-                      </p>
-                      <input
-                        id="file-input"
-                        type="file"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept=".pdf"
-                      />
-                      {file && (
-                        <p className="text-sm text-green-600 font-medium mt-2">
-                          ✓ {file.name}
-                        </p>
-                      )}
+                      Close Details
                     </button>
                   </div>
-                )}
-              </div>
-
-
-              {/* Buttons */}
-              {!isViewMode && (
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 rounded-lg transition-all"
-                  >
-                    {isEditing ? 'Update Activity' : 'Submit Activity'}
-                  </button>
                 </div>
-              )}
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {/* From Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="from_date">
+                        From Date *
+                      </label>
+                      <input
+                        id="from_date"
+                        type="date"
+                        name="from_date"
+                        value={formData.from_date}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                      />
+                    </div>
 
-              {isViewMode && (
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-6 py-2 text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 rounded-lg transition-all"
-                  >
-                    Close
-                  </button>
-                </div>
+                    {/* To Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="to_date">
+                        To Date *
+                      </label>
+                      <input
+                        id="to_date"
+                        type="date"
+                        name="to_date"
+                        value={formData.to_date}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                      />
+                    </div>
+
+                    {/* Student Coordinators */}
+                    <div className="md:col-span-2">
+                      <TagInput
+                        label="Student Coordinators"
+                        values={formData.student_coordinators}
+                        onChange={(updatedTags) => setFormData((prev) => ({ ...prev, student_coordinators: updatedTags.join(', ') }))}
+                        required
+                        placeholder="Type student coordinator name and click Add..."
+                        buttonText="Add Student Coordinator"
+                      />
+                    </div>
+
+                    {/* Staff Coordinators */}
+                    <div className="md:col-span-2">
+                      <TagInput
+                        label="Staff Coordinators"
+                        values={formData.staff_coordinators}
+                        onChange={(updatedTags) => setFormData((prev) => ({ ...prev, staff_coordinators: updatedTags.join(', ') }))}
+                        placeholder="Type staff coordinator name and click Add..."
+                        buttonText="Add Staff Coordinator"
+                      />
+                    </div>
+
+                    {/* Club Name */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="club_name">
+                        Club Name
+                      </label>
+                      <input
+                        id="club_name"
+                        type="text"
+                        name="club_name"
+                        value={formData.club_name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter club name"
+                      />
+                    </div>
+
+                    {/* Event Name */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="event_name">
+                        Event Name
+                      </label>
+                      <input
+                        id="event_name"
+                        type="text"
+                        name="event_name"
+                        value={formData.event_name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter event name"
+                      />
+                    </div>
+
+                    {/* Participant Count */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="participant_count">
+                        Participant Count *
+                      </label>
+                      <input
+                        id="participant_count"
+                        type="number"
+                        name="participant_count"
+                        value={formData.participant_count}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter number of participants"
+                        required
+                      />
+                    </div>
+
+                    {/* Level */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="level">
+                        Level *
+                      </label>
+                      <select
+                        id="level"
+                        name="level"
+                        value={formData.level}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                      >
+                        <option value="">Select Level</option>
+                        <option value="Department">Department</option>
+                        <option value="Institute">Institute</option>
+                        <option value="State">State</option>
+                        <option value="National">National</option>
+                        <option value="International">International</option>
+                      </select>
+                    </div>
+
+                    {/* Funded */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="funded">
+                        Funded
+                      </label>
+                      <select
+                        id="funded"
+                        name="funded"
+                        value={formData.funded ? 'true' : 'false'}
+                        onChange={(e) => setFormData({ ...formData, funded: e.target.value === 'true' })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    </div>
+
+                    {/* Funding Agency (conditional) */}
+                    {formData.funded && (
+                      <MasterSelect
+                        label="Funding Agency"
+                        name="funding_agency"
+                        value={formData.funding_agency}
+                        onChange={handleInputChange}
+                        masterType="funding-agency"
+                        displayField="agency_name"
+                        placeholder="Select Funding Agency"
+                      />
+                    )}
+
+                    {/* Fund Received (conditional) */}
+                    {formData.funded && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="fund_received">
+                          Fund Received
+                        </label>
+                        <input
+                          id="fund_received"
+                          type="number"
+                          step="any"
+                          min="0"
+                          name="fund_received"
+                          value={formData.fund_received}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Enter fund amount received (e.g. 5000 or 25000.50)"
+                        />
+                      </div>
+                    )}
+
+                    {/* Venue */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="venue">
+                        Venue
+                      </label>
+                      <input
+                        id="venue"
+                        type="text"
+                        name="venue"
+                        value={formData.venue}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter venue"
+                      />
+                    </div>
+
+                    {/* Department */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="department">
+                        Department
+                      </label>
+                      <input
+                        id="department"
+                        type="text"
+                        name="department"
+                        value={formData.department}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter department"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="description">
+                        Description
+                      </label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter a brief description of the activity"
+                      />
+                    </div>
+
+                    {/* File Upload */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="report-file">
+                        Report File (PDF) - Max 10MB
+                      </label>
+                      <button
+                        type="button"
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                        className={`w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                          isDragActive ? 'border-indigo-600 bg-indigo-50' : 'border-gray-300'
+                        }`}
+                      >
+                        <Upload className="mx-auto mb-2 text-gray-400" size={24} />
+                        <p className="text-gray-600 mb-2">
+                          Drag and drop your file here or{' '}
+                          <label htmlFor="file-input" className="text-indigo-600 cursor-pointer hover:underline">
+                            click to browse
+                          </label>
+                        </p>
+                        <input
+                          id="file-input"
+                          type="file"
+                          onChange={handleFileChange}
+                          className="hidden"
+                          accept=".pdf"
+                        />
+                        {file && (
+                          <p className="text-sm text-green-600 font-medium mt-2">
+                            ✓ {file.name}
+                          </p>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 rounded-lg transition-all font-semibold"
+                    >
+                      {isEditing ? 'Update Activity' : 'Submit Activity'}
+                    </button>
+                  </div>
+                </form>
               )}
-            </form>
+            </div>
           </div>
         </div>
       )}
