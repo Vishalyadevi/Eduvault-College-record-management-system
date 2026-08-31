@@ -296,26 +296,7 @@ export async function getTimetable(req, res, next) {
       })
       : [];
 
-    // Count students per sectionId from StudentCourse (for slots with a sectionId)
-    const sectionIds = [...new Set(periods.map((p) => p.sectionId).filter(Boolean))];
-    const enrolledRows = sectionIds.length
-      ? await StudentCourse.findAll({
-          where: { sectionId: { [Op.in]: sectionIds } },
-          attributes: [
-            'sectionId',
-            [sequelize.fn('COUNT', sequelize.col('regno')), 'studentCount']
-          ],
-          group: ['sectionId'],
-          raw: true
-        })
-      : [];
-    // Map: sectionId (string) -> count
-    const expectedCountMap = new Map(
-      enrolledRows.map((row) => [String(row.sectionId), Number(row.studentCount)])
-    );
-
     // For null-sectionId timetable slots: get this staff's assigned sections per course
-    // from StaffCourse, then count only the students in those sections.
     const nullSectionCourseIds = [...new Set(
       periods.filter((p) => p.sectionId == null).map((p) => p.courseId)
     )];
@@ -334,19 +315,52 @@ export async function getTimetable(req, res, next) {
       for (const row of staffAssignments) {
         const key = Number(row.courseId);
         if (!staffSectionsByCourse.has(key)) staffSectionsByCourse.set(key, []);
-        staffSectionsByCourse.get(key).push(Number(row.sectionId));
+        // Store null as null (NOT as 0) to distinguish from real sectionId=0
+        staffSectionsByCourse.get(key).push(row.sectionId == null ? null : Number(row.sectionId));
       }
     }
 
-    // nullSectionCountMap: courseId (number) -> expected student count for THIS staff
-    const nullSectionCountMap = new Map();
-    for (const courseId of nullSectionCourseIds) {
-      const staffSects = staffSectionsByCourse.get(Number(courseId)) || [];
-      if (!staffSects.length) { nullSectionCountMap.set(Number(courseId), 0); continue; }
-      const count = await StudentCourse.count({
-        where: { courseId, sectionId: { [Op.in]: staffSects } }
+    // Build enrolled-regno sets so isMarked only counts ACTUALLY ENROLLED students.
+    // This prevents admin-OD rows for non-enrolled students from inflating the count.
+
+    // Section-based courses: enrolledRegnosByCourseSection["courseId_sectionId"] -> Set<regno>
+    const sectionIds = [...new Set(periods.map((p) => p.sectionId).filter(Boolean))];
+    const enrolledRegnosByCourseSection = new Map();
+    if (sectionIds.length && courseIds.length) {
+      const csRows = await StudentCourse.findAll({
+        where: {
+          courseId: { [Op.in]: courseIds },
+          sectionId: { [Op.in]: sectionIds }
+        },
+        attributes: ['courseId', 'sectionId', 'regno'],
+        raw: true
       });
-      nullSectionCountMap.set(Number(courseId), count);
+      csRows.forEach(row => {
+        const key = `${Number(row.courseId)}_${Number(row.sectionId)}`;
+        if (!enrolledRegnosByCourseSection.has(key)) enrolledRegnosByCourseSection.set(key, new Set());
+        enrolledRegnosByCourseSection.get(key).add(String(row.regno));
+      });
+    }
+
+    // Null-section courses: enrolledRegnosByCourse[courseId] -> Set<regno>
+    const enrolledRegnosByCourse = new Map();
+    for (const cId of nullSectionCourseIds) {
+      const staffSects = staffSectionsByCourse.get(Number(cId)) || [];
+      if (!staffSects.length) { enrolledRegnosByCourse.set(Number(cId), new Set()); continue; }
+
+      // Filter out null entries to get real section IDs
+      const realSects = staffSects.filter(s => s != null);
+
+      // If staff is assigned with null sectionId (no section restriction),
+      // fetch ALL students enrolled in this course.
+      const rows = await StudentCourse.findAll({
+        where: realSects.length > 0
+          ? { courseId: cId, sectionId: { [Op.in]: realSects } }
+          : { courseId: cId },
+        attributes: ['regno'],
+        raw: true
+      });
+      enrolledRegnosByCourse.set(Number(cId), new Set(rows.map(r => String(r.regno))));
     }
 
     dates.forEach((date) => {
@@ -358,10 +372,14 @@ export async function getTimetable(req, res, next) {
       timetable[date] = dayStr ? periods
         .filter(p => p.dayOfWeek === dayStr)
         .map(p => {
-          // All P/A/OD records for this exact period slot and section
           const staffSects = p.sectionId == null
             ? (staffSectionsByCourse.get(Number(p.courseId)) || [])
             : null;
+          // When staff is assigned with null sectionId, match ALL PeriodAttendance rows
+          // for this course/period/date (no section restriction).
+          const realStaffSects = staffSects ? staffSects.filter(s => s != null).map(Number) : [];
+          const staffHasOnlyNullSects = staffSects !== null && staffSects.length > 0 && realStaffSects.length === 0;
+
           const markedForPeriod = markedAttendanceRows.filter((row) =>
             row.attendanceDate === date &&
             Number(row.courseId) === Number(p.courseId) &&
@@ -369,18 +387,28 @@ export async function getTimetable(req, res, next) {
             Number(row.periodNumber) === Number(p.periodNumber) &&
             (p.sectionId != null
               ? Number(row.sectionId) === Number(p.sectionId)
-              : (staffSects.length === 0 || staffSects.includes(Number(row.sectionId)))
+              : (staffSects.length === 0 || staffHasOnlyNullSects || realStaffSects.includes(Number(row.sectionId)))
             ) &&
             ['P', 'A', 'OD'].includes(row.status)
           );
-          // Count unique students marked (handles any duplicate rows)
-          const uniqueMarkedCount = new Set(markedForPeriod.map(r => r.regno)).size;
-          // Expected = total students for this staff in this course/section
-          const expectedCount = p.sectionId != null
-            ? (expectedCountMap.get(String(p.sectionId)) ?? 0)
-            : (nullSectionCountMap.get(Number(p.courseId)) ?? 0);
-          // DEBUG: remove after fixing
-          console.log(`[isMarked] course=${p.courseId} section=${p.sectionId} period=${p.periodNumber} day=${p.dayOfWeek} expected=${expectedCount} marked=${uniqueMarkedCount}`);
+
+          // Get the enrolled-student set for this specific course+section.
+          // isMarked ONLY counts students who are actually enrolled.
+          const enrolledForPeriod = p.sectionId != null
+            ? (enrolledRegnosByCourseSection.get(`${Number(p.courseId)}_${Number(p.sectionId)}`) || new Set())
+            : (enrolledRegnosByCourse.get(Number(p.courseId)) || new Set());
+
+          const expectedCount = enrolledForPeriod.size;
+
+          // Count only enrolled students who have been marked (ignore non-enrolled admin-OD rows)
+          const uniqueMarkedCount = expectedCount > 0
+            ? new Set(
+                markedForPeriod
+                  .map(r => String(r.regno))
+                  .filter(regno => enrolledForPeriod.has(regno))
+              ).size
+            : 0;
+
           const isMarked = expectedCount > 0 && uniqueMarkedCount >= expectedCount;
 
           return {
@@ -444,6 +472,10 @@ export async function getStudentsForPeriod(req, res, next) {
     if (!course) return res.status(404).json({ status: "error", message: "Course not found" });
 
     const isElective = ["OEC", "PEC"].includes(course.category?.trim().toUpperCase());
+
+    // Fetch students from ALL related courses (same subject, different year/batch).
+    // Students from courseId=115 (3rd year) and courseId=187 (4th year) are shown
+    // together because they physically attend the same class.
     const relatedScope = await getRelatedStaffCourseScope(user.userId, course);
     const targetCourseIds = relatedScope.courseIds;
     const targetSectionIds = relatedScope.sectionIds;
@@ -456,10 +488,9 @@ export async function getStudentsForPeriod(req, res, next) {
         ...(!isElective && safeSectionId ? { sectionId: safeSectionId } : {})
       }
     });
-
     if (!isAssigned) return res.status(403).json({ status: "error", message: "Unauthorized" });
 
-    // Fetch Students
+    // Fetch students from all related courses combined
     let students = await StudentCourse.findAll({
       where: {
         courseId: { [Op.in]: targetCourseIds },
@@ -595,12 +626,17 @@ export async function getStudentsForPeriod(req, res, next) {
 
     const latestAttendanceByExactKey = new Map();
     const latestAttendanceBySectionKey = new Map();
+    // courseKey: regno_courseId — fallback when StudentCourse.sectionId is null
+    // but PeriodAttendance was saved with a resolved non-null sectionId.
+    const latestAttendanceByCourseKey = new Map();
     attendanceRows.forEach((attendance) => {
       const regno = String(attendance.regno || '').trim();
       const exactKey = `${regno}_${Number(attendance.courseId)}_${Number(attendance.sectionId || 0)}`;
       const sectionKey = `${regno}_${Number(attendance.sectionId || 0)}`;
+      const courseKey = `${regno}_${Number(attendance.courseId)}`;
       if (!latestAttendanceByExactKey.has(exactKey)) latestAttendanceByExactKey.set(exactKey, attendance);
       if (!latestAttendanceBySectionKey.has(sectionKey)) latestAttendanceBySectionKey.set(sectionKey, attendance);
+      if (!latestAttendanceByCourseKey.has(courseKey)) latestAttendanceByCourseKey.set(courseKey, attendance);
     });
 
     const getLatestStatusForStudent = (student) => {
@@ -609,6 +645,7 @@ export async function getStudentsForPeriod(req, res, next) {
       const section = Number(student.sectionId || 0);
       return (
         latestAttendanceByExactKey.get(`${regno}_${course}_${section}`)?.status ||
+        latestAttendanceByCourseKey.get(`${regno}_${course}`)?.status ||
         latestAttendanceBySectionKey.get(`${regno}_${section}`)?.status ||
         student.PeriodAttendances?.[0]?.status ||
         ''
@@ -744,9 +781,17 @@ export async function markAttendance(req, res, next) {
     const baseCourse = await Course.findByPk(requestedCourseId, { include: [Semester] });
     const requestedIsElective = ["OEC", "PEC"].includes((baseCourse?.category || "").trim().toUpperCase());
     const baseSemNum = baseCourse?.Semester?.semesterNumber;
-    const relatedScope = baseCourse
-      ? await getRelatedStaffCourseScope(user.userId, baseCourse)
-      : { courseIds: [requestedCourseId], sectionIds: safeSectionId ? [safeSectionId] : [] };
+
+    // Get only the sections this staff is assigned to for this specific course
+    // Do NOT merge with related courses sharing same courseCode/title.
+    const staffAssignedRows = await StaffCourse.findAll({
+      where: { Userid: user.userId, courseId: requestedCourseId },
+      attributes: ['sectionId'],
+      raw: true
+    });
+    const assignedSectionIds = [...new Set(
+      staffAssignedRows.map(r => r.sectionId).filter(Boolean)
+    )];
 
     const uniqueAttendanceCourseIds = [
       ...new Set(
@@ -773,20 +818,24 @@ export async function markAttendance(req, res, next) {
         continue;
       }
 
-      const attCourseId = parseInt(att.courseId, 10);
+      // Always save under the requested courseId — never bleed into related courses.
+      const effectiveCourseId = requestedCourseId;
+
+      // Find the student's enrollment only under this exact courseId.
       const sc = await StudentCourse.findOne({
         where: {
           regno: att.rollnumber,
-          courseId: { [Op.in]: relatedScope.courseIds }
+          courseId: requestedCourseId
         }
       });
-      const effectiveCourseId = sc ? sc.courseId : (Number.isNaN(attCourseId) ? requestedCourseId : attCourseId);
-      let resolvedSectionId = sc?.sectionId || safeSectionId;
 
+      // For elective courses, student must be explicitly enrolled.
       if (!sc && requestedIsElective) {
         skipped.push({ rollnumber: att.rollnumber, reason: "Not enrolled" });
         continue;
       }
+
+      let resolvedSectionId = sc?.sectionId || safeSectionId;
 
       if (!resolvedSectionId) {
         const stu = await StudentDetails.findOne({
@@ -796,7 +845,7 @@ export async function markAttendance(req, res, next) {
         const secName = (stu?.section || "").trim();
         if (secName) {
           const sec = await Section.findOne({
-            where: { courseId: effectiveCourseId, sectionName: secName },
+            where: { courseId: requestedCourseId, sectionName: secName },
             attributes: ['sectionId']
           });
           resolvedSectionId = sec?.sectionId || null;
@@ -808,13 +857,13 @@ export async function markAttendance(req, res, next) {
         continue;
       }
 
-      // Section check
-      if (sc && safeSectionId && effectiveCourseId === requestedCourseId && safeSectionId !== sc.sectionId) {
+      // Ensure student's section is one this staff is assigned to.
+      if (safeSectionId && sc && sc.sectionId && safeSectionId !== sc.sectionId) {
         skipped.push({ rollnumber: att.rollnumber, reason: "Section mismatch" });
         continue;
       }
 
-      if (sc && relatedScope.sectionIds.length && !relatedScope.sectionIds.includes(sc.sectionId)) {
+      if (assignedSectionIds.length && sc?.sectionId && !assignedSectionIds.includes(sc.sectionId)) {
         skipped.push({ rollnumber: att.rollnumber, reason: "Section not assigned" });
         continue;
       }

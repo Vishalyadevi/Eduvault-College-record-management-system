@@ -90,7 +90,7 @@ const groupCoursesForPeriod = (courses = []) => {
 
     existing.courseIds = [...new Set([...existing.courseIds, course.courseId])];
     existing.sectionIds = [...new Set([...existing.sectionIds, course.sectionId || null])];
-    existing.isMarked = existing.isMarked || Boolean(course.isMarked);
+    existing.isMarked = existing.isMarked && Boolean(course.isMarked);
   });
 
   return [...grouped.values()];
