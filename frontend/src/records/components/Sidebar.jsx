@@ -263,6 +263,7 @@ const Sidebar = () => {
           <SidebarLink to="/records/staff" icon={<FaTachometerAlt />} label="Main Dashboard" />
           <SidebarLink to="/records/staff-dashboard" icon={<FaChartBar />} label="Approval Dashboard" />
           <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
+          <SidebarLink to="/records/certificate-approval" icon={<FaCheckCircle />} label="Certificate Approval" />
           <SidebarLink to="/records/upload-semmarks" icon={<FaFileUpload />} label="Upload Student GPA & CGPA" />
           <SidebarLink to="/records/skillrack" icon={<FaLaptopCode />} label="Upload Student Skillrack" />
           <SidebarLink to="/records/personal" icon={<FaIdCard />} label="Personal" />
@@ -326,7 +327,7 @@ const Sidebar = () => {
 
   const profileImageSrc = user?.profileImage
     ? user.profileImage.startsWith("/") ? `${config.backendUrl}${user.profileImage}` : user.profileImage
-    : "/uploads/default.jpg";
+    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23e0e7ff'/%3E%3Ccircle cx='75' cy='58' r='28' fill='%234f46e5'/%3E%3Cellipse cx='75' cy='130' rx='45' ry='30' fill='%234f46e5'/%3E%3C/svg%3E";
 
   return (
     <>

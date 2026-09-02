@@ -3,10 +3,12 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   FaUserPlus, FaUsers, FaUserTie, FaChalkboardTeacher, FaTachometerAlt,
   FaUserGraduate, FaBook, FaMedal, FaCertificate, FaLaptopCode, FaCalendarAlt,
-  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload, FaFileAlt
+  FaSchool, FaPlane, FaAward, FaDownload, FaFileUpload, FaFileAlt, FaCheckCircle
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
+
+import config from "../../../config";
 
 const Sidebar = () => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -17,7 +19,7 @@ const Sidebar = () => {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = config.backendUrl;
 
   useEffect(() => {
     // First, try to load from localStorage immediately
@@ -85,6 +87,7 @@ const Sidebar = () => {
           <>
             <SidebarLink to="/records/staff-dashboard" icon={<FaChalkboardTeacher />} label="Dashboard" />
             <SidebarLink to="/records/myward" icon={<FaUsers />} label="My Ward" />
+            <SidebarLink to="/records/certificate-approval" icon={<FaCheckCircle />} label="Certificate Approval" />
             <SidebarLink to="/records/personal" icon={<FaUserGraduate />} label="Personal" />
             <SidebarLink to="/records/education" icon={<FaBook />} label="Education" />
             <SidebarLink to="/records/scholars" icon={<FaUsers />} label="Scholars" />

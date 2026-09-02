@@ -523,7 +523,9 @@ export const createRole = async (req, res) => {
       });
     }
 
+    const maxRoleId = (await Role.max('roleId')) || 0;
     const newRole = await Role.create({
+      roleId: maxRoleId + 1,
       roleName: roleName.trim(),
       status: 'Active',
       createdBy: req.user.userId,

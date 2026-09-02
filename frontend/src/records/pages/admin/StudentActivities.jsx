@@ -18,7 +18,9 @@ import {
   FileText
 } from "lucide-react";
 
-const backendUrl = "http://localhost:4000";
+import config from "../../../config";
+
+const backendUrl = config.backendUrl;
 
 function StudentActivities() {
   const [departments, setDepartments] = useState([]);

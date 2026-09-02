@@ -2,10 +2,12 @@ import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
+import config from "../../config";
+
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = config.backendUrl;
   const [departments, setDepartments] = useState([]);
   const [staffs, setStaffs] = useState([]);
   const [loading, setLoading] = useState(true);

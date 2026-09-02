@@ -5,6 +5,19 @@ import { useStudentEducation } from "../../contexts/StudentEducationContext";
 import { useAuth } from "../auth/AuthContext";
 
 
+const MEDIUM_OPTIONS = [
+  "English",
+  "Tamil",
+  "Hindi",
+  "Bengali",
+  "Marathi",
+  "Telugu",
+  "Gujarati",
+  "Urdu",
+  "Kannada",
+  "Other"
+];
+
 const StudentEducationPage = () => {
   const {
     educationRecord,
@@ -123,6 +136,54 @@ const StudentEducationPage = () => {
     } finally {
       setLocalLoading(false);
     }
+  };
+
+  const calculateTenthTotal = () => {
+    const marks = [
+      formData.tenth_tamil_marks,
+      formData.tenth_english_marks,
+      formData.tenth_maths_marks,
+      formData.tenth_science_marks,
+      formData.tenth_social_science_marks,
+    ];
+    const entered = marks.filter((m) => m !== "" && m !== null && m !== undefined && !isNaN(m));
+    if (entered.length === 0) return "";
+    const total = entered.reduce((sum, val) => sum + parseFloat(val || 0), 0);
+    return Number(total.toFixed(2));
+  };
+
+  const getTenthSubjectLabel = (subject) => {
+    if (subject === 'tamil') {
+      const medium = formData.tenth_medium_of_study;
+      if (!medium || medium === "Tamil" || medium === "English") {
+        return "Tamil Marks";
+      }
+      if (medium === "Other") {
+        return "Language Marks";
+      }
+      return `${medium} Marks`;
+    }
+    const label = subject.replace('_', ' ');
+    return `${label.charAt(0).toUpperCase() + label.slice(1)} Marks`;
+  };
+
+  const calculateTwelfthCutoff = () => {
+    const maths = parseFloat(formData.twelfth_maths_marks);
+    const physics = parseFloat(formData.twelfth_physics_marks);
+    const chemistry = parseFloat(formData.twelfth_chemistry_marks);
+
+    const hasMaths = !isNaN(maths) && formData.twelfth_maths_marks !== "";
+    const hasPhysics = !isNaN(physics) && formData.twelfth_physics_marks !== "";
+    const hasChemistry = !isNaN(chemistry) && formData.twelfth_chemistry_marks !== "";
+
+    if (!hasMaths && !hasPhysics && !hasChemistry) return "";
+
+    const m = hasMaths ? maths : 0;
+    const p = hasPhysics ? physics / 2 : 0;
+    const c = hasChemistry ? chemistry / 2 : 0;
+
+    const cutoff = m + p + c;
+    return cutoff.toFixed(2);
   };
 
   const getCGPAColor = (cgpa) => {
@@ -244,11 +305,9 @@ const StudentEducationPage = () => {
                     <select name="tenth_medium_of_study" value={formData.tenth_medium_of_study} onChange={handleInputChange} required
                       className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
                       <option value="">Select Medium</option>
-                      <option value="Tamil">Tamil</option>
-                      <option value="English">English</option>
-                      <option value="Telugu">Telugu</option>
-                      <option value="Hindi">Hindi</option>
-                      <option value="Other">Other</option>
+                      {MEDIUM_OPTIONS.map((medium) => (
+                        <option key={medium} value={medium}>{medium}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -257,11 +316,21 @@ const StudentEducationPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {['tamil', 'english', 'maths', 'science', 'social_science'].map(subject => (
                     <div key={subject}>
-                      <label className="block text-gray-700 font-medium mb-1 capitalize">{subject.replace('_', ' ')} Marks</label>
+                      <label className="block text-gray-700 font-medium mb-1">{getTenthSubjectLabel(subject)}</label>
                       <input type="number" step="0.01" name={`tenth_${subject}_marks`} value={formData[`tenth_${subject}_marks`]} onChange={handleInputChange}
                         className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="0-100" min="0" max="100" />
                     </div>
                   ))}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1">Total Marks</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={calculateTenthTotal()}
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 cursor-not-allowed"
+                      placeholder="0-500"
+                    />
+                  </div>
                 </div>
 
                 <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -322,11 +391,9 @@ const StudentEducationPage = () => {
                     <select name="twelfth_medium_of_study" value={formData.twelfth_medium_of_study} onChange={handleInputChange} required
                       className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
                       <option value="">Select Medium</option>
-                      <option value="Tamil">Tamil</option>
-                      <option value="English">English</option>
-                      <option value="Telugu">Telugu</option>
-                      <option value="Hindi">Hindi</option>
-                      <option value="Other">Other</option>
+                      {MEDIUM_OPTIONS.map((medium) => (
+                        <option key={medium} value={medium}>{medium}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -340,6 +407,16 @@ const StudentEducationPage = () => {
                         className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="0-100" min="0" max="100" />
                     </div>
                   ))}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1">Cut-off Marks</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={calculateTwelfthCutoff()}
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 cursor-not-allowed"
+                      placeholder="0-200"
+                    />
+                  </div>
                 </div>
 
                 <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
@@ -394,11 +471,9 @@ const StudentEducationPage = () => {
                     <label className="block text-gray-700 font-medium mb-1">Medium of Study</label>
                     <select name="degree_medium_of_study" value={formData.degree_medium_of_study} onChange={handleInputChange}
                       className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500">
-                      <option value="English">English</option>
-                      <option value="Tamil">Tamil</option>
-                      <option value="Telugu">Telugu</option>
-                      <option value="Hindi">Hindi</option>
-                      <option value="Other">Other</option>
+                      {MEDIUM_OPTIONS.map((medium) => (
+                        <option key={medium} value={medium}>{medium}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

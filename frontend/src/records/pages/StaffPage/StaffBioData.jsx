@@ -157,7 +157,7 @@ const StaffBioData = ({ userId: propUserId }) => {
                         role: roleString,
                         profileImage: userData.profileImage
                             ? `${backendUrl}${userData.profileImage}`
-                            : "https://via.placeholder.com/150",
+                            : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23e0e7ff'/%3E%3Ccircle cx='75' cy='58' r='28' fill='%234f46e5'/%3E%3Cellipse cx='75' cy='130' rx='45' ry='30' fill='%234f46e5'/%3E%3C/svg%3E",
                     });
                 }
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { FaSearch, FaUserTie, FaUndo, FaFileExport, FaUsers, FaFileUpload, FaCalendarAlt, FaCertificate, FaBook, FaAward, FaUserGraduate, FaChevronDown, FaFilter } from "react-icons/fa";
 
-const backendUrl = "http://localhost:4000";
+import config from "../../../config";
+
+const backendUrl = config.backendUrl;
 
 function AdminPanel() {
   const [departments, setDepartments] = useState([]);

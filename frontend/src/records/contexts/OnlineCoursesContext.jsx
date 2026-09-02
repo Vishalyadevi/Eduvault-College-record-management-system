@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import axios from "axios";
 import { toast } from "react-toastify";
 
+import config from "../../config";
+
 // Create the context
 const OnlineCoursesContext = createContext();
 
@@ -20,7 +22,7 @@ export const OnlineCoursesProvider = ({ children }) => {
   const [pendingCourses, setPendingCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const backendUrl = "http://localhost:4000"; // Update if needed
+  const backendUrl = config.backendUrl;
 
   // Fetch approved online courses
   const fetchOnlineCourses = useCallback(async () => {

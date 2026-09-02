@@ -34,6 +34,31 @@ const Marksheet = sequelize.define(
       type: DataTypes.STRING(100),
       allowNull: true,
     },
+    file_path: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    file_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    verification_status: {
+      type: DataTypes.ENUM("Pending", "Approved", "Rejected"),
+      defaultValue: "Pending",
+    },
+    verified_by: {
+      type: DataTypes.INTEGER,
+      references: { model: "users", key: "Userid" },
+      allowNull: true,
+    },
+    verified_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    comments: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     timestamps: true,

@@ -3,7 +3,9 @@ import { useStaff } from "../../contexts/StaffContext";
 import { useUser } from "../../contexts/UserContext";
 import { FaSearch, FaUserTie, FaUndo, FaEye, FaFileExport } from "react-icons/fa";
 
-const backendUrl = "http://localhost:4000";
+import config from "../../../config";
+
+const backendUrl = config.backendUrl;
 
 function StaffList() {
   const { staffs, loading, departments } = useStaff();

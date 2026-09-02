@@ -3,6 +3,7 @@ import { FaPlus, FaEdit, FaTrash, FaSearch } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../services/api';
 
 const DepartmentManagement = () => {
   const [departments, setDepartments] = useState([]);
@@ -17,13 +18,6 @@ const DepartmentManagement = () => {
     departmentName: '',
     departmentAcr: '',
     status: 'Active',
-  });
-
-  const api = axios.create({
-    baseURL: 'http://localhost:4000/api',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
   });
 
   useEffect(() => {

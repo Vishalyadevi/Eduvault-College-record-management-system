@@ -18,6 +18,7 @@ const StudentDetails = sequelize.define(
     Userid: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: "userId",
       references: { model: "users", key: "Userid" },
     },
 
@@ -236,6 +237,12 @@ const StudentDetails = sequelize.define(
     },
 
     approved_at: DataTypes.DATE,
+
+    studentStatus: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: "Active",
+    },
 
     parents_phone: {
       type: DataTypes.STRING(15),

@@ -4,7 +4,9 @@ import { useUser } from "../../contexts/UserContext";
 import { FaSearch, FaUserGraduate, FaUndo, FaEye, FaFileExport } from "react-icons/fa";
 import { Filter, ChevronDown, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-const backendUrl = "http://localhost:4000";
+import config from "../../../config";
+
+const backendUrl = config.backendUrl;
 
 function StudentList() {
   const navigate = useNavigate();

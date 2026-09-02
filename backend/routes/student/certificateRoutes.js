@@ -3,7 +3,14 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getCertificates, uploadCertificate, deleteCertificate } from "../../controllers/student/certificateController.js";
+import {
+  getCertificates,
+  uploadCertificate,
+  deleteCertificate,
+  getWardCertificates,
+  updateCertificateStatus,
+  clearAllRejectedCertificates,
+} from "../../controllers/student/certificateController.js";
 import { authenticate } from "../../middlewares/requireauth.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,11 +47,22 @@ const upload = multer({
   },
 });
 
-// Get all certificates
+// Get all certificates for student
 router.get("/list", authenticate, getCertificates);
+
+// Get ward certificates for staff/tutor approval
+router.get("/ward-certificates", authenticate, getWardCertificates);
+
+// Verify (Approve / Reject) certificate
+router.patch("/verify/:id", authenticate, updateCertificateStatus);
+router.put("/verify/:id", authenticate, updateCertificateStatus);
 
 // Upload certificate
 router.post("/upload", authenticate, upload.single("certificate"), uploadCertificate);
+
+// Clear all rejected certificates
+router.post("/clear-rejected", authenticate, clearAllRejectedCertificates);
+router.delete("/clear-rejected", authenticate, clearAllRejectedCertificates);
 
 // Delete certificate
 router.delete("/delete/:id", authenticate, deleteCertificate);

@@ -3,6 +3,8 @@ import { FaPlus, FaEdit, FaTrash, FaSearch, FaEye, FaEyeSlash } from 'react-icon
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../services/api';
+import config from '../../../config';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -32,13 +34,6 @@ const UserManagement = () => {
     semester: '',
     password: '',
     status: 'Active',
-  });
-
-  const api = axios.create({
-    baseURL: 'http://localhost:4000/api',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
   });
 
   useEffect(() => {
@@ -334,7 +329,7 @@ const UserManagement = () => {
                       <td className="px-6 py-4 whitespace-normal break-words text-left min-w-[200px]">
                         <div className="flex items-center justify-start">
                           <img
-                            src={user.profileImage ? (user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:4000${user.profileImage}`) : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}
+                            src={user.profileImage ? (user.profileImage.startsWith('http') ? user.profileImage : `${config.backendUrl}${user.profileImage}`) : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}
                             alt=""
                             className="h-10 w-10 min-w-[2.5rem] rounded-full object-cover"
                             onError={(e) => { e.target.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' }}

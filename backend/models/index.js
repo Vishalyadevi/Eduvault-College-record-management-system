@@ -21,7 +21,7 @@ import StudentLeave from "./student/StudentLeave.js";
 import OnlineCourses from "./student/OnlineCourses.js";
 import Achievement from "./student/Achievement.js";
 import Course from "./student/Course.js";
-import Marksheet from "./student/Marksheet.js";
+import Marksheet from "./student/marksheet.js";
 import HackathonEvent from "./student/HackathonEvent.js";
 import Extracurricular from "./student/Extracurricular.js";
 import Project from "./student/Project.js";
@@ -301,6 +301,12 @@ const applyAssociations = () => {
   Course.belongsTo(User, { foreignKey: "Approved_by", as: "approver" });
 
   Course.hasMany(Marksheet, { foreignKey: 'Userid', sourceKey: 'Userid' });
+  User.hasMany(Marksheet, { foreignKey: "Userid", as: "marksheets" });
+  Marksheet.belongsTo(User, { foreignKey: "Userid", as: "student" });
+  Marksheet.belongsTo(User, { foreignKey: "verified_by", as: "approver" });
+  Marksheet.sync({ alter: true }).catch((err) =>
+    console.warn("⚠️ Marksheet table sync warning:", err.message)
+  );
 
   /** =====================
    *  🟢 CERTIFICATE ASSOCIATIONS

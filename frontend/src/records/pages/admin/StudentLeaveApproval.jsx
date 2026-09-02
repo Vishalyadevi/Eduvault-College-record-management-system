@@ -14,7 +14,9 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
-const backendUrl = "http://localhost:4000";
+import config from "../../../config";
+
+const backendUrl = config.backendUrl;
 
 const DeptAdminLeave = () => {
   const [pendingLeaves, setPendingLeaves] = useState([]);

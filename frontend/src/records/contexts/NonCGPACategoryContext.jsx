@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import axios from "axios";
 
+import config from "../../config";
+
 const NonCGPACategoryContext = createContext();
 
 export const useNonCGPACategory = () => {
@@ -17,7 +19,7 @@ export const NonCGPACategoryProvider = ({ children }) => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const apiBase = "http://localhost:4000/api/noncgpa-category";
+  const apiBase = `${config.backendUrl}/api/noncgpa-category`;
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }

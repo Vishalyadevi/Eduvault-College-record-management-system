@@ -156,6 +156,7 @@ import MyProfile from './records/pages/MyProfile';
 import Sheet from './records/pages/Sheet';
 import Bulk from './records/pages/admin/Bulk';
 import MyWard from './records/pages/StaffPage/MyWard';
+import CertificateApproval from './records/pages/StaffPage/CertificateApproval';
 import ForgotPassword from './records/pages/ForgetPassword';
 import ResetPassword from './records/pages/ResetPassword';
 import StudentBioData from './records/pages/Student/StudentBioData';
@@ -695,6 +696,11 @@ const AppRoutes: React.FC = () => {
           <RecordsLayoutWithLocation><MyWard /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
+      <Route path="/records/certificate-approval" element={
+        <ProtectedRoute allowedRoles={['Staff', 'Admin']}>
+          <RecordsLayoutWithLocation><CertificateApproval /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/skillrack" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation><StaffSkillRackManagement /></RecordsLayoutWithLocation>
@@ -793,9 +799,24 @@ const AppRoutes: React.FC = () => {
         </ProtectedRoute>
       } />
 
+      <Route path="/records/upload-semmarks" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><UploadSemMarksStaff /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
       <Route path="/records/staff-mou" element={
         <ProtectedRoute allowedRoles={['Staff']}>
           <RecordsLayoutWithLocation><StaffMou /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/tlp-management" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><TLPManagementPage /></RecordsLayoutWithLocation>
+        </ProtectedRoute>
+      } />
+      <Route path="/records/activity" element={
+        <ProtectedRoute allowedRoles={['Staff']}>
+          <RecordsLayoutWithLocation><ActivityPage /></RecordsLayoutWithLocation>
         </ProtectedRoute>
       } />
       <Route path="/records/staff-resume-generator" element={

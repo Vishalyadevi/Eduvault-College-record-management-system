@@ -3,6 +3,7 @@ import axios from "axios";
 import { FaCloudUploadAlt, FaDownload } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import api from "../../services/api";
 
 const Bulk = () => {
   const [file, setFile] = useState(null);
@@ -33,7 +34,7 @@ const Bulk = () => {
     formData.append("file", file);
 
     try {
-      const response = await axios.post("http://localhost:4000/api/bulk/upload", formData, {
+      const response = await api.post("/bulk/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

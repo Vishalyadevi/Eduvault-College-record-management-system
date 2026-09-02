@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { toast } from "react-toastify";
 
+import config from "../../../config";
+
 const Navbar = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState({
@@ -14,7 +16,7 @@ const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const backendUrl = "http://localhost:4000";
+  const backendUrl = config.backendUrl;
 
   useEffect(() => {
     const fetchCurrentUserDetails = async () => {

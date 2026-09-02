@@ -45,13 +45,25 @@ export const CertificateProvider = ({ children }) => {
       });
 
       console.log("Upload response:", response.data);
-      setCertificates((prev) => [...prev, response.data]);
+      const updatedCert = response.data;
+      setCertificates((prev) => {
+        const existingIdx = prev.findIndex(
+          (c) => c.id === updatedCert.id || (c.certificate_name === updatedCert.certificate_name && c.certificate_type === updatedCert.certificate_type)
+        );
+        if (existingIdx !== -1) {
+          const next = [...prev];
+          next[existingIdx] = updatedCert;
+          return next;
+        }
+        return [...prev, updatedCert];
+      });
       toast.success("Certificate uploaded successfully!");
       return response.data;
     } catch (err) {
       console.error("Error uploading certificate:", err);
-      setError(err.message);
-      toast.error("Failed to upload certificate.");
+      const errMsg = err.response?.data?.message || "Failed to upload certificate.";
+      setError(errMsg);
+      toast.error(errMsg);
       throw err;
     } finally {
       setLoading(false);
