@@ -138,11 +138,12 @@ const buildMergedPeriodCells = (timeSlots, periodsByNumber) => {
               getCourseGroupKey(period) === group.groupKey
             )
           ),
-        isMarked: periodNumbers.some((periodNumber) =>
-          (periodsByNumber[periodNumber] || []).some((period) =>
-            getCourseGroupKey(period) === group.groupKey && period.isMarked
-          )
-        ),
+        isMarked: periodNumbers.every((periodNumber) => {
+          const matchingPeriods = (periodsByNumber[periodNumber] || []).filter(
+            (period) => getCourseGroupKey(period) === group.groupKey
+          );
+          return matchingPeriods.length > 0 && matchingPeriods.every((period) => period.isMarked);
+        }),
       })),
     });
 
